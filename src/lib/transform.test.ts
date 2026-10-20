@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { hazardsFromApi, pickText, roundGeometry, shapeKey, slug, warningsFromApi } from './transform';
+import {
+	hazardsFromApi,
+	pickText,
+	pointFromApi,
+	roundGeometry,
+	shapeKey,
+	slug,
+	warningsFromApi
+} from './transform';
 
 const fixture = (name: string): unknown =>
 	JSON.parse(readFileSync(join(process.cwd(), 'e2e', 'fixtures', `${name}.json`), 'utf-8'));
@@ -128,5 +136,59 @@ describe('helpers', () => {
 	it('slug removes accents and punctuation', () => {
 		expect(slug('Pyrénées-Atlantiques')).toBe('pyrenees-atlantiques');
 		expect(slug("Côte-d'Or")).toBe('cote-d-or');
+	});
+});
+
+describe('pointFromApi', () => {
+	it('keeps the values of a real answer as they are', () => {
+		const raw = fixture('point') as Record<string, any>;
+		const point = pointFromApi(raw);
+		expect(point.lat).toBe(raw.coordinates.lat);
+		expect(point.lon).toBe(raw.coordinates.lon);
+		expect(point.current?.tempC).toBe(raw.current.temp_c);
+		expect(point.current?.code).toBe(raw.current.weather_code);
+		expect(point.daily.length).toBe(raw.daily.length);
+		expect(point.daily[0].tmaxC).toBe(raw.daily[0].tmax);
+		expect(point.rain?.mmPerStep).toEqual(raw.rain_nowcast.mm_per_step);
+		expect(point.air?.eaqi).toBe(raw.air_quality.european_aqi);
+		expect(point.river?.maxM3s).toBe(raw.flood_risk.river_discharge_max_m3s);
+		expect(point.attribution).toBe(raw.weather_attribution);
+	});
+
+	it('leaves out the radar and the heuristic flood level, and keeps unknown blocks null', () => {
+		const point = pointFromApi({
+			coordinates: { lat: 1, lon: 2 },
+			current: null,
+			daily: [{ date: '2026-10-20' }, { code: 3 }],
+			rain_nowcast: { radar_tile_url_template: 'https://example.org/{z}', mm_per_step: null },
+			flood_risk: { flood_alert_level: 'RED', river_discharge_m3s: 3 },
+			space_weather: { solar_kp: 2 }
+		});
+		expect(point.current).toBeNull();
+		expect(point.daily).toEqual([
+			{
+				date: '2026-10-20',
+				code: null,
+				tminC: null,
+				tmaxC: null,
+				rainMm: null,
+				rainProbabilityPct: null,
+				windMaxKmh: null,
+				uvMax: null
+			}
+		]);
+		expect(JSON.stringify(point)).not.toContain('example.org');
+		expect(JSON.stringify(point)).not.toContain('RED');
+		expect(point.rain?.mmPerStep).toBeNull();
+		expect(point.river).toEqual({
+			todayM3s: 3,
+			meanM3s: null,
+			maxM3s: null,
+			stale: false,
+			attribution: null
+		});
+		expect(point.air).toBeNull();
+		expect(point.marine).toBeNull();
+		expect(point.space?.kp).toBe(2);
 	});
 });
