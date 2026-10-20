@@ -8,6 +8,7 @@
 
 <svelte:head>
 	<title>Vigie · {tr('about.title')}</title>
+	<meta name="description" content={tr('about.description')} />
 </svelte:head>
 
 <div class="page prose">

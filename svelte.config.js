@@ -9,6 +9,9 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({ out: 'build', precompress: true }),
+		// The site's stylesheets are small: inlined in the page, they do not delay the first paint (Lighthouse
+		// counted 1.3 s on a slow mobile connection for five separate files).
+		inlineStyleThreshold: 16 * 1024,
 		csp: {
 			mode: 'auto',
 			directives: {

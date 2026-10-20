@@ -4,8 +4,7 @@
 
 <script lang="ts">
 	// The map: OpenFreeMap base map, official warning zones (polygons or river sections) and hazards.
-	// MapLibre is loaded after the page is shown, so that the text of the page comes first.
-	import 'maplibre-gl/dist/maplibre-gl.css';
+	// MapLibre (code and stylesheet) is loaded after the page is shown, so that the text of the page comes first.
 	import { onDestroy, onMount } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
@@ -249,7 +248,9 @@
 		let destroyed = false;
 		(async () => {
 			try {
-				ml = await import('maplibre-gl');
+				// The stylesheet (70 kB) arrives with the code instead of delaying the first paint of every page.
+				const [lib] = await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')]);
+				ml = lib;
 				if (destroyed) return;
 				currentTheme = theme();
 				map = new ml.Map({
