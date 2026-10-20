@@ -35,6 +35,9 @@ All notable changes are listed here. Versions are git tags.
 - The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
   Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
   not confirmed. "Near me" names a country with no source (borders of 135 countries).
+- Installation on a rented server (`deploy/vps/`): the site, its API and the accounts' database (PostgreSQL with
+  PostGIS), HTTPS by Caddy, a firewall, and a dump of the database every day. The privacy page says the backups
+  are kept 7 days at most.
 - Forecasts of storms and tsunamis, when the API has one: on the map, the cone, the track, the forecast
   positions and the coastal warnings of a storm, or the arrival times of a tsunami at the places the warning
   centre names; in the panel and on the hazard's page, the same in a table, with a link to the official

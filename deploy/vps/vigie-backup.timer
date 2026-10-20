@@ -1,0 +1,11 @@
+# Every day (~/.config/systemd/user/vigie-backup.timer); a day missed while the server was off runs at start.
+[Unit]
+Description=Daily dump of the Vigie accounts database
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,27 @@
+# Caddy for Vigie Web on the rented server (~/vigie/Caddyfile, installed by deploy.sh files).
+# No access log: without an account, the site keeps nothing about its visitors (about page).
+{
+	admin off
+}
+
+(site) {
+	encode zstd gzip
+	# The site only reads, except the account pages (forms, passkey steps). Anything else stops here; a new
+	# route that takes a POST belongs under /account.
+	@unexpected {
+		not method GET HEAD
+		not path /account /account/*
+	}
+	respond @unexpected 405
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Checks through an SSH tunnel, before and after the site is public:
+#   ssh -L 8090:127.0.0.1:8090 vigie@<server>, then http://localhost:8090 (a passkey works on localhost).
+http://localhost:8090 {
+	bind 127.0.0.1
+	import site
+}
+
+# The public address, once its DNS points to the server.
+import /etc/caddy/sites/*.caddy

@@ -1,0 +1,30 @@
+# Vigie API (repository Axellum/vigie-api), image built on the server from origin/main (deploy.sh api).
+# No published port: only the site reads it, on the internal network (vigie-api:8080). Its write routes are
+# therefore out of reach from outside.
+[Unit]
+Description=Vigie API (internal)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=localhost/vigie-api:current
+ContainerName=vigie-api
+Network=vigie.network
+Volume=vigie-api-data:/data
+# Settings of this instance (contact, sources turned off for a public instance): ~/vigie/api.env, see api.env.example.
+EnvironmentFile=%h/vigie/api.env
+# The NASA FIRMS key (fires), from a Podman secret (deploy.sh firms-key): its value is in no file of this repository.
+Secret=vigie_firms_map_key,type=env,target=VIGIE_FIRMS_MAP_KEY
+# A quadlet HealthCmd with quotes is mangled, hence a small script mounted read-only.
+Volume=%h/vigie/api-healthcheck.py:/healthcheck.py:ro
+HealthCmd=python /healthcheck.py
+HealthInterval=60s
+HealthStartPeriod=30s
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

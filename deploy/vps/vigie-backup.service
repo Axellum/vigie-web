@@ -1,0 +1,8 @@
+# Dump of the accounts' database (~/.config/systemd/user/vigie-backup.service), started by vigie-backup.timer.
+[Unit]
+Description=Dump of the Vigie accounts database
+After=vigie-db.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/vigie/backup.sh
