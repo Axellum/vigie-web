@@ -1,6 +1,22 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, ServerInit } from '@sveltejs/kit';
 import { asLang, langFromHeader, type Lang } from '$lib/i18n';
+import { cleanUp } from '$lib/server/accounts';
+import { accountsEnabled, db } from '$lib/server/db';
 import { allow } from '$lib/server/ratelimit';
+
+const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
+
+// With accounts, the database is migrated at start, and what has expired is removed every 6 hours. A database
+// that does not answer does not stop the public site: the account pages fail until it answers.
+export const init: ServerInit = async () => {
+	if (!accountsEnabled()) return;
+	const run = () =>
+		db()
+			.then(cleanUp)
+			.catch((e) => console.error(`accounts: database not ready (${(e as Error).message})`));
+	await run();
+	setInterval(run, CLEAN_UP_MS).unref();
+};
 
 const LANG_COOKIE = 'vigie-lang';
 
