@@ -16,6 +16,11 @@ All notable changes are listed here. Versions are git tags.
 - Server-side cache of the API answers, cacheable data answers, security headers, a per-address request limit.
 - Unit tests (vitest) and end-to-end tests (Playwright) on recorded API answers; CI.
 
+### Changed
+
+- Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes
+  with the map instead of blocking the page.
+
 ### Fixed
 
 - The official warnings of the countries in view show from zoom 2.3, so the Europe and United States shortcuts
