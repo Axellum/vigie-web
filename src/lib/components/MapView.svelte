@@ -1,0 +1,429 @@
+<script lang="ts" module>
+	export type Selection = { kind: 'hazard'; id: string } | { kind: 'zone'; key: string };
+</script>
+
+<script lang="ts">
+	// The map: OpenFreeMap base map, official warning zones (polygons or river sections) and hazards.
+	// MapLibre is loaded after the page is shown, so that the text of the page comes first.
+	import 'maplibre-gl/dist/maplibre-gl.css';
+	import { onDestroy, onMount } from 'svelte';
+	import type { FeatureCollection } from 'geojson';
+	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
+	import { translator, type Lang } from '$lib/i18n';
+	import type { Box } from '$lib/geo';
+	import type { Hazard } from '$lib/types';
+
+	interface Props {
+		lang: Lang;
+		hazards?: Hazard[];
+		zones?: FeatureCollection;
+		selected?: Selection | null;
+		frame?: Box | null;
+		globe?: boolean;
+		label?: string;
+		onselect?: (selection: Selection) => void;
+		onmove?: (view: Box, zoom: number) => void;
+	}
+
+	let {
+		lang,
+		hazards = [],
+		zones = { type: 'FeatureCollection', features: [] },
+		selected = null,
+		frame = null,
+		globe = false,
+		label,
+		onselect,
+		onmove
+	}: Props = $props();
+
+	const tr = $derived(translator(lang));
+	const STYLE = {
+		light: 'https://tiles.openfreemap.org/styles/positron',
+		dark: 'https://tiles.openfreemap.org/styles/dark'
+	};
+
+	let container: HTMLDivElement;
+	let map: MlMap | null = null;
+	let ml: typeof import('maplibre-gl') | null = null;
+	let failed = $state(false);
+	let ready = $state(false);
+	let globeOn = $state(false);
+	let markers = new Map<string, { marker: Marker; el: HTMLButtonElement }>();
+	let observer: MutationObserver | null = null;
+	let media: MediaQueryList | null = null;
+	let currentTheme: 'light' | 'dark' = 'light';
+
+	const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	const levelColor = (key: string): ExpressionSpecification => [
+		'match',
+		['get', key],
+		'RED',
+		css('--sev-red'),
+		'ORANGE',
+		css('--sev-orange'),
+		'YELLOW',
+		css('--sev-yellow'),
+		'GREEN',
+		css('--sev-green'),
+		css('--sev-none')
+	];
+	const isArea: ExpressionSpecification = [
+		'match',
+		['geometry-type'],
+		['Polygon', 'MultiPolygon'],
+		true,
+		false
+	];
+	const isLine: ExpressionSpecification = [
+		'match',
+		['geometry-type'],
+		['LineString', 'MultiLineString'],
+		true,
+		false
+	];
+
+	function theme(): 'light' | 'dark' {
+		const set = document.documentElement.dataset.theme;
+		if (set === 'light' || set === 'dark') return set;
+		return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	}
+
+	function quakes(): FeatureCollection {
+		return {
+			type: 'FeatureCollection',
+			features: hazards
+				.filter((h) => h.category === 'EARTHQUAKE')
+				.map((h) => ({
+					type: 'Feature',
+					geometry: { type: 'Point', coordinates: [h.lon, h.lat] },
+					properties: { id: h.id, level: h.level ?? 'NONE', mag: h.value ?? 4 }
+				}))
+		};
+	}
+
+	function addOverlay() {
+		if (!map) return;
+		// The base map in the site's own land and water colors (the dark style has almost no contrast
+		// between them at world scale).
+		if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', css('--map-land'));
+		if (map.getLayer('water')) map.setPaintProperty('water', 'fill-color', css('--map-water'));
+		map.addSource('zones', { type: 'geojson', data: zones });
+		map.addSource('quakes', { type: 'geojson', data: quakes() });
+		map.addLayer({
+			id: 'zone-fill',
+			type: 'fill',
+			source: 'zones',
+			filter: isArea,
+			paint: { 'fill-color': levelColor('level'), 'fill-opacity': 0.4 }
+		});
+		map.addLayer({
+			id: 'zone-outline',
+			type: 'line',
+			source: 'zones',
+			filter: isArea,
+			paint: { 'line-color': levelColor('level'), 'line-width': 0.9 }
+		});
+		map.addLayer({
+			id: 'zone-river',
+			type: 'line',
+			source: 'zones',
+			filter: isLine,
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			paint: {
+				'line-color': levelColor('level'),
+				'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 9, 6]
+			}
+		});
+		map.addLayer({
+			id: 'zone-selected',
+			type: 'line',
+			source: 'zones',
+			filter: ['==', ['get', 'key'], ''],
+			paint: { 'line-color': css('--ink'), 'line-width': 2.5 }
+		});
+		map.addLayer({
+			id: 'quake',
+			type: 'circle',
+			source: 'quakes',
+			paint: {
+				'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 3, 3, 5, 5.5, 6, 8.5, 7, 12, 8, 17],
+				'circle-color': levelColor('level'),
+				'circle-opacity': 0.9,
+				'circle-stroke-color': css('--surface'),
+				'circle-stroke-width': 1
+			}
+		});
+		map.addLayer({
+			id: 'quake-selected',
+			type: 'circle',
+			source: 'quakes',
+			filter: ['==', ['get', 'id'], ''],
+			paint: {
+				'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 3, 8, 5, 10.5, 6, 13.5, 7, 17, 8, 22],
+				'circle-color': 'rgba(0,0,0,0)',
+				'circle-stroke-color': css('--ink'),
+				'circle-stroke-width': 2.5
+			}
+		});
+		applySelection();
+	}
+
+	function applySelection() {
+		if (!map || !map.getLayer('zone-selected')) return;
+		map.setFilter('zone-selected', ['==', ['get', 'key'], selected?.kind === 'zone' ? selected.key : '']);
+		map.setFilter('quake-selected', ['==', ['get', 'id'], selected?.kind === 'hazard' ? selected.id : '']);
+		for (const [id, m] of markers)
+			m.el.classList.toggle('selected', selected?.kind === 'hazard' && selected.id === id);
+	}
+
+	const ICON: Record<string, string> = {
+		HURRICANE:
+			'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.5a8.5 8.5 0 0 0-8 5.6"/><path d="M12 20.5a8.5 8.5 0 0 0 8-5.6"/><circle cx="12" cy="12" r="3.2"/></svg>',
+		VOLCANO:
+			'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 20.5h19l-6.2-10.2h-6.6z"/><path d="M10.5 8.2c-.3-1.6.4-3 1.6-3.6 1.1-.6 2.4-.3 3 .7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+		FLOOD:
+			'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2.5 9.5c2.4-2 4.6-2 7 0s4.6 2 7 0 3.6-1.4 5 0"/><path d="M2.5 15.5c2.4-2 4.6-2 7 0s4.6 2 7 0 3.6-1.4 5 0"/></svg>',
+		TSUNAMI:
+			'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 17c3-6 7-9 12-9-2 2-2 5 0 6 2 1 4 0 6-1"/></svg>',
+		OTHER:
+			'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v9"/><path d="M12 19h.01"/></svg>'
+	};
+
+	function syncMarkers() {
+		if (!map || !ml) return;
+		const wanted = new Map(hazards.filter((h) => h.category !== 'EARTHQUAKE').map((h) => [h.id, h]));
+		for (const [id, m] of markers) {
+			if (!wanted.has(id)) {
+				m.marker.remove();
+				markers.delete(id);
+			}
+		}
+		for (const [id, h] of wanted) {
+			if (markers.has(id)) continue;
+			const el = document.createElement('button');
+			el.type = 'button';
+			el.className = `vigie-marker sev-${h.level ?? 'NONE'}`;
+			el.setAttribute('aria-label', h.title);
+			el.innerHTML = ICON[h.category] ?? ICON.OTHER;
+			el.addEventListener('click', (event) => {
+				event.stopPropagation();
+				onselect?.({ kind: 'hazard', id });
+			});
+			markers.set(id, { el, marker: new ml.Marker({ element: el }).setLngLat([h.lon, h.lat]).addTo(map) });
+		}
+		applySelection();
+	}
+
+	function view(): Box {
+		const b = map!.getBounds();
+		return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+	}
+
+	function onThemeChange() {
+		if (!map) return;
+		const next = theme();
+		if (next === currentTheme) return;
+		currentTheme = next;
+		map.setStyle(STYLE[next], { diff: false });
+	}
+
+	/** Frames a box (with a margin) or a point. */
+	export function show(target: Box | [number, number], maxZoom = 7) {
+		if (!map) return;
+		const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900;
+		if (target.length === 4) {
+			map.fitBounds(
+				[
+					[target[0], target[1]],
+					[target[2], target[3]]
+				],
+				{ padding: 40, maxZoom, duration }
+			);
+		} else {
+			map.flyTo({ center: target, zoom: Math.max(map.getZoom(), 4), duration });
+		}
+	}
+
+	onMount(() => {
+		let destroyed = false;
+		(async () => {
+			try {
+				ml = await import('maplibre-gl');
+				if (destroyed) return;
+				currentTheme = theme();
+				map = new ml.Map({
+					container,
+					style: STYLE[currentTheme],
+					center: [12, 25],
+					zoom: container.clientWidth < 700 ? 0.6 : 1.4,
+					minZoom: 0,
+					maxZoom: 12,
+					dragRotate: false,
+					pitchWithRotate: false,
+					attributionControl: { compact: true }
+				});
+				map.touchZoomRotate.disableRotation();
+				map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
+				if (frame) {
+					map.fitBounds(
+						[
+							[frame[0], frame[1]],
+							[frame[2], frame[3]]
+						],
+						{ padding: 30, duration: 0, maxZoom: 7 }
+					);
+					lastFrame = frame.join(',');
+				}
+				map.on('style.load', () => {
+					addOverlay();
+					if (globeOn) map?.setProjection({ type: 'globe' });
+					ready = true;
+				});
+				const pick = (layer: string, read: (p: Record<string, unknown>) => Selection) =>
+					map!.on('click', layer, (e) => {
+						const f = e.features?.[0];
+						if (f) onselect?.(read(f.properties as Record<string, unknown>));
+					});
+				pick('quake', (p) => ({ kind: 'hazard', id: String(p.id) }));
+				pick('zone-fill', (p) => ({ kind: 'zone', key: String(p.key) }));
+				pick('zone-river', (p) => ({ kind: 'zone', key: String(p.key) }));
+				for (const layer of ['quake', 'zone-fill', 'zone-river']) {
+					map.on('mouseenter', layer, () => (map!.getCanvas().style.cursor = 'pointer'));
+					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = ''));
+				}
+				map.on('moveend', () => onmove?.(view(), map!.getZoom()));
+				map.on('load', () => {
+					syncMarkers();
+					onmove?.(view(), map!.getZoom());
+				});
+				observer = new MutationObserver(onThemeChange);
+				observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+				media = matchMedia('(prefers-color-scheme: dark)');
+				media.addEventListener('change', onThemeChange);
+			} catch {
+				failed = true;
+			}
+		})();
+		return () => {
+			destroyed = true;
+		};
+	});
+
+	onDestroy(() => {
+		observer?.disconnect();
+		media?.removeEventListener('change', onThemeChange);
+		map?.remove();
+		map = null;
+	});
+
+	$effect(() => {
+		const data = zones;
+		if (ready && map?.getSource('zones')) (map.getSource('zones') as GeoJSONSource).setData(data);
+	});
+	$effect(() => {
+		void hazards;
+		if (ready && map?.getSource('quakes')) {
+			(map.getSource('quakes') as GeoJSONSource).setData(quakes());
+			syncMarkers();
+		}
+	});
+	$effect(() => {
+		void selected;
+		if (ready) applySelection();
+	});
+	// A new frame given after the map started (data loaded later): move to it once.
+	let lastFrame = '';
+	$effect(() => {
+		const f = frame;
+		if (!ready || !f) return;
+		const key = f.join(',');
+		if (key === lastFrame) return;
+		lastFrame = key;
+		show(f);
+	});
+
+	function toggleGlobe() {
+		globeOn = !globeOn;
+		map?.setProjection({ type: globeOn ? 'globe' : 'mercator' });
+	}
+</script>
+
+<div class="wrap">
+	<div class="map" bind:this={container} role="region" aria-label={label ?? tr('map.label')}></div>
+	{#if failed}
+		<p class="failed">{tr('map.failed')}</p>
+	{/if}
+	{#if globe && !failed}
+		<button type="button" class="globe" aria-pressed={globeOn} onclick={toggleGlobe}>{tr('map.globe')}</button
+		>
+	{/if}
+</div>
+
+<style>
+	.wrap {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		min-height: inherit;
+		background: var(--bg);
+	}
+	.map {
+		position: absolute;
+		inset: 0;
+	}
+	.failed {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		padding: 16px;
+		text-align: center;
+		color: var(--muted);
+	}
+	.globe {
+		position: absolute;
+		top: 84px;
+		right: 10px;
+		z-index: 2;
+		border: 1px solid var(--line);
+		background: var(--surface);
+		border-radius: 4px;
+		padding: 5px 8px;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.globe[aria-pressed='true'] {
+		background: var(--accent-soft);
+		color: var(--accent);
+		border-color: var(--accent);
+	}
+	:global(.vigie-marker) {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		border: 2px solid var(--surface);
+		padding: 0;
+		background: var(--c);
+		color: var(--on-sev);
+		display: grid;
+		place-items: center;
+		cursor: pointer;
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+	}
+	:global(.vigie-marker.sev-YELLOW) {
+		color: var(--on-yellow);
+	}
+	:global(.vigie-marker svg) {
+		width: 16px;
+		height: 16px;
+	}
+	:global(.vigie-marker.selected) {
+		outline: 3px solid var(--ink);
+		outline-offset: 1px;
+	}
+	:global(.maplibregl-ctrl-attrib) {
+		font-size: 11px;
+	}
+</style>

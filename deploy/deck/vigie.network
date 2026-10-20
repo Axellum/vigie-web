@@ -1,0 +1,6 @@
+# The internal network of Vigie (API, site): containers reach each other by name.
+# Explicit DNS: a rootless network cannot reach the host's local resolver (127.0.0.53 on SteamOS).
+[Network]
+NetworkName=vigie
+DNS=9.9.9.9
+DNS=1.1.1.1

@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Types, format, unit and end-to-end tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests (recorded API answers, no network)
+        run: npm run test:e2e
+
+      - name: Keep the Playwright report when a test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  image:
+    name: Container image builds and serves
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: docker build -t vigie-web -f Containerfile .
+      - name: Start it without an API and read a page
+        run: |
+          docker run -d --name web -p 3000:3000 -e ORIGIN=http://127.0.0.1:3000 vigie-web
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/about >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/about | grep -q 'Vigie'
+          test "$(docker exec web id -un)" = "node"

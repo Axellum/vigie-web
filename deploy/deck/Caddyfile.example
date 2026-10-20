@@ -1,0 +1,24 @@
+# Caddy for Vigie Web on a home server. Copy to ~/vigie/Caddyfile and set the public name.
+{
+	admin off
+	# Rootless: no port under 1024. The router sends the public 443 to 8443 when the site goes online.
+	https_port 8443
+	http_port 8089
+}
+
+# Home network only, plain HTTP, while the site is not public.
+:8090 {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Public address, off until the router forwards its port 443 to 8443 and the legal notice is ready.
+# Let's Encrypt then validates by TLS-ALPN on the public 443.
+# vigie.example.org {
+# 	encode zstd gzip
+# 	reverse_proxy 127.0.0.1:3000
+# }
