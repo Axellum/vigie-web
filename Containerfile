@@ -18,6 +18,8 @@ ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
+# The places of the search by name (GeoNames), read by the server on the first search.
+COPY --from=build /app/data ./data
 USER node
 EXPOSE 3000
 CMD ["node", "build"]

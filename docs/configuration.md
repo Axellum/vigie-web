@@ -9,6 +9,7 @@ Vigie Web reads its settings from environment variables. None is a secret.
 | `PORT`, `HOST`                | `3000`, `0.0.0.0`       | Where the Node server listens (adapter-node).                                                                                                      |
 | `ORIGIN`                      | –                       | The public address of the site, e.g. `https://example.org` (adapter-node needs it behind a proxy).                                                 |
 | `ADDRESS_HEADER`, `XFF_DEPTH` | –                       | Behind a reverse proxy: `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1`, so that the rate limit sees the visitor's address and not the proxy's. |
+| `VIGIE_PLACES_FILE`           | `data/places.tsv.gz`    | The places of the search by name (`scripts/build-places.mjs`). When it cannot be read, the search answers 503 and the rest works.                  |
 | `VIGIE_POINT_LOOKUPS_PER_DAY` | `200`                   | Weather requests of the "near me" page that may reach the API in 24 hours (cache misses); `0` turns the weather off. See below.                    |
 
 In development, `npm run dev` reads them from a `.env` file (see `.env.example`).

@@ -23,6 +23,10 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   the first place). Only the weather needs the server: the page sends the position rounded to the API's
   weather grid (0.05°, about 5 km), and the server caches each grid point and bounds the requests that reach
   the API (`docs/configuration.md`, "Weather by place").
+- **Search by name** (`/data/places.json?q=`). The server keeps the GeoNames places of at least 500 people
+  (236,415, with the other names of the cities of 100,000 or more, so that "Genève" or "Londres" are found)
+  in memory, read from `data/places.tsv.gz` on the first search. The browser asks after 250 ms without
+  typing; a chosen place goes through the same matching as the others.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official
   message plus its area's first code: one CAP message often covers several areas, which the API returns as
   one warning each.
@@ -40,6 +44,7 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/lib/transform.ts`                          | API answers to the site's models (pure functions, tested).                                                                                                           |
 | `src/lib/geo.ts`, `src/lib/data/countries.json` | Covered countries and their boxes (Natural Earth, public domain, from the API's own borders).                                                                        |
 | `src/lib/near.ts`, `src/lib/data/borders.json`  | Where a place stands: warnings that hold it, rivers and hazards around it, its country (borders simplified by `scripts/build-borders.mjs`).                          |
+| `src/lib/places.ts`, `src/lib/server/places.ts` | The search by name, and the places kept in memory (`data/places.tsv.gz`, built by `scripts/build-places.mjs`).                                                       |
 | `src/lib/server/budget.ts`                      | The daily bound on the weather requests that reach the API.                                                                                                          |
 | `src/lib/components/PointWeather.svelte`        | The weather of a place (`/v1/point`), with the credit of each block.                                                                                                 |
 | `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection.                                                                                                                 |

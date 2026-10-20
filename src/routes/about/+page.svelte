@@ -40,8 +40,9 @@
 		</p>
 		<p>
 			Sur la page « Autour de moi », le lieu que vous choisissez reste dans votre navigateur : les vigilances
-			et les catastrophes autour de lui y sont calculées. Seule une position arrondie à environ 5 km est
-			envoyée au site, pour la météo ; le site ne la garde pas avec votre adresse IP.
+			et les catastrophes autour de lui y sont calculées. Seuls le nom que vous cherchez et une position
+			arrondie à environ 5 km, pour la météo, sont envoyés au site ; il ne les garde pas avec votre adresse
+			IP.
 		</p>
 		<h2>Mentions légales</h2>
 		<p>En préparation : le site n'est pas encore ouvert au public.</p>
@@ -71,8 +72,8 @@
 		</p>
 		<p>
 			On the "Near me" page, the place you choose stays in your browser: the warnings and hazards around it
-			are worked out there. Only a position rounded to about 5 km is sent to the site, for the weather; the
-			site does not keep it with your IP address.
+			are worked out there. Only the name you search and a position rounded to about 5 km, for the weather,
+			are sent to the site; it does not keep them with your IP address.
 		</p>
 		<h2>Legal notice</h2>
 		<p>In preparation: the site is not open to the public yet.</p>

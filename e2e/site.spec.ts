@@ -172,3 +172,22 @@ test('the weather answer checks its position and is cacheable', async ({ request
 	expect(body.current.tempC).toBe(point.current.temp_c);
 	expect(body.daily.length).toBe(point.daily.length);
 });
+
+test('a place found by name is chosen, with its warnings', async ({ page, request }) => {
+	expect((await request.get('/data/places.json?q=a')).status()).toBe(400);
+	const answer = await (await request.get('/data/places.json?q=Corte')).json();
+	expect(answer.places[0]).toMatchObject({ name: 'Corte', cc: 'FR' });
+	expect(answer.attribution).toContain('GeoNames');
+
+	await page.goto('/near');
+	await page.getByLabel('Chercher un lieu').fill('Corte');
+	await page
+		.getByRole('button', { name: /^Corte/ })
+		.first()
+		.click();
+	await expect(page).toHaveURL(/#42\.3\d*,9\.1\d*,300$/);
+	await expect(page.getByText(/Lieu choisi : Corte, Corsica, France/)).toBeVisible();
+	await expect(
+		page.getByRole('heading', { level: 2, name: 'Vigilances officielles à cet endroit' })
+	).toBeVisible();
+});
