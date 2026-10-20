@@ -33,6 +33,12 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   epicentre and the arrival times the warning centre gives for the places it names. The map draws them, the
   panel and the hazard's page list them in the source's words, and a tsunami's page adds the warning centre's
   official messages (`/v1/vigilances.geojson?source=tsunami`), unchanged.
+- **Active fires** (NASA FIRMS, through the API), off until the visitor ticks them on the world map: a detection
+  is not an alert. Far away, the map draws cells that count the detections of the last 24 hours (5°, then 1°,
+  then 0.25°); from zoom 7.5, each detection. Each level is cut into fixed tiles (`src/lib/fires.ts`), served by
+  `/data/fires/<level>/<x>_<y>.json` and cached 10 minutes, so the requests to the API depend on the tiles
+  looked at, not on the visitors. The near-me weather adds the API's summary of the fires within 50 km. NASA's
+  credit and disclaimer are shown with the data.
 - **Covered countries.** Which countries have official warnings is the API's answer
   (`/v1/vigilances/countries`, cached 10 minutes), given with the pages that need it (the world map, near me,
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the

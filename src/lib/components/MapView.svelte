@@ -1,5 +1,8 @@
 <script lang="ts" module>
-	export type Selection = { kind: 'hazard'; id: string } | { kind: 'zone'; key: string };
+	export type Selection =
+		| { kind: 'hazard'; id: string }
+		| { kind: 'zone'; key: string }
+		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown> };
 </script>
 
 <script lang="ts">
@@ -28,6 +31,8 @@
 		place?: (Place & { radiusKm: number | null }) | null;
 		/** A polygon being drawn or shown ([lon, lat] corners, not closed): its corners, edges and surface. */
 		drawing?: [number, number][] | null;
+		/** Active fires: cells of a grid (with `n`) or detections (`FireTile.features`). */
+		fires?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -45,6 +50,7 @@
 		place = null,
 		drawing = null,
 		forecast = null,
+		fires = null,
 		onselect,
 		onmove,
 		onpick
@@ -165,6 +171,7 @@
 
 	const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 	const forecastData = () => forecast ?? EMPTY;
+	const fireData = () => fires ?? EMPTY;
 	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
 
 	function addForecastLayers() {
@@ -249,6 +256,69 @@
 		});
 	}
 
+	// The size of a cell grows with the square root of its detections, up to about half the distance between two
+	// cells at the zooms of its level ($lib/fires: 5° until zoom 3, 1° until 5.5, 0.25° until 7.5).
+	const cellRadius = (max: number): ExpressionSpecification => [
+		'+',
+		2,
+		['*', max, ['min', 1, ['/', ['sqrt', ['get', 'n']], 30]]]
+	];
+
+	function addFireLayers() {
+		if (!map) return;
+		const fire = css('--fire');
+		map.addLayer({
+			id: 'fire-cell',
+			type: 'circle',
+			source: 'fires',
+			filter: ['has', 'n'],
+			paint: {
+				'circle-radius': [
+					'interpolate',
+					['linear'],
+					['zoom'],
+					0,
+					cellRadius(2),
+					2.99,
+					cellRadius(24),
+					3,
+					cellRadius(5),
+					5.49,
+					cellRadius(28),
+					5.5,
+					cellRadius(7),
+					7.49,
+					cellRadius(24)
+				],
+				'circle-color': fire,
+				'circle-opacity': 0.5,
+				'circle-stroke-color': fire,
+				'circle-stroke-width': 1
+			}
+		});
+		map.addLayer({
+			id: 'fire-dot',
+			type: 'circle',
+			source: 'fires',
+			filter: ['!', ['has', 'n']],
+			paint: {
+				'circle-radius': [
+					'interpolate',
+					['linear'],
+					['zoom'],
+					7.5,
+					['interpolate', ['linear'], ['coalesce', ['get', 'frp'], 0], 0, 3, 100, 5, 1000, 8],
+					12,
+					['interpolate', ['linear'], ['coalesce', ['get', 'frp'], 0], 0, 5, 100, 8, 1000, 13]
+				],
+				'circle-color': fire,
+				'circle-opacity': ['match', ['get', 'c'], 'low', 0.45, 0.9],
+				'circle-stroke-color': css('--surface'),
+				'circle-stroke-width': 1
+			}
+		});
+	}
+
 	function addOverlay() {
 		if (!map) return;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
@@ -259,6 +329,7 @@
 		map.addSource('quakes', { type: 'geojson', data: quakes() });
 		map.addSource('place', { type: 'geojson', data: placeData() });
 		map.addSource('forecast', { type: 'geojson', data: forecastData() });
+		map.addSource('fires', { type: 'geojson', data: fireData() });
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -291,6 +362,7 @@
 			filter: ['==', ['get', 'key'], ''],
 			paint: { 'line-color': css('--ink'), 'line-width': 2.5 }
 		});
+		addFireLayers();
 		map.addLayer({
 			id: 'quake',
 			type: 'circle',
@@ -492,7 +564,14 @@
 				pick('quake', (p) => ({ kind: 'hazard', id: String(p.id) }));
 				pick('zone-fill', (p) => ({ kind: 'zone', key: String(p.key) }));
 				pick('zone-river', (p) => ({ kind: 'zone', key: String(p.key) }));
-				for (const layer of ['quake', 'zone-fill', 'zone-river']) {
+				for (const layer of ['fire-cell', 'fire-dot'])
+					map.on('click', layer, (e) => {
+						const f = e.features?.[0];
+						if (f?.geometry.type !== 'Point') return;
+						const [lon, lat] = f.geometry.coordinates;
+						onselect?.({ kind: 'fire', lon, lat, props: { ...f.properties } });
+					});
+				for (const layer of ['quake', 'zone-fill', 'zone-river', 'fire-cell', 'fire-dot']) {
 					map.on('mouseenter', layer, () => (map!.getCanvas().style.cursor = 'pointer'));
 					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = onpick ? 'crosshair' : ''));
 				}
@@ -547,6 +626,10 @@
 		void forecast;
 		if (ready && map?.getSource('forecast'))
 			(map.getSource('forecast') as GeoJSONSource).setData(forecastData());
+	});
+	$effect(() => {
+		void fires;
+		if (ready && map?.getSource('fires')) (map.getSource('fires') as GeoJSONSource).setData(fireData());
 	});
 	$effect(() => {
 		void place;

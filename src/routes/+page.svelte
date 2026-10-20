@@ -3,16 +3,18 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import AlertRow from '$lib/components/AlertRow.svelte';
+	import FireDetails from '$lib/components/FireDetails.svelte';
 	import ForecastDetails from '$lib/components/ForecastDetails.svelte';
 	import HazardFacts from '$lib/components/HazardFacts.svelte';
 	import LevelPill from '$lib/components/LevelPill.svelte';
 	import MapView, { type Selection } from '$lib/components/MapView.svelte';
 	import WarningBody from '$lib/components/WarningBody.svelte';
+	import { fireLevel, tilesInView } from '$lib/fires';
 	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '$lib/geo';
 	import { countryName, t, tOr, translator, type Key } from '$lib/i18n';
 	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
 	import { hazardHref, hazardRow, warningHref, warningRow, warningTitle, type Row } from '$lib/rows';
-	import type { Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '$lib/types';
+	import type { FireTile, Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '$lib/types';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -45,6 +47,7 @@
 		| { kind: 'hazard'; id: string }
 		| { kind: 'zone'; cc: string; key: string }
 		| { kind: 'warning'; cc: string; id: string }
+		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown>; cellDeg: number | null }
 		| null
 	>(null);
 	let detail = $state<{ key: string; status: 'loading' | 'ok' | 'error'; value?: WarningDetail } | null>(
@@ -52,6 +55,53 @@
 	);
 	let mapView: MapView | undefined = $state();
 	let rail: HTMLElement | undefined = $state();
+
+	// --- active fires (off until asked: a detection is not an alert) -------------------------------------
+	/** A tile of fires is asked again after this delay (the API reads the fires at most every hour). */
+	const FIRES_REFRESH_MS = 600_000;
+	let showFires = $state(false);
+	type FireState = { status: 'loading' | 'ok' | 'off' | 'error'; value?: FireTile; at: number };
+	const fireTiles = new SvelteMap<string, FireState>();
+	const fireLevelNow = $derived(fireLevel(zoom));
+	const fireKeys = $derived.by(() => {
+		if (!showFires || !view) return [];
+		const level = fireLevelNow;
+		return (tilesInView(level, view) ?? []).map(([x, y]) => `${level.id}/${x}_${y}`);
+	});
+
+	async function loadFireTile(key: string) {
+		fireTiles.set(key, { status: 'loading', value: fireTiles.get(key)?.value, at: Date.now() });
+		try {
+			const response = await fetch(`/data/fires/${key}.json`);
+			if (response.status === 404) fireTiles.set(key, { status: 'off', at: Date.now() });
+			else if (!response.ok) throw new Error(String(response.status));
+			else fireTiles.set(key, { status: 'ok', value: (await response.json()) as FireTile, at: Date.now() });
+		} catch {
+			fireTiles.set(key, { status: 'error', at: Date.now() });
+		}
+	}
+
+	$effect(() => {
+		const keys = fireKeys;
+		untrack(() => {
+			const now = Date.now();
+			for (const key of keys) {
+				const known = fireTiles.get(key);
+				const wait = known?.status === 'error' ? WARNINGS_RETRY_MS : FIRES_REFRESH_MS;
+				if (!known || (known.status !== 'loading' && now - known.at > wait)) loadFireTile(key);
+			}
+		});
+	});
+
+	const fireShown = $derived(fireKeys.map((k) => fireTiles.get(k)).filter((f) => f !== undefined));
+	const fires = $derived.by((): FeatureCollection | null => {
+		if (!showFires) return null;
+		const features: Feature[] = [];
+		for (const f of fireShown) if (f.value) features.push(...f.value.features.features);
+		return { type: 'FeatureCollection', features };
+	});
+	const fireFirst = $derived(fireShown.find((f) => f.value)?.value ?? null);
+	const fireOff = $derived(fireShown.length > 0 && fireShown.every((f) => f.status === 'off'));
 
 	// --- warnings of the countries in view -------------------------------------------------------------
 	const visibleCountries = $derived(
@@ -196,6 +246,7 @@
 	const mapSelected = $derived.by((): Selection | null => {
 		if (!selection) return null;
 		if (selection.kind === 'hazard') return { kind: 'hazard', id: selection.id };
+		if (selection.kind === 'fire') return null;
 		if (selection.kind === 'zone') return { kind: 'zone', key: `${selection.cc}|${selection.key}` };
 		const w = countries
 			.get(selection.cc)
@@ -206,6 +257,7 @@
 	// --- selection and detail ---------------------------------------------------------------------------
 	function onMapSelect(s: Selection) {
 		if (s.kind === 'hazard') selection = { kind: 'hazard', id: s.id };
+		else if (s.kind === 'fire') selection = { ...s, cellDeg: fireLevelNow.cellDeg };
 		else {
 			const [cc, key] = [s.key.slice(0, 2), s.key.slice(3)];
 			const inZone = countries.get(cc)?.data?.warnings.filter((w) => w.shape === key) ?? [];
@@ -368,6 +420,15 @@
 						{/if}
 					{/if}
 					<a href={hazardHref(selectedHazard)}>{tr('detail.open')}</a>
+				{:else if selection.kind === 'fire'}
+					<FireDetails
+						{lang}
+						lon={selection.lon}
+						lat={selection.lat}
+						props={selection.props}
+						cellDeg={selection.cellDeg}
+						windowHours={fireFirst?.windowHours ?? null}
+					/>
 				{:else if selection.kind === 'zone'}
 					<div class="head">
 						<p class="eyebrow">{tr('detail.zone')} · {countryName(lang, selection.cc)}</p>
@@ -447,6 +508,25 @@
 					{/each}
 				</div>
 				<label class="check"><input type="checkbox" bind:checked={inView} /> {tr('types.inView')}</label>
+				<label class="check">
+					<input type="checkbox" bind:checked={showFires} />
+					<span class="swatch" aria-hidden="true"></span>
+					{tr('fires.toggle')}
+				</label>
+				{#if showFires}
+					{#if fireOff}
+						<p class="hint">{tr('fires.off')}</p>
+					{:else}
+						<p class="hint">
+							{tr('fires.legend', { h: fireFirst?.windowHours ?? 24 })}
+							{#if fireLevelNow.cellDeg != null}{tr('fires.zoomIn')}{/if}
+						</p>
+						{#if fireShown.some((f) => f.status === 'loading')}<p class="hint">{tr('fires.loading')}</p>{/if}
+						{#if fireShown.some((f) => f.status === 'error')}<p class="hint">{tr('fires.failed')}</p>{/if}
+						{#if fireShown.some((f) => f.value?.truncated)}<p class="hint">{tr('fires.truncated')}</p>{/if}
+						<p class="hint">{tr('fires.notAlert')}</p>
+					{/if}
+				{/if}
 			</section>
 			<section class="block">
 				<h2 class="eyebrow">{tr('list.title')} · <span class="data">{shown.length}</span></h2>
@@ -487,6 +567,10 @@
 			<h2 class="eyebrow">{tr('nav.sources')}</h2>
 			{#each credits as credit (credit)}<p class="credit">{credit}</p>{/each}
 			{#each disclaimers as d (d)}<p class="credit">{d}</p>{/each}
+			{#if showFires && fireFirst}
+				{#if fireFirst.attribution}<p class="credit">{fireFirst.attribution}</p>{/if}
+				{#if fireFirst.disclaimer}<p class="credit">{fireFirst.disclaimer}</p>{/if}
+			{/if}
 			<p class="credit">{tr('map.credit')}</p>
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
@@ -499,6 +583,7 @@
 			{zones}
 			selected={mapSelected}
 			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
+			{fires}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {
@@ -613,6 +698,13 @@
 		width: 16px;
 		height: 16px;
 		margin: 0;
+	}
+	.swatch {
+		width: 10px;
+		height: 10px;
+		flex: none;
+		border-radius: 50%;
+		background: var(--fire);
 	}
 	.list {
 		display: flex;

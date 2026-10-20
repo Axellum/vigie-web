@@ -1,9 +1,11 @@
 {
  "recorded_utc": 1792505613,
  "recorded": {
-  "point.json": 1792509065,
+  "point.json": 1792528658,
   "vigilances-countries.json": 1792522470,
-  "warnings-MX.json": 1792522808
+  "warnings-MX.json": 1792522808,
+  "fires-grid.json": 1792528658,
+  "fires.json": 1792528658
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -24,7 +26,9 @@
   "/v1/geojson/hazards/tsunami_pheb_26282000/forecast": "forecast-tsunami_pheb_26282000.json",
   "/v1/vigilances.geojson?source=tsunami": "vigilances-tsunami.json",
   "/v1/vigilances/countries": "vigilances-countries.json",
-  "/v1/vigilances.geojson?country=MX": "warnings-MX.json"
+  "/v1/vigilances.geojson?country=MX": "warnings-MX.json",
+  "/v1/fires/grid": "fires-grid.json",
+  "/v1/fires": "fires.json"
  },
  "added": {
   "/v1/geojson/hazards": [

@@ -195,6 +195,54 @@ test('the weather answer checks its position and is cacheable', async ({ request
 	expect(body.daily.length).toBe(point.daily.length);
 });
 
+test('near me tells the fires seen by satellite around the place, with their credit', async ({ page }) => {
+	const fires = point.fires_nearby;
+	await page.goto('/near#42.306,9.15,25');
+	await expect(page.getByRole('heading', { level: 3, name: 'Feux vus par satellite' })).toBeVisible({
+		timeout: 15_000
+	});
+	if (fires.count_24h === 0)
+		await expect(page.getByText(`Aucune détection en 24 h à moins de ${fires.radius_km} km.`)).toBeVisible();
+	else await expect(page.getByText(`Détections en 24 h à moins de ${fires.radius_km} km`)).toBeVisible();
+	await expect(page.getByText(fires.attribution)).toBeVisible();
+	await expect(page.getByText(fires.disclaimer)).toBeVisible();
+});
+
+test('the fires seen by satellite are off until asked, then drawn with their credit', async ({ page }) => {
+	const errors = collectErrors(page);
+	const grid = fixture('fires-grid');
+	await page.goto('/');
+	await expect(page.getByRole('heading', { level: 2, name: /Alertes/ })).toBeVisible();
+	await expect(page.getByText(grid.metadata.attribution)).toHaveCount(0);
+	// The world, far away: the one tile of the coarsest grid.
+	const tile = page.waitForResponse((r) => r.url().endsWith('/data/fires/w5/0_0.json'));
+	await page.getByLabel('Feux vus par satellite (NASA)').check();
+	const answer = await tile;
+	expect(answer.status()).toBe(200);
+	expect((await answer.json()).features.features).toHaveLength(grid.features.length);
+	await expect(page.getByText(/Une détection n’est pas une alerte/).first()).toBeVisible();
+	await expect(page.getByText(grid.metadata.attribution)).toBeVisible();
+	await expect(page.getByText(grid.metadata.disclaimer)).toBeVisible();
+	await page.getByLabel('Feux vus par satellite (NASA)').uncheck();
+	await expect(page.getByText(grid.metadata.attribution)).toHaveCount(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('a tile of fires checks its level and place, and is cut down and cacheable', async ({ request }) => {
+	expect((await request.get('/data/fires/nope/0_0.json')).status()).toBe(404);
+	expect((await request.get('/data/fires/dots/180_0.json')).status()).toBe(404);
+	expect((await request.get('/data/fires/w1/0_1.json')).status()).toBe(404);
+	const raw = fixture('fires');
+	const answer = await request.get('/data/fires/dots/104_37.json');
+	expect(answer.status()).toBe(200);
+	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	const body = await answer.json();
+	expect(body.truncated).toBe(raw.metadata.truncated);
+	expect(body.features.features).toHaveLength(raw.features.length);
+	expect(body.features.features[0].properties.t).toBe(raw.features[0].properties.acq_utc);
+	expect(JSON.stringify(body)).not.toContain('bright_ti4');
+});
+
 test('a place found by name is chosen, with its warnings', async ({ page, request }) => {
 	expect((await request.get('/data/places.json?q=a')).status()).toBe(400);
 	const answer = await (await request.get('/data/places.json?q=Corte')).json();

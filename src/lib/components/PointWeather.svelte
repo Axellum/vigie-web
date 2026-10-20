@@ -1,6 +1,8 @@
 <script lang="ts">
-	// The weather of one grid point (`/v1/point`): now, the next hour, the next days, air, river, sea, space.
+	// The weather of one grid point (`/v1/point`): now, the next hour, the next days, air, river, fires seen by
+	// satellite, sea, space.
 	// Every value comes from the API as it is; an unknown one shows "–", a block the API did not give is left out.
+	import Time from '$lib/components/Time.svelte';
 	import { number } from '$lib/format';
 	import { translator, type Lang } from '$lib/i18n';
 	import type { PointWeather } from '$lib/types';
@@ -26,6 +28,7 @@
 				weather.rain?.attribution,
 				weather.air?.attribution,
 				weather.river?.attribution,
+				weather.fires?.attribution,
 				weather.marine?.attribution,
 				weather.space?.attribution
 			].flatMap((a) => (a ? a.split(' | ').map((part) => part.trim()) : []))
@@ -162,6 +165,31 @@
 			</section>
 		{/if}
 
+		{#if weather.fires}
+			{@const fires = weather.fires}
+			{@const km = number(lang, fires.radiusKm, 0)}
+			<section class="part card">
+				<h3>
+					{tr('w.fires')}{#if fires.stale}<span class="muted small"> · {tr('w.stale')}</span>{/if}
+				</h3>
+				{#if fires.count === 0}
+					<p class="small">{tr('w.firesNone', { km })}</p>
+				{:else}
+					<dl class="facts">
+						<dt>{tr('w.firesCount', { km })}</dt>
+						<dd class="data">{fires.count ?? '–'}</dd>
+						<dt>{tr('w.firesNearest')}</dt>
+						<dd class="data">{unit(fires.nearestKm, 'km', 0)}</dd>
+						<dt>{tr('w.firesMaxFrp')}</dt>
+						<dd class="data">{unit(fires.maxFrpMw, 'MW')}</dd>
+						<dt>{tr('w.firesLatest')}</dt>
+						<dd><Time {lang} unix={fires.latest} /></dd>
+					</dl>
+				{/if}
+				<p class="muted small">{tr('fires.notAlert')}</p>
+			</section>
+		{/if}
+
 		{#if weather.marine}
 			<section class="part card">
 				<h3>
@@ -204,6 +232,7 @@
 
 	<p class="muted small">{tr('w.skyNote')}</p>
 	{#each credits as credit (credit)}<p class="credit">{credit}</p>{/each}
+	{#if weather.fires?.disclaimer}<p class="credit">{weather.fires.disclaimer}</p>{/if}
 </div>
 
 <style>
