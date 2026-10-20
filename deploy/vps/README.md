@@ -11,14 +11,15 @@ API and the database are not reachable from outside.
 | `vigie-api.container` | the Vigie API (data volume `vigie-api-data`)               | internal network only                       |
 | `vigie-web.container` | this site                                                  | `127.0.0.1:3000` only                       |
 | `caddy.container`     | the one door, host network (real visitor addresses)        | `80`, `443` (TCP and UDP); `127.0.0.1:8090` |
-| `vigie-backup.timer`  | a dump of the database every day, kept 6 days              | –                                           |
+| `vigie-backup.timer`  | a dump of the database every day, kept 5 days              | –                                           |
 
 `setup.sh` also sets the firewall (`nftables.conf`: SSH, HTTP and HTTPS only), SSH by key only, automatic
 security updates, a journal kept 14 days at most, and 2 GB of swap for the image builds.
 
 What is kept, and for how long, must match the privacy page: no access log (Caddy writes none), dumps of the
-database 6 days (the page says 7 days at most). A backup option of the host that keeps copies longer would
-change that: check its retention before turning it on.
+database 5 days, plus the host's own backup of the whole server (24 hours at its Standard level): a deleted
+account is gone from every copy within 7 days, as the page says. A host backup that keeps copies 7 days (its
+Premium level) would break that: shorten the dumps or change the page first.
 
 ## First install
 
@@ -35,7 +36,9 @@ deploy/vps/deploy.sh web
 ssh vigie@<address> 'systemctl --user start caddy.service'
 ```
 
-Check `~/vigie/api.env` (the contact sent to the providers) before `deploy.sh api`.
+Before `deploy.sh api`, set `VIGIE_CONTACT` in `~/vigie/api.env`: the contact sent to the providers, chosen by
+the owner (the site's public address once the domain exists). MetService stays at the API's default, on (the
+owner's decision for this instance).
 
 ## Check before going public
 
