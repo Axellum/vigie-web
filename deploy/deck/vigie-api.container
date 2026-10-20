@@ -1,0 +1,26 @@
+# Vigie API (repository Axellum/vigie-api), image built on the server from origin/main (deploy.sh api).
+# Reachable on port 8080 of the server: the home displays and Home Assistant read it there.
+[Unit]
+Description=Vigie API (port 8080)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=localhost/vigie-api:current
+ContainerName=vigie-api
+Network=vigie.network
+PublishPort=8080:8080
+Volume=vigie-api-data:/data
+# A quadlet HealthCmd with quotes is mangled, hence a small script mounted read-only.
+Volume=%h/vigie/api-healthcheck.py:/healthcheck.py:ro
+HealthCmd=python /healthcheck.py
+HealthInterval=60s
+HealthStartPeriod=30s
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target
