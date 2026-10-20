@@ -11,6 +11,9 @@ ContainerName=vigie-api
 Network=vigie.network
 PublishPort=8080:8080
 Volume=vigie-api-data:/data
+# The NASA FIRMS key (fires), from a Podman secret: its value is in no file of this repository. Created once:
+#   <read VIGIE_FIRMS_MAP_KEY from the owner's .env> | podman secret create --replace vigie_firms_map_key -
+Secret=vigie_firms_map_key,type=env,target=VIGIE_FIRMS_MAP_KEY
 # A quadlet HealthCmd with quotes is mangled, hence a small script mounted read-only.
 Volume=%h/vigie/api-healthcheck.py:/healthcheck.py:ro
 HealthCmd=python /healthcheck.py
