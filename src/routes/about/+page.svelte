@@ -34,10 +34,16 @@
 		</p>
 		<h2>Vie privée</h2>
 		<p>
-			Pas de compte, pas de publicité, pas de mesure d'audience, aucun script ni police d'un tiers. Le seul
-			cookie retient la langue choisie ; le thème est gardé dans votre navigateur. Le fond de carte est chargé
-			depuis OpenFreeMap, qui reçoit donc votre adresse IP comme tout site que vous visitez.
+			Pas d'inscription obligatoire, pas de publicité, pas de mesure d'audience, aucun script ni police d'un
+			tiers. Le seul cookie retient la langue choisie ; le thème est gardé dans votre navigateur. Le fond de
+			carte est chargé depuis OpenFreeMap, qui reçoit donc votre adresse IP comme tout site que vous visitez.
 		</p>
+		{#if data.accounts}
+			<p>
+				Les comptes, ouverts sur invitation, ajoutent un cookie de connexion et gardent le peu décrit sur la
+				page <a href="/privacy">Confidentialité</a>.
+			</p>
+		{/if}
 		<p>
 			Sur la page « Autour de moi », le lieu que vous choisissez reste dans votre navigateur : les vigilances
 			et les catastrophes autour de lui y sont calculées. Seuls le nom que vous cherchez et une position
@@ -66,10 +72,16 @@
 		</p>
 		<h2>Privacy</h2>
 		<p>
-			No account, no advertising, no audience measurement, no third-party script or font. The only cookie
-			keeps the language you chose; the theme is kept in your browser. The base map is loaded from
+			No sign-up needed, no advertising, no audience measurement, no third-party script or font. The only
+			cookie keeps the language you chose; the theme is kept in your browser. The base map is loaded from
 			OpenFreeMap, which therefore receives your IP address like any site you visit.
 		</p>
+		{#if data.accounts}
+			<p>
+				Accounts, by invitation, add a sign-in cookie and keep the little described on the
+				<a href="/privacy">Privacy</a> page.
+			</p>
+		{/if}
 		<p>
 			On the "Near me" page, the place you choose stays in your browser: the warnings and hazards around it
 			are worked out there. Only the name you search and a position rounded to about 5 km, for the weather,

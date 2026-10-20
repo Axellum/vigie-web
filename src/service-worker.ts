@@ -34,7 +34,9 @@ sw.addEventListener('fetch', (event) => {
 	event.respondWith(
 		fetch(request)
 			.then((response) => {
-				if (response.ok && (request.mode === 'navigate' || url.pathname.startsWith('/data/'))) {
+				// A private page (an account) is never kept: the device may be shared.
+				const priv = /no-store|private/.test(response.headers.get('cache-control') ?? '');
+				if (response.ok && !priv && (request.mode === 'navigate' || url.pathname.startsWith('/data/'))) {
 					const copy = response.clone();
 					caches.open(CACHE).then((cache) => cache.put(request, copy));
 				}
