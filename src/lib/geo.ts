@@ -57,6 +57,14 @@ export function countryBox(cc: string): Box | null {
 	return box;
 }
 
+/** A box made larger by `ratio` of its size on every side, so that labels at its edges stay on the map. */
+export function grow(box: Box, ratio: number): Box {
+	const [w, s, e, n] = box;
+	const dx = (e >= w ? e - w : e + 360 - w) * ratio;
+	const dy = (n - s) * ratio;
+	return [w - dx, Math.max(-85, s - dy), e + dx, Math.min(85, n + dy)];
+}
+
 /** Bounding box of any GeoJSON geometry. */
 export function geometryBox(geometry: {
 	type: string;

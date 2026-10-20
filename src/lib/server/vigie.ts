@@ -3,14 +3,21 @@
 import { env } from '$env/dynamic/private';
 import { isCovered } from '$lib/geo';
 import { snapToGrid } from '$lib/near';
-import { hazardsFromApi, pointFromApi, warningsFromApi, type ParsedWarnings } from '$lib/transform';
-import type { HazardsData, PointWeather, Provider } from '$lib/types';
+import {
+	forecastFromApi,
+	hazardsFromApi,
+	pointFromApi,
+	warningsFromApi,
+	type ParsedWarnings
+} from '$lib/transform';
+import type { HazardForecast, HazardsData, PointWeather, Provider } from '$lib/types';
 import { SlidingBudget } from './budget';
 import { TtlCache, type Cached } from './cache';
 
 /** Seconds each kind of answer is kept. The API caches its sources itself; this only spares it. */
 // A point's weather: the API's forecast changes every 15 minutes at most.
-export const TTL_S = { hazards: 60, warnings: 120, providers: 60, point: 900 } as const;
+// A forecast changes with a new advisory (every 3 to 6 hours for a storm) or a new tsunami message.
+export const TTL_S = { hazards: 60, warnings: 120, providers: 60, point: 900, forecast: 300 } as const;
 
 const cache = new TtlCache();
 // Points have their own cache, so that many places cannot push the shared answers out.
@@ -64,6 +71,26 @@ export function getProviders(): Promise<Cached<Provider[]>> {
 		const body = await getJson('/v1/providers', 15_000);
 		return (Array.isArray(body) ? body : []) as Provider[];
 	});
+}
+
+/** The forecast of a hazard that has one; null when the API does not know the hazard (any more). */
+export async function getForecast(id: string): Promise<Cached<HazardForecast> | null> {
+	if (!/^[A-Za-z0-9_.:-]{1,80}$/.test(id)) return null;
+	try {
+		return await cache.get(`forecast:${id}`, TTL_S.forecast * 1000, async () =>
+			forecastFromApi(id, await getJson(`/v1/geojson/hazards/${encodeURIComponent(id)}/forecast`, 30_000))
+		);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
+}
+
+/** The tsunami messages in force (U.S. warning centres): their areas are codes or country names, never shapes. */
+export function getTsunamiWarnings(): Promise<Cached<ParsedWarnings>> {
+	return cache.get('warnings:tsunami', TTL_S.warnings * 1000, async () =>
+		warningsFromApi('', await getJson('/v1/vigilances.geojson?source=tsunami'))
+	);
 }
 
 /** The site's daily share of the weather requests (`VIGIE_POINT_LOOKUPS_PER_DAY`, 0 turns the weather off). */

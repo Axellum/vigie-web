@@ -43,7 +43,10 @@ await writeFile(
 			// When some answers were recorded later than the others.
 			...(only.length ? { recorded } : {}),
 			source: 'a Vigie API instance',
-			paths: index
+			paths: index,
+			// Kept: answers added by hand to a path, and why (see e2e/mock-api.mjs).
+			...(previous?.added ? { added: previous.added } : {}),
+			...(previous?.notes ? { notes: previous.notes } : {})
 		},
 		null,
 		1
