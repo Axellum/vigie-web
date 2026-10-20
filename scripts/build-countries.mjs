@@ -1,20 +1,43 @@
-// Builds src/lib/data/borders.json, the simplified borders of the covered countries, from the API's own file
-// (Natural Earth, public domain):
-//   node scripts/build-borders.mjs ../vigie_api/app/data/countries.geojson.gz
-// The "near me" page uses them to tell which country a place is in, without asking anything to anybody.
+// Builds the two files of the covered countries from the API's own borders (Natural Earth, public domain):
+//   node scripts/build-countries.mjs ../vigie_api/app/data/countries.geojson.gz
+// - src/lib/data/countries.json: the boxes of the main parts of each country (the map loads the warnings of
+//   the countries in view, a country page frames its first box);
+// - src/lib/data/borders.json: the simplified borders, for the "near me" page to tell which country a place
+//   is in, without asking anything to anybody.
+// Run it again when the API covers new countries.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 const source = process.argv[2];
-if (!source) throw new Error('usage: node scripts/build-borders.mjs <countries.geojson.gz>');
+if (!source) throw new Error('usage: node scripts/build-countries.mjs <countries.geojson.gz>');
 // About 5 km, like the source's own spacing: enough to tell a country from its neighbours (the page adds a
 // margin at borders and coasts, as the API does).
 const TOLERANCE_DEG = 0.05;
 // Islands smaller than this (square degrees, about 100 km² in Europe) are left out; a place on one of them
 // is matched to the nearest country by the coastal margin.
 const MIN_AREA_DEG2 = 0.012;
+// The boxes: the largest parts, at most this many, down to this share of the largest one.
+const MAX_PARTS = 8;
+const MIN_PART_SHARE = 0.0015;
 const round = (v) => Math.round(v * 1000) / 1000;
+/** Rounded outwards to 0.01°, so that a box always holds its part. */
+const down = (v) => Math.floor(v * 100 + 1e-9) / 100 + 0;
+const up = (v) => Math.ceil(v * 100 - 1e-9) / 100 + 0;
+
+function boxOf(points) {
+	let w = Infinity,
+		s = Infinity,
+		e = -Infinity,
+		n = -Infinity;
+	for (const [x, y] of points) {
+		w = Math.min(w, x);
+		e = Math.max(e, x);
+		s = Math.min(s, y);
+		n = Math.max(n, y);
+	}
+	return [down(w), down(s), up(e), up(n)];
+}
 
 /** Douglas-Peucker on an open polyline. */
 function simplify(points, tolerance) {
@@ -77,6 +100,7 @@ function ring(coordinates) {
 }
 
 const collection = JSON.parse(gunzipSync(readFileSync(source)).toString('utf-8'));
+const boxes = {};
 const borders = {};
 let before = 0,
 	after = 0;
@@ -86,6 +110,12 @@ for (const feature of collection.features) {
 	const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
 	const out = [];
 	const largest = Math.max(...polygons.map((polygon) => area(polygon[0])));
+	boxes[cc] = polygons
+		.map((polygon) => ({ area: area(polygon[0]), box: boxOf(polygon[0]) }))
+		.sort((a, b) => b.area - a.area)
+		.filter((part) => part.area >= largest * MIN_PART_SHARE)
+		.slice(0, MAX_PARTS)
+		.map((part) => part.box);
 	for (const polygon of polygons) {
 		const outer = area(polygon[0]);
 		if (outer < MIN_AREA_DEG2 && outer < largest) continue;
@@ -103,6 +133,13 @@ for (const feature of collection.features) {
 	}
 	borders[cc] = out;
 }
-const target = join(import.meta.dirname, '..', 'src', 'lib', 'data', 'borders.json');
-writeFileSync(target, JSON.stringify(borders));
-console.log(`${Object.keys(borders).length} countries, ${before} points -> ${after}, ${target}`);
+const data = join(import.meta.dirname, '..', 'src', 'lib', 'data');
+const sorted = (record) =>
+	Object.fromEntries(
+		Object.keys(record)
+			.sort()
+			.map((cc) => [cc, record[cc]])
+	);
+writeFileSync(join(data, 'countries.json'), JSON.stringify(sorted(boxes)));
+writeFileSync(join(data, 'borders.json'), JSON.stringify(sorted(borders)));
+console.log(`${Object.keys(borders).length} countries; borders ${before} points -> ${after}`);
