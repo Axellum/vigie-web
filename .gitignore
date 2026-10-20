@@ -1,0 +1,19 @@
+# Dependencies and builds
+node_modules/
+.svelte-kit/
+build/
+dist/
+
+# Tests
+test-results/
+playwright-report/
+coverage/
+.lighthouseci/
+
+# Environment and local files
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
