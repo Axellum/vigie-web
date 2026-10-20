@@ -15,6 +15,14 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   countries in view (from zoom 2.3), from `/data/warnings/<cc>.json`, which carries short texts and shared
   shapes (one shape per territory, not one per warning). The full texts come with the alert's page or
   `/data/warning/<cc>/<id>.json`.
+- **Near me** (`/near`). The place is chosen in the browser (its position, a click on the map, or the page's
+  address, `#lat,lon,radius`) and the matching is done there, on the data every visitor loads: the warnings of
+  the countries around it (an area that holds it, a river section within 5 km, the areas within 2 km when a
+  simplified coast leaves it outside, like the API's margins) and the hazards within the radius. Which country
+  the place is in comes from simplified borders (`src/lib/data/borders.json`, 100 kB compressed, loaded with
+  the first place). Only the weather needs the server: the page sends the position rounded to the API's
+  weather grid (0.05°, about 5 km), and the server caches each grid point and bounds the requests that reach
+  the API (`docs/configuration.md`, "Weather by place").
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official
   message plus its area's first code: one CAP message often covers several areas, which the API returns as
   one warning each.
@@ -26,12 +34,15 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 
 ## Files
 
-| Path                                            | Role                                                                                                                                                        |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/server/vigie.ts`, `cache.ts`           | The API client and its cache (the only place that talks to the API).                                                                                        |
-| `src/lib/transform.ts`                          | API answers to the site's models (pure functions, tested).                                                                                                  |
-| `src/lib/geo.ts`, `src/lib/data/countries.json` | Covered countries and their boxes (Natural Earth, public domain, from the API's own borders).                                                               |
-| `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection.                                                                                                        |
-| `src/routes/`                                   | Pages (`/`, `/countries`, `/country/<cc>`, `/country/<cc>/<area>`, `/warning/<cc>/<id>`, `/alert/<id>`, `/sources`, `/about`) and data answers (`/data/*`). |
-| `e2e/`                                          | End-to-end tests and the recorded API answers they replay.                                                                                                  |
-| `deploy/deck/`                                  | Podman quadlets and Caddyfile for a home server (the Steam Deck).                                                                                           |
+| Path                                            | Role                                                                                                                                                                 |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/server/vigie.ts`, `cache.ts`           | The API client and its cache (the only place that talks to the API).                                                                                                 |
+| `src/lib/transform.ts`                          | API answers to the site's models (pure functions, tested).                                                                                                           |
+| `src/lib/geo.ts`, `src/lib/data/countries.json` | Covered countries and their boxes (Natural Earth, public domain, from the API's own borders).                                                                        |
+| `src/lib/near.ts`, `src/lib/data/borders.json`  | Where a place stands: warnings that hold it, rivers and hazards around it, its country (borders simplified by `scripts/build-borders.mjs`).                          |
+| `src/lib/server/budget.ts`                      | The daily bound on the weather requests that reach the API.                                                                                                          |
+| `src/lib/components/PointWeather.svelte`        | The weather of a place (`/v1/point`), with the credit of each block.                                                                                                 |
+| `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection.                                                                                                                 |
+| `src/routes/`                                   | Pages (`/`, `/near`, `/countries`, `/country/<cc>`, `/country/<cc>/<area>`, `/warning/<cc>/<id>`, `/alert/<id>`, `/sources`, `/about`) and data answers (`/data/*`). |
+| `e2e/`                                          | End-to-end tests and the recorded API answers they replay.                                                                                                           |
+| `deploy/deck/`                                  | Podman quadlets and Caddyfile for a home server (the Steam Deck).                                                                                                    |

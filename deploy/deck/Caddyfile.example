@@ -10,6 +10,8 @@
 :8090 {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000
+	# The weather requests carry a position (rounded to about 5 km): not written to the log.
+	log_skip /data/point.json*
 	log {
 		output stdout
 		format console
@@ -17,7 +19,7 @@
 }
 
 # Public address, off until the router forwards its port 443 to 8443 and the legal notice is ready.
-# Let's Encrypt then validates by TLS-ALPN on the public 443.
+# Let's Encrypt then validates by TLS-ALPN on the public 443. No access log here: nothing about visitors is kept.
 # vigie.example.org {
 # 	encode zstd gzip
 # 	reverse_proxy 127.0.0.1:3000

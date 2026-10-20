@@ -40,7 +40,8 @@ Use PowerShell 5.1-compatible commands when you give a command to the owner (no 
 5. **No secret in the repository.** Settings are environment variables (`docs/configuration.md`).
 6. **Privacy.** No third-party script, font or tracker: fonts are bundled, the only third-party host is
    the base map (OpenFreeMap). No cookie except the language choice. A position the visitor gives stays in
-   their browser unless they save it in an account.
+   their browser unless they save it in an account: the "near me" page does its matching there, and sends
+   only the position rounded to the API's weather grid (about 5 km), for the weather. Never log it.
 7. **Tests never touch the network.** Unit tests use recorded API answers from `e2e/fixtures/`; the
    end-to-end tests run against `e2e/mock-api.mjs`, which replays them.
 8. **Everything in the repository is in English** (code, comments, commits). The site itself speaks
