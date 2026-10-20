@@ -21,3 +21,4 @@ All notable changes are listed here. Versions are git tags.
 - The official warnings of the countries in view show from zoom 2.3, so the Europe and United States shortcuts
   bring them on a laptop screen; a country whose warnings fail is named once and asked again after 30 s,
   instead of being asked again in a loop.
+- No `Cross-Origin-Opener-Policy` header on plain HTTP, where browsers ignore it and log an error.

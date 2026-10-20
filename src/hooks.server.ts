@@ -43,8 +43,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		'permissions-policy',
 		'camera=(), microphone=(), geolocation=(self), interest-cohort=()'
 	);
-	response.headers.set('cross-origin-opener-policy', 'same-origin');
+	// Browsers ignore these two on plain HTTP (the home network address), so they are only sent on HTTPS.
 	if (event.url.protocol === 'https:') {
+		response.headers.set('cross-origin-opener-policy', 'same-origin');
 		response.headers.set('strict-transport-security', 'max-age=31536000');
 	}
 	// The page depends on the language: a shared cache must keep one copy per language.
