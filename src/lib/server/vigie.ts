@@ -1,23 +1,32 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
 import { env } from '$env/dynamic/private';
-import { isCovered } from '$lib/geo';
+import { hasBox } from '$lib/geo';
 import { snapToGrid } from '$lib/near';
 import {
 	forecastFromApi,
 	hazardsFromApi,
 	pointFromApi,
+	servedFromApi,
 	warningsFromApi,
 	type ParsedWarnings
 } from '$lib/transform';
-import type { HazardForecast, HazardsData, PointWeather, Provider } from '$lib/types';
+import type { HazardForecast, HazardsData, PointWeather, Provider, ServedCountry } from '$lib/types';
 import { SlidingBudget } from './budget';
 import { TtlCache, type Cached } from './cache';
 
 /** Seconds each kind of answer is kept. The API caches its sources itself; this only spares it. */
 // A point's weather: the API's forecast changes every 15 minutes at most.
 // A forecast changes with a new advisory (every 3 to 6 hours for a storm) or a new tsunami message.
-export const TTL_S = { hazards: 60, warnings: 120, providers: 60, point: 900, forecast: 300 } as const;
+// The countries served change with the API's settings only.
+export const TTL_S = {
+	hazards: 60,
+	warnings: 120,
+	providers: 60,
+	point: 900,
+	forecast: 300,
+	served: 600
+} as const;
 
 const cache = new TtlCache();
 // Points have their own cache, so that many places cannot push the shared answers out.
@@ -57,10 +66,39 @@ export function getHazards(): Promise<Cached<HazardsData>> {
 	);
 }
 
-/** Warnings of one covered country; null for a country with no source. */
+/** The countries the API serves official warnings for. */
+export function getServed(): Promise<Cached<ServedCountry[]>> {
+	return cache.get('served', TTL_S.served * 1000, async () =>
+		servedFromApi(await getJson('/v1/vigilances/countries', 15_000))
+	);
+}
+
+/** The codes of the served countries; an empty list when the API cannot tell (the map then loads none). */
+export async function servedCodes(): Promise<string[]> {
+	try {
+		return (await getServed()).value.map((c) => c.country);
+	} catch (e) {
+		if (e instanceof ApiError) return [];
+		throw e;
+	}
+}
+
+/** Whether the API serves this country. When the API cannot tell, any country it has a border for may be,
+ *  and its page says that the source does not answer. */
+export async function isServed(cc: string): Promise<boolean> {
+	if (!/^[A-Z]{2}$/.test(cc)) return false;
+	try {
+		return (await getServed()).value.some((c) => c.country === cc);
+	} catch (e) {
+		if (e instanceof ApiError) return hasBox(cc);
+		throw e;
+	}
+}
+
+/** Warnings of one served country; null for a country with no source. */
 export async function getWarnings(country: string): Promise<Cached<ParsedWarnings> | null> {
 	const cc = country.toUpperCase();
-	if (!/^[A-Z]{2}$/.test(cc) || !isCovered(cc)) return null;
+	if (!(await isServed(cc))) return null;
 	return cache.get(`warnings:${cc}`, TTL_S.warnings * 1000, async () =>
 		warningsFromApi(cc, await getJson(`/v1/vigilances.geojson?country=${cc}`))
 	);

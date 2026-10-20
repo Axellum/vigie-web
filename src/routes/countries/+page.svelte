@@ -1,14 +1,13 @@
 <script lang="ts">
-	import { COVERED_CODES } from '$lib/geo';
 	import { countryName, translator } from '$lib/i18n';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
 	const tr = $derived(translator(lang));
 	const countries = $derived(
-		COVERED_CODES.map((cc) => ({ cc, name: countryName(lang, cc) })).sort((a, b) =>
-			a.name.localeCompare(b.name, lang)
-		)
+		data.served
+			.map((c) => ({ cc: c.country, name: countryName(lang, c.country), verified: c.licenceVerified }))
+			.sort((a, b) => a.name.localeCompare(b.name, lang))
 	);
 </script>
 
@@ -21,10 +20,20 @@
 	<header class="intro">
 		<h1>{tr('countries.title')}</h1>
 		<p class="muted">{tr('countries.intro')}</p>
+		{#if !data.apiDown}<p class="muted">{tr('countries.count', { n: countries.length })}</p>{/if}
 	</header>
+	{#if data.apiDown}<p class="note">{tr('error.api')}</p>{/if}
 	<ul class="grid">
 		{#each countries as c (c.cc)}
-			<li><a href="/country/{c.cc.toLowerCase()}"><span class="code data">{c.cc}</span> {c.name}</a></li>
+			<li>
+				<a href="/country/{c.cc.toLowerCase()}">
+					<span class="code data">{c.cc}</span>
+					<span>
+						{c.name}
+						{#if !c.verified}<span class="muted small licence">{tr('countries.licence')}</span>{/if}
+					</span>
+				</a>
+			</li>
 		{/each}
 	</ul>
 </div>
@@ -61,5 +70,14 @@
 	.code {
 		color: var(--muted);
 		font-size: 12px;
+	}
+	.licence {
+		display: block;
+	}
+	.note {
+		background: var(--accent-soft);
+		border-radius: var(--radius);
+		padding: 8px 10px;
+		font-size: 14px;
 	}
 </style>

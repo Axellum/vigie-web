@@ -5,7 +5,7 @@ import {
 	coveredInView,
 	geometryBox,
 	grow,
-	isCovered,
+	hasBox,
 	pointInBox,
 	type Box
 } from './geo';
@@ -29,17 +29,22 @@ describe('boxes', () => {
 	});
 });
 
-describe('covered countries', () => {
-	it('knows France and the United States, not Japan', () => {
-		expect(isCovered('fr')).toBe(true);
-		expect(isCovered('US')).toBe(true);
-		expect(isCovered('JP')).toBe(false);
+describe('countries', () => {
+	it('has the boxes of the countries the API has a border for', () => {
+		expect(hasBox('fr')).toBe(true);
+		expect(hasBox('BR')).toBe(true);
+		// The API has no border for a country of no use to it (no source in the WMO register).
+		expect(hasBox('JP')).toBe(false);
 	});
 
-	it('finds France in a view of France, not the United States', () => {
-		const inView = coveredInView([-2, 43, 6, 49]);
+	it('finds the served countries in a view, and only them', () => {
+		const inView = coveredInView([-2, 43, 6, 49], ['FR', 'US', 'ES']);
 		expect(inView).toContain('FR');
+		expect(inView).toContain('ES');
 		expect(inView).not.toContain('US');
+		expect(coveredInView([-2, 43, 6, 49], ['US'])).toEqual([]);
+		// A code the API serves but the site has no box for is left out, not an error.
+		expect(coveredInView([-180, -85, 180, 85], ['ZZ'])).toEqual([]);
 	});
 
 	it('frames the main land part of a country', () => {

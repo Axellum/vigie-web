@@ -4,12 +4,12 @@ import countryBoxes from './data/countries.json';
 /** [west, south, east, north] in degrees. */
 export type Box = [number, number, number, number];
 
-/** The countries that have a source of official warnings, with the boxes of their main land parts. */
-export const COVERED = countryBoxes as unknown as Record<string, Box[]>;
-export const COVERED_CODES = Object.keys(COVERED).sort();
+/** The boxes of the main land parts of every country the API has a border for. Which of them have a source
+ *  of official warnings is the API's answer (`/v1/vigilances/countries`), not this list. */
+export const BOXES = countryBoxes as unknown as Record<string, Box[]>;
 
-export function isCovered(cc: string): boolean {
-	return cc.toUpperCase() in COVERED;
+export function hasBox(cc: string): boolean {
+	return cc.toUpperCase() in BOXES;
 }
 
 /** Brings a longitude into the 360° window that starts at `west`. */
@@ -35,14 +35,14 @@ export function pointInBox(view: Box, lon: number, lat: number): boolean {
 	return wrapInto(lon, vw) <= ve;
 }
 
-/** Covered countries with at least one main part inside the view. */
-export function coveredInView(view: Box): string[] {
-	return COVERED_CODES.filter((cc) => COVERED[cc].some((box) => boxesOverlap(view, box)));
+/** The covered countries with at least one main part inside the view. */
+export function coveredInView(view: Box, covered: readonly string[]): string[] {
+	return covered.filter((cc) => BOXES[cc]?.some((box) => boxesOverlap(view, box)));
 }
 
 /** The box that holds every main part of a country (for zooming on it), or null when not covered. */
 export function countryBox(cc: string): Box | null {
-	const boxes = COVERED[cc.toUpperCase()];
+	const boxes = BOXES[cc.toUpperCase()];
 	if (!boxes || boxes.length === 0) return null;
 	// The largest part comes first. Parts close to it are added (Corsica for France); far ones are not
 	// (Alaska, overseas territories), so that the frame stays readable.

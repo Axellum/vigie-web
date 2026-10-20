@@ -163,9 +163,25 @@ test('near me shows the warnings and the weather of a place given in the address
 });
 
 test('near me says when no source of official warnings covers the place', async ({ page }) => {
-	// Mexico City.
-	await page.goto('/near#19.43,-99.13,300');
-	await expect(page.getByText(/Aucune source de vigilances officielles/)).toBeVisible({ timeout: 15_000 });
+	// São Paulo: Brazil has a border but no source.
+	await page.goto('/near#-23.55,-46.63,300');
+	await expect(page.getByText(/Aucune source de vigilances officielles .* \(Brésil\)/)).toBeVisible({
+		timeout: 15_000
+	});
+});
+
+test('the covered countries are the ones the API serves', async ({ page, request }) => {
+	const served = fixture('vigilances-countries') as unknown as Json[];
+	await page.goto('/countries');
+	await expect(page.getByText(`${served.length} pays.`)).toBeVisible();
+	await expect(page.getByRole('link', { name: /Mexique/ })).toBeVisible();
+	// New Zealand's source has no confirmed reuse licence: the page says so.
+	await expect(page.getByRole('link', { name: /Nouvelle-Zélande/ })).toContainText(
+		'Licence de réutilisation non confirmée'
+	);
+	await expect(page.getByRole('link', { name: /Brésil/ })).toHaveCount(0);
+	expect((await request.get('/country/mx')).status()).toBe(200);
+	expect((await request.get('/country/jp')).status()).toBe(404);
 });
 
 test('the weather answer checks its position and is cacheable', async ({ request }) => {

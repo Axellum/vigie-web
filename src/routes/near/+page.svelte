@@ -132,7 +132,7 @@
 	// --- official warnings of the countries around the place -------------------------------------------
 	type CountryState = { status: 'loading' | 'ok' | 'error'; data?: WarningsData };
 	const countries = new SvelteMap<string, CountryState>();
-	const nearCountries = $derived(place ? countriesNear(place) : []);
+	const nearCountries = $derived(place ? countriesNear(place, data.served) : []);
 
 	async function loadCountry(cc: string) {
 		const previous = countries.get(cc);
@@ -370,8 +370,11 @@
 	{:else}
 		<section class="block">
 			<h2>{tr('near.warnings')}</h2>
-			{#if nearCountries.length === 0 || (country === null && here.length === 0)}
-				<p>{tr('near.noSource')} <a href="/countries">{tr('nav.countries')}</a></p>
+			{#if nearCountries.length === 0 || (here.length === 0 && (country === null || (country !== undefined && !data.served.includes(country))))}
+				<p>
+					{country ? tr('near.noSourceIn', { country: countryName(lang, country) }) : tr('near.noSource')}
+					<a href="/countries">{tr('nav.countries')}</a>
+				</p>
 			{:else}
 				{#if loading.length}
 					<p class="muted">

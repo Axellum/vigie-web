@@ -2,7 +2,7 @@
 // Computed in the browser from the data every visitor already loads, so that the position stays there.
 // Pure functions: no network, no clock.
 import type { Geometry, Position } from 'geojson';
-import { COVERED_CODES, COVERED } from './geo';
+import { BOXES } from './geo';
 import type { Hazard, WarningsData, WarningSummary } from './types';
 
 const EARTH_RADIUS_KM = 6371.0088;
@@ -58,10 +58,15 @@ export function placeHash(place: Place, radiusKm: number): string {
 	return `#${f(place.lat)},${f(place.lon)},${radiusKm}`;
 }
 
-/** Covered countries whose boxes are near the point: their warnings are the only ones that can hold it. */
-export function countriesNear(place: Place): string[] {
-	return COVERED_CODES.filter((cc) =>
-		COVERED[cc].some(
+/** The covered countries whose boxes are near the point: their warnings are the only ones that can hold it. */
+export function countriesNear(place: Place, covered: readonly string[]): string[] {
+	return boxesNear(place, covered);
+}
+
+/** The countries of `codes` with a box near the point. */
+function boxesNear(place: Place, codes: readonly string[]): string[] {
+	return codes.filter((cc) =>
+		(BOXES[cc] ?? []).some(
 			([w, s, e, n]) =>
 				place.lat >= s - BOX_MARGIN_DEG &&
 				place.lat <= n + BOX_MARGIN_DEG &&
@@ -239,18 +244,18 @@ export function circleBox(place: Place, radiusKm: number): [number, number, numb
 	];
 }
 
-/** The simplified borders of the covered countries (`src/lib/data/borders.json`): country → polygons. */
+/** The simplified borders of the countries the API knows (`src/lib/data/borders.json`): country → polygons. */
 export type Borders = Record<string, Position[][][]>;
 
 /** A place this close to a country (a simplified border or coast) belongs to it, like the API's margins. */
 export const COUNTRY_MARGIN_KM = 25;
 
 /**
- * The covered country a place is in: the one whose borders hold it, or else the nearest one within
- * `COUNTRY_MARGIN_KM` (a coast, a simplified border); null outside every covered country.
+ * The country a place is in, covered or not: the one whose borders hold it, or else the nearest one within
+ * `COUNTRY_MARGIN_KM` (a coast, a simplified border); null outside every country of the borders.
  */
 export function countryAt(borders: Borders, place: Place): string | null {
-	const candidates = countriesNear(place).filter((cc) => borders[cc]);
+	const candidates = boxesNear(place, Object.keys(borders));
 	const shape = (cc: string): Geometry => ({ type: 'MultiPolygon', coordinates: borders[cc] });
 	const inside = candidates.find((cc) => geometryHolds(shape(cc), place));
 	if (inside) return inside;
