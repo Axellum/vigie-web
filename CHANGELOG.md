@@ -16,6 +16,12 @@ All notable changes are listed here. Versions are git tags.
 - Server-side cache of the API answers, cacheable data answers, security headers, a per-address request limit.
 - Unit tests (vitest) and end-to-end tests (Playwright) on recorded API answers; CI.
 
+- "Near me" page: for a place (the browser's position, a click on the map, or the page's address), the official
+  warnings that hold it, the river sections within 5 km, the hazards within a chosen radius, and its weather (now,
+  rain in the next hour, next days, air, river discharge, sea, space weather). The matching is done in the browser;
+  only a position rounded to about 5 km is sent, for the weather, which the server caches per grid point and
+  bounds per day (`VIGIE_POINT_LOOKUPS_PER_DAY`).
+
 ### Changed
 
 - Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes
@@ -30,3 +36,4 @@ All notable changes are listed here. Versions are git tags.
 - The health check of the Deck container sends `X-Forwarded-For`, without which the server answers 500: the
   container was marked unhealthy while the site worked.
 - A description for search engines on the about and sources pages.
+- On a phone, a wide table no longer makes the whole page wider than the screen.

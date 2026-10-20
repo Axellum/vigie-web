@@ -6,6 +6,7 @@ import type {
 	Coverage,
 	Hazard,
 	HazardsData,
+	PointWeather,
 	WarningDetail,
 	WarningsData,
 	WarningSummary,
@@ -204,4 +205,99 @@ export function slug(name: string): string {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');
+}
+
+const numList = (v: unknown): number[] | null =>
+	Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'number' && Number.isFinite(x))
+		? (v as number[])
+		: null;
+
+/** The weather of `/v1/point`, without the nearby hazards (the page has them) and without the radar fields. */
+export function pointFromApi(body: unknown): PointWeather {
+	const p = obj(body);
+	const coords = obj(p.coordinates);
+	const c = p.current == null ? null : obj(p.current);
+	const rain = p.rain_nowcast == null ? null : obj(p.rain_nowcast);
+	const air = p.air_quality == null ? null : obj(p.air_quality);
+	const river = p.flood_risk == null ? null : obj(p.flood_risk);
+	const marine = p.marine == null ? null : obj(p.marine);
+	const space = p.space_weather == null ? null : obj(p.space_weather);
+	return {
+		lat: num(coords.lat) ?? NaN,
+		lon: num(coords.lon) ?? NaN,
+		generated: num(p.server_utc),
+		utcOffsetS: num(p.utc_offset_s),
+		provider: str(p.weather_provider),
+		fallback: bool(p.fallback_used) ?? false,
+		attribution: str(p.weather_attribution),
+		current: c && {
+			tempC: num(c.temp_c),
+			feelsLikeC: num(c.feels_like_c),
+			humidityPct: num(c.humidity_pct),
+			pressureHpa: num(c.pressure_hpa),
+			windKmh: num(c.wind_kmh),
+			gustKmh: num(c.gust_kmh),
+			windDeg: num(c.wind_deg),
+			rainMm: num(c.rain_1h_mm),
+			code: num(c.weather_code),
+			uv: num(c.uv_index)
+		},
+		daily: (Array.isArray(p.daily) ? p.daily : []).flatMap((raw) => {
+			const d = obj(raw);
+			const date = str(d.date);
+			if (!date) return [];
+			return [
+				{
+					date,
+					code: num(d.code),
+					tminC: num(d.tmin),
+					tmaxC: num(d.tmax),
+					rainMm: num(d.rain_mm),
+					rainProbabilityPct: num(d.rain_probability_pct),
+					windMaxKmh: num(d.wind_max),
+					uvMax: num(d.uv_max)
+				}
+			];
+		}),
+		rain: rain && {
+			stepMinutes: num(rain.interval_minutes),
+			mmPerStep: numList(rain.mm_per_step),
+			expected60: bool(rain.rain_expected_60m),
+			maxMmH: num(rain.max_mm_h),
+			attribution: str(rain.attribution)
+		},
+		air: air && {
+			eaqi: num(air.european_aqi),
+			usAqi: num(air.us_aqi),
+			pm25: num(air.pm2_5_ugm3),
+			pm10: num(air.pm10_ugm3),
+			dust: num(air.dust_ugm3),
+			stale: bool(air.stale) ?? false,
+			attribution: str(air.attribution)
+		},
+		river: river && {
+			todayM3s: num(river.river_discharge_m3s),
+			meanM3s: num(river.river_discharge_mean_m3s),
+			maxM3s: num(river.river_discharge_max_m3s),
+			stale: bool(river.stale) ?? false,
+			attribution: str(river.attribution)
+		},
+		marine: marine && {
+			waveM: num(marine.wave_height_m),
+			waveDeg: num(marine.wave_direction_deg),
+			wavePeriodS: num(marine.wave_period_s),
+			swellM: num(marine.swell_wave_height_m),
+			swellDeg: num(marine.swell_wave_direction_deg),
+			swellPeriodS: num(marine.swell_wave_period_s),
+			currentKmh: num(marine.ocean_current_velocity_kmh),
+			currentDeg: num(marine.ocean_current_direction_deg),
+			stale: bool(marine.stale) ?? false,
+			attribution: str(marine.attribution)
+		},
+		space: space && {
+			kp: num(space.solar_kp),
+			storm: str(space.solar_storm_level),
+			attribution: str(space.attribution)
+		}
+	};
 }

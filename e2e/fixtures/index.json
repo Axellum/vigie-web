@@ -1,5 +1,8 @@
 {
  "recorded_utc": 1792505613,
+ "recorded": {
+  "point.json": 1792509065
+ },
  "source": "a Vigie API instance",
  "paths": {
   "/v1/health": "health.json",
@@ -13,6 +16,7 @@
   "/v1/vigilances.geojson?country=GB": "warnings-GB.json",
   "/v1/vigilances.geojson?country=US": "warnings-US.json",
   "/v1/vigilances.geojson?country=CA": "warnings-CA.json",
-  "/v1/vigilances.geojson?country=NZ": "warnings-NZ.json"
+  "/v1/vigilances.geojson?country=NZ": "warnings-NZ.json",
+  "/v1/point": "point.json"
  }
 }

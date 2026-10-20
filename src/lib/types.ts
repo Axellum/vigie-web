@@ -95,3 +95,80 @@ export interface Provider {
 	healthy: boolean | null;
 	[key: string]: unknown;
 }
+
+/** Weather at one point of the API's grid (`/v1/point`). Every value the API did not give stays null. */
+export interface PointWeather {
+	/** The grid point that was asked: the visitor's position rounded to the weather grid. */
+	lat: number;
+	lon: number;
+	generated: number | null;
+	utcOffsetS: number | null;
+	provider: string | null;
+	fallback: boolean;
+	/** Credit for `current` and `daily`; the other blocks carry their own. */
+	attribution: string | null;
+	current: {
+		tempC: number | null;
+		feelsLikeC: number | null;
+		humidityPct: number | null;
+		pressureHpa: number | null;
+		windKmh: number | null;
+		gustKmh: number | null;
+		windDeg: number | null;
+		rainMm: number | null;
+		code: number | null;
+		uv: number | null;
+	} | null;
+	daily: {
+		date: string;
+		code: number | null;
+		tminC: number | null;
+		tmaxC: number | null;
+		rainMm: number | null;
+		rainProbabilityPct: number | null;
+		windMaxKmh: number | null;
+		uvMax: number | null;
+	}[];
+	/** Rain over the next hour, in steps; the radar fields of the API are not used (their terms). */
+	rain: {
+		stepMinutes: number | null;
+		mmPerStep: number[] | null;
+		expected60: boolean | null;
+		maxMmH: number | null;
+		attribution: string | null;
+	} | null;
+	air: {
+		eaqi: number | null;
+		usAqi: number | null;
+		pm25: number | null;
+		pm10: number | null;
+		dust: number | null;
+		stale: boolean;
+		attribution: string | null;
+	} | null;
+	/** River discharge at the point (GloFAS): the raw values only, not the API's heuristic level. */
+	river: {
+		todayM3s: number | null;
+		meanM3s: number | null;
+		maxM3s: number | null;
+		stale: boolean;
+		attribution: string | null;
+	} | null;
+	marine: {
+		waveM: number | null;
+		waveDeg: number | null;
+		wavePeriodS: number | null;
+		swellM: number | null;
+		swellDeg: number | null;
+		swellPeriodS: number | null;
+		currentKmh: number | null;
+		currentDeg: number | null;
+		stale: boolean;
+		attribution: string | null;
+	} | null;
+	space: {
+		kp: number | null;
+		storm: string | null;
+		attribution: string | null;
+	} | null;
+}

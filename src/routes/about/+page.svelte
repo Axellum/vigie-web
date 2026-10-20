@@ -38,6 +38,11 @@
 			cookie retient la langue choisie ; le thème est gardé dans votre navigateur. Le fond de carte est chargé
 			depuis OpenFreeMap, qui reçoit donc votre adresse IP comme tout site que vous visitez.
 		</p>
+		<p>
+			Sur la page « Autour de moi », le lieu que vous choisissez reste dans votre navigateur : les vigilances
+			et les catastrophes autour de lui y sont calculées. Seule une position arrondie à environ 5 km est
+			envoyée au site, pour la météo ; le site ne la garde pas avec votre adresse IP.
+		</p>
 		<h2>Mentions légales</h2>
 		<p>En préparation : le site n'est pas encore ouvert au public.</p>
 	{:else}
@@ -63,6 +68,11 @@
 			No account, no advertising, no audience measurement, no third-party script or font. The only cookie
 			keeps the language you chose; the theme is kept in your browser. The base map is loaded from
 			OpenFreeMap, which therefore receives your IP address like any site you visit.
+		</p>
+		<p>
+			On the "Near me" page, the place you choose stays in your browser: the warnings and hazards around it
+			are worked out there. Only a position rounded to about 5 km is sent to the site, for the weather; the
+			site does not keep it with your IP address.
 		</p>
 		<h2>Legal notice</h2>
 		<p>In preparation: the site is not open to the public yet.</p>

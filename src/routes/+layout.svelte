@@ -19,6 +19,7 @@
 
 	const nav = [
 		{ href: '/', key: 'nav.map' },
+		{ href: '/near', key: 'nav.near' },
 		{ href: '/countries', key: 'nav.countries' },
 		{ href: '/sources', key: 'nav.sources' },
 		{ href: '/about', key: 'nav.about' }

@@ -7,6 +7,7 @@ const fixture = (name: string): Json =>
 	JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `${name}.json`), 'utf-8'));
 const hazards = fixture('hazards');
 const fr = fixture('warnings-FR');
+const point = fixture('point');
 
 function collectErrors(page: Page): string[] {
 	const errors: string[] = [];
@@ -126,4 +127,48 @@ test('the Europe shortcut shows the official warnings of the countries in view',
 	});
 	// Countries that were not recorded answer 503: the list says so instead of showing nothing.
 	await expect(page.getByText(/Vigilances indisponibles pour le moment/)).toBeVisible();
+});
+
+test('near me shows the warnings and the weather of a place given in the address', async ({ page }) => {
+	const errors = collectErrors(page);
+	const red = fr.features.find(
+		(f: Json) =>
+			f.properties.level === 'RED' &&
+			f.properties.area?.description === 'Haute-Corse' &&
+			f.properties.texts?.length
+	);
+	test.skip(!red, 'the recording has no red warning with a text in Haute-Corse');
+	const headline = (
+		red.properties.texts.find((t: Json) => t.language.startsWith('fr')) ?? red.properties.texts[0]
+	).headline;
+	// Corte, in Haute-Corse.
+	await page.goto('/near#42.306,9.15,300');
+	await expect(page.getByRole('heading', { level: 1, name: 'Autour de moi' })).toBeVisible();
+	await expect(page.getByText(headline).first()).toBeVisible({ timeout: 15_000 });
+	// The weather is the recorded answer, with its credit; the temperature in French notation.
+	const temp = `${String(point.current.temp_c).replace('.', ',')} °C`;
+	await expect(page.getByText(temp, { exact: true }).first()).toBeVisible();
+	await expect(page.getByText('Weather data by Open-Meteo.com (https://open-meteo.com/)')).toBeVisible();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('near me says when no source of official warnings covers the place', async ({ page }) => {
+	// Mexico City.
+	await page.goto('/near#19.43,-99.13,300');
+	await expect(page.getByText(/Aucune source de vigilances officielles/)).toBeVisible({ timeout: 15_000 });
+});
+
+test('the weather answer checks its position and is cacheable', async ({ request }) => {
+	expect((await request.get('/data/point.json')).status()).toBe(400);
+	expect((await request.get('/data/point.json?lat=95&lon=0')).status()).toBe(400);
+	const answer = await request.get('/data/point.json?lat=42.3&lon=9.15');
+	expect(answer.status()).toBe(200);
+	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	const body = await answer.json();
+	expect(body.current.tempC).toBe(point.current.temp_c);
+	expect(body.daily.length).toBe(point.daily.length);
 });

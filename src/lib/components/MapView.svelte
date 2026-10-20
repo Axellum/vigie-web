@@ -10,6 +10,7 @@
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
 	import { translator, type Lang } from '$lib/i18n';
 	import type { Box } from '$lib/geo';
+	import { circleRing, type Place } from '$lib/near';
 	import type { Hazard } from '$lib/types';
 
 	interface Props {
@@ -20,8 +21,12 @@
 		frame?: Box | null;
 		globe?: boolean;
 		label?: string;
+		/** A chosen place, drawn as a dot and the circle of its radius. */
+		place?: (Place & { radiusKm: number | null }) | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
+		/** When given, a click on the map chooses a place. */
+		onpick?: (place: Place) => void;
 	}
 
 	let {
@@ -32,8 +37,10 @@
 		frame = null,
 		globe = false,
 		label,
+		place = null,
 		onselect,
-		onmove
+		onmove,
+		onpick
 	}: Props = $props();
 
 	const tr = $derived(translator(lang));
@@ -101,6 +108,29 @@
 		};
 	}
 
+	function placeData(): FeatureCollection {
+		if (!place) return { type: 'FeatureCollection', features: [] };
+		return {
+			type: 'FeatureCollection',
+			features: [
+				...(place.radiusKm
+					? [
+							{
+								type: 'Feature' as const,
+								geometry: { type: 'LineString' as const, coordinates: circleRing(place, place.radiusKm) },
+								properties: {}
+							}
+						]
+					: []),
+				{
+					type: 'Feature',
+					geometry: { type: 'Point', coordinates: [place.lon, place.lat] },
+					properties: {}
+				}
+			]
+		};
+	}
+
 	function addOverlay() {
 		if (!map) return;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
@@ -109,6 +139,7 @@
 		if (map.getLayer('water')) map.setPaintProperty('water', 'fill-color', css('--map-water'));
 		map.addSource('zones', { type: 'geojson', data: zones });
 		map.addSource('quakes', { type: 'geojson', data: quakes() });
+		map.addSource('place', { type: 'geojson', data: placeData() });
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -162,6 +193,25 @@
 				'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 3, 8, 5, 10.5, 6, 13.5, 7, 17, 8, 22],
 				'circle-color': 'rgba(0,0,0,0)',
 				'circle-stroke-color': css('--ink'),
+				'circle-stroke-width': 2.5
+			}
+		});
+		map.addLayer({
+			id: 'place-radius',
+			type: 'line',
+			source: 'place',
+			filter: ['==', ['geometry-type'], 'LineString'],
+			paint: { 'line-color': css('--accent'), 'line-width': 1.5, 'line-dasharray': [3, 2] }
+		});
+		map.addLayer({
+			id: 'place-dot',
+			type: 'circle',
+			source: 'place',
+			filter: ['==', ['geometry-type'], 'Point'],
+			paint: {
+				'circle-radius': 7,
+				'circle-color': css('--accent'),
+				'circle-stroke-color': css('--surface'),
 				'circle-stroke-width': 2.5
 			}
 		});
@@ -291,7 +341,14 @@
 				pick('zone-river', (p) => ({ kind: 'zone', key: String(p.key) }));
 				for (const layer of ['quake', 'zone-fill', 'zone-river']) {
 					map.on('mouseenter', layer, () => (map!.getCanvas().style.cursor = 'pointer'));
-					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = ''));
+					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = onpick ? 'crosshair' : ''));
+				}
+				if (onpick) {
+					map.getCanvas().style.cursor = 'crosshair';
+					map.on('click', (e) => {
+						const at = e.lngLat.wrap();
+						onpick?.({ lat: at.lat, lon: at.lng });
+					});
 				}
 				map.on('moveend', () => onmove?.(view(), map!.getZoom()));
 				map.on('load', () => {
@@ -332,6 +389,10 @@
 	$effect(() => {
 		void selected;
 		if (ready) applySelection();
+	});
+	$effect(() => {
+		void place;
+		if (ready && map?.getSource('place')) (map.getSource('place') as GeoJSONSource).setData(placeData());
 	});
 	// A new frame given after the map started (data loaded later): move to it once.
 	let lastFrame = '';
