@@ -287,6 +287,26 @@ test('a storm shows its forecast in the panel and on its page', async ({ page })
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test('a hazard page says what it is close to, as calculated by Vigie', async ({ page }) => {
+	const near = hazards.features.find((f: Json) => f.properties.near_places?.length);
+	const none = hazards.features.find(
+		(f: Json) => Array.isArray(f.properties.near_places) && f.properties.near_places.length === 0
+	);
+	test.skip(!near || !none, 'the recording has no hazard with places near it, or none without');
+	await page.goto(`/alert/${encodeURIComponent(near.id)}`);
+	const first = near.properties.near_places[0];
+	await expect(page.locator('.near li').first()).toContainText(first.name);
+	await expect(page.locator('.near li')).toHaveCount(near.properties.near_places.length);
+	await expect(page.getByText(/calculé par Vigie/)).toBeVisible();
+	await page.goto(`/alert/${encodeURIComponent(none.id)}`);
+	await expect(
+		page.getByText('Aucune faille active nommée ni aucun volcan signalé à proximité')
+	).toBeVisible();
+	// A storm is compared with nothing: no line at all, rather than "nothing near".
+	await page.goto('/alert/nhc_al092026');
+	await expect(page.getByText('À proximité', { exact: true })).toHaveCount(0);
+});
+
 test('a tsunami page lists the estimated arrivals and the official message', async ({ page }) => {
 	await page.goto('/alert/tsunami_pheb_26282000');
 	await expect(page.getByRole('heading', { level: 3, name: 'Arrivées estimées' })).toBeVisible();

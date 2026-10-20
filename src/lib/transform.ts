@@ -9,6 +9,7 @@ import type {
 	HazardForecast,
 	FireTile,
 	HazardsData,
+	NearPlace,
 	PointWeather,
 	ServedCountry,
 	WarningDetail,
@@ -59,6 +60,18 @@ export function roundGeometry(geometry: Geometry, decimals = 3): Geometry {
 	return { ...geometry, coordinates: round(geometry.coordinates) } as Geometry;
 }
 
+/** The places near a hazard; a place without a name is left out (the API never sends one). */
+function nearPlacesFromApi(value: unknown): NearPlace[] | null {
+	if (!Array.isArray(value)) return null;
+	const places: NearPlace[] = [];
+	for (const item of value) {
+		const p = obj(item);
+		const name = str(p.name);
+		if (name) places.push({ name, kind: str(p.kind) ?? '', distanceKm: num(p.distance_km) });
+	}
+	return places;
+}
+
 export function hazardsFromApi(body: unknown): HazardsData {
 	const collection = obj(body) as Partial<FeatureCollection> & Json;
 	const meta = obj(collection.metadata);
@@ -88,7 +101,8 @@ export function hazardsFromApi(body: unknown): HazardsData {
 			lon,
 			lat,
 			attribution: str(p.attribution),
-			hasForecast: bool(p.has_forecast) ?? false
+			hasForecast: bool(p.has_forecast) ?? false,
+			nearPlaces: nearPlacesFromApi(p.near_places)
 		});
 	}
 	return { generated: num(meta.generated_utc), attribution: str(meta.attribution), items };

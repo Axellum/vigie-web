@@ -5,7 +5,8 @@
   "vigilances-countries.json": 1792522470,
   "warnings-MX.json": 1792522808,
   "fires-grid.json": 1792528658,
-  "fires.json": 1792528658
+  "fires.json": 1792528658,
+  "hazards.json": 1792529303
  },
  "source": "a Vigie API instance",
  "paths": {

@@ -20,6 +20,16 @@ export interface Hazard {
 	attribution: string | null;
 	/** The API has a forecast to draw for it (a storm's cone, a tsunami's arrival times). */
 	hasForecast: boolean;
+	/** What an earthquake or a volcanic event is close to, nearest first: named active faults, volcanoes the sources
+	 * report. Calculated by the API, never a level. [] when nothing is near; null when it was not compared. */
+	nearPlaces: NearPlace[] | null;
+}
+
+export interface NearPlace {
+	name: string;
+	/** `fault` or `volcano`; another value is shown as the API gave it. */
+	kind: string;
+	distanceKm: number | null;
 }
 
 /**
