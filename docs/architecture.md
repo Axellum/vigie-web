@@ -42,7 +42,8 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   Sign-in is a passkey (WebAuthn, `@simplewebauthn/server`): the site keeps the public key only. A session
   is a random token in an HttpOnly cookie, stored as its SHA-256, like the invitation codes. Account pages
   are private (`Cache-Control: private, no-store`, never kept by the service worker); the public pages do
-  not read the session, so they stay the same for everybody and cacheable. The end-to-end tests run the
+  not read the session, so they stay the same for everybody and cacheable. Zones are PostGIS geographies (a
+  circle is stored as its buffer), so that the alerts can be matched to them in one query. The end-to-end tests run the
   real schema on PGlite (PostgreSQL in WebAssembly) and make passkeys with Chromium's virtual
   authenticator.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official

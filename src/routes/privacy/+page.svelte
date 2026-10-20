@@ -34,6 +34,11 @@
 				Le jeton lui-même n'est que dans le cookie de votre navigateur.
 			</li>
 			<li>
+				<b>Vos zones</b> : leur nom, leur forme (un point et un rayon, les coins d'une zone dessinée, un pays ou
+				une zone officielle) et leurs règles (niveau, types d'alerte). Un point peut être votre domicile : il ne
+				sert qu'à vos alertes et disparaît avec la zone ou le compte.
+			</li>
+			<li>
 				<b>Votre invitation</b> : une empreinte du code, la note de la personne qui vous a invité (par exemple pour
 				qui elle était) et ses dates.
 			</li>
@@ -63,8 +68,8 @@
 		<h2>Vos droits</h2>
 		<p>
 			Depuis <a href="/account">votre compte</a>, vous pouvez télécharger tout ce que le site garde sur vous
-			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys et ses sessions.
-			Vous pouvez aussi saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys, ses sessions et
+			ses zones. Vous pouvez aussi saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Où</h2>
 		<p>Sur le serveur du site, dans l'Union européenne.</p>
@@ -87,6 +92,11 @@
 			<li>
 				<b>Your sessions</b>: a fingerprint (SHA-256) of the sign-in token of each device, and its end date.
 				The token itself is only in your browser's cookie.
+			</li>
+			<li>
+				<b>Your zones</b>: their name, their shape (a point and a radius, the corners of a drawn zone, a
+				country or an official area) and their rules (level, kinds of alert). A point may be your home: it
+				only serves your alerts and goes with the zone or the account.
 			</li>
 			<li>
 				<b>Your invitation</b>: a fingerprint of the code, the note of the person who invited you (for example
@@ -118,8 +128,10 @@
 		<h2>Your rights</h2>
 		<p>
 			From <a href="/account">your account</a>, you can download everything the site keeps about you and
-			delete the account: deleting erases the account, its passkeys and its sessions at once. You can also
-			complain to the French data protection authority, the CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			delete the account: deleting erases the account, its passkeys, its sessions and its zones at once. You
+			can also complain to the French data protection authority, the CNIL (<a href="https://www.cnil.fr"
+				>cnil.fr</a
+			>).
 		</p>
 		<h2>Where</h2>
 		<p>On the site's server, in the European Union.</p>
