@@ -1,0 +1,34 @@
+import adapter from '@sveltejs/adapter-node';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+
+// The base map is the only third-party host (tiles, glyphs and sprites of OpenFreeMap).
+const MAP_HOST = 'https://tiles.openfreemap.org';
+
+/** @type {import('@sveltejs/kit').Config} */
+const config = {
+	preprocess: vitePreprocess(),
+	kit: {
+		adapter: adapter({ out: 'build', precompress: true }),
+		csp: {
+			mode: 'auto',
+			directives: {
+				'default-src': ['self'],
+				'script-src': ['self'],
+				// MapLibre and Svelte set inline styles on elements.
+				'style-src': ['self', 'unsafe-inline'],
+				'img-src': ['self', 'data:', 'blob:', MAP_HOST],
+				'connect-src': ['self', MAP_HOST],
+				'font-src': ['self'],
+				// MapLibre starts its worker from a blob: URL.
+				'worker-src': ['self', 'blob:'],
+				'child-src': ['blob:'],
+				'object-src': ['none'],
+				'base-uri': ['self'],
+				'form-action': ['self'],
+				'frame-ancestors': ['none']
+			}
+		}
+	}
+};
+
+export default config;
