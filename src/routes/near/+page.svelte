@@ -8,6 +8,7 @@
 	import { replaceState } from '$app/navigation';
 	import AlertRow from '$lib/components/AlertRow.svelte';
 	import MapView from '$lib/components/MapView.svelte';
+	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import PointWeather from '$lib/components/PointWeather.svelte';
 	import { number } from '$lib/format';
 	import { countryName, translator } from '$lib/i18n';
@@ -24,14 +25,15 @@
 		type Borders,
 		type Place
 	} from '$lib/near';
-	import type { PlaceMatch } from '$lib/places';
 	import { hazardRow, warningRow } from '$lib/rows';
 	import type { Level, PointWeather as Weather, WarningsData } from '$lib/types';
+	import { ZONE_RADII_KM } from '$lib/zones';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
 	const tr = $derived(translator(lang));
-	const RADII = [50, 100, 300, 500, 1000];
+	// The radii of the zones an account can watch, so that a zone opens here with its own radius.
+	const RADII = ZONE_RADII_KM;
 
 	let place = $state<Place | null>(null);
 	let radiusKm = $state(300);
@@ -76,51 +78,6 @@
 			() => (locate = 'denied'),
 			{ enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
 		);
-	}
-
-	// --- search by name (the server keeps the GeoNames places) ------------------------------------------
-	let query = $state('');
-	let found = $state<PlaceMatch[]>([]);
-	let search = $state<'idle' | 'busy' | 'ok' | 'none' | 'failed'>('idle');
-	let placesCredit = $state('');
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	let asked = 0;
-
-	function onQuery() {
-		clearTimeout(timer);
-		const q = query.trim();
-		if (q.length < 2) {
-			found = [];
-			search = 'idle';
-			return;
-		}
-		timer = setTimeout(() => void runSearch(q), 250);
-	}
-
-	async function runSearch(q: string) {
-		const ticket = ++asked;
-		search = 'busy';
-		try {
-			const response = await fetch(`/data/places.json?q=${encodeURIComponent(q)}`);
-			if (!response.ok) throw new Error(String(response.status));
-			const body = (await response.json()) as { places: PlaceMatch[]; attribution: string };
-			if (ticket !== asked) return;
-			found = body.places;
-			placesCredit = body.attribution;
-			search = found.length ? 'ok' : 'none';
-		} catch {
-			if (ticket === asked) search = 'failed';
-		}
-	}
-
-	const placeLabel = (p: PlaceMatch) =>
-		[p.name, p.region, countryName(lang, p.cc)].filter(Boolean).join(', ');
-
-	function pick(p: PlaceMatch) {
-		choose(p, placeLabel(p));
-		query = '';
-		found = [];
-		search = 'idle';
 	}
 
 	onMount(() => {
@@ -279,45 +236,7 @@
 		{#if data.apiDown}<p class="note">{tr('error.api')}</p>{/if}
 	</header>
 
-	<form
-		class="search"
-		role="search"
-		onsubmit={(e) => {
-			e.preventDefault();
-			if (found[0]) pick(found[0]);
-		}}
-	>
-		<label for="place-search">{tr('near.search')}</label>
-		<input
-			id="place-search"
-			type="search"
-			autocomplete="off"
-			spellcheck="false"
-			placeholder={tr('near.searchPlaceholder')}
-			bind:value={query}
-			oninput={onQuery}
-		/>
-		{#if search === 'ok'}
-			<ul class="results">
-				{#each found as p (`${p.name}|${p.region}|${p.cc}|${p.lat}`)}
-					<li>
-						<button type="button" onclick={() => pick(p)}>
-							<strong>{p.name}</strong>
-							<span class="muted">
-								{[p.region, countryName(lang, p.cc)].filter(Boolean).join(', ')}{#if p.population}
-									· {tr('near.inhabitants', { n: number(lang, p.population, 0) })}{/if}
-							</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-			<p class="credit">{placesCredit}</p>
-		{:else if search === 'none'}
-			<p class="muted small">{tr('near.searchNone')}</p>
-		{:else if search === 'failed'}
-			<p class="note">{tr('near.searchFailed')}</p>
-		{/if}
-	</form>
+	<PlaceSearch {lang} onpick={(p, label) => choose(p, label)} />
 
 	<div class="controls">
 		<button type="button" class="action" onclick={locateMe} disabled={locate === 'busy'}>
@@ -352,6 +271,11 @@
 		{/if}
 		{tr('near.pickHint')}
 	</p>
+	{#if place && data.accounts}
+		<p>
+			<a href="/account/zones/new{placeHash(place, radiusKm)}">{tr('zones.watchHere', { km: radiusKm })}</a>
+		</p>
+	{/if}
 
 	<div class="map">
 		<MapView
@@ -463,54 +387,6 @@
 		border-radius: var(--radius);
 		padding: 8px 10px;
 		font-size: 14px;
-	}
-	.search {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		max-width: 560px;
-	}
-	.search label {
-		font-weight: 600;
-		font-size: 14px;
-	}
-	.search input {
-		font: inherit;
-		padding: 9px 11px;
-		border: 1px solid var(--line);
-		border-radius: var(--radius);
-		background: var(--surface);
-		color: var(--ink);
-		min-width: 0;
-	}
-	.results {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		border: 1px solid var(--line);
-		border-radius: var(--radius);
-		background: var(--surface);
-		overflow: hidden;
-	}
-	.results li + li {
-		border-top: 1px solid var(--line);
-	}
-	.results button {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px 8px;
-		width: 100%;
-		text-align: left;
-		padding: 8px 11px;
-		border: 0;
-		background: none;
-		color: inherit;
-		font: inherit;
-		cursor: pointer;
-	}
-	.results button:hover,
-	.results button:focus-visible {
-		background: var(--accent-soft);
 	}
 	.controls {
 		display: flex;

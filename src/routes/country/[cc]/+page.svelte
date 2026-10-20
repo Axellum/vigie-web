@@ -51,6 +51,9 @@
 		{#if data.apiDown}
 			<p class="note">{tr('error.api')}</p>
 		{/if}
+		{#if data.accounts}
+			<p class="small"><a href="/account/zones/new?country={data.cc}">{tr('zones.watchCountry')}</a></p>
+		{/if}
 	</header>
 
 	{#if data.warnings}

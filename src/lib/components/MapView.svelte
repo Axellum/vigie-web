@@ -26,6 +26,8 @@
 		forecast?: FeatureCollection | null;
 		/** A chosen place, drawn as a dot and the circle of its radius. */
 		place?: (Place & { radiusKm: number | null }) | null;
+		/** A polygon being drawn or shown ([lon, lat] corners, not closed): its corners, edges and surface. */
+		drawing?: [number, number][] | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -41,6 +43,7 @@
 		globe = false,
 		label,
 		place = null,
+		drawing = null,
 		forecast = null,
 		onselect,
 		onmove,
@@ -110,6 +113,31 @@
 					properties: { id: h.id, level: h.level ?? 'NONE', mag: h.value ?? 4 }
 				}))
 		};
+	}
+
+	function drawingData(): FeatureCollection {
+		const corners = drawing ?? [];
+		const features: FeatureCollection['features'] = corners.map((c) => ({
+			type: 'Feature',
+			geometry: { type: 'Point', coordinates: c },
+			properties: {}
+		}));
+		if (corners.length >= 2)
+			features.push({
+				type: 'Feature',
+				geometry: {
+					type: 'LineString',
+					coordinates: corners.length >= 3 ? [...corners, corners[0]] : corners
+				},
+				properties: {}
+			});
+		if (corners.length >= 3)
+			features.push({
+				type: 'Feature',
+				geometry: { type: 'Polygon', coordinates: [[...corners, corners[0]]] },
+				properties: {}
+			});
+		return { type: 'FeatureCollection', features };
 	}
 
 	function placeData(): FeatureCollection {
@@ -307,6 +335,33 @@
 				'circle-stroke-width': 2.5
 			}
 		});
+		map.addSource('drawing', { type: 'geojson', data: drawingData() });
+		map.addLayer({
+			id: 'drawing-fill',
+			type: 'fill',
+			source: 'drawing',
+			filter: ['==', ['geometry-type'], 'Polygon'],
+			paint: { 'fill-color': css('--accent'), 'fill-opacity': 0.15 }
+		});
+		map.addLayer({
+			id: 'drawing-line',
+			type: 'line',
+			source: 'drawing',
+			filter: ['==', ['geometry-type'], 'LineString'],
+			paint: { 'line-color': css('--accent'), 'line-width': 2 }
+		});
+		map.addLayer({
+			id: 'drawing-dot',
+			type: 'circle',
+			source: 'drawing',
+			filter: ['==', ['geometry-type'], 'Point'],
+			paint: {
+				'circle-radius': 5,
+				'circle-color': css('--accent'),
+				'circle-stroke-color': css('--surface'),
+				'circle-stroke-width': 2
+			}
+		});
 		applySelection();
 	}
 
@@ -497,6 +552,11 @@
 		void place;
 		if (ready && map?.getSource('place')) (map.getSource('place') as GeoJSONSource).setData(placeData());
 	});
+	$effect(() => {
+		void drawing;
+		if (ready && map?.getSource('drawing'))
+			(map.getSource('drawing') as GeoJSONSource).setData(drawingData());
+	});
 	// A new frame given after the map started (data loaded later): move to it once.
 	let lastFrame = '';
 	$effect(() => {
@@ -514,7 +574,8 @@
 	}
 </script>
 
-<div class="wrap">
+<!-- data-ready: the base map is loaded and the map answers clicks (the end-to-end tests wait for it). -->
+<div class="wrap" data-ready={ready || undefined}>
 	<div class="map" bind:this={container} role="region" aria-label={label ?? tr('map.label')}></div>
 	{#if failed}
 		<p class="failed">{tr('map.failed')}</p>

@@ -22,6 +22,13 @@
 			<a href="/countries">{tr('nav.countries')}</a> · <a href="/country/{data.cc.toLowerCase()}">{name}</a>
 		</p>
 		<h1>{tr('area.title', { area: data.area, country: name })}</h1>
+		{#if data.accounts}
+			<p class="small">
+				<a href="/account/zones/new?country={data.cc}&area={encodeURIComponent(data.area)}"
+					>{tr('zones.watchArea')}</a
+				>
+			</p>
+		{/if}
 	</header>
 	{#if rows.length === 0}
 		<p>{tr('country.none')}</p>

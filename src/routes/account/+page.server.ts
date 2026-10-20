@@ -2,6 +2,9 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { closeSession, deleteUser, sessionUser } from '$lib/server/accounts';
 import { accountsEnabled, db } from '$lib/server/db';
 import { PasskeyError, removePasskey } from '$lib/server/passkeys';
+import { servedCodes } from '$lib/server/vigie';
+import { listZones, removeZone, ZoneError } from '$lib/server/zones';
+import { MAX_ZONES } from '$lib/zones';
 import type { Actions, PageServerLoad } from './$types';
 
 // A private page: never kept by a shared cache or by the service worker.
@@ -19,6 +22,9 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders }) => {
 		select id, backed_up, created_at, last_used_at from passkeys where user_id = ${user.id} order by created_at`;
 	return {
 		user: { name: user.name, createdAt: Math.floor(user.createdAt.getTime() / 1000) },
+		zones: await listZones(sql, user.id),
+		served: await servedCodes(),
+		maxZones: MAX_ZONES,
 		passkeys: passkeys.map((p) => ({
 			id: p.id,
 			backedUp: p.backed_up,
@@ -54,6 +60,18 @@ export const actions: Actions = {
 			throw e;
 		}
 		return { removed: true };
+	},
+	removeZone: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404);
+		const { sql, user } = await signedIn(cookies, url);
+		const id = (await request.formData()).get('id');
+		try {
+			await removeZone(sql, user.id, typeof id === 'string' ? id : '');
+		} catch (e) {
+			if (e instanceof ZoneError) return fail(400, { error: `zone.${e.code}` });
+			throw e;
+		}
+		return { zoneRemoved: true };
 	},
 	delete: async ({ cookies, url, request }) => {
 		if (!accountsEnabled()) error(404);
