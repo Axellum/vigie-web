@@ -25,6 +25,10 @@ All notable changes are listed here. Versions are git tags.
 - Search of a place by name on the "near me" page: the GeoNames places of at least 500 people, with the names in
   other languages of the large cities; "Paris, Texas" narrows by region or country.
 
+- Accounts, by invitation, when the server has a database (`DATABASE_URL`): an invitation link opens an
+  account with a passkey (no password, no e-mail); sign in with a passkey; add one for another device, or
+  through a recovery invitation; download everything the site keeps; delete the account at once. A privacy
+  page says what is kept and for how long. `scripts/invite.mjs` makes the invitations.
 - The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
   Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
   not confirmed. "Near me" names a country with no source (borders of 135 countries).

@@ -39,7 +39,8 @@ Use PowerShell 5.1-compatible commands when you give a command to the owner (no 
    API must not grow with the number of visitors.
 5. **No secret in the repository.** Settings are environment variables (`docs/configuration.md`).
 6. **Privacy.** No third-party script, font or tracker: fonts are bundled, the only third-party host is
-   the base map (OpenFreeMap). No cookie except the language choice. A position the visitor gives stays in
+   the base map (OpenFreeMap). No cookie except the language choice and, for an account, its session. Never
+   log a session token or an invitation code; store them as SHA-256 only. A position the visitor gives stays in
    their browser unless they save it in an account: the "near me" page does its matching there, and sends
    only the position rounded to the API's weather grid (about 5 km), for the weather. Never log it with the
    visitor's address (the API logs its own requests, which come from the site's container).
