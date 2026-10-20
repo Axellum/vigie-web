@@ -78,7 +78,11 @@
 			>).
 		</p>
 		<h2>Où</h2>
-		<p>Sur le serveur du site, dans l'Union européenne.</p>
+		<p>
+			Sur le serveur du site, loué à OVHcloud à Beauharnois, au Canada. Le Canada est reconnu par l'Union
+			européenne comme assurant une protection adéquate des données (décision 2002/2/CE de la Commission, pour
+			les entreprises).
+		</p>
 	{:else}
 		<p>
 			Without an account, Vigie keeps nothing about you: see <a href="/about">About</a>. This page says what
@@ -143,6 +147,10 @@
 			CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Where</h2>
-		<p>On the site's server, in the European Union.</p>
+		<p>
+			On the site's server, rented from OVHcloud in Beauharnois, Canada. The European Union recognises Canada
+			as giving an adequate level of protection to personal data (Commission decision 2002/2/EC, for
+			businesses).
+		</p>
 	{/if}
 </div>
