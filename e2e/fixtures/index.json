@@ -1,0 +1,18 @@
+{
+ "recorded_utc": 1792505613,
+ "source": "a Vigie API instance",
+ "paths": {
+  "/v1/health": "health.json",
+  "/v1/providers": "providers.json",
+  "/v1/geojson/hazards": "hazards.json",
+  "/v1/vigilances.geojson?country=FR": "warnings-FR.json",
+  "/v1/vigilances.geojson?country=DE": "warnings-DE.json",
+  "/v1/vigilances.geojson?country=BE": "warnings-BE.json",
+  "/v1/vigilances.geojson?country=ES": "warnings-ES.json",
+  "/v1/vigilances.geojson?country=IT": "warnings-IT.json",
+  "/v1/vigilances.geojson?country=GB": "warnings-GB.json",
+  "/v1/vigilances.geojson?country=US": "warnings-US.json",
+  "/v1/vigilances.geojson?country=CA": "warnings-CA.json",
+  "/v1/vigilances.geojson?country=NZ": "warnings-NZ.json"
+ }
+}
