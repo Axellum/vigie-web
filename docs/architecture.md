@@ -12,7 +12,7 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   country's warnings, the providers' state) and on the cache times, not on the number of visitors.
 - **What is the same for everybody is rendered on the server**: the list of hazards, the pages of a country,
   an area, an alert. The warnings of the map are loaded by the browser, country by country, for the
-  countries in view (from zoom 3), from `/data/warnings/<cc>.json`, which carries short texts and shared
+  countries in view (from zoom 2.3), from `/data/warnings/<cc>.json`, which carries short texts and shared
   shapes (one shape per territory, not one per warning). The full texts come with the alert's page or
   `/data/warning/<cc>/<id>.json`.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official

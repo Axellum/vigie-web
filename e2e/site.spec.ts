@@ -110,3 +110,20 @@ test('data answers are cacheable and pages carry the security headers', async ({
 	expect(headers['x-content-type-options']).toBe('nosniff');
 	expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
 });
+
+test('the Europe shortcut shows the official warnings of the countries in view', async ({ page }, info) => {
+	test.skip(info.project.name !== 'desktop', 'one viewport is enough for the map');
+	const red = fr.features.find((f: Json) => f.properties.level === 'RED' && f.properties.texts?.length);
+	test.skip(!red, 'the recording has no red French warning with a text');
+	await page.goto('/');
+	await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+	await page.getByRole('button', { name: 'Europe' }).click();
+	const headline = (
+		red.properties.texts.find((t: Json) => t.language.startsWith('fr')) ?? red.properties.texts[0]
+	).headline;
+	await expect(page.locator('.rail .list > .row').filter({ hasText: headline }).first()).toBeVisible({
+		timeout: 15_000
+	});
+	// Countries that were not recorded answer 503: the list says so instead of showing nothing.
+	await expect(page.getByText(/Vigilances indisponibles pour le moment/)).toBeVisible();
+});

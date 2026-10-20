@@ -15,3 +15,12 @@ All notable changes are listed here. Versions are git tags.
   own files.
 - Server-side cache of the API answers, cacheable data answers, security headers, a per-address request limit.
 - Unit tests (vitest) and end-to-end tests (Playwright) on recorded API answers; CI.
+
+### Fixed
+
+- The official warnings of the countries in view show from zoom 2.3, so the Europe and United States shortcuts
+  bring them on a laptop screen; a country whose warnings fail is named once and asked again after 30 s,
+  instead of being asked again in a loop.
+- No `Cross-Origin-Opener-Policy` header on plain HTTP, where browsers ignore it and log an error.
+- The health check of the Deck container sends `X-Forwarded-For`, without which the server answers 500: the
+  container was marked unhealthy while the site worked.

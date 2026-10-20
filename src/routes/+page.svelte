@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import AlertRow from '$lib/components/AlertRow.svelte';
@@ -18,8 +18,11 @@
 	const tr = $derived(translator(lang));
 
 	/** Zoom from which the official warnings of the countries in view are loaded. */
-	const WARNINGS_MIN_ZOOM = 3;
+	// Low enough for the Europe and United States shortcuts on a laptop screen.
+	const WARNINGS_MIN_ZOOM = 2.3;
 	const WARNINGS_REFRESH_MS = 120_000;
+	/** A country whose warnings failed is asked again after this delay, not at every move of the map. */
+	const WARNINGS_RETRY_MS = 30_000;
 
 	// Writable deriveds: they follow a new page load, and the browser refreshes them in between.
 	let hazards = $derived<Hazard[]>(data.hazards?.items ?? []);
@@ -55,7 +58,9 @@
 	async function loadCountry(cc: string) {
 		const previous = countries.get(cc);
 		if (previous?.status === 'loading') return;
-		if (previous && Date.now() - previous.loadedAt < WARNINGS_REFRESH_MS && previous.status === 'ok') return;
+		const age = previous ? Date.now() - previous.loadedAt : Infinity;
+		if (previous?.status === 'ok' && age < WARNINGS_REFRESH_MS) return;
+		if (previous?.status === 'error' && age < WARNINGS_RETRY_MS) return;
 		countries.set(cc, {
 			...(previous ?? {}),
 			status: previous?.data ? 'ok' : 'loading',
@@ -82,7 +87,11 @@
 	}
 
 	$effect(() => {
-		for (const cc of visibleCountries) void loadCountry(cc);
+		const wanted = visibleCountries;
+		// The loads read and write the country states: untracked, so that a new state does not start them again.
+		untrack(() => {
+			for (const cc of wanted) void loadCountry(cc);
+		});
 	});
 
 	const loading = $derived(visibleCountries.filter((cc) => countries.get(cc)?.status === 'loading'));
