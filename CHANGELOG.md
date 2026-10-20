@@ -22,3 +22,5 @@ All notable changes are listed here. Versions are git tags.
   bring them on a laptop screen; a country whose warnings fail is named once and asked again after 30 s,
   instead of being asked again in a loop.
 - No `Cross-Origin-Opener-Policy` header on plain HTTP, where browsers ignore it and log an error.
+- The health check of the Deck container sends `X-Forwarded-For`, without which the server answers 500: the
+  container was marked unhealthy while the site worked.
