@@ -25,6 +25,9 @@ All notable changes are listed here. Versions are git tags.
 - Search of a place by name on the "near me" page: the GeoNames places of at least 500 people, with the names in
   other languages of the large cities; "Paris, Texas" narrows by region or country.
 
+- The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
+  Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
+  not confirmed. "Near me" names a country with no source (borders of 135 countries).
 - Forecasts of storms and tsunamis, when the API has one: on the map, the cone, the track, the forecast
   positions and the coastal warnings of a storm, or the arrival times of a tsunami at the places the warning
   centre names; in the panel and on the hazard's page, the same in a table, with a link to the official

@@ -7,6 +7,7 @@ import {
 	pickText,
 	pointFromApi,
 	roundGeometry,
+	servedFromApi,
 	shapeKey,
 	slug,
 	warningsFromApi
@@ -237,5 +238,23 @@ describe('hazardsFromApi and forecasts', () => {
 			['tsunami_pheb_26282000', true]
 		]);
 		expect(hazardsFromApi(fixture('hazards')).items.every((h) => h.hasForecast === false)).toBe(true);
+	});
+});
+
+describe('servedFromApi', () => {
+	it('keeps the countries of a real answer, with their sources and licence', () => {
+		const raw = fixture('vigilances-countries') as unknown as Record<string, unknown>[];
+		const served = servedFromApi(raw);
+		expect(served.length).toBe(raw.length);
+		expect(served.map((c) => c.country)).toContain('MX');
+		expect(served.find((c) => c.country === 'NZ')?.licenceVerified).toBe(false);
+		expect(served.find((c) => c.country === 'FR')?.licenceVerified).toBe(true);
+	});
+
+	it('drops an entry with no valid code and reads a missing licence as not confirmed', () => {
+		expect(servedFromApi({ not: 'a list' })).toEqual([]);
+		expect(servedFromApi([{ country: 'fr', sources: ['x', 3] }, { country: 'France' }, {}])).toEqual([
+			{ country: 'FR', sources: ['x'], licenceVerified: false }
+		]);
 	});
 });

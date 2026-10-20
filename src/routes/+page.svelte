@@ -54,7 +54,9 @@
 	let rail: HTMLElement | undefined = $state();
 
 	// --- warnings of the countries in view -------------------------------------------------------------
-	const visibleCountries = $derived(view && zoom >= WARNINGS_MIN_ZOOM ? coveredInView(view) : []);
+	const visibleCountries = $derived(
+		view && zoom >= WARNINGS_MIN_ZOOM ? coveredInView(view, data.served) : []
+	);
 
 	async function loadCountry(cc: string) {
 		const previous = countries.get(cc);

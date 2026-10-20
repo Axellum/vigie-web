@@ -151,9 +151,11 @@ describe('warningsAt, on recorded French warnings', () => {
 
 describe('countriesNear and hazardsNear', () => {
 	it('finds the covered countries around a point, and none in the open ocean', () => {
-		expect(countriesNear(BASTIA)).toContain('FR');
-		expect(countriesNear({ lat: 48.85, lon: 2.35 })).toContain('FR');
-		expect(countriesNear({ lat: -40, lon: -120 })).toEqual([]);
+		const served = ['FR', 'IT', 'US'];
+		expect(countriesNear(BASTIA, served)).toContain('FR');
+		expect(countriesNear({ lat: 48.85, lon: 2.35 }, served)).toContain('FR');
+		expect(countriesNear({ lat: 48.85, lon: 2.35 }, ['US'])).toEqual([]);
+		expect(countriesNear({ lat: -40, lon: -120 }, served)).toEqual([]);
 	});
 
 	it('keeps the hazards within the radius, nearest first', () => {
@@ -197,11 +199,13 @@ describe('countryAt, on the simplified borders', () => {
 		['Rome', 41.9, 12.5, 'IT'],
 		['Denver', 39.74, -104.99, 'US'],
 		['10 km off Nice', 43.62, 7.35, 'FR'],
-		['Mexico City', 19.43, -99.13, null],
+		['Mexico City', 19.43, -99.13, 'MX'],
+		['São Paulo', -23.55, -46.63, 'BR'],
+		['Tokyo (no border from the API)', 35.68, 139.69, null],
 		['Mid-Atlantic', 40, -40, null]
 	];
 	for (const [name, lat, lon, cc] of cases) {
-		it(`puts ${name} in ${cc ?? 'no covered country'}`, () => {
+		it(`puts ${name} in ${cc ?? 'no country'}`, () => {
 			expect(countryAt(borders, { lat, lon })).toBe(cc);
 		});
 	}

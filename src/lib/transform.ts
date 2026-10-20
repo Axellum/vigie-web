@@ -9,6 +9,7 @@ import type {
 	HazardForecast,
 	HazardsData,
 	PointWeather,
+	ServedCountry,
 	WarningDetail,
 	WarningsData,
 	WarningSummary,
@@ -21,6 +22,23 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !=
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
+
+/** The countries the API serves, in its order; an entry with no valid country code is dropped. */
+export function servedFromApi(body: unknown): ServedCountry[] {
+	if (!Array.isArray(body)) return [];
+	const out: ServedCountry[] = [];
+	for (const item of body) {
+		const o = obj(item);
+		const cc = str(o.country)?.toUpperCase();
+		if (!cc || !/^[A-Z]{2}$/.test(cc)) continue;
+		out.push({
+			country: cc,
+			sources: Array.isArray(o.sources) ? o.sources.filter((s): s is string => typeof s === 'string') : [],
+			licenceVerified: bool(o.licence_verified) ?? false
+		});
+	}
+	return out;
+}
 
 /** Rounds every coordinate of a geometry (3 decimals is about 110 m, enough for a warning area). */
 export function roundGeometry(geometry: Geometry, decimals = 3): Geometry {

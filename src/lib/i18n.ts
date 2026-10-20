@@ -146,6 +146,8 @@ const fr = {
 	'country.unavailable': 'Source indisponible pour le moment',
 	'country.stale': 'Données de la dernière réponse réussie, du {time}.',
 	'countries.title': 'Pays couverts par des vigilances officielles',
+	'countries.count': '{n} pays.',
+	'countries.licence': 'Licence de réutilisation non confirmée',
 	'countries.intro':
 		'Ces pays ont une source de vigilances officielles branchée dans Vigie. Ailleurs, la carte ne montre que les catastrophes (séismes, cyclones, volcans…).',
 	'area.title': '{area} ({country})',
@@ -192,6 +194,8 @@ const fr = {
 	'near.warningsNone': 'Aucune vigilance officielle en cours à cet endroit.',
 	'near.noSource':
 		"Aucune source de vigilances officielles n'est branchée pour cet endroit. Les catastrophes et la météo restent affichées.",
+	'near.noSourceIn':
+		"Aucune source de vigilances officielles n'est branchée pour ce pays ({country}). Les catastrophes et la météo restent affichées.",
 	'near.areaMargin': 'à {km} km de la zone (côte ou frontière simplifiée)',
 	'near.riverDistance': "tronçon de cours d'eau à {km} km",
 	'near.unplaced':
@@ -397,6 +401,8 @@ const en: Record<Key, string> = {
 	'country.unavailable': 'Source unavailable for now',
 	'country.stale': 'Data of the last successful answer, from {time}.',
 	'countries.title': 'Countries covered by official warnings',
+	'countries.count': '{n} countries.',
+	'countries.licence': 'Reuse licence not confirmed',
 	'countries.intro':
 		'These countries have a source of official warnings in Vigie. Elsewhere, the map only shows hazards (earthquakes, cyclones, volcanoes…).',
 	'area.title': '{area} ({country})',
@@ -442,6 +448,8 @@ const en: Record<Key, string> = {
 	'near.warningsNone': 'No official warning in force at this place.',
 	'near.noSource':
 		'No source of official warnings is connected for this place. Hazards and weather are still shown.',
+	'near.noSourceIn':
+		'No source of official warnings is connected for this country ({country}). Hazards and weather are still shown.',
 	'near.areaMargin': '{km} km from the area (simplified coast or border)',
 	'near.riverDistance': 'river section {km} km away',
 	'near.unplaced': '{n} warning(s) in {country} without a precise area: they cannot be matched to a point.',

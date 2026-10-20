@@ -95,6 +95,14 @@ export interface WarningDetail extends Omit<WarningSummary, 'texts'> {
 	geometry: Geometry | null;
 }
 
+/** A country the API serves official warnings for (`/v1/vigilances/countries`). */
+export interface ServedCountry {
+	country: string;
+	sources: string[];
+	/** False when the reuse licence of one of its sources is not confirmed. */
+	licenceVerified: boolean;
+}
+
 export interface Coverage {
 	source: string;
 	country: string;

@@ -1,4 +1,4 @@
-import { getHazards } from '$lib/server/vigie';
+import { getHazards, servedCodes } from '$lib/server/vigie';
 import type { HazardsData } from '$lib/types';
 import type { PageServerLoad } from './$types';
 
@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
 	} catch {
 		hazards = null;
 	}
+	const served = await servedCodes();
 	setHeaders({ 'cache-control': 'public, max-age=30, s-maxage=60' });
-	return { hazards, stale, now: Math.floor(Date.now() / 1000) };
+	return { hazards, served, stale, now: Math.floor(Date.now() / 1000) };
 };

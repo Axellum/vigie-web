@@ -1,12 +1,12 @@
 import { error } from '@sveltejs/kit';
-import { countryBox, isCovered } from '$lib/geo';
-import { ApiError, getWarnings } from '$lib/server/vigie';
+import { countryBox } from '$lib/geo';
+import { ApiError, getWarnings, isServed } from '$lib/server/vigie';
 import { slug } from '$lib/transform';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, setHeaders }) => {
 	const cc = params.cc.toUpperCase();
-	if (!/^[A-Z]{2}$/.test(cc) || !isCovered(cc)) error(404, 'No source of official warnings for this country');
+	if (!(await isServed(cc))) error(404, 'No source of official warnings for this country');
 	let result;
 	try {
 		result = await getWarnings(cc);

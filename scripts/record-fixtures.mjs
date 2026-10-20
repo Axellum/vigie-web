@@ -14,6 +14,7 @@ const targets = [
 	['health', '/v1/health'],
 	['providers', '/v1/providers'],
 	['hazards', '/v1/geojson/hazards'],
+	['vigilances-countries', '/v1/vigilances/countries'],
 	...countries.map((cc) => [`warnings-${cc}`, `/v1/vigilances.geojson?country=${cc}`]),
 	// One weather answer (Corte, Haute-Corse): the mock gives it for every position.
 	['point', '/v1/point?lat=42.3&lon=9.15&marine=false&device_type=web&max_hazards=1&radius_km=1', '/v1/point']
