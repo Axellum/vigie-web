@@ -21,6 +21,9 @@
 		frame?: Box | null;
 		globe?: boolean;
 		label?: string;
+		/** The forecast of the selected hazard: a storm's cone, track, positions and coastal warnings, a tsunami's
+		 * epicentre and arrival places (`HazardForecast.features`). */
+		forecast?: FeatureCollection | null;
 		/** A chosen place, drawn as a dot and the circle of its radius. */
 		place?: (Place & { radiusKm: number | null }) | null;
 		onselect?: (selection: Selection) => void;
@@ -38,6 +41,7 @@
 		globe = false,
 		label,
 		place = null,
+		forecast = null,
 		onselect,
 		onmove,
 		onpick
@@ -131,6 +135,92 @@
 		};
 	}
 
+	const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
+	const forecastData = () => forecast ?? EMPTY;
+	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
+
+	function addForecastLayers() {
+		if (!map) return;
+		const ink = css('--ink');
+		map.addLayer({
+			id: 'fc-cone',
+			type: 'fill',
+			source: 'forecast',
+			filter: kindIs('cone'),
+			paint: { 'fill-color': ink, 'fill-opacity': 0.12 }
+		});
+		map.addLayer({
+			id: 'fc-cone-edge',
+			type: 'line',
+			source: 'forecast',
+			filter: kindIs('cone'),
+			paint: { 'line-color': ink, 'line-width': 1.2, 'line-dasharray': [2, 2] }
+		});
+		// The NHC's own colours for its coastal watches and warnings.
+		map.addLayer({
+			id: 'fc-warning',
+			type: 'line',
+			source: 'forecast',
+			filter: kindIs('watch_warning'),
+			layout: { 'line-cap': 'round' },
+			paint: {
+				'line-color': [
+					'match',
+					['get', 'code'],
+					'HWR',
+					'#e0202a',
+					'HWA',
+					'#f06ec8',
+					'TWR',
+					'#2b6fe0',
+					'TWA',
+					'#f2c718',
+					ink
+				],
+				'line-width': 5
+			}
+		});
+		map.addLayer({
+			id: 'fc-track',
+			type: 'line',
+			source: 'forecast',
+			filter: kindIs('track'),
+			paint: { 'line-color': ink, 'line-width': 2 }
+		});
+		map.addLayer({
+			id: 'fc-point',
+			type: 'circle',
+			source: 'forecast',
+			filter: kindIs('position', 'eta', 'epicentre'),
+			paint: {
+				'circle-radius': ['match', ['get', 'kind'], 'epicentre', 7, 5],
+				'circle-color': ['match', ['get', 'kind'], 'epicentre', css('--sev-orange'), css('--surface')],
+				'circle-stroke-color': ink,
+				'circle-stroke-width': 2
+			}
+		});
+		map.addLayer({
+			id: 'fc-label',
+			type: 'symbol',
+			source: 'forecast',
+			filter: kindIs('position', 'eta'),
+			layout: {
+				'text-field': [
+					'case',
+					['==', ['get', 'kind'], 'position'],
+					['concat', '+', ['to-string', ['get', 'tau_h']], ' h'],
+					['coalesce', ['get', 'place'], '']
+				],
+				'text-font': ['Noto Sans Regular'],
+				'text-size': 12,
+				'text-offset': [0, 1.1],
+				'text-anchor': 'top',
+				'text-optional': true
+			},
+			paint: { 'text-color': ink, 'text-halo-color': css('--surface'), 'text-halo-width': 1.5 }
+		});
+	}
+
 	function addOverlay() {
 		if (!map) return;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
@@ -140,6 +230,7 @@
 		map.addSource('zones', { type: 'geojson', data: zones });
 		map.addSource('quakes', { type: 'geojson', data: quakes() });
 		map.addSource('place', { type: 'geojson', data: placeData() });
+		map.addSource('forecast', { type: 'geojson', data: forecastData() });
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -196,6 +287,7 @@
 				'circle-stroke-width': 2.5
 			}
 		});
+		addForecastLayers();
 		map.addLayer({
 			id: 'place-radius',
 			type: 'line',
@@ -317,13 +409,19 @@
 				map.touchZoomRotate.disableRotation();
 				map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
 				if (frame) {
-					map.fitBounds(
-						[
-							[frame[0], frame[1]],
-							[frame[2], frame[3]]
-						],
-						{ padding: 30, duration: 0, maxZoom: 7 }
-					);
+					const first = frame;
+					const fit = () =>
+						map?.fitBounds(
+							[
+								[first[0], first[1]],
+								[first[2], first[3]]
+							],
+							{ padding: 30, duration: 0, maxZoom: 7 }
+						);
+					// A container with no size yet (a page still laying out, a hidden tab) cannot be framed:
+					// it is framed at its first size instead of staying on the whole world.
+					if (container.clientWidth > 60 && container.clientHeight > 60) fit();
+					else map.once('resize', fit);
 					lastFrame = frame.join(',');
 				}
 				map.on('style.load', () => {
@@ -389,6 +487,11 @@
 	$effect(() => {
 		void selected;
 		if (ready) applySelection();
+	});
+	$effect(() => {
+		void forecast;
+		if (ready && map?.getSource('forecast'))
+			(map.getSource('forecast') as GeoJSONSource).setData(forecastData());
 	});
 	$effect(() => {
 		void place;
