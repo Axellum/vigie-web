@@ -29,3 +29,4 @@ All notable changes are listed here. Versions are git tags.
 - No `Cross-Origin-Opener-Policy` header on plain HTTP, where browsers ignore it and log an error.
 - The health check of the Deck container sends `X-Forwarded-For`, without which the server answers 500: the
   container was marked unhealthy while the site worked.
+- A description for search engines on the about and sources pages.

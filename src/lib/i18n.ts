@@ -160,6 +160,8 @@ const fr = {
 	'sources.basemap': 'Fond de carte',
 	'sources.unavailable': "L'état des sources n'a pas pu être lu.",
 	'about.title': 'À propos',
+	'about.description':
+		"Vigie, projet personnel et non commercial : ce qu'il montre, ses limites et l'origine des données.",
 	'error.title': 'Page introuvable',
 	'error.generic': "Une erreur s'est produite.",
 	'error.api': "L'API Vigie ne répond pas pour le moment. Réessayez dans quelques minutes.",
@@ -309,6 +311,8 @@ const en: Record<Key, string> = {
 	'sources.basemap': 'Base map',
 	'sources.unavailable': 'The state of the sources could not be read.',
 	'about.title': 'About',
+	'about.description':
+		'Vigie, a personal, non-commercial project: what it shows, its limits and where the data come from.',
 	'error.title': 'Page not found',
 	'error.generic': 'Something went wrong.',
 	'error.api': 'The Vigie API does not answer for now. Try again in a few minutes.',
