@@ -194,3 +194,99 @@ test('the account page fits a phone', async ({ page }) => {
 	expect(overflow).toBeLessThanOrEqual(0);
 	await expect(page.getByRole('button', { name: 'Ajouter une passkey sur cet appareil' })).toBeVisible();
 });
+
+test('zones: a place from near me, a country, a drawn zone; checked, exported, deleted', async ({ page }) => {
+	await authenticator(page);
+	const name = unique('Lou');
+	await createAccount(page, name);
+
+	// A place and a radius, from "near me" (Corte, 25 km).
+	await page.goto('/near#42.306,9.15,25');
+	await page.getByRole('link', { name: 'Surveiller cet endroit (25 km) dans mon compte' }).click();
+	await expect(page).toHaveURL(/\/account\/zones\/new#42\.306,9\.15,25$/);
+	await expect(page.getByText('Endroit choisi : 42.306, 9.150')).toBeVisible();
+	await page.getByLabel('Nom de la zone').fill('Corte');
+	await page.getByLabel('Niveau le plus bas').selectOption('ORANGE');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	await expect(page).toHaveURL(/\/account#zones$/);
+	await expect(page.locator('.zones li').filter({ hasText: 'Corte' })).toContainText(
+		'25 km autour de 42.306, 9.150'
+	);
+	await expect(page.locator('.zones li').filter({ hasText: 'Corte' })).toContainText('Orange et plus');
+
+	// A country, from its page.
+	await page.goto('/country/fr');
+	await page.getByRole('link', { name: 'Surveiller ce pays dans mon compte' }).click();
+	await expect(page.getByLabel('Nom de la zone')).toHaveValue('France');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	await expect(page.locator('.zones li').filter({ hasText: 'Pays : France' })).toBeVisible();
+
+	// A drawn zone: clicks on the map, framed on Corte. A zone that crosses itself is refused.
+	async function draw(points: [number, number][]) {
+		await page.goto('/account');
+		await page.goto('/account/zones/new#42.306,9.15,25');
+		await page.getByRole('button', { name: 'Une zone dessinée' }).click();
+		await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+		const canvas = page.locator('.maplibregl-canvas');
+		const box = (await canvas.boundingBox())!;
+		for (const [x, y] of points) await canvas.click({ position: { x: box.width * x, y: box.height * y } });
+		await expect(page.getByText(`${points.length} coin(s)`)).toBeVisible();
+	}
+	await draw([
+		[0.3, 0.3],
+		[0.7, 0.7],
+		[0.7, 0.3],
+		[0.3, 0.7]
+	]);
+	await page.getByLabel('Nom de la zone').fill('Croisée');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	await expect(page.getByText('La zone dessinée se croise elle-même')).toBeVisible();
+
+	await draw([
+		[0.3, 0.3],
+		[0.7, 0.3],
+		[0.5, 0.7]
+	]);
+	await page.getByLabel('Nom de la zone').fill('Triangle');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	const triangle = page.locator('.zones li').filter({ hasText: 'Triangle' });
+	await expect(triangle).toContainText('Zone dessinée, 3 coins');
+	await triangle.getByRole('link', { name: 'Voir' }).click();
+	await expect(page.getByRole('heading', { level: 1, name: 'Triangle' })).toBeVisible();
+
+	// The circle is a real surface: about π × 25² km².
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [circle] = await sql`
+			select ST_Area(z.geom) / 1e6 as km2 from zones z join users u on u.id = z.user_id
+			where u.name = ${name} and z.kind = 'circle'`;
+		expect(Number(circle.km2)).toBeGreaterThan(Math.PI * 625 * 0.98);
+		expect(Number(circle.km2)).toBeLessThan(Math.PI * 625 * 1.02);
+
+		const exported = await (await page.request.get('/account/export.json')).json();
+		expect(exported.zones.map((z: { name: string }) => z.name).sort()).toEqual([
+			'Corte',
+			'France',
+			'Triangle'
+		]);
+
+		await page.goto('/account');
+		await page
+			.locator('.zones li')
+			.filter({ hasText: 'France' })
+			.getByRole('button', { name: 'Supprimer' })
+			.click();
+		await expect(page.getByText('Zone supprimée.')).toBeVisible();
+		await expect(page.locator('.zones li')).toHaveCount(2);
+
+		// Deleting the account deletes its zones.
+		const [user] = await sql`select id from users where name = ${name}`;
+		await page.getByLabel('Je veux supprimer mon compte').check();
+		await page.getByRole('button', { name: 'Supprimer le compte' }).click();
+		await expect(page).toHaveURL(/\/login\?deleted=1$/);
+		const [{ n }] = await sql`select count(*)::int as n from zones where user_id = ${user.id}`;
+		expect(n).toBe(0);
+	} finally {
+		await sql.end();
+	}
+});

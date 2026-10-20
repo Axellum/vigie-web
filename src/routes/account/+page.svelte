@@ -3,7 +3,8 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Time from '$lib/components/Time.svelte';
-	import { translator, type Key } from '$lib/i18n';
+	import { countryName, translator, type Key } from '$lib/i18n';
+	import { slug } from '$lib/transform';
 	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '$lib/passkey';
 
 	let { data, form } = $props();
@@ -35,8 +36,33 @@
 		const code = (form as { error?: string } | null)?.error;
 		if (code === 'confirm') return 'account.deleteMissing';
 		if (code === 'last' || code === 'unknown') return `pk.${code}`;
+		if (code?.startsWith('zone.')) return `zones.err.${code.slice(5)}` as Key;
 		return null;
 	});
+
+	type Zone = (typeof data.zones)[number];
+	const fmt = (v: number | null) => (v == null ? '–' : v.toFixed(3));
+	function describe(z: Zone): string {
+		switch (z.kind) {
+			case 'circle':
+				return tr('zones.describe.circle', { km: z.radiusKm ?? '–', lat: fmt(z.lat), lon: fmt(z.lon) });
+			case 'polygon':
+				return tr('zones.describe.polygon', { n: z.corners?.length ?? 0 });
+			case 'country':
+				return tr('zones.describe.country', { country: countryName(lang, z.country ?? '') });
+			case 'area':
+				return tr('zones.describe.area', { area: z.area ?? '', country: countryName(lang, z.country ?? '') });
+		}
+	}
+	function view(z: Zone): string | null {
+		if (z.kind === 'circle') return `/near#${z.lat},${z.lon},${z.radiusKm}`;
+		if (z.kind === 'polygon') return `/account/zones/${z.id}`;
+		if (!z.country || !data.served.includes(z.country)) return null;
+		const cc = z.country.toLowerCase();
+		return z.kind === 'area' && z.area ? `/country/${cc}/${slug(z.area)}` : `/country/${cc}`;
+	}
+	const rules = (z: Zone) =>
+		`${tr(`zones.level.${z.minLevel}` as Key)} · ${z.kinds.map((k) => tr(`cat.${k}` as Key)).join(', ')}`;
 </script>
 
 <svelte:head>
@@ -51,7 +77,40 @@
 		<p class="muted small">{tr('account.since')} <Time {lang} unix={data.user.createdAt} /></p>
 	</header>
 
-	<p class="note">{tr('account.soon')}</p>
+	<section class="card stack" id="zones">
+		<h2>{tr('zones.title')}</h2>
+		<p class="note">{tr('zones.notYet')}</p>
+		{#if data.zones.length}
+			<ul class="zones">
+				{#each data.zones as z (z.id)}
+					<li>
+						<div>
+							<p><b>{z.name}</b></p>
+							<p class="small">{describe(z)}</p>
+							<p class="muted small">{rules(z)}</p>
+						</div>
+						<div class="btn-row">
+							{#if view(z)}<a href={view(z)}>{tr('zones.view')}</a>{/if}
+							<form method="POST" action="?/removeZone" use:enhance>
+								<input type="hidden" name="id" value={z.id} />
+								<button type="submit" class="btn quiet">{tr('zones.remove')}</button>
+							</form>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="muted">{tr('zones.none')}</p>
+		{/if}
+		{#if (form as { zoneRemoved?: boolean } | null)?.zoneRemoved}<p role="status">
+				{tr('zones.removed')}
+			</p>{/if}
+		{#if data.zones.length < data.maxZones}
+			<div><a class="btn" href="/account/zones/new">{tr('zones.add')}</a></div>
+		{:else}
+			<p class="muted small">{tr('zones.full', { n: data.maxZones })}</p>
+		{/if}
+	</section>
 
 	<section class="card stack">
 		<h2>{tr('account.passkeys')}</h2>
@@ -118,6 +177,28 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+	.zones {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.zones li {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 8px 12px;
+		padding: 10px 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.zones li > div:first-child {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	a.btn {
+		display: inline-block;
+		text-decoration: none;
 	}
 	.keys {
 		list-style: none;
