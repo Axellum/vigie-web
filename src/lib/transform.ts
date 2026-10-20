@@ -1,10 +1,12 @@
 // Turns the Vigie API answers into the site's models. Pure functions: no network, no clock.
 // A value the API did not give stays null; nothing is filled in.
 import type { Feature, FeatureCollection, Geometry, Position } from 'geojson';
+import { geometryBox } from './geo';
 import { asLevel } from './levels';
 import type {
 	Coverage,
 	Hazard,
+	HazardForecast,
 	HazardsData,
 	PointWeather,
 	WarningDetail,
@@ -66,7 +68,8 @@ export function hazardsFromApi(body: unknown): HazardsData {
 			tsunami: bool(p.tsunami_warning),
 			lon,
 			lat,
-			attribution: str(p.attribution)
+			attribution: str(p.attribution),
+			hasForecast: bool(p.has_forecast) ?? false
 		});
 	}
 	return { generated: num(meta.generated_utc), attribution: str(meta.attribution), items };
@@ -299,5 +302,52 @@ export function pointFromApi(body: unknown): PointWeather {
 			storm: str(space.solar_storm_level),
 			attribution: str(space.attribution)
 		}
+	};
+}
+
+/** The forecast of a hazard: its features rounded, a box to frame them, the official messages it cites. */
+export function forecastFromApi(hazardId: string, body: unknown): HazardForecast {
+	const p = obj(body);
+	const features: Feature[] = [];
+	const messages = new Set<string>();
+	for (const raw of Array.isArray(p.features) ? p.features : []) {
+		const feature = obj(raw) as unknown as Feature;
+		const props = obj(feature.properties);
+		if (!feature.geometry || !str(props.kind)) continue;
+		features.push({ type: 'Feature', geometry: roundGeometry(feature.geometry), properties: props });
+		for (const alert of Array.isArray(props.alerts) ? props.alerts : []) {
+			const message = str(obj(alert).message);
+			if (message) messages.add(message);
+		}
+	}
+	const given = Array.isArray(p.bbox) && p.bbox.length === 4 && p.bbox.every((v) => num(v) != null);
+	let bbox = given ? (p.bbox as [number, number, number, number]) : null;
+	if (!bbox) {
+		for (const f of features) {
+			const b = geometryBox(f.geometry);
+			if (b)
+				bbox = bbox
+					? [
+							Math.min(bbox[0], b[0]),
+							Math.min(bbox[1], b[1]),
+							Math.max(bbox[2], b[2]),
+							Math.max(bbox[3], b[3])
+						]
+					: b;
+		}
+	}
+	return {
+		hazardId,
+		title: str(p.title),
+		kind: str(p.kind),
+		source: str(p.source),
+		issued: num(p.issued_utc),
+		advisory: str(p.advisory),
+		advisoryUrl: str(p.advisory_url),
+		attribution: str(p.attribution),
+		reason: str(p.reason),
+		bbox,
+		features: { type: 'FeatureCollection', features },
+		messages: [...messages]
 	};
 }

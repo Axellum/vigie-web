@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	forecastFromApi,
 	hazardsFromApi,
 	pickText,
 	pointFromApi,
@@ -190,5 +191,51 @@ describe('pointFromApi', () => {
 		expect(point.air).toBeNull();
 		expect(point.marine).toBeNull();
 		expect(point.space?.kp).toBe(2);
+	});
+});
+
+describe('forecastFromApi', () => {
+	it('keeps the cone, the track, the positions and the warnings of a real storm advisory', () => {
+		const raw = fixture('forecast-nhc_al092026') as Record<string, any>;
+		const forecast = forecastFromApi('nhc_al092026', raw);
+		const kinds = forecast.features.features.map((f) => f.properties?.kind);
+		expect(kinds.filter((k) => k === 'cone').length).toBe(1);
+		expect(kinds.filter((k) => k === 'track').length).toBe(1);
+		expect(kinds.filter((k) => k === 'position').length).toBe(5);
+		expect(kinds.filter((k) => k === 'watch_warning').length).toBe(3);
+		expect(forecast.advisory).toBe('13A');
+		expect(forecast.issued).toBe(raw.issued_utc);
+		expect(forecast.advisoryUrl).toBe(raw.advisory_url);
+		expect(forecast.bbox).toEqual(raw.bbox);
+		expect(forecast.attribution).toContain('National Hurricane Center');
+		const first = forecast.features.features.find((f) => f.properties?.kind === 'position')!;
+		expect(first.properties?.wind_kt).toBe(95);
+		expect(forecast.messages).toEqual([]);
+	});
+
+	it('keeps the arrival times of a tsunami and the official messages it comes from', () => {
+		const forecast = forecastFromApi('tsunami_pheb_26282000', fixture('forecast-tsunami_pheb_26282000'));
+		const eta = forecast.features.features.filter((f) => f.properties?.kind === 'eta');
+		expect(eta.length).toBe(4);
+		expect(eta.every((f) => typeof f.properties?.eta_utc === 'number')).toBe(true);
+		expect(forecast.messages).toEqual(['PHEB-3-26282000']);
+	});
+
+	it('says why there is nothing, and frames nothing', () => {
+		const forecast = forecastFromApi('x', { features: [], reason: 'No forecast for this hazard' });
+		expect(forecast.features.features).toEqual([]);
+		expect(forecast.reason).toBe('No forecast for this hazard');
+		expect(forecast.bbox).toBeNull();
+	});
+});
+
+describe('hazardsFromApi and forecasts', () => {
+	it('reads has_forecast, false when the API does not say', () => {
+		const data = hazardsFromApi(fixture('hazards-storms'));
+		expect(data.items.map((h) => [h.id, h.hasForecast])).toEqual([
+			['nhc_al092026', true],
+			['tsunami_pheb_26282000', true]
+		]);
+		expect(hazardsFromApi(fixture('hazards')).items.every((h) => h.hasForecast === false)).toBe(true);
 	});
 });

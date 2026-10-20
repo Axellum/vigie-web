@@ -1,5 +1,5 @@
 // The site's own view of the Vigie API data. Every field the API did not give stays null.
-import type { Geometry } from 'geojson';
+import type { FeatureCollection, Geometry } from 'geojson';
 
 export type Level = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN';
 
@@ -18,6 +18,30 @@ export interface Hazard {
 	lon: number;
 	lat: number;
 	attribution: string | null;
+	/** The API has a forecast to draw for it (a storm's cone, a tsunami's arrival times). */
+	hasForecast: boolean;
+}
+
+/**
+ * The forecast of a hazard (`/v1/geojson/hazards/{id}/forecast`): features whose `kind` says what they are
+ * (cone, track, position, watch_warning for a storm; epicentre, eta for a tsunami), with the values the source
+ * gave and nothing else.
+ */
+export interface HazardForecast {
+	hazardId: string;
+	title: string | null;
+	kind: string | null;
+	source: string | null;
+	issued: number | null;
+	advisory: string | null;
+	advisoryUrl: string | null;
+	attribution: string | null;
+	/** Why there is nothing to draw, in the API's words. */
+	reason: string | null;
+	bbox: [number, number, number, number] | null;
+	features: FeatureCollection;
+	/** Identifiers of the official messages the forecast comes from (a tsunami's warnings). */
+	messages: string[];
 }
 
 export interface HazardsData {
