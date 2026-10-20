@@ -22,6 +22,9 @@ All notable changes are listed here. Versions are git tags.
   only a position rounded to about 5 km is sent, for the weather, which the server caches per grid point and
   bounds per day (`VIGIE_POINT_LOOKUPS_PER_DAY`).
 
+- Search of a place by name on the "near me" page: the GeoNames places of at least 500 people, with the names in
+  other languages of the large cities; "Paris, Texas" narrows by region or country.
+
 ### Changed
 
 - Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes

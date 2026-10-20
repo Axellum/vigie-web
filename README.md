@@ -16,7 +16,7 @@ which caches every feed once for everybody.
 - a world map of the current hazards and, for the covered countries, of the official warnings;
 - a list that follows the map, with filters by level and by type;
 - a page for each country and each area, and a page for each alert with the issuer's text unchanged;
-- "near me": for a place (the browser's position, a click on the map, or the page's address), the official
+- "near me": for a place (found by name, the browser's position, a click on the map, or the page's address), the official
   warnings that hold it, the hazards around it and its weather; the place stays in the browser, only a
   position rounded to the weather grid (about 5 km) is sent, for the weather;
 - the state of each source, its licence and its credit.
@@ -38,4 +38,5 @@ variables, listed in [`docs/configuration.md`](docs/configuration.md).
 The code is under the [MIT licence](LICENSE). The data is not: it belongs to each provider and stays under
 that provider's terms, which the Vigie API lists in its `SOURCES.md`. Every page shows the credit of the
 sources it displays. The base map is © OpenMapTiles and © OpenStreetMap contributors, served by
-OpenFreeMap.
+OpenFreeMap. The places of the search by name come from [GeoNames](https://www.geonames.org/) (CC BY 4.0,
+`data/places.tsv.gz`), the borders from Natural Earth (public domain).

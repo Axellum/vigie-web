@@ -53,6 +53,8 @@
 	<section class="block">
 		<h2>{tr('sources.basemap')}</h2>
 		<p class="credit">{tr('map.credit')}</p>
+		<h2>{tr('sources.places')}</h2>
+		<p class="credit">{tr('sources.placesCredit')}</p>
 	</section>
 </div>
 

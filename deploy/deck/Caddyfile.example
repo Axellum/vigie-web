@@ -10,8 +10,9 @@
 :8090 {
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:3000
-	# The weather requests carry a position (rounded to about 5 km): not written to the log.
+	# The weather requests carry a position (rounded to about 5 km), the searches a place name: not logged.
 	log_skip /data/point.json*
+	log_skip /data/places.json*
 	log {
 		output stdout
 		format console
