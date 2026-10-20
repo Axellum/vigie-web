@@ -3,8 +3,12 @@
 import postgres from 'postgres';
 import { env } from '$env/dynamic/private';
 import accounts from './migrations/001_accounts.sql?raw';
+import zones from './migrations/002_zones.sql?raw';
 
-const MIGRATIONS = [{ id: '001_accounts', sql: accounts }];
+const MIGRATIONS = [
+	{ id: '001_accounts', sql: accounts },
+	{ id: '002_zones', sql: zones }
+];
 
 export type Sql = postgres.Sql;
 

@@ -3,7 +3,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
 import type { Lang } from '$lib/i18n';
+export { cleanName } from '$lib/names';
 import type { Sql } from './db';
+import { listZones } from './zones';
 
 export const SESSION_COOKIE = 'vigie-session';
 export const SESSION_DAYS = 30;
@@ -17,17 +19,6 @@ export interface User {
 	name: string;
 	lang: Lang;
 	createdAt: Date;
-}
-
-/** A display name: printable, single spaces, 1 to 60 characters; null otherwise. */
-export function cleanName(value: unknown): string | null {
-	if (typeof value !== 'string') return null;
-	const name = value
-		.normalize('NFC')
-		.replace(/\p{Cc}|\p{Cf}/gu, '')
-		.replace(/\s+/g, ' ')
-		.trim();
-	return name.length >= 1 && name.length <= 60 ? name : null;
 }
 
 /** An invitation code as it appears in a link: 16 to 64 characters of base64url. */
@@ -113,7 +104,8 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 			...p,
 			note: 'The public key of the passkey is kept, never its secret.'
 		})),
-		sessions
+		sessions,
+		zones: await listZones(sql, userId)
 	};
 }
 
