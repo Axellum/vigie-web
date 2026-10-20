@@ -6,6 +6,10 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 const fixture = (name: string): Json =>
 	JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `${name}.json`), 'utf-8'));
 const hazards = fixture('hazards');
+// A storm and a tsunami, added by the mock API to the recorded hazards (see e2e/fixtures/index.json).
+const storms = fixture('hazards-storms');
+const isaias = fixture('forecast-nhc_al092026');
+const panama = fixture('forecast-tsunami_pheb_26282000');
 const fr = fixture('warnings-FR');
 const point = fixture('point');
 
@@ -27,7 +31,9 @@ test('the world map lists the recorded hazards', async ({ page }) => {
 	await page.getByLabel('Seulement ce que montre la carte').uncheck();
 	await expect(page.getByText(red.properties.title, { exact: true }).first()).toBeVisible();
 	// Every hazard of the recording is in the list once the "in view" filter is off.
-	await expect(page.locator('.rail .list > .row')).toHaveCount(hazards.features.length);
+	await expect(page.locator('.rail .list > .row')).toHaveCount(
+		hazards.features.length + storms.features.length
+	);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
@@ -190,4 +196,51 @@ test('a place found by name is chosen, with its warnings', async ({ page, reques
 	await expect(
 		page.getByRole('heading', { level: 2, name: 'Vigilances officielles à cet endroit' })
 	).toBeVisible();
+});
+
+test('a storm shows its forecast in the panel and on its page', async ({ page }) => {
+	const errors = collectErrors(page);
+	await page.goto('/');
+	await page.getByLabel('Seulement ce que montre la carte').uncheck();
+	await page.locator('.rail .list > .row').filter({ hasText: 'Hurricane Isaias' }).first().click();
+	await expect(page.getByRole('heading', { level: 3, name: 'Prévision' })).toBeVisible();
+	await expect(page.getByText('Avis 13A', { exact: false })).toBeVisible();
+	// One row per forecast position, with the source's own stage and wind.
+	const positions = isaias.features.filter((f: Json) => f.properties.kind === 'position');
+	await expect(page.locator('.forecast tbody tr')).toHaveCount(positions.length);
+	await expect(page.locator('.forecast tbody tr').first()).toContainText('95 kt (176 km/h)');
+	await expect(page.getByText('Hurricane Warning', { exact: true })).toBeVisible();
+
+	await page.goto('/alert/nhc_al092026');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hurricane Isaias');
+	await expect(page.getByRole('heading', { level: 2, name: 'Prévision' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Bulletin officiel' })).toHaveAttribute(
+		'href',
+		isaias.advisory_url
+	);
+	// The source is credited once, not once for the hazard and once for its forecast.
+	await expect(page.getByText(isaias.attribution)).toHaveCount(1);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('a tsunami page lists the estimated arrivals and the official message', async ({ page }) => {
+	await page.goto('/alert/tsunami_pheb_26282000');
+	await expect(page.getByRole('heading', { level: 3, name: 'Arrivées estimées' })).toBeVisible();
+	for (const eta of panama.features.filter((f: Json) => f.properties.kind === 'eta'))
+		await expect(page.getByText(`${eta.properties.place}, ${eta.properties.region}`)).toBeVisible();
+	await expect(
+		page.getByRole('heading', { level: 2, name: "Messages officiels du centre d'alerte" })
+	).toBeVisible();
+	await expect(page.getByText('PTWC TSUNAMI THREAT MESSAGE').first()).toBeVisible();
+});
+
+test('the forecast answer is cacheable and says when there is none', async ({ request }) => {
+	const answer = await request.get('/data/forecast/nhc_al092026.json');
+	expect(answer.status()).toBe(200);
+	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	const body = await answer.json();
+	expect(body.advisory).toBe('13A');
+	expect(body.features.features.length).toBe(isaias.features.length);
+	expect((await request.get('/data/forecast/unknown.json')).status()).toBe(404);
+	expect((await request.get('/data/forecast/bad%20id!.json')).status()).toBe(404);
 });

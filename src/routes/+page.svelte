@@ -3,15 +3,16 @@
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import AlertRow from '$lib/components/AlertRow.svelte';
+	import ForecastDetails from '$lib/components/ForecastDetails.svelte';
 	import HazardFacts from '$lib/components/HazardFacts.svelte';
 	import LevelPill from '$lib/components/LevelPill.svelte';
 	import MapView, { type Selection } from '$lib/components/MapView.svelte';
 	import WarningBody from '$lib/components/WarningBody.svelte';
-	import { boxesOverlap, coveredInView, geometryBox, pointInBox, type Box } from '$lib/geo';
+	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '$lib/geo';
 	import { countryName, t, tOr, translator, type Key } from '$lib/i18n';
 	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
 	import { hazardHref, hazardRow, warningHref, warningRow, warningTitle, type Row } from '$lib/rows';
-	import type { Hazard, Level, WarningDetail, WarningsData } from '$lib/types';
+	import type { Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '$lib/types';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -250,6 +251,31 @@
 	const selectedHazard = $derived(
 		selection?.kind === 'hazard' ? hazards.find((h) => h.id === (selection as { id: string }).id) : undefined
 	);
+	// The forecast of a selected storm or tsunami: drawn on the map, told in the panel.
+	let forecast = $state<{ id: string; status: 'loading' | 'ok' | 'error'; value?: HazardForecast } | null>(
+		null
+	);
+	async function loadForecast(id: string) {
+		forecast = { id, status: 'loading' };
+		try {
+			const response = await fetch(`/data/forecast/${encodeURIComponent(id)}.json`);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = (await response.json()) as HazardForecast;
+			if (forecast?.id !== id) return;
+			forecast = { id, status: 'ok', value };
+			if (value.bbox) mapView?.show(grow(value.bbox, 0.1), 6);
+		} catch {
+			if (forecast?.id === id) forecast = { id, status: 'error' };
+		}
+	}
+	$effect(() => {
+		const h = selectedHazard;
+		untrack(() => {
+			if (!h?.hasForecast) forecast = null;
+			else if (forecast?.id !== h.id) void loadForecast(h.id);
+		});
+	});
+
 	const zoneWarnings = $derived.by(() => {
 		const s = selection;
 		if (s?.kind !== 'zone') return [];
@@ -330,6 +356,15 @@
 						<p class="muted">{tOr(lang, `cat1.${selectedHazard.category}`, selectedHazard.category)}</p>
 					</div>
 					<HazardFacts {lang} hazard={selectedHazard} />
+					{#if selectedHazard.hasForecast}
+						{#if forecast?.status === 'ok' && forecast.value}
+							<ForecastDetails {lang} forecast={forecast.value} credited={selectedHazard.attribution} />
+						{:else if forecast?.status === 'error'}
+							<p class="muted">{tr('fc.failed')}</p>
+						{:else}
+							<p class="muted">{tr('fc.loading')}</p>
+						{/if}
+					{/if}
 					<a href={hazardHref(selectedHazard)}>{tr('detail.open')}</a>
 				{:else if selection.kind === 'zone'}
 					<div class="head">
@@ -461,6 +496,7 @@
 			hazards={mapHazards}
 			{zones}
 			selected={mapSelected}
+			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {

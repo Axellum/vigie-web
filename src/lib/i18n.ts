@@ -246,6 +246,25 @@ const fr = {
 	'w.swell': 'Houle',
 	'w.current': 'Courant',
 	'w.stale': 'données anciennes',
+	'fc.title': 'Prévision',
+	'fc.advisory': 'Avis {n}',
+	'fc.issued': 'émis',
+	'fc.bulletin': 'Bulletin officiel',
+	'fc.valid': 'Échéance',
+	'fc.wind': 'Vent soutenu',
+	'fc.pressure': 'Pression',
+	'fc.stage': 'Stade (mot de la source)',
+	'fc.coneNote':
+		"Le cône montre où le centre de la tempête passera probablement, d'après le centre de prévision ; les vents et la pluie débordent largement du cône.",
+	'fc.warnings': 'Veilles et alertes côtières (mots de la source)',
+	'fc.arrivals': 'Arrivées estimées',
+	'fc.place': 'Lieu',
+	'fc.eta': 'Arrivée estimée',
+	'fc.etaNote': "Heures estimées par le centre d'alerte aux tsunamis, pour les lieux qu'il cite.",
+	'fc.none': 'Aucune prévision à dessiner',
+	'fc.messages': "Messages officiels du centre d'alerte",
+	'fc.loading': 'Chargement de la prévision…',
+	'fc.failed': "La prévision n'a pas pu être chargée.",
 	updated: 'Mis à jour {time}'
 } as const;
 
@@ -475,6 +494,25 @@ const en: Record<Key, string> = {
 	'w.swell': 'Swell',
 	'w.current': 'Current',
 	'w.stale': 'old data',
+	'fc.title': 'Forecast',
+	'fc.advisory': 'Advisory {n}',
+	'fc.issued': 'issued',
+	'fc.bulletin': 'Official bulletin',
+	'fc.valid': 'Time',
+	'fc.wind': 'Sustained wind',
+	'fc.pressure': 'Pressure',
+	'fc.stage': "Stage (source's word)",
+	'fc.coneNote':
+		'The cone shows where the centre of the storm will probably go, according to the forecast centre; wind and rain reach far beyond it.',
+	'fc.warnings': "Coastal watches and warnings (source's words)",
+	'fc.arrivals': 'Estimated arrivals',
+	'fc.place': 'Place',
+	'fc.eta': 'Estimated arrival',
+	'fc.etaNote': 'Times estimated by the tsunami warning centre, for the places it names.',
+	'fc.none': 'No forecast to draw',
+	'fc.messages': 'Official messages of the warning centre',
+	'fc.loading': 'Loading the forecast…',
+	'fc.failed': 'The forecast could not be loaded.',
 	updated: 'Updated {time}'
 };
 

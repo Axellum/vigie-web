@@ -27,6 +27,12 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   (236,415, with the other names of the cities of 100,000 or more, so that "Genève" or "Londres" are found)
   in memory, read from `data/places.tsv.gz` on the first search. The browser asks after 250 ms without
   typing; a chosen place goes through the same matching as the others.
+- **Forecasts of storms and tsunamis.** A hazard the API marks `has_forecast` gets its forecast from
+  `/data/forecast/<id>.json` (`/v1/geojson/hazards/<id>/forecast`, cached 5 minutes): for a storm, the cone, the
+  track, the forecast positions and the coastal watches and warnings of the advisory; for a tsunami, the
+  epicentre and the arrival times the warning centre gives for the places it names. The map draws them, the
+  panel and the hazard's page list them in the source's words, and a tsunami's page adds the warning centre's
+  official messages (`/v1/vigilances.geojson?source=tsunami`), unchanged.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official
   message plus its area's first code: one CAP message often covers several areas, which the API returns as
   one warning each.
@@ -47,7 +53,8 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/lib/places.ts`, `src/lib/server/places.ts` | The search by name, and the places kept in memory (`data/places.tsv.gz`, built by `scripts/build-places.mjs`).                                                                  |
 | `src/lib/server/budget.ts`                      | The daily bound on the weather requests that reach the API.                                                                                                                     |
 | `src/lib/components/PointWeather.svelte`        | The weather of a place (`/v1/point`), with the credit of each block.                                                                                                            |
-| `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection.                                                                                                                            |
+| `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection, a hazard's forecast.                                                                                                       |
+| `src/lib/components/ForecastDetails.svelte`     | A storm's forecast positions and coastal warnings, a tsunami's arrival times, in the source's words.                                                                            |
 | `src/routes/`                                   | Pages (`/`, `/near`, `/countries`, `/country/<cc>`, `/country/<cc>/<area>`, `/warning/<cc>/<id>`, `/alert/<id>`, `/sources`, `/about`) and data answers (`/data/*`).            |
 | `e2e/`                                          | End-to-end tests and the recorded API answers they replay.                                                                                                                      |
 | `deploy/deck/`                                  | Podman quadlets and Caddyfile for a home server (the Steam Deck).                                                                                                               |

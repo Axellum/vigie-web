@@ -25,6 +25,11 @@ All notable changes are listed here. Versions are git tags.
 - Search of a place by name on the "near me" page: the GeoNames places of at least 500 people, with the names in
   other languages of the large cities; "Paris, Texas" narrows by region or country.
 
+- Forecasts of storms and tsunamis, when the API has one: on the map, the cone, the track, the forecast
+  positions and the coastal warnings of a storm, or the arrival times of a tsunami at the places the warning
+  centre names; in the panel and on the hazard's page, the same in a table, with a link to the official
+  bulletin. A tsunami's page shows the official messages of the warning centre, unchanged.
+
 ### Changed
 
 - Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes
