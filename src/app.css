@@ -231,6 +231,75 @@ p {
 	border-radius: var(--radius);
 	padding: 16px;
 }
+/* Forms of the account pages. */
+.page.narrow {
+	max-width: 640px;
+}
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+.btn-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	align-items: flex-start;
+}
+.form-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: 100%;
+}
+.input {
+	font: inherit;
+	padding: 9px 11px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	background: var(--surface);
+	color: var(--ink);
+	width: 100%;
+	max-width: 360px;
+}
+.btn {
+	border: 1px solid var(--accent);
+	background: var(--accent);
+	color: var(--surface);
+	border-radius: var(--radius);
+	padding: 8px 14px;
+	font-weight: 600;
+	cursor: pointer;
+}
+.btn.quiet {
+	background: transparent;
+	color: var(--accent);
+}
+.btn.danger {
+	background: var(--sev-red);
+	border-color: var(--sev-red);
+	color: var(--on-sev);
+}
+.btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+.note {
+	background: var(--accent-soft);
+	border-radius: var(--radius);
+	padding: 8px 10px;
+	font-size: 14px;
+}
+.error {
+	color: var(--sev-red);
+	font-weight: 500;
+}
 .facts {
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);

@@ -47,6 +47,11 @@
 			<a class="lang" href="?lang={other}" hreflang={other} lang={other} data-sveltekit-reload
 				>{tr('lang.switch')}</a
 			>
+			{#if data.accounts}
+				<a class="account" href="/account" aria-current={path.startsWith('/account') ? 'page' : undefined}
+					>{tr('nav.account')}</a
+				>
+			{/if}
 			<ThemeToggle lang={data.lang} />
 		</div>
 	</header>
@@ -59,6 +64,7 @@
 			<p>
 				{tr('site.personal')} <a href="/about">{tr('nav.about')}</a> ·
 				<a href="/sources">{tr('nav.sources')}</a>
+				{#if data.accounts}· <a href="/privacy">{tr('nav.privacy')}</a>{/if}
 			</p>
 			<p class="credit">{tr('map.credit')}</p>
 		</footer>
@@ -139,9 +145,13 @@
 		align-items: center;
 		gap: 8px;
 	}
-	.lang {
+	.lang,
+	.account {
 		font-size: 13px;
 		padding: 6px 8px;
+	}
+	.account[aria-current='page'] {
+		font-weight: 600;
 	}
 	.notice {
 		padding-block: 6px;
@@ -178,10 +188,13 @@
 			min-height: 0;
 		}
 	}
-	@media (max-width: 640px) {
+	/* The tagline gives way first, so that the links and tools stay on the brand's line. */
+	@media (max-width: 1100px) {
 		.brand span {
 			display: none;
 		}
+	}
+	@media (max-width: 640px) {
 		nav {
 			margin-left: 0;
 			width: 100%;

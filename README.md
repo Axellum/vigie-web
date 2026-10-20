@@ -19,7 +19,9 @@ which caches every feed once for everybody.
 - "near me": for a place (found by name, the browser's position, a click on the map, or the page's address), the official
   warnings that hold it, the hazards around it and its weather; the place stays in the browser, only a
   position rounded to the weather grid (about 5 km) is sent, for the weather;
-- the state of each source, its licence and its credit.
+- the state of each source, its licence and its credit;
+- accounts, by invitation, with passkeys (no password, no e-mail), when the server has a database: export and
+  deletion from the account page.
 
 ## Run it
 

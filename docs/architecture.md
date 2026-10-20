@@ -38,6 +38,13 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the
   simplified borders of the countries the API has a border for, so that "near me" can name a country with no
   source.
+- **Accounts** (by invitation, `DATABASE_URL`). The site's own PostgreSQL; the API never knows the people.
+  Sign-in is a passkey (WebAuthn, `@simplewebauthn/server`): the site keeps the public key only. A session
+  is a random token in an HttpOnly cookie, stored as its SHA-256, like the invitation codes. Account pages
+  are private (`Cache-Control: private, no-store`, never kept by the service worker); the public pages do
+  not read the session, so they stay the same for everybody and cacheable. The end-to-end tests run the
+  real schema on PGlite (PostgreSQL in WebAssembly) and make passkeys with Chromium's virtual
+  authenticator.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official
   message plus its area's first code: one CAP message often covers several areas, which the API returns as
   one warning each.
@@ -56,6 +63,9 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/lib/geo.ts`, `src/lib/data/countries.json` | The boxes of every country the API has a border for (Natural Earth, public domain, by `scripts/build-countries.mjs`; run it again when the API's borders change).    |
 | `src/lib/near.ts`, `src/lib/data/borders.json`  | Where a place stands: warnings that hold it, rivers and hazards around it, its country (borders simplified by `scripts/build-countries.mjs`).                        |
 | `src/lib/places.ts`, `src/lib/server/places.ts` | The search by name, and the places kept in memory (`data/places.tsv.gz`, built by `scripts/build-places.mjs`).                                                       |
+| `src/lib/server/db.ts`, `migrations/`           | The accounts database and its schema, migrated at start.                                                                                                             |
+| `src/lib/server/accounts.ts`, `passkeys.ts`     | Sessions, invitations, export and deletion; the passkey ceremonies.                                                                                                  |
+| `scripts/invite.mjs`                            | The invitations (and `--list`, `--recover`), run by the person who runs the site.                                                                                    |
 | `src/lib/server/budget.ts`                      | The daily bound on the weather requests that reach the API.                                                                                                          |
 | `src/lib/components/PointWeather.svelte`        | The weather of a place (`/v1/point`), with the credit of each block.                                                                                                 |
 | `src/lib/components/MapView.svelte`             | The MapLibre map: warning zones, hazards, selection, a hazard's forecast.                                                                                            |

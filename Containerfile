@@ -20,6 +20,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 # The places of the search by name (GeoNames), read by the server on the first search.
 COPY --from=build /app/data ./data
+# Creates the invitations of the accounts: podman exec vigie-web node scripts/invite.mjs "note".
+COPY --from=build /app/scripts/invite.mjs ./scripts/invite.mjs
 USER node
 EXPOSE 3000
 CMD ["node", "build"]
