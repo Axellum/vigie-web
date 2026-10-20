@@ -17,6 +17,17 @@
   "/v1/vigilances.geojson?country=US": "warnings-US.json",
   "/v1/vigilances.geojson?country=CA": "warnings-CA.json",
   "/v1/vigilances.geojson?country=NZ": "warnings-NZ.json",
-  "/v1/point": "point.json"
+  "/v1/point": "point.json",
+  "/v1/geojson/hazards/nhc_al092026/forecast": "forecast-nhc_al092026.json",
+  "/v1/geojson/hazards/tsunami_pheb_26282000/forecast": "forecast-tsunami_pheb_26282000.json",
+  "/v1/vigilances.geojson?source=tsunami": "vigilances-tsunami.json"
+ },
+ "added": {
+  "/v1/geojson/hazards": [
+   "hazards-storms.json"
+  ]
+ },
+ "notes": {
+  "hazards-storms.json, forecast-*.json, vigilances-tsunami.json": "Answers of vigie-api a87136f to its own recordings of the NHC (Hurricane Isaias, advisory 13A, 2026-10-09) and of tsunami.gov (Panama, 2026-10-09 18:55 UTC), made with its test setup (tests/test_storm_api.py), because no storm and no tsunami were active on 2026-10-20."
  }
 }
