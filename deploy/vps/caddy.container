@@ -1,0 +1,25 @@
+# Caddy on the server (quadlet: ~/.config/containers/systemd/caddy.container): the only door to Vigie Web.
+# Host network: it sees the visitors' real addresses and reaches the site on 127.0.0.1:3000. Rootless, it may
+# listen on 80 and 443 because setup.sh lets users bind ports from 80 up.
+[Unit]
+Description=Caddy for Vigie Web
+Wants=network-online.target vigie-web.service
+After=network-online.target vigie-web.service
+
+[Container]
+Image=docker.io/library/caddy:2.11.7-alpine
+ContainerName=vigie-caddy
+Network=host
+Volume=%h/vigie/Caddyfile:/etc/caddy/Caddyfile:ro
+# The public address, once its DNS points here: ~/vigie/sites/public.caddy (see public.caddy.example).
+Volume=%h/vigie/sites:/etc/caddy/sites:ro
+Volume=vigie-caddy-data:/data
+Volume=vigie-caddy-config:/config
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=180
+
+[Install]
+WantedBy=default.target

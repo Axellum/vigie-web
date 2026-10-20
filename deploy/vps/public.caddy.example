@@ -1,0 +1,13 @@
+# The public address of the site. Once its DNS records (A, and AAAA if the server has IPv6) point to the server:
+# copy to ~/vigie/sites/public.caddy with the real name, set ORIGIN=https://<name> in ~/vigie/web.env, then
+#   systemctl --user restart vigie-web caddy
+# Caddy gets the certificate from Let's Encrypt by itself (ports 80 and 443 are open).
+vigie.example.org {
+	import site
+	header Strict-Transport-Security "max-age=31536000"
+}
+
+# With a "www." record too:
+# www.vigie.example.org {
+# 	redir https://vigie.example.org{uri} permanent
+# }

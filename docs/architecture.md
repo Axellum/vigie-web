@@ -74,3 +74,4 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/routes/`                                   | Pages (`/`, `/near`, `/countries`, `/country/<cc>`, `/country/<cc>/<area>`, `/warning/<cc>/<id>`, `/alert/<id>`, `/sources`, `/about`) and data answers (`/data/*`). |
 | `e2e/`                                          | End-to-end tests and the recorded API answers they replay.                                                                                                           |
 | `deploy/deck/`                                  | Podman quadlets and Caddyfile for a home server (the Steam Deck).                                                                                                    |
+| `deploy/vps/`                                   | Podman quadlets, Caddyfile, firewall and backups for the public instance on a rented server.                                                                         |
