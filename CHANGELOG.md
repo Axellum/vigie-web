@@ -35,6 +35,8 @@ All notable changes are listed here. Versions are git tags.
 - The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
   Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
   not confirmed. "Near me" names a country with no source (borders of 135 countries).
+- What an earthquake or a volcanic event is close to: the named active faults (GEM) and the volcanoes the sources
+  report, with their distance, marked as calculated by Vigie; nothing for a storm or a flood, which are not compared.
 - Active fires seen by satellite (NASA FIRMS), off until ticked on the world map: cells that count the
   detections of the last 24 hours, then each detection up close, with its time, radiative power, confidence and
   satellite; on "near me", the detections within 50 km. NASA's credit and disclaimer are shown, and the site

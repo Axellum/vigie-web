@@ -29,6 +29,28 @@
 	{/if}
 	<dt>{tr('detail.severity')}</dt>
 	<dd>{tr(quake ? 'detail.severityQuake' : gdacs ? 'detail.severityGdacs' : 'detail.severityOther')}</dd>
+	{#if hazard.nearPlaces}
+		<dt>{tr('detail.near')}</dt>
+		<dd>
+			{#if hazard.nearPlaces.length}
+				<ul class="near">
+					{#each hazard.nearPlaces as place, i (i)}
+						<li>
+							{place.name}
+							<span class="muted"
+								>({tOr(lang, `near.kind.${place.kind}`, place.kind)}{#if place.distanceKm != null}, <span
+										class="data">{number(lang, place.distanceKm)} km</span
+									>{/if})</span
+							>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				{tr('detail.nearNone')}
+			{/if}
+			<span class="muted small">· {tr('detail.nearDerived')}</span>
+		</dd>
+	{/if}
 	<dt>{tr('detail.sources')}</dt>
 	<dd>{hazard.sources.join(', ')} · {tOr(lang, `cat1.${hazard.category}`, hazard.category)}</dd>
 </dl>
@@ -38,3 +60,11 @@
 {#if hazard.attribution}
 	<p class="credit">{hazard.attribution}</p>
 {/if}
+
+<style>
+	.near {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+</style>

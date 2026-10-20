@@ -343,3 +343,37 @@ describe('fires', () => {
 		).toHaveLength(0);
 	});
 });
+
+describe('places near a hazard', () => {
+	it('keeps the named places of a real answer, nearest first', () => {
+		const raw = fixture('hazards') as Record<string, any>;
+		const { items } = hazardsFromApi(raw);
+		const near = raw.features.find((f: any) => f.properties.near_places?.length);
+		expect(items.find((h) => h.id === near.id)?.nearPlaces).toEqual(
+			near.properties.near_places.map((p: any) => ({ name: p.name, kind: p.kind, distanceKm: p.distance_km }))
+		);
+	});
+
+	it('tells nothing near ([]) from not compared (null), and leaves out a place without a name', () => {
+		const hazard = (nearPlaces: unknown) =>
+			hazardsFromApi({
+				features: [
+					{
+						type: 'Feature',
+						id: 'q',
+						geometry: { type: 'Point', coordinates: [-80.5, 7.3] },
+						properties: { title: 'M 7.7', category: 'EARTHQUAKE', near_places: nearPlaces }
+					}
+				]
+			}).items[0].nearPlaces;
+		expect(hazard(undefined)).toBeNull();
+		expect(hazard(null)).toBeNull();
+		expect(hazard([])).toEqual([]);
+		expect(
+			hazard([
+				{ name: 'Azuero Fault Zone', kind: 'fault', distance_km: 4.3, sources: ['GEM'] },
+				{ name: null, kind: 'fault', distance_km: 6 }
+			])
+		).toEqual([{ name: 'Azuero Fault Zone', kind: 'fault', distanceKm: 4.3 }]);
+	});
+});
