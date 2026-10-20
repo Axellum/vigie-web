@@ -213,6 +213,9 @@ p {
 
 /* Page body for the reading pages (country, alert, sources). */
 .page {
+	/* Auto margins stop a flex item from stretching: without a width, a wide child (a table that scrolls in its
+	   own box) would set the width of the whole page on a phone. */
+	width: 100%;
 	max-width: 1080px;
 	margin: 0 auto;
 	padding-block: 24px 40px;

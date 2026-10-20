@@ -30,3 +30,4 @@ All notable changes are listed here. Versions are git tags.
 - The health check of the Deck container sends `X-Forwarded-For`, without which the server answers 500: the
   container was marked unhealthy while the site worked.
 - A description for search engines on the about and sources pages.
+- On a phone, a wide table no longer makes the whole page wider than the screen.
