@@ -51,7 +51,15 @@
 			IP.
 		</p>
 		<h2>Mentions légales</h2>
-		<p>En préparation : le site n'est pas encore ouvert au public.</p>
+		<p>
+			Éditeur : Axel Duviella, particulier, à titre non professionnel (France). Contact :
+			<a href="https://github.com/Axellum">github.com/Axellum</a>.
+		</p>
+		<p>
+			Hébergeur : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (<a href="https://www.ovhcloud.com/fr/"
+				>ovhcloud.com</a
+			>). Le serveur est à Beauharnois, au Canada.
+		</p>
 	{:else}
 		<p>
 			Vigie is a personal, non-commercial project, made with the help of AI and shared in case it helps
@@ -88,7 +96,15 @@
 			are sent to the site; it does not keep them with your IP address.
 		</p>
 		<h2>Legal notice</h2>
-		<p>In preparation: the site is not open to the public yet.</p>
+		<p>
+			Publisher: Axel Duviella, a private individual, non-commercial (France). Contact:
+			<a href="https://github.com/Axellum">github.com/Axellum</a>.
+		</p>
+		<p>
+			Host: OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (<a href="https://www.ovhcloud.com/en/"
+				>ovhcloud.com</a
+			>). The server is in Beauharnois, Canada.
+		</p>
 	{/if}
 </div>
 
