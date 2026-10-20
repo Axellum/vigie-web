@@ -17,7 +17,15 @@ const targets = [
 	['vigilances-countries', '/v1/vigilances/countries'],
 	...countries.map((cc) => [`warnings-${cc}`, `/v1/vigilances.geojson?country=${cc}`]),
 	// One weather answer (Corte, Haute-Corse): the mock gives it for every position.
-	['point', '/v1/point?lat=42.3&lon=9.15&marine=false&device_type=web&max_hazards=1&radius_km=1', '/v1/point']
+	[
+		'point',
+		'/v1/point?lat=42.3&lon=9.15&marine=false&device_type=web&max_hazards=1&radius_km=1',
+		'/v1/point'
+	],
+	// Active fires (NASA FIRMS): a grid of southern Africa and the detections of one tile of 2° in Zambia. The mock
+	// gives them for every tile.
+	['fires-grid', '/v1/fires/grid?bbox=20,-20,40,0&cell_deg=1&limit=20000', '/v1/fires/grid'],
+	['fires', '/v1/fires?bbox=28,-16,30,-14&limit=300', '/v1/fires']
 ];
 
 await mkdir(out, { recursive: true });

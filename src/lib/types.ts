@@ -203,4 +203,29 @@ export interface PointWeather {
 		storm: string | null;
 		attribution: string | null;
 	} | null;
+	/** The active fires seen by satellite around the point in 24 hours (NASA FIRMS), as the API sums them up:
+	 * derived figures, never an alert. Null when the API has no fire data. */
+	fires: {
+		radiusKm: number | null;
+		count: number | null;
+		nearestKm: number | null;
+		maxFrpMw: number | null;
+		latest: number | null;
+		stale: boolean;
+		attribution: string | null;
+		disclaimer: string | null;
+	} | null;
+}
+
+/** One tile of the active fires (`/data/fires/<level>/<x>_<y>.json`). */
+export interface FireTile {
+	/** Points: a cell (`n` detections, `frp` the highest power in MW, `t` the latest time) or a detection (`t` time,
+	 * `frp`, `c` confidence, `s` satellite, `d` day or night). A value the API did not give is absent. */
+	features: FeatureCollection;
+	/** The API kept only the strongest detections of the tile. */
+	truncated: boolean;
+	windowHours: number | null;
+	stale: boolean;
+	attribution: string | null;
+	disclaimer: string | null;
 }

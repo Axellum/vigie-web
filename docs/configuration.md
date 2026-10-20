@@ -20,7 +20,7 @@ In development, `npm run dev` reads them from a `.env` file (see `.env.example`)
 ## Cache times
 
 The site keeps the API's answers in memory (`src/lib/server/vigie.ts`, `TTL_S`): hazards 60 s, warnings of a
-country 120 s, state of the sources 60 s. A failed refresh keeps serving the last good answer, marked stale;
+country 120 s, state of the sources 60 s, a tile of active fires 600 s. A failed refresh keeps serving the last good answer, marked stale;
 a failure with nothing to fall back on is remembered for 15 s, so that a down API is not asked once per
 visitor. Pages and `/data/*` answers carry a `Cache-Control` header so that a proxy in front of the site can
 serve them too.

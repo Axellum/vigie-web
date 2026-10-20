@@ -1,9 +1,11 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
 import { env } from '$env/dynamic/private';
+import { tileBox, type FireLevel } from '$lib/fires';
 import { hasBox } from '$lib/geo';
 import { snapToGrid } from '$lib/near';
 import {
+	firesFromApi,
 	forecastFromApi,
 	hazardsFromApi,
 	pointFromApi,
@@ -11,7 +13,14 @@ import {
 	warningsFromApi,
 	type ParsedWarnings
 } from '$lib/transform';
-import type { HazardForecast, HazardsData, PointWeather, Provider, ServedCountry } from '$lib/types';
+import type {
+	FireTile,
+	HazardForecast,
+	HazardsData,
+	PointWeather,
+	Provider,
+	ServedCountry
+} from '$lib/types';
 import { SlidingBudget } from './budget';
 import { TtlCache, type Cached } from './cache';
 
@@ -19,18 +28,21 @@ import { TtlCache, type Cached } from './cache';
 // A point's weather: the API's forecast changes every 15 minutes at most.
 // A forecast changes with a new advisory (every 3 to 6 hours for a storm) or a new tsunami message.
 // The countries served change with the API's settings only.
+// The API reads the fires at most every 60 minutes.
 export const TTL_S = {
 	hazards: 60,
 	warnings: 120,
 	providers: 60,
 	point: 900,
 	forecast: 300,
-	served: 600
+	served: 600,
+	fires: 600
 } as const;
 
 const cache = new TtlCache();
-// Points have their own cache, so that many places cannot push the shared answers out.
+// Points have their own cache, so that many places cannot push the shared answers out. So do the tiles of fires.
 const pointCache = new TtlCache(Date.now, 15_000, 2000);
+const fireCache = new TtlCache(Date.now, 15_000, 400);
 
 export class ApiError extends Error {
 	constructor(
@@ -163,6 +175,21 @@ export function getPoint(lat: number, lon: number, marine: boolean): Promise<Cac
 			radius_km: '1'
 		});
 		return pointFromApi(await getJson(`/v1/point?${query}`, 30_000));
+	});
+}
+
+/**
+ * One tile of active fires: the cells of a grid, or the detections themselves (the strongest first). The API
+ * answers 404 when it has no fire data (no FIRMS key).
+ */
+export function getFires(level: FireLevel, x: number, y: number): Promise<Cached<FireTile>> {
+	return fireCache.get(`fires:${level.id}:${x}_${y}`, TTL_S.fires * 1000, async () => {
+		const bbox = tileBox(level, x, y).join(',');
+		const path =
+			level.cellDeg == null
+				? `/v1/fires?bbox=${bbox}&limit=5000`
+				: `/v1/fires/grid?bbox=${bbox}&cell_deg=${level.cellDeg}&limit=20000`;
+		return firesFromApi(await getJson(path, 30_000), level.cellDeg == null ? 'dots' : 'cells');
 	});
 }
 

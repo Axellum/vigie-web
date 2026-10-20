@@ -7,6 +7,7 @@ import type {
 	Coverage,
 	Hazard,
 	HazardForecast,
+	FireTile,
 	HazardsData,
 	PointWeather,
 	ServedCountry,
@@ -243,6 +244,7 @@ export function pointFromApi(body: unknown): PointWeather {
 	const river = p.flood_risk == null ? null : obj(p.flood_risk);
 	const marine = p.marine == null ? null : obj(p.marine);
 	const space = p.space_weather == null ? null : obj(p.space_weather);
+	const fires = p.fires_nearby == null ? null : obj(p.fires_nearby);
 	return {
 		lat: num(coords.lat) ?? NaN,
 		lon: num(coords.lon) ?? NaN,
@@ -319,7 +321,66 @@ export function pointFromApi(body: unknown): PointWeather {
 			kp: num(space.solar_kp),
 			storm: str(space.solar_storm_level),
 			attribution: str(space.attribution)
+		},
+		fires: fires && {
+			radiusKm: num(fires.radius_km),
+			count: num(fires.count_24h),
+			nearestKm: num(fires.nearest_km),
+			maxFrpMw: num(fires.max_frp_mw),
+			latest: num(fires.latest_utc),
+			stale: bool(fires.stale) ?? false,
+			attribution: str(fires.attribution),
+			disclaimer: str(fires.disclaimer)
 		}
+	};
+}
+
+const CONFIDENCE = new Set(['low', 'nominal', 'high']);
+
+/**
+ * A tile of active fires from `/v1/fires/grid` (cells) or `/v1/fires` (detections), cut down to what the map
+ * shows: short property names, coordinates to 4 decimals (about 10 m, for pixels of 375 m).
+ */
+export function firesFromApi(body: unknown, kind: 'cells' | 'dots'): FireTile {
+	const p = obj(body);
+	const meta = obj(p.metadata);
+	const features: Feature[] = [];
+	for (const raw of Array.isArray(p.features) ? p.features : []) {
+		const f = obj(raw);
+		const coords = obj(f.geometry).coordinates;
+		if (!Array.isArray(coords) || num(coords[0]) == null || num(coords[1]) == null) continue;
+		const props = obj(f.properties);
+		const out: Record<string, string | number> = {};
+		const put = (key: string, value: string | number | null) => {
+			if (value != null) out[key] = value;
+		};
+		if (kind === 'cells') {
+			const n = num(props.count);
+			if (n == null || n < 1) continue;
+			put('n', n);
+			put('frp', num(props.max_frp_mw));
+			put('t', num(props.latest_utc));
+		} else {
+			put('t', num(props.acq_utc));
+			put('frp', num(props.frp_mw));
+			const c = str(props.confidence);
+			put('c', c && CONFIDENCE.has(c) ? c : null);
+			put('s', str(props.satellite));
+			put('d', str(props.daynight));
+		}
+		features.push({
+			type: 'Feature',
+			geometry: roundGeometry({ type: 'Point', coordinates: [coords[0], coords[1]] }, 4),
+			properties: out
+		});
+	}
+	return {
+		features: { type: 'FeatureCollection', features },
+		truncated: bool(meta.truncated) ?? false,
+		windowHours: num(meta.window_hours),
+		stale: bool(meta.stale) ?? false,
+		attribution: str(meta.attribution),
+		disclaimer: str(meta.disclaimer)
 	};
 }
 

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	firesFromApi,
 	forecastFromApi,
 	hazardsFromApi,
 	pickText,
@@ -256,5 +257,89 @@ describe('servedFromApi', () => {
 		expect(servedFromApi([{ country: 'fr', sources: ['x', 3] }, { country: 'France' }, {}])).toEqual([
 			{ country: 'FR', sources: ['x'], licenceVerified: false }
 		]);
+	});
+});
+
+describe('fires', () => {
+	it('sums up the fires near a point as the API gave them, nothing near meaning zero', () => {
+		const raw = fixture('point') as Record<string, any>;
+		const point = pointFromApi(raw);
+		expect(point.fires?.count).toBe(raw.fires_nearby.count_24h);
+		expect(point.fires?.radiusKm).toBe(raw.fires_nearby.radius_km);
+		expect(point.fires?.nearestKm).toBe(raw.fires_nearby.nearest_km ?? null);
+		expect(point.fires?.attribution).toContain('FIRMS');
+		expect(point.fires?.disclaimer).toBeTruthy();
+		expect(pointFromApi({ fires_nearby: null }).fires).toBeNull();
+		const near = pointFromApi({
+			fires_nearby: {
+				radius_km: 50,
+				count_24h: 82,
+				nearest_km: 11,
+				max_frp_mw: 73.12,
+				latest_utc: 1792497060
+			}
+		}).fires;
+		expect(near).toMatchObject({
+			count: 82,
+			nearestKm: 11,
+			maxFrpMw: 73.12,
+			latest: 1792497060,
+			stale: false
+		});
+	});
+
+	it('keeps of a grid the count, the highest power and the latest time of each cell', () => {
+		const raw = fixture('fires-grid') as Record<string, any>;
+		const tile = firesFromApi(raw, 'cells');
+		expect(tile.features.features).toHaveLength(raw.features.length);
+		const [first] = raw.features;
+		expect(tile.features.features[0].properties).toEqual({
+			n: first.properties.count,
+			frp: first.properties.max_frp_mw,
+			t: first.properties.latest_utc
+		});
+		expect(tile.attribution).toBe(raw.metadata.attribution);
+		expect(tile.disclaimer).toBe(raw.metadata.disclaimer);
+		expect(tile.windowHours).toBe(raw.metadata.window_hours);
+	});
+
+	it('keeps of a detection its time, power, confidence, satellite and day or night, to about 10 m', () => {
+		const raw = fixture('fires') as Record<string, any>;
+		const tile = firesFromApi(raw, 'dots');
+		expect(tile.truncated).toBe(raw.metadata.truncated);
+		const [first] = raw.features;
+		const [kept] = tile.features.features;
+		expect(kept.properties).toEqual({
+			t: first.properties.acq_utc,
+			frp: first.properties.frp_mw,
+			c: first.properties.confidence,
+			s: first.properties.satellite,
+			d: first.properties.daynight
+		});
+		const [lon, lat] = (kept.geometry as { coordinates: number[] }).coordinates;
+		expect(Math.abs(lon - first.geometry.coordinates[0])).toBeLessThanOrEqual(0.00005);
+		expect(Math.abs(lat - first.geometry.coordinates[1])).toBeLessThanOrEqual(0.00005);
+	});
+
+	it('leaves out what the API did not give, and drops a feature without a position', () => {
+		const tile = firesFromApi(
+			{
+				features: [
+					{
+						geometry: { type: 'Point', coordinates: [10, 20] },
+						properties: { acq_utc: 5, frp_mw: null, confidence: 'odd' }
+					},
+					{ geometry: null, properties: { acq_utc: 6 } }
+				]
+			},
+			'dots'
+		);
+		expect(tile.features.features).toHaveLength(1);
+		expect(tile.features.features[0].properties).toEqual({ t: 5 });
+		expect(tile.attribution).toBeNull();
+		expect(
+			firesFromApi({ features: [{ geometry: { coordinates: [1, 2] }, properties: { count: 0 } }] }, 'cells')
+				.features.features
+		).toHaveLength(0);
 	});
 });

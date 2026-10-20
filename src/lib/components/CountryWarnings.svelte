@@ -69,6 +69,7 @@
 			goto(`/alert/${encodeURIComponent(s.id)}`);
 			return;
 		}
+		if (s.kind !== 'zone') return;
 		const inZone = warnings
 			.filter((w) => w.shape === s.key)
 			.sort((a, b) => byLevelThenTime(warningRow(a), warningRow(b)));

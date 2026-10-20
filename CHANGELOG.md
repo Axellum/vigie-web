@@ -35,6 +35,10 @@ All notable changes are listed here. Versions are git tags.
 - The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
   Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
   not confirmed. "Near me" names a country with no source (borders of 135 countries).
+- Active fires seen by satellite (NASA FIRMS), off until ticked on the world map: cells that count the
+  detections of the last 24 hours, then each detection up close, with its time, radiative power, confidence and
+  satellite; on "near me", the detections within 50 km. NASA's credit and disclaimer are shown, and the site
+  says that a detection is not an alert.
 - Installation on a rented server (`deploy/vps/`): the site, its API and the accounts' database (PostgreSQL with
   PostGIS), HTTPS by Caddy, a firewall, and a dump of the database every day. The privacy page says the backups
   are kept 7 days at most.

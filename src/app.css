@@ -13,6 +13,8 @@
 	--sev-yellow: #e2b400;
 	--sev-green: #3a9356;
 	--sev-none: #8a99a3;
+	/* Active fires seen by satellite: not a warning level, so not one of the level colours. */
+	--fire: #d63d12;
 	--map-land: #f4f3ee;
 	--map-water: #c9d9e3;
 	--on-sev: #ffffff;
@@ -39,6 +41,7 @@
 		--sev-yellow: #f3cc35;
 		--sev-green: #58c178;
 		--sev-none: #6d7f8a;
+		--fire: #ff6a3d;
 		--map-land: #1b2a33;
 		--map-water: #0a141b;
 		--on-sev: #0c151b;
@@ -59,6 +62,7 @@
 	--sev-yellow: #f3cc35;
 	--sev-green: #58c178;
 	--sev-none: #6d7f8a;
+	--fire: #ff6a3d;
 	--map-land: #1b2a33;
 	--map-water: #0a141b;
 	--on-sev: #0c151b;
