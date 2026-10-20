@@ -58,6 +58,10 @@
 			<li>Une session : 30 jours après sa dernière utilisation.</li>
 			<li>Une invitation : 30 jours après sa date d'expiration.</li>
 			<li>La vérification d'une passkey en cours : 5 minutes.</li>
+			<li>
+				Les sauvegardes de la base, faites chaque jour : 7 jours au plus. Un compte supprimé en disparaît dans
+				ce délai.
+			</li>
 		</ul>
 		<h2>Cookies</h2>
 		<p>
@@ -69,7 +73,9 @@
 		<p>
 			Depuis <a href="/account">votre compte</a>, vous pouvez télécharger tout ce que le site garde sur vous
 			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys, ses sessions et
-			ses zones. Vous pouvez aussi saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			ses zones, et les sauvegardes l'oublient sous 7 jours. Vous pouvez aussi saisir la CNIL (<a
+				href="https://www.cnil.fr">cnil.fr</a
+			>).
 		</p>
 		<h2>Où</h2>
 		<p>Sur le serveur du site, dans l'Union européenne.</p>
@@ -118,6 +124,10 @@
 			<li>A session: 30 days after it was last used.</li>
 			<li>An invitation: 30 days after it expired.</li>
 			<li>The check of a passkey in progress: 5 minutes.</li>
+			<li>
+				The daily backups of the database: 7 days at most. A deleted account is gone from them within that
+				time.
+			</li>
 		</ul>
 		<h2>Cookies</h2>
 		<p>
@@ -128,10 +138,9 @@
 		<h2>Your rights</h2>
 		<p>
 			From <a href="/account">your account</a>, you can download everything the site keeps about you and
-			delete the account: deleting erases the account, its passkeys, its sessions and its zones at once. You
-			can also complain to the French data protection authority, the CNIL (<a href="https://www.cnil.fr"
-				>cnil.fr</a
-			>).
+			delete the account: deleting erases the account, its passkeys, its sessions and its zones at once, and
+			the backups forget it within 7 days. You can also complain to the French data protection authority, the
+			CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Where</h2>
 		<p>On the site's server, in the European Union.</p>

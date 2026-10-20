@@ -319,7 +319,7 @@ const fr = {
 	'account.logout': 'Se déconnecter',
 	'account.delete': 'Supprimer le compte',
 	'account.deleteHelp':
-		'Supprime tout de suite le compte, ses passkeys, ses sessions et ses zones. Rien n’est gardé.',
+		'Supprime tout de suite le compte, ses passkeys, ses sessions et ses zones. Les sauvegardes de la base l’oublient sous 7 jours.',
 	'account.deleteConfirm': 'Je veux supprimer mon compte',
 	'account.deleteMissing': 'Cochez la case pour confirmer.',
 	'privacy.title': 'Confidentialité',
@@ -672,7 +672,7 @@ const en: Record<Key, string> = {
 	'account.logout': 'Sign out',
 	'account.delete': 'Delete the account',
 	'account.deleteHelp':
-		'Deletes the account, its passkeys, its sessions and its zones at once. Nothing is kept.',
+		'Deletes the account, its passkeys, its sessions and its zones at once. The database backups forget it within 7 days.',
 	'account.deleteConfirm': 'I want to delete my account',
 	'account.deleteMissing': 'Tick the box to confirm.',
 	'privacy.title': 'Privacy',
