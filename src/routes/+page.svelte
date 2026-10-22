@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
@@ -393,10 +394,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Vigie · {tr('nav.map')}</title>
-	<meta name="description" content={tr('countries.intro')} />
-</svelte:head>
+<Seo title={tr('nav.map')} description={tr('countries.intro')} />
 
 <div class="app">
 	<aside class="rail" bind:this={rail} aria-label={tr('list.title')}>

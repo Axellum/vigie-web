@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import { translator } from '$lib/i18n';
 
 	let { data } = $props();
@@ -6,10 +7,7 @@
 	const tr = $derived(translator(lang));
 </script>
 
-<svelte:head>
-	<title>Vigie · {tr('sources.title')}</title>
-	<meta name="description" content={tr('sources.intro')} />
-</svelte:head>
+<Seo title={tr('sources.title')} description={tr('sources.intro')} />
 
 <div class="page">
 	<header class="intro">

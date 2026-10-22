@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import type { FeatureCollection } from 'geojson';
 	import LevelPill from '$lib/components/LevelPill.svelte';
 	import MapView from '$lib/components/MapView.svelte';
@@ -23,10 +24,7 @@
 	const frame = $derived(d.geometry ? geometryBox(d.geometry) : null);
 </script>
 
-<svelte:head>
-	<title>Vigie · {title}{d.area ? ` · ${d.area}` : ''}</title>
-	<meta name="description" content="{title} · {d.area ?? ''} · {name}" />
-</svelte:head>
+<Seo title={`${title}${d.area ? ` · ${d.area}` : ''}`} description={`${title} · ${d.area ?? ''} · ${name}`} />
 
 <div class="page">
 	<header class="intro">
