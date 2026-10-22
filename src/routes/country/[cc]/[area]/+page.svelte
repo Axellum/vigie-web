@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import AlertRow from '$lib/components/AlertRow.svelte';
 	import CountryWarnings from '$lib/components/CountryWarnings.svelte';
 	import { countryName, translator } from '$lib/i18n';
@@ -12,9 +13,10 @@
 	const rows = $derived(data.warnings.map(warningRow).sort(byLevelThenTime));
 </script>
 
-<svelte:head>
-	<title>Vigie · {tr('area.title', { area: data.area, country: name })}</title>
-</svelte:head>
+<Seo
+	title={tr('area.title', { area: data.area, country: name })}
+	description={tr('area.title', { area: data.area, country: name })}
+/>
 
 <div class="page">
 	<header class="intro">

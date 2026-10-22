@@ -6,6 +6,9 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Search engines: `/sitemap.xml` (the fixed pages and one page per served country, no invented date), listed in
+  `robots.txt`; a canonical address and a basic social preview on every public page.
+
 - World map of the current hazards and, for the covered countries in view, of the official warnings
   (polygons, territories and river sections), with a list that follows the map, filters by level and by type,
   and a side panel for each alert.

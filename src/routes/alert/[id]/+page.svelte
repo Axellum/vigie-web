@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import ForecastDetails from '$lib/components/ForecastDetails.svelte';
 	import HazardFacts from '$lib/components/HazardFacts.svelte';
 	import LevelPill from '$lib/components/LevelPill.svelte';
@@ -17,10 +18,7 @@
 	const category = $derived(tOr(lang, `cat1.${h.category}`, h.category));
 </script>
 
-<svelte:head>
-	<title>Vigie · {category} · {h.title}</title>
-	<meta name="description" content="{category} · {h.title}" />
-</svelte:head>
+<Seo title={`${category} · ${h.title}`} description={`${category} · ${h.title}`} />
 
 <div class="page">
 	<header class="intro">

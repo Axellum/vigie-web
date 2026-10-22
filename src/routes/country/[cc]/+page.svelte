@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	import AlertRow from '$lib/components/AlertRow.svelte';
 	import CountryWarnings from '$lib/components/CountryWarnings.svelte';
 	import Time from '$lib/components/Time.svelte';
@@ -33,10 +34,7 @@
 	const hazardRows = $derived(data.hazards.map(hazardRow).sort(byLevelThenTime));
 </script>
 
-<svelte:head>
-	<title>Vigie · {tr('country.title', { country: name })}</title>
-	<meta name="description" content={tr('country.title', { country: name })} />
-</svelte:head>
+<Seo title={tr('country.title', { country: name })} description={tr('country.title', { country: name })} />
 
 <div class="page">
 	<header class="intro">

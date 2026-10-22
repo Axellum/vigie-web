@@ -328,3 +328,37 @@ test('the forecast answer is cacheable and says when there is none', async ({ re
 	expect((await request.get('/data/forecast/unknown.json')).status()).toBe(404);
 	expect((await request.get('/data/forecast/bad%20id!.json')).status()).toBe(404);
 });
+
+test('robots.txt announces the sitemap, which lists the public pages only', async ({ request }) => {
+	const robots = await (await request.get('/robots.txt')).text();
+	expect(robots).toContain('Sitemap: https://vigie.auxfilsdesidees.fr/sitemap.xml');
+	expect(robots).toContain('Disallow: /data/');
+
+	const res = await request.get('/sitemap.xml');
+	expect(res.status()).toBe(200);
+	expect(res.headers()['content-type']).toContain('application/xml');
+	const xml = await res.text();
+	const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+	const origin = 'https://vigie.auxfilsdesidees.fr';
+	expect(new Set(locs).size).toBe(locs.length);
+	for (const loc of locs) expect(loc.startsWith(`${origin}/`)).toBe(true);
+	for (const path of ['/', '/near', '/countries', '/sources', '/about', '/privacy', '/country/fr']) {
+		expect(locs).toContain(origin + path);
+	}
+	expect(locs.filter((l) => /\/(account|login|join|data|alert|warning)(\/|$)/.test(l))).toEqual([]);
+	// Every country listed answers (it is served by the mock API).
+	for (const loc of locs.filter((l) => l.includes('/country/')).slice(0, 3)) {
+		expect((await request.get(new URL(loc).pathname)).status()).toBe(200);
+	}
+});
+
+test('a public page carries its canonical address and a social preview', async ({ page }) => {
+	await page.goto('/country/fr?lang=en');
+	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+		'href',
+		'https://vigie.auxfilsdesidees.fr/country/fr'
+	);
+	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^Vigie · /);
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.+/);
+	await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});

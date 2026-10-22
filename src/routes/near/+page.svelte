@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Seo from '$lib/components/Seo.svelte';
 	// "Near me": the official warnings that hold a place, the hazards around it and its weather. The place is
 	// chosen in the browser (position, click on the map, or the address of the page) and the matching is done
 	// here, on the data every visitor loads; only a position rounded to the weather grid leaves the browser.
@@ -224,10 +225,7 @@
 	const km = (value: number) => number(lang, value, value < 10 ? 1 : 0);
 </script>
 
-<svelte:head>
-	<title>Vigie · {tr('near.title')}</title>
-	<meta name="description" content={tr('near.description')} />
-</svelte:head>
+<Seo title={tr('near.title')} description={tr('near.description')} />
 
 <div class="page">
 	<header class="intro">
