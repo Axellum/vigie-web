@@ -38,6 +38,9 @@ All notable changes are listed here. Versions are git tags.
 - The covered countries are the ones the API serves (48 with its default settings, among them Mexico,
   Argentina, Algeria, the Philippines, Jamaica and Barbados); the list says when a source's reuse licence is
   not confirmed. "Near me" names a country with no source (borders of 135 countries).
+- The countries without official warnings, and why, as the API says it (vigie-api 9da278c): on the countries page,
+  grouped by reason; on "near me", the reason for the place's country, with the API's own sentence in English. The
+  borders now hold every country, so "near me" names the country of any place on land.
 - What an earthquake or a volcanic event is close to: the named active faults (GEM) and the volcanoes the sources
   report, with their distance, marked as calculated by Vigie; nothing for a storm or a flood, which are not compared.
 - Active fires seen by satellite (NASA FIRMS), off until ticked on the world map: cells that count the

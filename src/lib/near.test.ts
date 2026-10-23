@@ -201,7 +201,7 @@ describe('countryAt, on the simplified borders', () => {
 		['10 km off Nice', 43.62, 7.35, 'FR'],
 		['Mexico City', 19.43, -99.13, 'MX'],
 		['São Paulo', -23.55, -46.63, 'BR'],
-		['Tokyo (no border from the API)', 35.68, 139.69, null],
+		['Tokyo (a border, no source)', 35.68, 139.69, 'JP'],
 		['Mid-Atlantic', 40, -40, null]
 	];
 	for (const [name, lat, lon, cc] of cases) {

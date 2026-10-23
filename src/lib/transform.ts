@@ -12,6 +12,7 @@ import type {
 	NearPlace,
 	PointWeather,
 	ServedCountry,
+	UncoveredCountry,
 	WarningDetail,
 	WarningsData,
 	WarningSummary,
@@ -25,19 +26,35 @@ const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFi
 const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
 
-/** The countries the API serves, in its order; an entry with no valid country code is dropped. */
+/**
+ * The countries the API serves, in its order; an entry with no valid country code is dropped, and so is a
+ * country it does not serve (`covered: false`, listed with `?uncovered=true`).
+ */
 export function servedFromApi(body: unknown): ServedCountry[] {
 	if (!Array.isArray(body)) return [];
 	const out: ServedCountry[] = [];
 	for (const item of body) {
 		const o = obj(item);
 		const cc = str(o.country)?.toUpperCase();
-		if (!cc || !/^[A-Z]{2}$/.test(cc)) continue;
+		if (!cc || !/^[A-Z]{2}$/.test(cc) || o.covered === false) continue;
 		out.push({
 			country: cc,
 			sources: Array.isArray(o.sources) ? o.sources.filter((s): s is string => typeof s === 'string') : [],
 			licenceVerified: bool(o.licence_verified) ?? false
 		});
+	}
+	return out;
+}
+
+/** The countries the API reads no source for (`covered: false`), with the reason it gives. */
+export function uncoveredFromApi(body: unknown): UncoveredCountry[] {
+	if (!Array.isArray(body)) return [];
+	const out: UncoveredCountry[] = [];
+	for (const item of body) {
+		const o = obj(item);
+		const cc = str(o.country)?.toUpperCase();
+		if (!cc || !/^[A-Z]{2}$/.test(cc) || o.covered !== false) continue;
+		out.push({ country: cc, reasonCode: str(o.reason_code), reason: str(o.reason) });
 	}
 	return out;
 }

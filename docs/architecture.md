@@ -19,8 +19,8 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   address, `#lat,lon,radius`) and the matching is done there, on the data every visitor loads: the warnings of
   the countries around it (an area that holds it, a river section within 5 km, the areas within 2 km when a
   simplified coast leaves it outside, like the API's margins) and the hazards within the radius. Which country
-  the place is in comes from simplified borders (`src/lib/data/borders.json`, 100 kB compressed, loaded with
-  the first place). Only the weather needs the server: the page sends the position rounded to the API's
+  the place is in comes from simplified borders (`src/lib/data/borders.json`, every country of the API's
+  world borders, 300 kB compressed, loaded with the first place). Only the weather needs the server: the page sends the position rounded to the API's
   weather grid (0.05°, about 5 km), and the server caches each grid point and bounds the requests that reach
   the API (`docs/configuration.md`, "Weather by place").
 - **Search by name** (`/data/places.json?q=`). The server keeps the GeoNames places of at least 500 people
