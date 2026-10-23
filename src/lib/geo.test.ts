@@ -33,8 +33,9 @@ describe('countries', () => {
 	it('has the boxes of the countries the API has a border for', () => {
 		expect(hasBox('fr')).toBe(true);
 		expect(hasBox('BR')).toBe(true);
-		// The API has no border for a country of no use to it (no source in the WMO register).
-		expect(hasBox('JP')).toBe(false);
+		// Since vigie-api 9da278c, every country of Natural Earth, Japan included (it has no source: law_restricts).
+		expect(hasBox('JP')).toBe(true);
+		expect(hasBox('XX')).toBe(false);
 	});
 
 	it('finds the served countries in a view, and only them', () => {

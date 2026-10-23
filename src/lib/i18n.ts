@@ -188,6 +188,20 @@ const fr = {
 	'countries.title': 'Pays couverts par des vigilances officielles',
 	'countries.count': '{n} pays.',
 	'countries.licence': 'Licence de réutilisation non confirmée',
+	'countries.uncoveredTitle': 'Pays sans vigilances officielles ici',
+	'countries.uncoveredIntro':
+		'Pour ces {n} pays, le site ne montre aucune vigilance officielle ; les catastrophes et la météo restent affichées. Classés par raison :',
+	'uncovered.law_restricts': 'La loi du pays réserve la diffusion des alertes à son service officiel',
+	'uncovered.redistribution_forbidden':
+		'D’après les conditions trouvées, la source ne permet pas de redistribuer ses alertes',
+	'uncovered.terms_restrict':
+		'Les conditions trouvées demandent l’accord de la source avant de diffuser ses alertes',
+	'uncovered.terms_contradictory': 'Les conditions de la source se contredisent',
+	'uncovered.licence_unverified': 'Une source existe, mais sa licence de réutilisation n’est pas vérifiée',
+	'uncovered.source_off': 'La source est désactivée sur ce serveur',
+	'uncovered.no_source': 'Aucune source d’alertes officielles n’est lue',
+	'uncovered.other': 'Autre raison',
+	'near.why': 'Pourquoi : {reason}.',
 	'countries.intro':
 		'Ces pays ont une source de vigilances officielles branchée dans Vigie. Ailleurs, la carte ne montre que les catastrophes (séismes, cyclones, volcans…).',
 	'area.title': '{area} ({country})',
@@ -586,6 +600,20 @@ const en: Record<Key, string> = {
 	'countries.title': 'Countries covered by official warnings',
 	'countries.count': '{n} countries.',
 	'countries.licence': 'Reuse licence not confirmed',
+	'countries.uncoveredTitle': 'Countries without official warnings here',
+	'countries.uncoveredIntro':
+		'For these {n} countries, the site shows no official warning; the hazards and the weather are still shown. By reason:',
+	'uncovered.law_restricts': 'The country’s law reserves the giving of warnings to its official service',
+	'uncovered.redistribution_forbidden':
+		'According to the terms found, the source does not allow its warnings to be passed on',
+	'uncovered.terms_restrict':
+		'The terms found ask for the source’s permission before its warnings are passed on',
+	'uncovered.terms_contradictory': 'The source’s terms contradict each other',
+	'uncovered.licence_unverified': 'A source exists, but its reuse licence is not verified',
+	'uncovered.source_off': 'The source is turned off on this server',
+	'uncovered.no_source': 'No source of official warnings is read',
+	'uncovered.other': 'Another reason',
+	'near.why': 'Why: {reason}.',
 	'countries.intro':
 		'These countries have a source of official warnings in Vigie. Elsewhere, the map only shows hazards (earthquakes, cyclones, volcanoes…).',
 	'area.title': '{area} ({country})',

@@ -9,6 +9,7 @@ import {
 	pointFromApi,
 	roundGeometry,
 	servedFromApi,
+	uncoveredFromApi,
 	shapeKey,
 	slug,
 	warningsFromApi
@@ -246,7 +247,9 @@ describe('servedFromApi', () => {
 	it('keeps the countries of a real answer, with their sources and licence', () => {
 		const raw = fixture('vigilances-countries') as unknown as Record<string, unknown>[];
 		const served = servedFromApi(raw);
-		expect(served.length).toBe(raw.length);
+		// With ?uncovered=true the answer lists every country; only the covered ones are served.
+		expect(served.length).toBe(raw.filter((c) => c.covered !== false).length);
+		expect(served.length).toBeGreaterThan(0);
 		expect(served.map((c) => c.country)).toContain('MX');
 		expect(served.find((c) => c.country === 'NZ')?.licenceVerified).toBe(false);
 		expect(served.find((c) => c.country === 'FR')?.licenceVerified).toBe(true);
@@ -257,6 +260,26 @@ describe('servedFromApi', () => {
 		expect(servedFromApi([{ country: 'fr', sources: ['x', 3] }, { country: 'France' }, {}])).toEqual([
 			{ country: 'FR', sources: ['x'], licenceVerified: false }
 		]);
+	});
+
+	it('lists the countries the API does not serve, with its reason', () => {
+		const raw = fixture('vigilances-countries') as unknown as Record<string, unknown>[];
+		const uncovered = uncoveredFromApi(raw);
+		expect(uncovered.length).toBe(raw.filter((c) => c.covered === false).length);
+		const served = new Set(servedFromApi(raw).map((c) => c.country));
+		expect(uncovered.some((u) => served.has(u.country))).toBe(false);
+		const jp = raw.find((c) => c.country === 'JP');
+		expect(uncovered.find((u) => u.country === 'JP')).toEqual({
+			country: 'JP',
+			reasonCode: jp?.reason_code ?? null,
+			reason: jp?.reason ?? null
+		});
+		expect(
+			uncoveredFromApi([
+				{ country: 'JP', covered: true },
+				{ country: 'X', covered: false }
+			])
+		).toEqual([]);
 	});
 });
 

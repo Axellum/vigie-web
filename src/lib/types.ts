@@ -113,6 +113,14 @@ export interface ServedCountry {
 	licenceVerified: boolean;
 }
 
+/** A country the API reads no official warning for, and why (`no_source`, `law_restricts`…). */
+export interface UncoveredCountry {
+	country: string;
+	reasonCode: string | null;
+	/** The API's own words, in English. */
+	reason: string | null;
+}
+
 export interface Coverage {
 	source: string;
 	country: string;

@@ -10,6 +10,7 @@ import {
 	hazardsFromApi,
 	pointFromApi,
 	servedFromApi,
+	uncoveredFromApi,
 	warningsFromApi,
 	type ParsedWarnings
 } from '$lib/transform';
@@ -19,7 +20,8 @@ import type {
 	HazardsData,
 	PointWeather,
 	Provider,
-	ServedCountry
+	ServedCountry,
+	UncoveredCountry
 } from '$lib/types';
 import { SlidingBudget } from './budget';
 import { TtlCache, type Cached } from './cache';
@@ -79,10 +81,23 @@ export function getHazards(): Promise<Cached<HazardsData>> {
 }
 
 /** The countries the API serves official warnings for. */
-export function getServed(): Promise<Cached<ServedCountry[]>> {
-	return cache.get('served', TTL_S.served * 1000, async () =>
-		servedFromApi(await getJson('/v1/vigilances/countries', 15_000))
-	);
+export async function getServed(): Promise<Cached<ServedCountry[]>> {
+	const answer = await getCountries();
+	return { ...answer, value: answer.value.served };
+}
+
+/** The countries the API reads no source for, and why (an API older than vigie-api 9da278c lists none). */
+export async function getUncovered(): Promise<Cached<UncoveredCountry[]>> {
+	const answer = await getCountries();
+	return { ...answer, value: answer.value.uncovered };
+}
+
+// One request gives both lists: with ?uncovered=true the served countries keep their form, the others say why.
+function getCountries(): Promise<Cached<{ served: ServedCountry[]; uncovered: UncoveredCountry[] }>> {
+	return cache.get('served', TTL_S.served * 1000, async () => {
+		const body = await getJson('/v1/vigilances/countries?uncovered=true', 15_000);
+		return { served: servedFromApi(body), uncovered: uncoveredFromApi(body) };
+	});
 }
 
 /** The codes of the served countries; an empty list when the API cannot tell (the map then loads none). */

@@ -12,7 +12,7 @@
 	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
 	import PointWeather from '$lib/components/PointWeather.svelte';
 	import { number } from '$lib/format';
-	import { countryName, translator } from '$lib/i18n';
+	import { countryName, tOr, translator } from '$lib/i18n';
 	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
 	import {
 		circleBox,
@@ -135,6 +135,10 @@
 			import('$lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
 	});
 	const country = $derived(place && borders ? countryAt(borders, place) : undefined);
+	// Why the API reads no source for that country, when it says (a known reason code only).
+	const why = $derived(
+		country ? (data.uncovered.find((u) => u.country === country && u.reasonCode) ?? null) : null
+	);
 	// Warnings without an area can only be said to concern the country the place is in.
 	const unplaced = $derived(
 		[...results.entries()]
@@ -297,6 +301,12 @@
 					{country ? tr('near.noSourceIn', { country: countryName(lang, country) }) : tr('near.noSource')}
 					<a href="/countries">{tr('nav.countries')}</a>
 				</p>
+				{#if why}
+					<p class="muted small">
+						{tr('near.why', { reason: tOr(lang, `uncovered.${why.reasonCode}`, why.reasonCode ?? '') })}
+						{#if why.reason}<span lang="en">{why.reason}</span>{/if}
+					</p>
+				{/if}
 			{:else}
 				{#if loading.length}
 					<p class="muted">

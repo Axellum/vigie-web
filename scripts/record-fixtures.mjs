@@ -14,7 +14,8 @@ const targets = [
 	['health', '/v1/health'],
 	['providers', '/v1/providers'],
 	['hazards', '/v1/geojson/hazards'],
-	['vigilances-countries', '/v1/vigilances/countries'],
+	// Every country: the served ones, then the others and why (the site asks with ?uncovered=true).
+	['vigilances-countries', '/v1/vigilances/countries?uncovered=true', '/v1/vigilances/countries'],
 	...countries.map((cc) => [`warnings-${cc}`, `/v1/vigilances.geojson?country=${cc}`]),
 	// One weather answer (Corte, Haute-Corse): the mock gives it for every position.
 	[

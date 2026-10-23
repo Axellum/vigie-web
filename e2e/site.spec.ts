@@ -168,10 +168,19 @@ test('near me says when no source of official warnings covers the place', async 
 	await expect(page.getByText(/Aucune source de vigilances officielles .* \(Brésil\)/)).toBeVisible({
 		timeout: 15_000
 	});
+	// And why, as the API says it: its reason code in the site's words, its own sentence in English.
+	const brazil = (fixture('vigilances-countries') as unknown as Json[]).find((c) => c.country === 'BR');
+	if (brazil?.reason_code === 'licence_unverified') {
+		await expect(page.getByText(/Pourquoi : Une source existe, mais sa licence/)).toBeVisible();
+		if (brazil.reason)
+			await expect(page.locator('[lang="en"]', { hasText: brazil.reason.slice(0, 40) })).toBeVisible();
+	}
 });
 
 test('the covered countries are the ones the API serves', async ({ page, request }) => {
-	const served = fixture('vigilances-countries') as unknown as Json[];
+	const all = fixture('vigilances-countries') as unknown as Json[];
+	const served = all.filter((c) => c.covered !== false);
+	const japan = all.find((c) => c.country === 'JP');
 	await page.goto('/countries');
 	await expect(page.getByText(`${served.length} pays.`)).toBeVisible();
 	await expect(page.getByRole('link', { name: /Mexique/ })).toBeVisible();
@@ -182,6 +191,14 @@ test('the covered countries are the ones the API serves', async ({ page, request
 	await expect(page.getByRole('link', { name: /Brésil/ })).toHaveCount(0);
 	expect((await request.get('/country/mx')).status()).toBe(200);
 	expect((await request.get('/country/jp')).status()).toBe(404);
+	// The others, by reason: Japan's law reserves the warnings to its own service.
+	await expect(
+		page.getByRole('heading', { level: 2, name: 'Pays sans vigilances officielles ici' })
+	).toBeVisible();
+	if (japan?.reason_code === 'law_restricts')
+		await expect(
+			page.getByRole('heading', { level: 3, name: /La loi du pays réserve la diffusion des alertes/ })
+		).toBeVisible();
 });
 
 test('the weather answer checks its position and is cacheable', async ({ request }) => {
