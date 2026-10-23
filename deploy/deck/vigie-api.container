@@ -14,6 +14,9 @@ Volume=vigie-api-data:/data
 # The NASA FIRMS key (fires), from a Podman secret: its value is in no file of this repository. Created once:
 #   <read VIGIE_FIRMS_MAP_KEY from the owner's .env> | podman secret create --replace vigie_firms_map_key -
 Secret=vigie_firms_map_key,type=env,target=VIGIE_FIRMS_MAP_KEY
+# The admin token (ADR 0009 of the API): a request that is not a read must carry it, else 401. Same way:
+#   <read VIGIE_ADMIN_TOKEN from the owner's .env> | podman secret create --replace vigie_admin_token -
+Secret=vigie_admin_token,type=env,target=VIGIE_ADMIN_TOKEN
 # A quadlet HealthCmd with quotes is mangled, hence a small script mounted read-only.
 Volume=%h/vigie/api-healthcheck.py:/healthcheck.py:ro
 HealthCmd=python /healthcheck.py

@@ -31,6 +31,7 @@ deploy/vps/deploy.sh setup        # admin account (VIGIE_ADMIN_USER, default "de
 deploy/vps/deploy.sh files
 deploy/vps/deploy.sh secrets      # the database password, made on the server
 <the FIRMS key> | deploy/vps/deploy.sh firms-key
+<the admin token> | deploy/vps/deploy.sh admin-token
 deploy/vps/deploy.sh api
 deploy/vps/deploy.sh web
 ssh vigie@<address> 'systemctl --user start caddy.service'
