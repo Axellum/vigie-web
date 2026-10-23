@@ -5,6 +5,7 @@
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh files           # quadlets, Caddyfile, backup timer, health scripts
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh secrets         # once: the database password, made on the server
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh firms-key   # the NASA FIRMS key, read on stdin
+#   <token> | VIGIE_HOST=<address> deploy/vps/deploy.sh admin-token  # the API's admin token, read on stdin
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh api [ref]       # the vigie-api repository (VIGIE_API_REPO), origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh web [ref]       # this repository, origin/main
 #
@@ -12,7 +13,7 @@
 # Images are tagged with the commit and with :current; the previous one stays for a rollback.
 set -euo pipefail
 
-component=${1:?"setup, files, secrets, firms-key, api or web"}
+component=${1:?"setup, files, secrets, firms-key, admin-token, api or web"}
 ref=${2:-origin/main}
 host=${VIGIE_HOST:?"set VIGIE_HOST to the server's address"}
 server=vigie@$host
@@ -57,15 +58,16 @@ secrets() {
 		echo "database secrets created"; fi'
 }
 
-firms_key() {
-	local key
-	key=$(tr -d '\r\n')
-	if [ -z "$key" ]; then
-		echo "no key on stdin" >&2
+# A secret of the API, read on stdin (never on the command line), then the API restarts if it runs.
+api_secret() {
+	local name=$1 value
+	value=$(tr -d '\r\n')
+	if [ -z "$value" ]; then
+		echo "nothing on stdin" >&2
 		exit 2
 	fi
-	printf %s "$key" | remote 'podman secret create --replace vigie_firms_map_key - >/dev/null \
-		&& systemctl --user try-restart vigie-api.service && echo "FIRMS key stored"'
+	printf %s "$value" | remote "podman secret create --replace $name - >/dev/null \
+		&& systemctl --user try-restart vigie-api.service && echo '$name stored'"
 }
 
 build() {
@@ -92,11 +94,12 @@ case $component in
 setup) setup ;;
 files) install_files ;;
 secrets) secrets ;;
-firms-key) firms_key ;;
+firms-key) api_secret vigie_firms_map_key ;;
+admin-token) api_secret vigie_admin_token ;;
 web) build "$(cd "$here/../.." && pwd)" vigie-web Containerfile ;;
 api) build "${VIGIE_API_REPO:-$(cd "$here/../../../vigie_api" && pwd)}" vigie-api Dockerfile ;;
 *)
-	echo "unknown component: $component (setup, files, secrets, firms-key, api or web)" >&2
+	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, api or web)" >&2
 	exit 2
 	;;
 esac

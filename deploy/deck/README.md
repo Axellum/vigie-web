@@ -14,6 +14,9 @@ What runs on the server (Podman, rootless, systemd user units written as quadlet
 ```
 VIGIE_SERVER=user@host deploy/deck/deploy.sh files
 # edit ~/vigie/web.env (ORIGIN) and ~/vigie/Caddyfile on the server
+# the API's two secrets, each piped from where it is kept (never typed on a command line):
+#   <NASA FIRMS key> | ssh user@host 'podman secret create --replace vigie_firms_map_key -'
+#   <admin token>    | ssh user@host 'podman secret create --replace vigie_admin_token -'
 VIGIE_SERVER=user@host deploy/deck/deploy.sh api
 VIGIE_SERVER=user@host deploy/deck/deploy.sh web
 ssh user@host 'systemctl --user start caddy.service'
