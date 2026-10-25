@@ -51,6 +51,7 @@
 		# The API sends Cache-Control on a few answers only: the others get one that follows how often their data
 		# changes (the scheduler reads the sources every 90 s, a point's forecast every 15 minutes, the served
 		# countries with the settings). A proxy keeps them that long, browsers half as long, as the site's pages.
+		# Successful answers only: a 404 or a refusal (405, 429) must not be kept for everybody.
 		map {path} {api_cache} {
 			/v1/health no-store
 			/v1/providers no-store
@@ -60,7 +61,12 @@
 			~^/v1/vigilances "public, max-age=60, s-maxage=120"
 			default "public, max-age=45, s-maxage=90"
 		}
-		header ?Cache-Control {api_cache}
+		header {
+			?Cache-Control {api_cache}
+			match {
+				status 2xx
+			}
+		}
 
 		reverse_proxy 127.0.0.1:8081 {
 			# Stream as it comes (the WebSocket, and the long answers): nothing waits in a buffer.
