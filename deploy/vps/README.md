@@ -2,13 +2,13 @@
 
 The public instance: a small rented server (Debian 13, 2 vCPU, 4 GB of memory), Podman rootless, systemd user
 units written as quadlets, HTTPS by Caddy and Let's Encrypt. The site, its API and its database run on it; the
-API and the database are not reachable from outside.
+database is not reachable from outside, and of the API only its reads are, through Caddy ("The public API").
 
 | Unit                  | What                                                       | Listens on                                  |
 | --------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | `vigie.network`       | internal network, containers reach each other by name      | –                                           |
 | `vigie-db.container`  | PostgreSQL 18 with PostGIS, the accounts (`vigie-db-data`) | internal network only                       |
-| `vigie-api.container` | the Vigie API (data volume `vigie-api-data`)               | internal network only                       |
+| `vigie-api.container` | the Vigie API (data volume `vigie-api-data`)               | internal network; `127.0.0.1:8081`          |
 | `vigie-web.container` | this site                                                  | `127.0.0.1:3000` only                       |
 | `caddy.container`     | the one door, host network (real visitor addresses)        | `80`, `443` (TCP and UDP); `127.0.0.1:8090` |
 | `vigie-backup.timer`  | a dump of the database every day, kept 5 days              | –                                           |
@@ -34,7 +34,7 @@ deploy/vps/deploy.sh secrets      # the database password, made on the server
 <the admin token> | deploy/vps/deploy.sh admin-token
 deploy/vps/deploy.sh api
 deploy/vps/deploy.sh web
-ssh vigie@<address> 'systemctl --user start caddy.service'
+deploy/vps/deploy.sh caddy      # builds Caddy with the rate limit module, then starts it
 ```
 
 Before `deploy.sh api`, set `VIGIE_CONTACT` in `~/vigie/api.env`: the contact sent to the providers, chosen by
@@ -63,6 +63,24 @@ ssh vigie@<address> 'podman exec vigie-web node scripts/invite.mjs "note"'
 3. `~/vigie/sites/public.caddy` from `public.caddy.example`, with the real name; `ORIGIN=https://<name>` in
    `~/vigie/web.env`; then `systemctl --user restart vigie-web caddy`. Caddy gets the certificate by itself.
 
+## The public API
+
+The API's reads are open to everybody at `https://<name>/v1/...` (the site's own domain; the site has no `/v1`
+page): the snippet `(api)` of the `Caddyfile`, imported by `(site)`.
+
+- Only `GET`, `HEAD` and `OPTIONS` go through, and the WebSocket `/v1/stream` (a `GET` with an upgrade; no read
+  timeout, no buffer). Any other method gets 405 from Caddy; the API would answer 401 anyway without its admin
+  token. The API's dashboard and docs stay internal.
+- A rate limit per visitor address (an IPv6 `/64` counts as one): 300 requests a minute on `/v1`, and on
+  `/v1/point`, the one route that costs calls to a provider, 10 a minute and 120 an hour. Over it: 429 with
+  `Retry-After`. The module is not in the standard Caddy image: `caddy/Containerfile` builds one with xcaddy
+  (`deploy.sh caddy`). Addresses exempt from it, for a load test only: `VIGIE_RATE_LIMIT_EXEMPT` in
+  `~/vigie/caddy.env`, then `systemctl --user restart caddy`; remove them after.
+- A `Cache-Control` on each answer that has none, from how often its data changes.
+- The site itself does not go through it: it reads the API on the internal network, and its own limits apply.
+
+To close the API again: remove `import api` from `(site)`, `deploy.sh files`.
+
 ## Update after a merge
 
 `deploy.sh web` or `deploy.sh api` builds `origin/main` on the server, tags the image with the commit and
@@ -70,7 +88,8 @@ ssh vigie@<address> 'podman exec vigie-web node scripts/invite.mjs "note"'
 localhost/vigie-web:current`, then `systemctl --user restart vigie-web`. Old images:
 `podman images localhost/vigie-web`, `podman rmi localhost/vigie-web:<sha>`.
 
-The database and Caddy images are pulled once; to take their fixes: `podman pull <image>`, then restart the unit.
+Caddy: `deploy.sh caddy` rebuilds it (a new Caddy version: the two `FROM` lines of `caddy/Containerfile`); the
+previous image stays for a rollback, as above with `vigie-caddy` and `caddy`. The database image is pulled once; to take its fixes: `podman pull <image>`, then restart the unit.
 PostgreSQL stays on 18: a new major version needs a dump, a new volume and a restore.
 
 ## Backups

@@ -6,6 +6,9 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- The public instance opens the API's reads at `https://vigie.auxfilsdesidees.fr/v1` (GET and the WebSocket
+  `/v1/stream` only), through Caddy, with a rate limit per address (stricter on `/v1/point`) and cache headers.
+
 - Search engines: `/sitemap.xml` (the fixed pages and one page per served country, no invented date), listed in
   `robots.txt`; a canonical address and a basic social preview on every public page.
 
