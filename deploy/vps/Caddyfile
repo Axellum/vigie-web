@@ -61,11 +61,14 @@
 			~^/v1/vigilances "public, max-age=60, s-maxage=120"
 			default "public, max-age=45, s-maxage=90"
 		}
+		# (Not "?Cache-Control": that one makes its own rule, without the status.)
 		header {
-			?Cache-Control {api_cache}
+			Cache-Control {api_cache}
 			match {
 				status 2xx
+				header !Cache-Control
 			}
+			defer
 		}
 
 		reverse_proxy 127.0.0.1:8081 {
