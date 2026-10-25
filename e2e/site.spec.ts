@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -13,11 +13,23 @@ const panama = fixture('forecast-tsunami_pheb_26282000');
 const fr = fixture('warnings-FR');
 const point = fixture('point');
 
+// The countries whose warnings were recorded. For any other one the mock answers 503 (a source that is down), the
+// site 502: expected when the map moves over such a country (the Caribbean, for the storm), and not an error.
+const recorded = new Set(
+	readdirSync(join(import.meta.dirname, 'fixtures'))
+		.map((name) => /^warnings-([A-Z]{2})\.json$/.exec(name)?.[1])
+		.filter(Boolean)
+);
+const unrecordedWarnings = (url: string): boolean => {
+	const cc = /\/data\/warnings\/([A-Z]{2})\.json$/.exec(new URL(url, 'http://x').pathname)?.[1];
+	return cc != null && !recorded.has(cc);
+};
+
 function collectErrors(page: Page): string[] {
 	const errors: string[] = [];
 	page.on('pageerror', (e) => errors.push(e.message));
 	page.on('console', (m) => {
-		if (m.type() === 'error') errors.push(m.text());
+		if (m.type() === 'error' && !unrecordedWarnings(m.location().url || '/')) errors.push(m.text());
 	});
 	return errors;
 }
