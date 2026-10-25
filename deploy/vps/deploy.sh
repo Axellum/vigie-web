@@ -8,12 +8,13 @@
 #   <token> | VIGIE_HOST=<address> deploy/vps/deploy.sh admin-token  # the API's admin token, read on stdin
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh api [ref]       # the vigie-api repository (VIGIE_API_REPO), origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh web [ref]       # this repository, origin/main
+#   VIGIE_HOST=<address> deploy/vps/deploy.sh caddy [ref]     # Caddy with the rate limit module (caddy/Containerfile)
 #
 # VIGIE_ADMIN_USER is the provider's admin account (default "debian"), VIGIE_SSH_KEY the private key to use.
 # Images are tagged with the commit and with :current; the previous one stays for a rollback.
 set -euo pipefail
 
-component=${1:?"setup, files, secrets, firms-key, admin-token, api or web"}
+component=${1:?"setup, files, secrets, firms-key, admin-token, api, web or caddy"}
 ref=${2:-origin/main}
 host=${VIGIE_HOST:?"set VIGIE_HOST to the server's address"}
 server=vigie@$host
@@ -38,11 +39,13 @@ install_files() {
 		"$here/caddy.container" "$server:.config/containers/systemd/"
 	copy "$here/vigie-backup.service" "$here/vigie-backup.timer" "$server:.config/systemd/user/"
 	copy "$shared/api-healthcheck.py" "$shared/web-healthcheck.mjs" "$here/backup.sh" "$here/Caddyfile" \
-		"$here/public.caddy.example" "$here/web.env.example" "$here/api.env.example" "$server:vigie/"
-	# Machine-specific files (web.env, api.env, sites/public.caddy) are created once and then left alone.
+		"$here/public.caddy.example" "$here/web.env.example" "$here/api.env.example" \
+		"$here/caddy.env.example" "$server:vigie/"
+	# Machine-specific files (web.env, api.env, caddy.env, sites/public.caddy) are created once and then left alone.
 	remote 'cd ~/vigie && chmod 644 api-healthcheck.py web-healthcheck.mjs Caddyfile && chmod 755 backup.sh \
 		&& { [ -f web.env ] || cp web.env.example web.env; } \
 		&& { [ -f api.env ] || cp api.env.example api.env; } \
+		&& { [ -f caddy.env ] || cp caddy.env.example caddy.env; } \
 		&& systemctl --user daemon-reload \
 		&& systemctl --user enable -q --now vigie-backup.timer \
 		&& systemctl --user try-restart caddy.service'
@@ -71,7 +74,7 @@ api_secret() {
 }
 
 build() {
-	local repo=$1 image=$2 file=$3
+	local repo=$1 image=$2 file=$3 service=${4:-$2}
 	git -C "$repo" fetch -q origin
 	local sha
 	sha=$(git -C "$repo" rev-parse --short=7 "$ref")
@@ -85,7 +88,7 @@ build() {
 		&& podman build -q --label org.opencontainers.image.revision=$sha -t localhost/$image:$sha -f $file . \
 		&& podman tag localhost/$image:$sha localhost/$image:current \
 		&& podman image prune -f >/dev/null \
-		&& systemctl --user restart $image.service \
+		&& systemctl --user restart $service.service \
 		&& sleep 10 && podman ps --filter name=$image --format '{{.Names}} {{.Image}} {{.Status}}'"
 	echo "$image now runs $sha"
 }
@@ -98,8 +101,10 @@ firms-key) api_secret vigie_firms_map_key ;;
 admin-token) api_secret vigie_admin_token ;;
 web) build "$(cd "$here/../.." && pwd)" vigie-web Containerfile ;;
 api) build "${VIGIE_API_REPO:-$(cd "$here/../../../vigie_api" && pwd)}" vigie-api Dockerfile ;;
+# Before the first "files" that needs it: the Caddyfile uses the module, caddy.container this image.
+caddy) build "$(cd "$here/../.." && pwd)" vigie-caddy deploy/vps/caddy/Containerfile caddy ;;
 *)
-	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, api or web)" >&2
+	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, api, web or caddy)" >&2
 	exit 2
 	;;
 esac

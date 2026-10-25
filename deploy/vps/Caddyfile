@@ -1,10 +1,76 @@
 # Caddy for Vigie Web on the rented server (~/vigie/Caddyfile, installed by deploy.sh files).
 # No access log: without an account, the site keeps nothing about its visitors (about page).
+# The image is Caddy with the rate limit module (caddy/Containerfile, deploy.sh caddy).
 {
 	admin off
 }
 
+# The API's reads, open to everybody under /v1 (Home Assistant, the Tab5, other clients): GET, HEAD and the
+# WebSocket /v1/stream (a GET with an upgrade). Anything else stops here with 405; the API would answer 401 anyway
+# without its admin token. The rest of the API (dashboard, docs) stays internal.
+(api) {
+	@api path /v1 /v1/*
+	handle @api {
+		@write not method GET HEAD OPTIONS
+		respond @write 405
+
+		# Per visitor address (Caddy is on the host network, it sees the real one), an IPv6 /64 counting as one.
+		# Most routes are answers the API keeps in memory: 300 a minute is far above what a client polling every
+		# minute needs. /v1/point is the one route that costs calls to a provider (Open-Meteo, a daily budget):
+		# 10 a minute and 120 an hour. Over the limit: 429 with Retry-After. VIGIE_RATE_LIMIT_EXEMPT
+		# (~/vigie/caddy.env, for a load test) lists addresses it does not apply to; 192.0.2.1 is a documentation
+		# address that no visitor has.
+		@limited not remote_ip {$VIGIE_RATE_LIMIT_EXEMPT:192.0.2.1}
+		rate_limit @limited {
+			zone api {
+				key {http.request.remote.host}
+				window 1m
+				events 300
+				ipv6_prefix 64
+			}
+			zone point_minute {
+				match {
+					path /v1/point
+				}
+				key {http.request.remote.host}
+				window 1m
+				events 10
+				ipv6_prefix 64
+			}
+			zone point_hour {
+				match {
+					path /v1/point
+				}
+				key {http.request.remote.host}
+				window 1h
+				events 120
+				ipv6_prefix 64
+			}
+		}
+
+		# The API sends Cache-Control on a few answers only: the others get one that follows how often their data
+		# changes (the scheduler reads the sources every 90 s, a point's forecast every 15 minutes, the served
+		# countries with the settings). A proxy keeps them that long, browsers half as long, as the site's pages.
+		map {path} {api_cache} {
+			/v1/health no-store
+			/v1/providers no-store
+			~^/v1/scheduler/ no-store
+			/v1/point "public, max-age=450, s-maxage=900"
+			/v1/vigilances/countries "public, max-age=300, s-maxage=600"
+			~^/v1/vigilances "public, max-age=60, s-maxage=120"
+			default "public, max-age=45, s-maxage=90"
+		}
+		header ?Cache-Control {api_cache}
+
+		reverse_proxy 127.0.0.1:8081 {
+			# Stream as it comes (the WebSocket, and the long answers): nothing waits in a buffer.
+			flush_interval -1
+		}
+	}
+}
+
 (site) {
+	import api
 	encode zstd gzip
 	# The site only reads, except the account pages (forms, passkey steps). Anything else stops here; a new
 	# route that takes a POST belongs under /account.

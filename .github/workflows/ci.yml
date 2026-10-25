@@ -62,3 +62,21 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/about >/dev/null && break; sleep 1; done
           curl -fsS http://127.0.0.1:3000/about | grep -q 'Vigie'
           test "$(docker exec web id -un)" = "node"
+
+  caddy:
+    name: Caddy of the rented server builds and accepts its Caddyfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build Caddy with the rate limit module
+        run: docker build -t vigie-caddy -f deploy/vps/caddy/Containerfile deploy/vps/caddy
+      - name: Validate the Caddyfile, with the public site and with and without exempt addresses
+        run: |
+          mkdir -p sites && cp deploy/vps/public.caddy.example sites/public.caddy
+          for exempt in "" "203.0.113.0/24 2001:db8::/32"; do
+            docker run --rm ${exempt:+-e "VIGIE_RATE_LIMIT_EXEMPT=$exempt"} \
+              -v "$PWD/deploy/vps/Caddyfile:/etc/caddy/Caddyfile:ro" -v "$PWD/sites:/etc/caddy/sites:ro" \
+              vigie-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done

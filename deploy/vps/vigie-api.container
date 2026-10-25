@@ -1,8 +1,9 @@
 # Vigie API (repository Axellum/vigie-api), image built on the server from origin/main (deploy.sh api).
-# No published port: only the site reads it, on the internal network (vigie-api:8080). Its write routes are
-# therefore out of reach from outside.
+# The site reads it on the internal network (vigie-api:8080); Caddy opens its reads to everybody under /v1, on
+# 127.0.0.1:8081 (see the Caddyfile). Its write routes stay out of reach: Caddy answers 405, the API 401 without
+# its admin token.
 [Unit]
-Description=Vigie API (internal)
+Description=Vigie API (127.0.0.1:8081)
 Wants=network-online.target
 After=network-online.target
 
@@ -10,6 +11,7 @@ After=network-online.target
 Image=localhost/vigie-api:current
 ContainerName=vigie-api
 Network=vigie.network
+PublishPort=127.0.0.1:8081:8080
 Volume=vigie-api-data:/data
 # Settings of this instance (contact, sources turned off for a public instance): ~/vigie/api.env, see api.env.example.
 EnvironmentFile=%h/vigie/api.env
