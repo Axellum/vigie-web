@@ -2,10 +2,12 @@
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import LevelPill from '$lib/components/LevelPill.svelte';
 	import Time from '$lib/components/Time.svelte';
 	import { countryName, translator, type Key } from '$lib/i18n';
 	import { slug } from '$lib/transform';
 	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '$lib/passkey';
+	import { disablePush, enablePush, pushSupported, testPush, thisDevice } from '$lib/notifications';
 
 	let { data, form } = $props();
 	const lang = $derived(data.lang);
@@ -31,6 +33,35 @@
 			busy = false;
 		}
 	}
+
+	// Notifications on this device: what the browser can do, and whether the server knows this device.
+	let canPush = $state(true);
+	let deviceId = $state<string | null>(null);
+	let pushBusy = $state(false);
+	let pushNote = $state<Key | null>(null);
+	onMount(async () => {
+		canPush = pushSupported();
+		if (canPush && data.push.publicKey) deviceId = await thisDevice();
+	});
+
+	async function pushAction(run: () => Promise<Key | null>) {
+		pushBusy = true;
+		pushNote = null;
+		try {
+			pushNote = await run();
+			deviceId = await thisDevice();
+			await invalidateAll();
+		} finally {
+			pushBusy = false;
+		}
+	}
+	const turnOn = () =>
+		pushAction(async () => {
+			const result = await enablePush(data.push.publicKey ?? '');
+			return result === 'ok' ? null : result === 'denied' ? 'push.denied' : 'push.failed';
+		});
+	const turnOff = () => pushAction(async () => (await disablePush(), null));
+	const sendTest = () => pushAction(async () => ((await testPush()) ? 'push.testSent' : 'push.testFailed'));
 
 	const formError = $derived.by((): Key | null => {
 		const code = (form as { error?: string } | null)?.error;
@@ -79,7 +110,7 @@
 
 	<section class="card stack" id="zones">
 		<h2>{tr('zones.title')}</h2>
-		<p class="note">{tr('zones.notYet')}</p>
+		{#if !data.push.publicKey}<p class="note">{tr('zones.notYet')}</p>{/if}
 		{#if data.zones.length}
 			<ul class="zones">
 				{#each data.zones as z (z.id)}
@@ -109,6 +140,87 @@
 			<div><a class="btn" href="/account/zones/new">{tr('zones.add')}</a></div>
 		{:else}
 			<p class="muted small">{tr('zones.full', { n: data.maxZones })}</p>
+		{/if}
+	</section>
+
+	<section class="card stack" id="notifications">
+		<h2>{tr('push.title')}</h2>
+		{#if !data.push.publicKey}
+			<p class="muted">{tr('push.off')}</p>
+		{:else}
+			<p>{tr('push.intro')}</p>
+			{#if !canPush}
+				<p class="note">{tr('push.unsupported')}</p>
+			{:else}
+				{#if deviceId}<p role="status">{tr('push.enabled')}</p>{/if}
+				<div class="btn-row">
+					{#if deviceId}
+						<button type="button" class="btn" onclick={sendTest} disabled={pushBusy}>{tr('push.test')}</button
+						>
+						<button type="button" class="btn quiet" onclick={turnOff} disabled={pushBusy}
+							>{tr('push.disable')}</button
+						>
+					{:else}
+						<button type="button" class="btn" onclick={turnOn} disabled={pushBusy}
+							>{pushBusy ? tr('join.busy') : tr('push.enable')}</button
+						>
+					{/if}
+				</div>
+				{#if pushNote}<p role={pushNote === 'push.testSent' ? 'status' : 'alert'}>{tr(pushNote)}</p>{/if}
+			{/if}
+			<h3>{tr('push.devices')}</h3>
+			{#if data.push.devices.length}
+				<ul class="keys">
+					{#each data.push.devices as d (d.id)}
+						<li>
+							<div>
+								<p>
+									{tr('push.device', { service: d.service })}
+									<Time {lang} unix={d.createdAt} />
+									{#if d.id === deviceId}<span class="muted small">· {tr('push.thisDevice')}</span>{/if}
+								</p>
+								{#if d.lastSentAt}<p class="muted small">
+										{tr('push.lastSent')} : <Time {lang} unix={d.lastSentAt} />
+									</p>{/if}
+							</div>
+							<form method="POST" action="?/removeDevice" use:enhance>
+								<input type="hidden" name="id" value={d.id} />
+								<button type="submit" class="btn quiet">{tr('account.remove')}</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="muted">{tr('push.noDevice')}</p>
+			{/if}
+			<form method="POST" action="?/quiet" use:enhance class="stack">
+				<label class="check"
+					><input type="checkbox" name="quiet" checked={data.push.quietHours} /> {tr('push.quiet')}</label
+				>
+				<div><button type="submit" class="btn quiet">{tr('push.save')}</button></div>
+			</form>
+			{#if (form as { quietSaved?: boolean } | null)?.quietSaved}<p role="status">{tr('push.saved')}</p>{/if}
+		{/if}
+	</section>
+
+	<section class="card stack" id="history">
+		<h2>{tr('push.history')}</h2>
+		{#if data.alerts.length}
+			<ul class="history">
+				{#each data.alerts as a, i (i)}
+					<li>
+						<LevelPill {lang} level={a.level} />
+						<div>
+							<p><a href={a.url}>{a.title}</a></p>
+							<p class="muted small">
+								{a.zone} · <Time {lang} unix={a.matchedAt} /> · {tr(`push.outcome.${a.outcome}` as Key)}
+							</p>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="muted">{tr('push.historyNone')}</p>
 		{/if}
 	</section>
 
@@ -214,6 +326,22 @@
 		gap: 12px;
 		padding: 10px 0;
 		border-bottom: 1px solid var(--line);
+	}
+	.history {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.history li {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		padding: 10px 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.history li > div {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.check {
 		display: flex;

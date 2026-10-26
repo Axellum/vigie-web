@@ -31,9 +31,14 @@ All notable changes are listed here. Versions are git tags.
 - Search of a place by name on the "near me" page: the GeoNames places of at least 500 people, with the names in
   other languages of the large cities; "Paris, Texas" narrows by region or country.
 
+- Notifications of the zones of an account, as Web Push (when the server has the VAPID keys): turned on per
+  device from the account page, with a test notification; a zone's first comparison is not sent, an alert is
+  sent once per zone and level; quiet hours (22:00 to 07:00, red alerts only) as an option; the alerts of the
+  zones of the last 30 days on the account page, sent or not.
+
 - Zones to watch in an account: a place and a radius (from "near me", a search or a click), a drawn zone, a
   country (from its page) or an official area (from its page), each with the lowest level and the kinds of
-  alert wanted; at most 10. They are kept for the notifications, which do not exist yet.
+  alert wanted; at most 10.
 - Accounts, by invitation, when the server has a database (`DATABASE_URL`): an invitation link opens an
   account with a passkey (no password, no e-mail); sign in with a passkey; add one for another device, or
   through a recovery invitation; download everything the site keeps; delete the account at once. A privacy

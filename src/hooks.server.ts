@@ -1,10 +1,18 @@
 import type { Handle, ServerInit } from '@sveltejs/kit';
 import { asLang, langFromHeader, type Lang } from '$lib/i18n';
+import { env } from '$env/dynamic/private';
 import { cleanUp } from '$lib/server/accounts';
 import { accountsEnabled, db } from '$lib/server/db';
+import { matchAndNotify } from '$lib/server/notify';
 import { allow } from '$lib/server/ratelimit';
 
 const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
+
+/** How often the zones are compared with the alerts in force (VIGIE_MATCH_INTERVAL_S, 120 s by default). */
+function matchInterval(): number {
+	const s = Number(env.VIGIE_MATCH_INTERVAL_S);
+	return (Number.isFinite(s) && s >= 5 ? s : 120) * 1000;
+}
 
 // With accounts, the database is migrated at start, and what has expired is removed every 6 hours. A database
 // that does not answer does not stop the public site: the account pages fail until it answers.
@@ -16,6 +24,24 @@ export const init: ServerInit = async () => {
 			.catch((e) => console.error(`accounts: database not ready (${(e as Error).message})`));
 	await run();
 	setInterval(run, CLEAN_UP_MS).unref();
+
+	// The zones of the accounts against the alerts in force: one run at a time.
+	let matching = false;
+	const match = async () => {
+		if (matching) return;
+		matching = true;
+		try {
+			const done = await matchAndNotify(await db());
+			if (done.matched)
+				console.log(`notify: ${done.matched} new match(es), ${done.sent} notification(s) sent`);
+		} catch (e) {
+			console.error(`notify: run failed (${(e as Error).message})`);
+		} finally {
+			matching = false;
+		}
+	};
+	setInterval(match, matchInterval()).unref();
+	setTimeout(match, 5_000).unref();
 };
 
 const LANG_COOKIE = 'vigie-lang';

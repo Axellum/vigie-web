@@ -1,7 +1,7 @@
 # Configuration
 
-Vigie Web reads its settings from environment variables. Only `DATABASE_URL` holds a secret (the
-database password): it lives in the server's environment file, never in the repository.
+Vigie Web reads its settings from environment variables. Two hold secrets, `DATABASE_URL` (the database
+password) and `VIGIE_VAPID_PRIVATE_KEY`: they live on the server (Podman secrets), never in the repository.
 
 | Variable                      | Default                            | Meaning                                                                                                                                                                |
 | ----------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -15,6 +15,11 @@ database password): it lives in the server's environment file, never in the repo
 | `DATABASE_POOL_MAX`           | `5`                                | Connections the site keeps open to the database.                                                                                                                       |
 | `VIGIE_POINT_LOOKUPS_PER_DAY` | `200`                              | Weather requests of the "near me" page that may reach the API in 24 hours (cache misses); `0` turns the weather off. See below.                                        |
 | `VIGIE_PUBLIC_ORIGIN`         | `https://vigie.auxfilsdesidees.fr` | The public address used in canonical links, social previews and `/sitemap.xml` (another address for a copy of the site).                                               |
+| `VIGIE_VAPID_PUBLIC_KEY`      | –                                  | Notifications: the public key browsers subscribe with (web-push, base64url). Unset, with the private key: no notification.                                             |
+| `VIGIE_VAPID_PRIVATE_KEY`     | –                                  | Notifications: the private key that signs them. Secret. Changing the pair makes every device turn notifications on again.                                              |
+| `VIGIE_VAPID_SUBJECT`         | `ORIGIN` if https                  | Notifications: how a push service can reach the sender (`mailto:` or `https:`); else the project's page.                                                               |
+| `VIGIE_MATCH_INTERVAL_S`      | `120`                              | Seconds between two comparisons of the zones with the alerts in force (5 at least).                                                                                    |
+| `VIGIE_PUSH_EXTRA_HOSTS`      | –                                  | Tests only: hosts (`host:port`, comma-separated) accepted as push services besides the browsers' (the end-to-end tests' mock).                                         |
 
 In development, `npm run dev` reads them from a `.env` file (see `.env.example`).
 
@@ -53,3 +58,24 @@ podman exec vigie-web node scripts/invite.mjs --recover <id> "new phone"  # one 
 
 Each prints a link, valid 7 days and once. What the database keeps, and for how long, is in
 [`records-of-processing.md`](records-of-processing.md) and on the `/privacy` page.
+
+## Notifications
+
+With accounts, the site compares the zones of the accounts with the alerts in force every
+`VIGIE_MATCH_INTERVAL_S` seconds, from the data it already caches (the requests to the API depend on the
+countries of the zones, not on the number of accounts). What matches is kept 30 days, or as long as the alert
+is in force (the account's history, and what the zones were already told).
+With the two VAPID keys, it is also sent as a Web Push notification to the devices of the account:
+
+- a zone's first comparison is its baseline: what is in force when it is made is not sent;
+- an alert is sent once per zone and level, and again only when its level rises;
+- quiet hours (an option of the account, 22:00 to 07:00 in the device's time zone): only red alerts are sent;
+- 5 devices at most per account; a device the push service says is gone (404, 410), or that fails 5 times in a
+  row, is forgotten.
+
+Only the push services of the browsers are accepted as addresses (Google, Mozilla, Apple, Microsoft), so that
+an account cannot make the server call an address of its choosing. Make the keys once, and keep them:
+
+```
+npx web-push generate-vapid-keys --json
+```

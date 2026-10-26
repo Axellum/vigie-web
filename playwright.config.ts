@@ -1,13 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
+import webpush from 'web-push';
 
 // The built site (npm run build) runs against e2e/mock-api.mjs: no network, recorded answers only. Its
 // accounts use a PostgreSQL in memory (e2e/test-db.mjs). The site is reached as "localhost": a passkey needs
-// a host name, not an IP address.
+// a host name, not an IP address. Its notifications go to e2e/mock-push.mjs, signed with keys made for the run.
 const API_PORT = 18181;
+const PUSH_PORT = 18282;
 const SITE_PORT = 4174;
 const DB_PORT = 15433;
 const SITE = `http://localhost:${SITE_PORT}`;
 const DATABASE_URL = `postgres://postgres@127.0.0.1:${DB_PORT}/postgres`;
+const VAPID = webpush.generateVAPIDKeys();
 
 export default defineConfig({
 	testDir: 'e2e',
@@ -40,6 +43,12 @@ export default defineConfig({
 			reuseExistingServer: !process.env.CI
 		},
 		{
+			command: 'node e2e/mock-push.mjs',
+			url: `http://127.0.0.1:${PUSH_PORT}/`,
+			env: { MOCK_PUSH_PORT: String(PUSH_PORT) },
+			reuseExistingServer: !process.env.CI
+		},
+		{
 			command: 'node build',
 			url: `${SITE}/sources`,
 			env: {
@@ -49,7 +58,12 @@ export default defineConfig({
 				DATABASE_URL,
 				DATABASE_POOL_MAX: '1',
 				VIGIE_API_URL: `http://127.0.0.1:${API_PORT}`,
-				VIGIE_RATE_LIMIT_PER_MINUTE: '100000'
+				VIGIE_RATE_LIMIT_PER_MINUTE: '100000',
+				VIGIE_VAPID_PUBLIC_KEY: VAPID.publicKey,
+				VIGIE_VAPID_PRIVATE_KEY: VAPID.privateKey,
+				VIGIE_VAPID_SUBJECT: 'mailto:vigie@example.org',
+				VIGIE_PUSH_EXTRA_HOSTS: `127.0.0.1:${PUSH_PORT}`,
+				VIGIE_MATCH_INTERVAL_S: '5'
 			},
 			reuseExistingServer: !process.env.CI
 		}
