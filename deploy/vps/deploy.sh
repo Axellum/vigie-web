@@ -6,6 +6,8 @@
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh secrets         # once: the database password, made on the server
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh firms-key   # the NASA FIRMS key, read on stdin
 #   <token> | VIGIE_HOST=<address> deploy/vps/deploy.sh admin-token  # the API's admin token, read on stdin
+#   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh vapid-public   # the notifications' keys (web-push), on stdin
+#   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh vapid-private
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh api [ref]       # the vigie-api repository (VIGIE_API_REPO), origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh web [ref]       # this repository, origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh caddy [ref]     # Caddy with the rate limit module (caddy/Containerfile)
@@ -14,7 +16,7 @@
 # Images are tagged with the commit and with :current; the previous one stays for a rollback.
 set -euo pipefail
 
-component=${1:?"setup, files, secrets, firms-key, admin-token, api, web or caddy"}
+component=${1:?"setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, api, web or caddy"}
 ref=${2:-origin/main}
 host=${VIGIE_HOST:?"set VIGIE_HOST to the server's address"}
 server=vigie@$host
@@ -61,16 +63,16 @@ secrets() {
 		echo "database secrets created"; fi'
 }
 
-# A secret of the API, read on stdin (never on the command line), then the API restarts if it runs.
-api_secret() {
-	local name=$1 value
+# A secret, read on stdin (never on the command line), then the service that uses it restarts if it runs.
+secret() {
+	local name=$1 service=$2 value
 	value=$(tr -d '\r\n')
 	if [ -z "$value" ]; then
 		echo "nothing on stdin" >&2
 		exit 2
 	fi
 	printf %s "$value" | remote "podman secret create --replace $name - >/dev/null \
-		&& systemctl --user try-restart vigie-api.service && echo '$name stored'"
+		&& systemctl --user try-restart $service.service && echo '$name stored'"
 }
 
 build() {
@@ -97,14 +99,16 @@ case $component in
 setup) setup ;;
 files) install_files ;;
 secrets) secrets ;;
-firms-key) api_secret vigie_firms_map_key ;;
-admin-token) api_secret vigie_admin_token ;;
+firms-key) secret vigie_firms_map_key vigie-api ;;
+admin-token) secret vigie_admin_token vigie-api ;;
+vapid-public) secret vigie_vapid_public_key vigie-web ;;
+vapid-private) secret vigie_vapid_private_key vigie-web ;;
 web) build "$(cd "$here/../.." && pwd)" vigie-web Containerfile ;;
 api) build "${VIGIE_API_REPO:-$(cd "$here/../../../vigie_api" && pwd)}" vigie-api Dockerfile ;;
 # Before the first "files" that needs it: the Caddyfile uses the module, caddy.container this image.
 caddy) build "$(cd "$here/../.." && pwd)" vigie-caddy deploy/vps/caddy/Containerfile caddy ;;
 *)
-	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, api, web or caddy)" >&2
+	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, api, web or caddy)" >&2
 	exit 2
 	;;
 esac
