@@ -4,13 +4,17 @@ import postgres from 'postgres';
 import { env } from '$env/dynamic/private';
 import accounts from './migrations/001_accounts.sql?raw';
 import zones from './migrations/002_zones.sql?raw';
+import notifications from './migrations/003_notifications.sql?raw';
 
 const MIGRATIONS = [
 	{ id: '001_accounts', sql: accounts },
-	{ id: '002_zones', sql: zones }
+	{ id: '002_zones', sql: zones },
+	{ id: '003_notifications', sql: notifications }
 ];
 
 export type Sql = postgres.Sql;
+/** The connection or a transaction: what a query needs. */
+export type Query = postgres.Sql | postgres.TransactionSql;
 
 let client: Sql | null = null;
 let ready: Promise<void> | null = null;

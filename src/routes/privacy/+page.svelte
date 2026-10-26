@@ -37,6 +37,16 @@
 				sert qu'à vos alertes et disparaît avec la zone ou le compte.
 			</li>
 			<li>
+				<b>Vos appareils qui reçoivent les notifications</b> : pour chacun, l'adresse que le service de notification
+				de son navigateur lui a donnée, les clés qui chiffrent les messages pour lui, ses dates d'ajout et de dernier
+				envoi, et le nombre d'envois échoués de suite. Le fuseau horaire de l'appareil et votre choix d'heures calmes,
+				pour ne pas vous réveiller.
+			</li>
+			<li>
+				<b>Les alertes de vos zones</b> : pour chaque alerte qui a touché une de vos zones, son titre, son niveau,
+				la zone, la date, et si elle vous a été envoyée.
+			</li>
+			<li>
 				<b>Votre invitation</b> : une empreinte du code, la note de la personne qui vous a invité (par exemple pour
 				qui elle était) et ses dates.
 			</li>
@@ -47,8 +57,17 @@
 		</p>
 		<h2>Pourquoi</h2>
 		<p>
-			Pour vous reconnaître quand vous vous connectez, et garder ce que vous réglez dans votre compte. C'est
-			le service que vous demandez en créant le compte (base légale : l'exécution de ce service).
+			Pour vous reconnaître quand vous vous connectez, garder ce que vous réglez dans votre compte et vous
+			envoyer les alertes de vos zones si vous l'avez demandé. C'est le service que vous demandez en créant le
+			compte (base légale : l'exécution de ce service).
+		</p>
+		<h2>Notifications</h2>
+		<p>
+			Une notification passe par le service de notification de votre navigateur (celui de Google pour Chrome
+			et Android, de Mozilla pour Firefox, d'Apple pour Safari, de Microsoft pour Edge sous Windows). Elle est
+			chiffrée pour votre appareil : ce service ne lit ni l'alerte ni vos zones ; il voit qu'un message part
+			vers cet appareil, et quand. Ces services peuvent être hors de l'Union européenne. Vous pouvez arrêter
+			les notifications d'un appareil depuis votre compte, ou dans les réglages du navigateur.
 		</p>
 		<h2>Combien de temps</h2>
 		<ul>
@@ -56,6 +75,11 @@
 			<li>Une session : 30 jours après sa dernière utilisation.</li>
 			<li>Une invitation : 30 jours après sa date d'expiration.</li>
 			<li>La vérification d'une passkey en cours : 5 minutes.</li>
+			<li>
+				Un appareil : jusqu'à ce que vous le retiriez, que son navigateur s'en désabonne, ou après 5 envois
+				échoués de suite.
+			</li>
+			<li>Les alertes de vos zones : 30 jours, ou tant que l'alerte est en cours.</li>
 			<li>
 				Les sauvegardes de la base, faites chaque jour : 7 jours au plus. Un compte supprimé en disparaît dans
 				ce délai.
@@ -70,10 +94,9 @@
 		<h2>Vos droits</h2>
 		<p>
 			Depuis <a href="/account">votre compte</a>, vous pouvez télécharger tout ce que le site garde sur vous
-			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys, ses sessions et
-			ses zones, et les sauvegardes l'oublient sous 7 jours. Vous pouvez aussi saisir la CNIL (<a
-				href="https://www.cnil.fr">cnil.fr</a
-			>).
+			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys, ses sessions, ses
+			zones, ses appareils et ses alertes, et les sauvegardes l'oublient sous 7 jours. Vous pouvez aussi
+			saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Où</h2>
 		<p>
@@ -107,6 +130,16 @@
 				only serves your alerts and goes with the zone or the account.
 			</li>
 			<li>
+				<b>Your devices that receive the notifications</b>: for each, the address the notification service of
+				its browser gave it, the keys that encrypt the messages for it, the dates it was added and last sent
+				to, and the number of failed sendings in a row. The device's time zone and your choice of quiet hours,
+				so as not to wake you up.
+			</li>
+			<li>
+				<b>The alerts of your zones</b>: for each alert that fell in one of your zones, its title, its level,
+				the zone, the date, and whether it was sent to you.
+			</li>
+			<li>
 				<b>Your invitation</b>: a fingerprint of the code, the note of the person who invited you (for example
 				who it was for) and its dates.
 			</li>
@@ -117,8 +150,17 @@
 		</p>
 		<h2>Why</h2>
 		<p>
-			To recognise you when you sign in, and to keep what you set in your account. It is the service you ask
-			for by creating the account (legal basis: providing that service).
+			To recognise you when you sign in, to keep what you set in your account, and to send you the alerts of
+			your zones if you asked for them. It is the service you ask for by creating the account (legal basis:
+			providing that service).
+		</p>
+		<h2>Notifications</h2>
+		<p>
+			A notification goes through the notification service of your browser (Google's for Chrome and Android,
+			Mozilla's for Firefox, Apple's for Safari, Microsoft's for Edge on Windows). It is encrypted for your
+			device: that service reads neither the alert nor your zones; it sees that a message goes to this device,
+			and when. These services may be outside the European Union. You can stop the notifications of a device
+			from your account, or in the browser's settings.
 		</p>
 		<h2>For how long</h2>
 		<ul>
@@ -126,6 +168,10 @@
 			<li>A session: 30 days after it was last used.</li>
 			<li>An invitation: 30 days after it expired.</li>
 			<li>The check of a passkey in progress: 5 minutes.</li>
+			<li>
+				A device: until you remove it, its browser unsubscribes it, or after 5 failed sendings in a row.
+			</li>
+			<li>The alerts of your zones: 30 days, or as long as the alert is in force.</li>
 			<li>
 				The daily backups of the database: 7 days at most. A deleted account is gone from them within that
 				time.
@@ -140,9 +186,9 @@
 		<h2>Your rights</h2>
 		<p>
 			From <a href="/account">your account</a>, you can download everything the site keeps about you and
-			delete the account: deleting erases the account, its passkeys, its sessions and its zones at once, and
-			the backups forget it within 7 days. You can also complain to the French data protection authority, the
-			CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			delete the account: deleting erases the account, its passkeys, its sessions, its zones, its devices and
+			its alerts at once, and the backups forget it within 7 days. You can also complain to the French data
+			protection authority, the CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Where</h2>
 		<p>

@@ -1,12 +1,19 @@
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createECDH, randomBytes, type ECDH } from 'node:crypto';
+import { createRequire } from 'node:module';
 import postgres from 'postgres';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
-// Accounts: invitation, passkey, sign-in, export, deletion. The passkeys are made by Chromium's virtual
-// authenticator; the invitations by the script the owner uses (scripts/invite.mjs), on the test database.
+// Accounts: invitation, passkey, sign-in, export, deletion, notifications. The passkeys are made by Chromium's
+// virtual authenticator; the invitations by the script the owner uses (scripts/invite.mjs), on the test
+// database; the notifications go to e2e/mock-push.mjs.
 const SITE = 'http://localhost:4174';
 const DATABASE_URL = 'postgres://postgres@127.0.0.1:15433/postgres';
+const PUSH = 'http://127.0.0.1:18282';
+// What a browser does with a notification (RFC 8291), by the library web-push itself encrypts with.
+const ece = createRequire(import.meta.url)('http_ece') as {
+	decrypt(body: Buffer, params: { version: string; privateKey: ECDH; authSecret: string }): Buffer;
+};
 
 function invite(...args: string[]): string {
 	const out = execFileSync(process.execPath, ['scripts/invite.mjs', ...args], {
@@ -286,6 +293,156 @@ test('zones: a place from near me, a country, a drawn zone; checked, exported, d
 		await expect(page).toHaveURL(/\/login\?deleted=1$/);
 		const [{ n }] = await sql`select count(*)::int as n from zones where user_id = ${user.id}`;
 		expect(n).toBe(0);
+	} finally {
+		await sql.end();
+	}
+});
+
+/** A device as a browser would give it to the site, its push service being e2e/mock-push.mjs. */
+function device(label: string) {
+	const ecdh = createECDH('prime256v1');
+	ecdh.generateKeys();
+	const auth = randomBytes(16).toString('base64url');
+	const endpoint = `${PUSH}/push/${label}-${randomBytes(4).toString('hex')}`;
+	return {
+		ecdh,
+		auth,
+		endpoint,
+		subscription: { endpoint, keys: { p256dh: ecdh.getPublicKey('base64url'), auth } }
+	};
+}
+
+type Received = { path: string; headers: Record<string, string>; body: string };
+
+async function received(page: Page, endpoint: string): Promise<Received[]> {
+	const all = (await (await page.request.get(`${PUSH}/received`)).json()) as Received[];
+	return all.filter((r) => `${PUSH}${r.path}` === endpoint);
+}
+
+function decrypt(dev: ReturnType<typeof device>, r: Received) {
+	const plain = ece.decrypt(Buffer.from(r.body, 'base64'), {
+		version: 'aes128gcm',
+		privateKey: dev.ecdh,
+		authSecret: dev.auth
+	});
+	return JSON.parse(plain.toString('utf-8')) as { title: string; body: string; url: string; tag: string };
+}
+
+test('notifications: a device, a test, the alerts of a zone, quiet hours, history', async ({ page }) => {
+	await authenticator(page);
+	const name = unique('Noa');
+	await createAccount(page, name);
+	const push = (body: unknown, origin = SITE) =>
+		page.request.post('/account/push', { data: body, headers: { origin } });
+
+	// A zone: France, red only (one red warning in the recorded answers).
+	await page.goto('/country/fr');
+	await page.getByRole('link', { name: 'Surveiller ce pays dans mon compte' }).click();
+	await page.getByLabel('Niveau le plus bas').selectOption('RED');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	await expect(page.locator('.zones li').filter({ hasText: 'Pays : France' })).toBeVisible();
+
+	// Only the site's own pages, and only a known push service (or the test's).
+	expect((await push({ action: 'status', endpoint: PUSH }, 'https://elsewhere.example')).status()).toBe(403);
+	const stranger = device('x');
+	stranger.subscription.endpoint = 'https://example.com/push/1';
+	expect((await push({ action: 'subscribe', subscription: stranger.subscription })).status()).toBe(400);
+
+	// A device: listed by its service only, and a test notification reaches it, encrypted for it.
+	const phone = device('phone');
+	const subscribed = await push({
+		action: 'subscribe',
+		subscription: phone.subscription,
+		timeZone: 'Europe/Paris'
+	});
+	expect(subscribed.ok()).toBe(true);
+	await page.goto('/account');
+	await expect(page.locator('#notifications .keys li')).toHaveCount(1);
+	await expect(page.locator('#notifications .keys li')).toContainText('Par 127.0.0.1, ajouté le');
+	expect(await (await push({ action: 'test', endpoint: phone.endpoint })).json()).toEqual({
+		sent: 1,
+		failed: 0
+	});
+	const [first] = await received(page, phone.endpoint);
+	expect(first.headers.ttl).toBe('86400');
+	expect(first.headers.urgency).toBe('high');
+	expect(first.headers['content-encoding']).toBe('aes128gcm');
+	expect(first.headers.authorization).toMatch(/^vapid t=.+, k=.+/);
+	expect(decrypt(phone, first)).toEqual({
+		title: 'Vigie · notification d’essai',
+		body: 'Les alertes de vos zones arriveront comme celle-ci.',
+		url: '/account',
+		tag: 'test'
+	});
+
+	// A device that unsubscribed (410) is forgotten.
+	const old = device('gone');
+	await push({ action: 'subscribe', subscription: old.subscription });
+	expect(await (await push({ action: 'test', endpoint: old.endpoint })).json()).toEqual({
+		sent: 0,
+		failed: 1
+	});
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		const devices = await sql`select endpoint from push_subscriptions where user_id = ${user.id}`;
+		expect(devices.map((d) => d.endpoint)).toEqual([phone.endpoint]);
+
+		// The first comparison of the zone is its baseline: what is in force is kept, not sent.
+		const baselineDone = async () =>
+			(await sql`select baseline_done from zones where user_id = ${user.id}`)[0]?.baseline_done;
+		await expect.poll(baselineDone, { timeout: 20_000 }).toBe(true);
+		const baseline = await sql`select outcome, level from zone_alerts where user_id = ${user.id}`;
+		expect(baseline.length).toBeGreaterThan(0);
+		expect(baseline.every((a) => a.outcome === 'baseline' && a.level === 'RED')).toBe(true);
+		expect(await received(page, phone.endpoint)).toHaveLength(1);
+		await page.goto('/account');
+		await expect(page.locator('.history li').first()).toContainText('déjà en cours à la création de la zone');
+
+		// An alert the zone was not told about yet (here, by forgetting the baseline) is sent once.
+		await sql`delete from zone_alerts where user_id = ${user.id}`;
+		const count = async () => (await received(page, phone.endpoint)).length;
+		await expect.poll(count, { timeout: 20_000 }).toBe(1 + baseline.length);
+		const alert = decrypt(phone, (await received(page, phone.endpoint))[1]);
+		expect(alert.title).toMatch(/^Rouge · /);
+		expect(alert.body).toBe('Zone : France');
+		expect(alert.url).toMatch(/^\//);
+		const outcomes = async () =>
+			(await sql`select outcome from zone_alerts where user_id = ${user.id}`).map((a) => a.outcome);
+		await expect.poll(outcomes).toEqual(baseline.map(() => 'sent'));
+		await page.goto('/account');
+		await expect(page.locator('.history li').first()).toContainText('envoyée');
+
+		// Not twice: the next runs find nothing new.
+		await page.waitForTimeout(6_000);
+		expect(await count()).toBe(1 + baseline.length);
+
+		// Quiet hours, then the export, then removing the device.
+		await page.getByLabel('Heures calmes : de 22 h à 7 h, seulement les alertes rouges').check();
+		await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+		await expect(page.getByText('Enregistré.')).toBeVisible();
+		const [settings] = await sql`select quiet_hours, time_zone from users where id = ${user.id}`;
+		expect({ ...settings }).toEqual({ quiet_hours: true, time_zone: 'Europe/Paris' });
+
+		const exported = await (await page.request.get('/account/export.json')).json();
+		expect(exported.notification_devices).toHaveLength(1);
+		expect(exported.zone_alerts).toHaveLength(baseline.length);
+
+		// The history forgets an alert after 30 days, but not one still in force: it would be told again.
+		await sql`update zone_alerts set matched_at = now() - interval '40 days' where user_id = ${user.id}`;
+		await sql`
+			insert into zone_alerts (user_id, zone_id, alert_key, kind, level, title, url, outcome, matched_at)
+			select user_id, zone_id, 'w:FR:ended', kind, level, title, url, outcome, matched_at
+			from zone_alerts where user_id = ${user.id} limit 1`;
+		const keys = async () =>
+			(await sql`select alert_key from zone_alerts where user_id = ${user.id}`).map((a) => a.alert_key);
+		await expect.poll(async () => (await keys()).includes('w:FR:ended'), { timeout: 20_000 }).toBe(false);
+		expect(await keys()).toHaveLength(baseline.length);
+		expect(await count()).toBe(1 + baseline.length);
+
+		await page.locator('#notifications .keys li').getByRole('button', { name: 'Retirer' }).click();
+		await expect(page.getByText('Aucun appareil pour l’instant.')).toBeVisible();
 	} finally {
 		await sql.end();
 	}

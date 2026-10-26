@@ -97,6 +97,11 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 		select id, backed_up, created_at, last_used_at from passkeys where user_id = ${userId} order by created_at`;
 	const sessions = await sql`
 		select created_at, expires_at from sessions where user_id = ${userId} order by created_at`;
+	const devices = await sql`
+		select endpoint, created_at, last_sent_at from push_subscriptions where user_id = ${userId} order by created_at`;
+	const alerts = await sql`
+		select a.matched_at, a.level, a.kind, a.title, a.url, a.outcome, z.name as zone
+		from zone_alerts a join zones z on z.id = a.zone_id where a.user_id = ${userId} order by a.matched_at`;
 	return {
 		exported_at: new Date().toISOString(),
 		account: user ?? null,
@@ -105,7 +110,12 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 			note: 'The public key of the passkey is kept, never its secret.'
 		})),
 		sessions,
-		zones: await listZones(sql, userId)
+		zones: await listZones(sql, userId),
+		notification_devices: devices.map((d) => ({
+			...d,
+			note: 'The address of the push service for this device; the keys that encrypt the messages are not exported.'
+		})),
+		zone_alerts: alerts
 	};
 }
 
@@ -114,7 +124,7 @@ export async function deleteUser(sql: Sql, userId: string): Promise<void> {
 	await sql`delete from users where id = ${userId}`;
 }
 
-/** Removes what has expired, and the accounts no one has used for two years. */
+/** Removes what has expired (the history of the zones after 30 days), and the accounts unused for two years. */
 export async function cleanUp(sql: Sql): Promise<void> {
 	await sql`delete from sessions where expires_at < now()`;
 	await sql`delete from challenges where expires_at < now()`;

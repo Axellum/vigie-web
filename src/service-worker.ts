@@ -45,3 +45,40 @@ sw.addEventListener('fetch', (event) => {
 			.catch(async () => (await caches.match(request)) ?? Response.error())
 	);
 });
+
+// A notification of an account's zones (see src/lib/server/push.ts). The message is the server's JSON:
+// title, body, url and tag; a notification with the same tag replaces the previous one.
+sw.addEventListener('push', (event) => {
+	let message: { title?: string; body?: string; url?: string; tag?: string } = {};
+	try {
+		message = event.data?.json() ?? {};
+	} catch {
+		message = { body: event.data?.text() };
+	}
+	event.waitUntil(
+		sw.registration.showNotification(message.title || 'Vigie', {
+			body: message.body ?? '',
+			tag: message.tag,
+			icon: '/icon-192.png',
+			data: { url: message.url ?? '/account' }
+		})
+	);
+});
+
+// A tap opens the alert's page, in a window of the site if one is open.
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const path = (event.notification.data as { url?: string } | null)?.url ?? '/account';
+	const target = new URL(path, sw.location.origin);
+	if (target.origin !== sw.location.origin) return;
+	event.waitUntil(
+		sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
+			const open = windows.find((w) => new URL(w.url).origin === sw.location.origin);
+			if (open) {
+				await open.focus();
+				return open.navigate(target.href);
+			}
+			return sw.clients.openWindow(target.href);
+		})
+	);
+});
