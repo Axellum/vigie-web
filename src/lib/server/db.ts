@@ -5,11 +5,13 @@ import { env } from '$env/dynamic/private';
 import accounts from './migrations/001_accounts.sql?raw';
 import zones from './migrations/002_zones.sql?raw';
 import notifications from './migrations/003_notifications.sql?raw';
+import nativeDevices from './migrations/004_native_devices.sql?raw';
 
 const MIGRATIONS = [
 	{ id: '001_accounts', sql: accounts },
 	{ id: '002_zones', sql: zones },
-	{ id: '003_notifications', sql: notifications }
+	{ id: '003_notifications', sql: notifications },
+	{ id: '004_native_devices', sql: nativeDevices }
 ];
 
 export type Sql = postgres.Sql;

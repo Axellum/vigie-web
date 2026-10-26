@@ -98,7 +98,8 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 	const sessions = await sql`
 		select created_at, expires_at from sessions where user_id = ${userId} order by created_at`;
 	const devices = await sql`
-		select endpoint, created_at, last_sent_at from push_subscriptions where user_id = ${userId} order by created_at`;
+		select endpoint, fcm_token, created_at, last_sent_at from push_subscriptions
+		where user_id = ${userId} order by created_at`;
 	const alerts = await sql`
 		select a.matched_at, a.level, a.kind, a.title, a.url, a.outcome, z.name as zone
 		from zone_alerts a join zones z on z.id = a.zone_id where a.user_id = ${userId} order by a.matched_at`;
@@ -113,7 +114,7 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 		zones: await listZones(sql, userId),
 		notification_devices: devices.map((d) => ({
 			...d,
-			note: 'The address of the push service for this device; the keys that encrypt the messages are not exported.'
+			note: 'A browser: the address of its push service (the keys that encrypt the messages are not exported). The Android app: its Firebase Cloud Messaging token.'
 		})),
 		zone_alerts: alerts
 	};

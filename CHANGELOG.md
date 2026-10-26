@@ -6,6 +6,11 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Notifications for the Android app (to come): the server sends the alerts of the zones through Firebase Cloud
+  Messaging to a device registered by its token, besides Web Push, with a channel for the red alerts. Off
+  without `VIGIE_FCM_SERVICE_ACCOUNT`. The account page lists the app's devices; the privacy page says that
+  Google reads these notifications.
+
 - The public instance opens the API's reads at `https://vigie.auxfilsdesidees.fr/v1` (GET and the WebSocket
   `/v1/stream` only), through Caddy, with a rate limit per address (stricter on `/v1/point`) and cache headers.
 

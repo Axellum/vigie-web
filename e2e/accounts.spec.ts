@@ -447,3 +447,53 @@ test('notifications: a device, a test, the alerts of a zone, quiet hours, histor
 		await sql.end();
 	}
 });
+
+test('the Android app: a device by its token, a test through FCM, forgotten when gone', async ({ page }) => {
+	await authenticator(page);
+	const name = unique('Lou');
+	await createAccount(page, name);
+	const push = (body: unknown) =>
+		page.request.post('/account/push', { data: body, headers: { origin: SITE } });
+	const token = `e2e:APA91b${randomBytes(48).toString('base64url')}`;
+
+	expect((await push({ action: 'register', token: 'not a token' })).status()).toBe(400);
+	expect((await push({ action: 'register', token, timeZone: 'Europe/Paris' })).ok()).toBe(true);
+	expect(await (await push({ action: 'status', token })).json()).toEqual({ id: expect.any(String) });
+	await page.goto('/account');
+	await expect(page.locator('#notifications .keys li')).toContainText('Appli Android, ajoutée le');
+
+	// The test notification goes to FCM: shown by Android, its page in data, on the channel of the other alerts.
+	expect(await (await push({ action: 'test', token })).json()).toEqual({ sent: 1, failed: 0 });
+	const all = (await (await page.request.get(`${PUSH}/received`)).json()) as Received[];
+	const mine = all.filter((r) => r.path === `/fcm/${token}`);
+	expect(mine).toHaveLength(1);
+	expect(mine[0].headers.authorization).toBe('Bearer mock-access-token');
+	const { message } = JSON.parse(Buffer.from(mine[0].body, 'base64').toString('utf-8'));
+	expect(message).toEqual({
+		token,
+		notification: {
+			title: 'Vigie · notification d’essai',
+			body: 'Les alertes de vos zones arriveront comme celle-ci.'
+		},
+		data: { url: '/account', tag: 'test' },
+		android: {
+			ttl: '86400s',
+			priority: 'HIGH',
+			collapse_key: 'test',
+			notification: { tag: 'test', channel_id: 'vigie-alerts' }
+		}
+	});
+
+	// A token FCM no longer knows (404, UNREGISTERED) is forgotten; the other device stays.
+	const old = `gone:APA91b${randomBytes(48).toString('base64url')}`;
+	await push({ action: 'register', token: old });
+	expect(await (await push({ action: 'test', token: old })).json()).toEqual({ sent: 0, failed: 1 });
+	expect(await (await push({ action: 'status', token: old })).json()).toEqual({ id: null });
+
+	const exported = await (await page.request.get('/account/export.json')).json();
+	expect(exported.notification_devices.map((d: { fcm_token: string }) => d.fcm_token)).toEqual([token]);
+
+	expect((await push({ action: 'unsubscribe', token })).ok()).toBe(true);
+	await page.goto('/account');
+	await expect(page.getByText('Aucun appareil pour l’instant.')).toBeVisible();
+});
