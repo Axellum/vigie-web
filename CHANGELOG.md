@@ -78,3 +78,9 @@ All notable changes are listed here. Versions are git tags.
   container was marked unhealthy while the site worked.
 - A description for search engines on the about and sources pages.
 - On a phone, a wide table no longer makes the whole page wider than the screen.
+
+### Security
+
+- MapLibre GL JS 6.14.0 (was 5.24.0), which fixes a bypass of its HTML sanitizer for attributions
+  ([GHSA-jrc7-96c5-q579](https://github.com/advisories/GHSA-jrc7-96c5-q579)). Its worker is now a file of the
+  site.

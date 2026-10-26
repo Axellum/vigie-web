@@ -11,6 +11,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import type { FeatureCollection } from 'geojson';
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
+	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
+	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 	import { translator, type Lang } from '$lib/i18n';
 	import type { Box } from '$lib/geo';
 	import { circleRing, type Place } from '$lib/near';
@@ -521,6 +523,8 @@
 				const [lib] = await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')]);
 				ml = lib;
 				if (destroyed) return;
+				// MapLibre looks for its worker next to its own file, which a bundle does not keep.
+				ml.setWorkerUrl(workerUrl);
 				currentTheme = theme();
 				map = new ml.Map({
 					container,
