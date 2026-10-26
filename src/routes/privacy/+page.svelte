@@ -37,10 +37,10 @@
 				sert qu'à vos alertes et disparaît avec la zone ou le compte.
 			</li>
 			<li>
-				<b>Vos appareils qui reçoivent les notifications</b> : pour chacun, l'adresse que le service de notification
-				de son navigateur lui a donnée, les clés qui chiffrent les messages pour lui, ses dates d'ajout et de dernier
-				envoi, et le nombre d'envois échoués de suite. Le fuseau horaire de l'appareil et votre choix d'heures calmes,
-				pour ne pas vous réveiller.
+				<b>Vos appareils qui reçoivent les notifications</b> : pour un navigateur, l'adresse que son service de
+				notification lui a donnée et les clés qui chiffrent les messages pour lui ; pour l'appli Android, son jeton
+				Firebase Cloud Messaging. Pour chacun, ses dates d'ajout et de dernier envoi, et le nombre d'envois échoués
+				de suite. Le fuseau horaire de l'appareil et votre choix d'heures calmes, pour ne pas vous réveiller.
 			</li>
 			<li>
 				<b>Les alertes de vos zones</b> : pour chaque alerte qui a touché une de vos zones, son titre, son niveau,
@@ -68,6 +68,13 @@
 			chiffrée pour votre appareil : ce service ne lit ni l'alerte ni vos zones ; il voit qu'un message part
 			vers cet appareil, et quand. Ces services peuvent être hors de l'Union européenne. Vous pouvez arrêter
 			les notifications d'un appareil depuis votre compte, ou dans les réglages du navigateur.
+		</p>
+		<p>
+			Dans l'appli Android, une notification passe par Google (Firebase Cloud Messaging), comme pour toute
+			appli Android, et elle n'est <b>pas</b> chiffrée pour votre appareil : Google voit son titre (le niveau et
+			le titre de l'alerte) et son texte (les noms de vos zones). Choisissez des noms de zone qui ne disent rien
+			de vous si cela vous gêne. Vous pouvez arrêter les notifications de l'appli depuis votre compte ou dans les
+			réglages d'Android.
 		</p>
 		<h2>Combien de temps</h2>
 		<ul>
@@ -130,10 +137,10 @@
 				only serves your alerts and goes with the zone or the account.
 			</li>
 			<li>
-				<b>Your devices that receive the notifications</b>: for each, the address the notification service of
-				its browser gave it, the keys that encrypt the messages for it, the dates it was added and last sent
-				to, and the number of failed sendings in a row. The device's time zone and your choice of quiet hours,
-				so as not to wake you up.
+				<b>Your devices that receive the notifications</b>: for a browser, the address its notification
+				service gave it and the keys that encrypt the messages for it; for the Android app, its Firebase Cloud
+				Messaging token. For each, the dates it was added and last sent to, and the number of failed sendings
+				in a row. The device's time zone and your choice of quiet hours, so as not to wake you up.
 			</li>
 			<li>
 				<b>The alerts of your zones</b>: for each alert that fell in one of your zones, its title, its level,
@@ -161,6 +168,12 @@
 			device: that service reads neither the alert nor your zones; it sees that a message goes to this device,
 			and when. These services may be outside the European Union. You can stop the notifications of a device
 			from your account, or in the browser's settings.
+		</p>
+		<p>
+			In the Android app, a notification goes through Google (Firebase Cloud Messaging), as for any Android
+			app, and it is <b>not</b> encrypted for your device: Google sees its title (the level and title of the alert)
+			and its text (the names of your zones). Choose zone names that say nothing about you if that bothers you.
+			You can stop the app's notifications from your account or in Android's settings.
 		</p>
 		<h2>For how long</h2>
 		<ul>

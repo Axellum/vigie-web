@@ -232,7 +232,8 @@ export async function matchAndNotify(
 						title: `${t(lang, `level.${alert.level}` as Key)} · ${alert.title(lang)}`,
 						body: t(lang, 'notify.body', { zones: news.map((g) => g.zone.name).join(', ') }),
 						url: alert.url,
-						tag: alert.key
+						tag: alert.key,
+						level: alert.level
 					});
 					outcome = !result || result.sent + result.failed === 0 ? 'none' : result.sent ? 'sent' : 'failed';
 					if (result?.sent) sent++;

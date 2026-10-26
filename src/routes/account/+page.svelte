@@ -175,7 +175,7 @@
 						<li>
 							<div>
 								<p>
-									{tr('push.device', { service: d.service })}
+									{d.service ? tr('push.device', { service: d.service }) : tr('push.deviceApp')}
 									<Time {lang} unix={d.createdAt} />
 									{#if d.id === deviceId}<span class="muted small">· {tr('push.thisDevice')}</span>{/if}
 								</p>
