@@ -1,11 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { countryPaths, sitemapXml, STATIC_PATHS } from './seo';
+import { countryPaths, lowerCasePath, sitemapXml, STATIC_PATHS } from './seo';
 
 const ORIGIN = 'https://vigie.example.org';
 
 describe('countryPaths', () => {
 	it('gives one lower-case page per country, sorted, without duplicates or bad codes', () => {
 		expect(countryPaths(['FR', 'BE', 'fr', 'X', 'FRA', '../a'])).toEqual(['/country/be', '/country/fr']);
+	});
+});
+
+describe('lowerCasePath', () => {
+	it('lowers a country or area page spelled with capitals', () => {
+		expect(lowerCasePath('/country/FR')).toBe('/country/fr');
+		expect(lowerCasePath('/country/fr/FINISTERE')).toBe('/country/fr/finistere');
+	});
+
+	it("lowers a warning's country but keeps the issuer's id", () => {
+		expect(lowerCasePath('/warning/DE/2.49.0.0.276.0.DWD.PVW~MUL')).toBe(
+			'/warning/de/2.49.0.0.276.0.DWD.PVW~MUL'
+		);
+		expect(lowerCasePath('/warning/de/2.49.0.0.276.0.DWD.PVW~MUL')).toBeNull();
+	});
+
+	it('leaves other pages and addresses already in lower case alone', () => {
+		for (const p of ['/country/fr', '/country/fr/finistere', '/About', '/alert/ABC', '/', '/warning'])
+			expect(lowerCasePath(p)).toBeNull();
 	});
 });
 

@@ -362,6 +362,7 @@ test('robots.txt announces the sitemap, which lists the public pages only', asyn
 	const robots = await (await request.get('/robots.txt')).text();
 	expect(robots).toContain('Sitemap: https://vigie.auxfilsdesidees.fr/sitemap.xml');
 	expect(robots).toContain('Disallow: /data/');
+	expect(robots).toContain('Disallow: /account');
 
 	const res = await request.get('/sitemap.xml');
 	expect(res.status()).toBe(200);
@@ -379,6 +380,27 @@ test('robots.txt announces the sitemap, which lists the public pages only', asyn
 	for (const loc of locs.filter((l) => l.includes('/country/')).slice(0, 3)) {
 		expect((await request.get(new URL(loc).pathname)).status()).toBe(200);
 	}
+});
+
+test('a page spelled with capitals redirects to its one lower-case address', async ({ request }) => {
+	for (const [from, to] of [
+		['/country/FR?lang=en', '/country/fr?lang=en'],
+		['/country/fr/FINISTERE', '/country/fr/finistere']
+	]) {
+		const res = await request.get(from, { maxRedirects: 0 });
+		expect(res.status()).toBe(301);
+		expect(res.headers()['location']).toBe(to);
+	}
+});
+
+test('an area with no warning in force is not indexed, and the language link is not followed', async ({
+	page
+}) => {
+	await page.goto('/country/fr/made-up-area');
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow');
+	await expect(page.locator('a.lang')).toHaveAttribute('rel', 'nofollow');
+	await page.goto('/country/fr/haute-corse');
+	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 });
 
 test('a public page carries its canonical address and a social preview', async ({ page }) => {

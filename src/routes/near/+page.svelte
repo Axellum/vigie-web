@@ -275,7 +275,9 @@
 	</p>
 	{#if place && data.accounts}
 		<p>
-			<a href="/account/zones/new{placeHash(place, radiusKm)}">{tr('zones.watchHere', { km: radiusKm })}</a>
+			<a href="/account/zones/new{placeHash(place, radiusKm)}" rel="nofollow"
+				>{tr('zones.watchHere', { km: radiusKm })}</a
+			>
 		</p>
 	{/if}
 

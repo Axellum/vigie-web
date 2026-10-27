@@ -16,6 +16,7 @@
 <Seo
 	title={tr('area.title', { area: data.area, country: name })}
 	description={tr('area.title', { area: data.area, country: name })}
+	noindex={rows.length === 0}
 />
 
 <div class="page">
@@ -26,7 +27,7 @@
 		<h1>{tr('area.title', { area: data.area, country: name })}</h1>
 		{#if data.accounts}
 			<p class="small">
-				<a href="/account/zones/new?country={data.cc}&area={encodeURIComponent(data.area)}"
+				<a href="/account/zones/new?country={data.cc}&area={encodeURIComponent(data.area)}" rel="nofollow"
 					>{tr('zones.watchArea')}</a
 				>
 			</p>

@@ -11,6 +11,19 @@ export function countryPaths(codes: string[]): string[] {
 	return [...unique].sort();
 }
 
+/** The one address of a country, area or warning page when `pathname` spells it with capitals
+ *  (`/country/FR`, `/warning/DE/<id>`), so that each page has a single URL; `null` when it is already that one.
+ *  A warning's id keeps its case: it is the issuer's. */
+export function lowerCasePath(pathname: string): string | null {
+	let normal = pathname;
+	if (pathname.startsWith('/country/')) normal = pathname.toLowerCase();
+	else {
+		const m = /^\/warning\/([^/]+)(\/.*)?$/.exec(pathname);
+		if (m) normal = `/warning/${m[1].toLowerCase()}${m[2] ?? ''}`;
+	}
+	return normal === pathname ? null : normal;
+}
+
 function escapeXml(text: string): string {
 	return text
 		.replace(/&/g, '&amp;')
