@@ -15,7 +15,9 @@
 
 <Seo
 	title={tr('area.title', { area: data.area, country: name })}
-	description={tr('area.title', { area: data.area, country: name })}
+	description={rows.length
+		? tr('area.description', { area: data.area, country: name, n: rows.length })
+		: tr('area.title', { area: data.area, country: name })}
 	noindex={rows.length === 0}
 />
 

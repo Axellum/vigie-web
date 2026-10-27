@@ -205,6 +205,14 @@ const fr = {
 	'countries.intro':
 		'Ces pays ont une source de vigilances officielles branchée dans Vigie. Ailleurs, la carte ne montre que les catastrophes (séismes, cyclones, volcans…).',
 	'area.title': '{area} ({country})',
+	'area.description':
+		'{area} ({country}) : {n} vigilance(s) officielle(s) en cours, avec le niveau et la source de chacune.',
+	'country.description':
+		'{country} : {n} vigilance(s) officielle(s) en cours, zone par zone, avec le niveau et la source de chacune.',
+	'country.descriptionNone':
+		'{country} : aucune vigilance officielle en cours. Les vigilances de la source officielle du pays s’affichent ici, zone par zone.',
+	'home.description':
+		'Carte mondiale des vigilances officielles (météo, crues) et des catastrophes (séismes, cyclones, volcans, feux), avec la source de chaque alerte. Projet personnel, sans valeur officielle.',
 	'hazard.title': '{category} : {title}',
 	'sources.title': 'Sources et crédits',
 	'sources.intro':
@@ -650,6 +658,14 @@ const en: Record<Key, string> = {
 	'countries.intro':
 		'These countries have a source of official warnings in Vigie. Elsewhere, the map only shows hazards (earthquakes, cyclones, volcanoes…).',
 	'area.title': '{area} ({country})',
+	'area.description':
+		'{area} ({country}): {n} official warning(s) in force, with the level and source of each.',
+	'country.description':
+		'{country}: {n} official warning(s) in force, area by area, with the level and source of each.',
+	'country.descriptionNone':
+		'{country}: no official warning in force. The warnings of the country’s official source show here, area by area.',
+	'home.description':
+		'World map of official warnings (weather, floods) and disasters (earthquakes, cyclones, volcanoes, fires), with the source of each alert. A personal project, not an official service.',
 	'hazard.title': '{category}: {title}',
 	'sources.title': 'Sources and credits',
 	'sources.intro':

@@ -403,6 +403,35 @@ test('an area with no warning in force is not indexed, and the language link is 
 	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 });
 
+test('the map page has a heading, its own description and a WebSite for search engines', async ({ page }) => {
+	await page.goto('/?lang=en');
+	await expect(page.locator('h1')).toHaveText('Vigie · World alerts, in one place');
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+		'content',
+		/^World map of official warnings/
+	);
+	const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent()) ?? '{}');
+	expect(ld).toMatchObject({
+		'@type': 'WebSite',
+		name: 'Vigie',
+		url: 'https://vigie.auxfilsdesidees.fr/',
+		inLanguage: 'en'
+	});
+});
+
+test('a country and an area with warnings say how many are in force', async ({ page }) => {
+	await page.goto('/country/fr?lang=en');
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+		'content',
+		/^France: \d+ official warning\(s\) in force/
+	);
+	await page.goto('/country/fr/haute-corse?lang=en');
+	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+		'content',
+		/^Haute-Corse \(France\): \d+ official warning\(s\) in force/
+	);
+});
+
 test('a public page carries its canonical address and a social preview', async ({ page }) => {
 	await page.goto('/country/fr?lang=en');
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
