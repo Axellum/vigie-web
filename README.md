@@ -11,6 +11,10 @@ which caches every feed once for everybody.
 > **This is not an official warning service.** The alerts are relayed from public feeds. They can be
 > late, incomplete or wrong. Follow the warnings of your national authorities.
 
+Public instance: <https://vigie.auxfilsdesidees.fr>
+
+![The world map of Vigie Web: hazards on the map, counts by level and the list of alerts](docs/images/map.png)
+
 ## What it shows
 
 - a world map of the current hazards and, for the covered countries, of the official warnings;
