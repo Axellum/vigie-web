@@ -4,7 +4,8 @@
 # Caddy gets the certificate from Let's Encrypt by itself (ports 80 and 443 are open).
 vigie.example.org {
 	import site
-	header Strict-Transport-Security "max-age=31536000"
+	# Only when the answer has none: the site sends its own, the API does not.
+	header ?Strict-Transport-Security "max-age=31536000"
 }
 
 # With a "www." record too:
