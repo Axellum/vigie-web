@@ -44,7 +44,7 @@
 			{/each}
 		</nav>
 		<div class="tools">
-			<a class="lang" href="?lang={other}" hreflang={other} lang={other} data-sveltekit-reload
+			<a class="lang" href="?lang={other}" rel="nofollow" hreflang={other} lang={other} data-sveltekit-reload
 				>{tr('lang.switch')}</a
 			>
 			{#if data.accounts}

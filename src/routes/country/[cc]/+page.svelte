@@ -50,7 +50,9 @@
 			<p class="note">{tr('error.api')}</p>
 		{/if}
 		{#if data.accounts}
-			<p class="small"><a href="/account/zones/new?country={data.cc}">{tr('zones.watchCountry')}</a></p>
+			<p class="small">
+				<a href="/account/zones/new?country={data.cc}" rel="nofollow">{tr('zones.watchCountry')}</a>
+			</p>
 		{/if}
 	</header>
 

@@ -5,6 +5,7 @@ import { cleanUp } from '$lib/server/accounts';
 import { accountsEnabled, db } from '$lib/server/db';
 import { matchAndNotify } from '$lib/server/notify';
 import { allow } from '$lib/server/ratelimit';
+import { lowerCasePath } from '$lib/seo';
 
 const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
 
@@ -70,6 +71,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 			status: 429,
 			headers: { 'retry-after': '60', 'content-type': 'text/plain; charset=utf-8' }
 		});
+	}
+
+	// One address per page: /country/FR is a copy of /country/fr for a search engine.
+	const lower = lowerCasePath(event.url.pathname);
+	if (lower) {
+		return new Response(null, { status: 301, headers: { location: lower + event.url.search } });
 	}
 
 	const lang = chooseLang(event);
