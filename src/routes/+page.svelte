@@ -394,7 +394,21 @@
 	});
 </script>
 
-<Seo title={tr('nav.map')} description={tr('countries.intro')} />
+<Seo title={tr('nav.map')} description={tr('home.description')} />
+
+<!-- What the site is, for search engines: a WebSite in schema.org terms. -->
+<svelte:head>
+	{@html `<script type="application/ld+json">${JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'WebSite',
+		name: 'Vigie',
+		url: `${data.origin}/`,
+		description: tr('home.description'),
+		inLanguage: lang
+	}).replace(/</g, '\\u003c')}</script>`}
+</svelte:head>
+
+<h1 class="visually-hidden">Vigie · {tr('site.tagline')}</h1>
 
 <div class="app">
 	<aside class="rail" bind:this={rail} aria-label={tr('list.title')}>

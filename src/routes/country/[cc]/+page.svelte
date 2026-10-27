@@ -34,7 +34,15 @@
 	const hazardRows = $derived(data.hazards.map(hazardRow).sort(byLevelThenTime));
 </script>
 
-<Seo title={tr('country.title', { country: name })} description={tr('country.title', { country: name })} />
+<!-- Without an answer from the API the number of warnings is unknown: the description does not give one. -->
+<Seo
+	title={tr('country.title', { country: name })}
+	description={!data.warnings
+		? tr('country.title', { country: name })
+		: warnings.length
+			? tr('country.description', { country: name, n: warnings.length })
+			: tr('country.descriptionNone', { country: name })}
+/>
 
 <div class="page">
 	<header class="intro">
