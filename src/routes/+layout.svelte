@@ -219,4 +219,10 @@
 			position: relative;
 		}
 	}
+	/* The tools sit over the brand's line: below 360 px, the logo leaves them its room. */
+	@media (max-width: 359px) {
+		.brand img {
+			display: none;
+		}
+	}
 </style>
