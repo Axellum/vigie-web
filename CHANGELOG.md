@@ -70,6 +70,12 @@ All notable changes are listed here. Versions are git tags.
 
 ### Changed
 
+- "Near me" in cards: the place in one sentence (the site's own, built from the cards), then the official
+  warnings ("nothing in force" and "no source" told apart), the hazards around, the weather, the sea, the sky
+  and the air, each folded to a few figures with its detail one click away. A profile (surf, sea, mountain, sky,
+  travel, allergies, garden, home automation) orders the cards and goes in the page's address; a warning in
+  force always comes first. Places can be followed without an account, in the browser only.
+
 - SvelteKit 3 (with Vite 8, TypeScript 6, adapter-node 6 and Node 22.17 or later): the configuration moves to
   `vite.config.ts`, `$lib` becomes `#lib`, the settings are declared in `src/env.ts`, and the service worker
   is its own TypeScript project. Behind a proxy, set `PROTOCOL_HEADER=X-Forwarded-Proto` (the quadlets do):

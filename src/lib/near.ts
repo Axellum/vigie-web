@@ -42,20 +42,27 @@ export function snapToGrid(place: Place, step = WEATHER_GRID_DEG): Place {
 	return { lat: Math.min(90, Math.max(-90, snap(place.lat))), lon };
 }
 
-/** A position read from the address (`#48.853,2.349` or `#48.853,2.349,300` with a radius), or null. */
-export function parsePlace(hash: string): (Place & { radiusKm: number | null }) | null {
-	const m = /^#?(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)(?:,(\d{1,4}))?$/.exec(hash.trim());
+/**
+ * A position read from the address (`#48.853,2.349`, `#48.853,2.349,300` with a radius, `#48.853,2.349,300,surf`
+ * with a profile too), or null. The profile is returned as written: the caller checks it.
+ */
+export function parsePlace(
+	hash: string
+): (Place & { radiusKm: number | null; profile: string | null }) | null {
+	const m = /^#?(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)(?:,(\d{1,4})(?:,([a-z]{1,20}))?)?$/.exec(
+		hash.trim()
+	);
 	if (!m) return null;
 	const lat = Number(m[1]),
 		lon = Number(m[2]);
 	if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) return null;
-	return { lat, lon, radiusKm: m[3] ? Number(m[3]) : null };
+	return { lat, lon, radiusKm: m[3] ? Number(m[3]) : null, profile: m[4] ?? null };
 }
 
-/** The address of a position: 3 decimals (about 100 m) and the radius. */
-export function placeHash(place: Place, radiusKm: number): string {
+/** The address of a position: 3 decimals (about 100 m), the radius, and the profile when there is one. */
+export function placeHash(place: Place, radiusKm: number, profile: string | null = null): string {
 	const f = (v: number) => String(Math.round(v * 1000) / 1000 + 0);
-	return `#${f(place.lat)},${f(place.lon)},${radiusKm}`;
+	return `#${f(place.lat)},${f(place.lon)},${radiusKm}${profile ? `,${profile}` : ''}`;
 }
 
 /** The covered countries whose boxes are near the point: their warnings are the only ones that can hold it. */
