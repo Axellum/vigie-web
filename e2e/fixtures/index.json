@@ -6,7 +6,9 @@
   "warnings-MX.json": 1792522808,
   "fires-grid.json": 1792528658,
   "fires.json": 1792528658,
-  "hazards.json": 1792529303
+  "hazards.json": 1792529303,
+  "sky-aurora.json": 1793221630,
+  "sky-aurora-oval.json": 1793221630
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -29,7 +31,9 @@
   "/v1/vigilances/countries": "vigilances-countries.json",
   "/v1/vigilances.geojson?country=MX": "warnings-MX.json",
   "/v1/fires/grid": "fires-grid.json",
-  "/v1/fires": "fires.json"
+  "/v1/fires": "fires.json",
+  "/v1/sky/aurora": "sky-aurora.json",
+  "/v1/sky/aurora.geojson": "sky-aurora-oval.json"
  },
  "added": {
   "/v1/geojson/hazards": [

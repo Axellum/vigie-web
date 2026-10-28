@@ -36,6 +36,8 @@
 		drawing?: [number, number][] | null;
 		/** Active fires: cells of a grid (with `n`) or detections (`FireTile.features`). */
 		fires?: FeatureCollection | null;
+		/** NOAA's OVATION aurora oval as bands (`properties.min`), drawn under everything else. */
+		aurora?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -54,6 +56,7 @@
 		drawing = null,
 		forecast = null,
 		fires = null,
+		aurora = null,
 		onselect,
 		onmove,
 		onpick
@@ -178,6 +181,7 @@
 	const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 	const forecastData = () => forecast ?? EMPTY;
 	const fireData = () => fires ?? EMPTY;
+	const auroraData = () => aurora ?? EMPTY;
 	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
 
 	function addForecastLayers() {
@@ -346,6 +350,30 @@
 		map.addSource('place', { type: 'geojson', data: placeData() });
 		map.addSource('forecast', { type: 'geojson', data: forecastData() });
 		map.addSource('fires', { type: 'geojson', data: fireData() });
+		map.addSource('aurora', { type: 'geojson', data: auroraData() });
+		// The aurora bands, from faint green to red as NOAA's maps do; the levels of the bands are the API's.
+		map.addLayer({
+			id: 'aurora-fill',
+			type: 'fill',
+			source: 'aurora',
+			paint: {
+				'fill-color': [
+					'interpolate',
+					['linear'],
+					['get', 'min'],
+					5,
+					'#3ccf6e',
+					20,
+					'#9be33a',
+					40,
+					'#f2d22e',
+					60,
+					'#e8462c'
+				],
+				'fill-opacity': ['interpolate', ['linear'], ['get', 'min'], 5, 0.18, 20, 0.35, 60, 0.55],
+				'fill-antialias': false
+			}
+		});
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -653,6 +681,10 @@
 		void forecast;
 		if (ready && map?.getSource('forecast'))
 			(map.getSource('forecast') as GeoJSONSource).setData(forecastData());
+	});
+	$effect(() => {
+		void aurora;
+		if (ready && map?.getSource('aurora')) (map.getSource('aurora') as GeoJSONSource).setData(auroraData());
 	});
 	$effect(() => {
 		void fires;

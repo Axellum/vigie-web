@@ -216,6 +216,29 @@ test('near me shows the warnings and the weather of a place given in the address
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test('the sky page shows the oval, the Kp and, for a place, the estimate said to be one', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/sky');
+	await expect(page.getByRole('heading', { level: 1, name: 'Le ciel : aurores' })).toBeVisible();
+	await expect(page.getByRole('img', { name: 'Indice Kp, observé puis prévu (NOAA)' })).toBeVisible();
+	await expect(page.getByText(/Prévision OVATION de la NOAA pour/)).toBeVisible();
+	// The "Sky" card of "Near me" says the aurora in a sentence (the mock answers its Tromso recording for any
+	// place), not NOAA's raw index; its credit goes with the page's folded credits.
+	await page.goto('/near#69.65,18.96,300');
+	const card = page.getByRole('region', { name: 'Ciel' });
+	await expect(card.getByText(/^Aurore possible, surtout entre/)).toBeVisible({ timeout: 15_000 });
+	await expect(card.getByText('Estimation Vigie')).toBeVisible();
+	await page.getByText('Sources de cette page').click();
+	await expect(page.getByText(/^Source: NOAA Space Weather Prediction Center/)).toBeVisible();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
 test('near me says when no source of official warnings covers the place', async ({ page }) => {
 	// São Paulo: Brazil has a border but no source.
 	await page.goto('/near#-23.55,-46.63,300');
