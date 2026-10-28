@@ -13,6 +13,14 @@ import {
 } from '#lib/eclipse.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import {
+	tideTileBox,
+	tideTileFromApi,
+	tidesFromApi,
+	type TideCurve,
+	type TideLevel,
+	type TideTile
+} from '#lib/tides.js';
+import {
 	firesFromApi,
 	forecastFromApi,
 	hazardsFromApi,
@@ -54,13 +62,17 @@ export const TTL_S = {
 	// when the clouds come in, 48 hours before.
 	eclipses: 86_400,
 	eclipsePlace: 3600,
-	eclipseSoon: 900
+	eclipseSoon: 900,
+	// The tide is computed by the API (no provider): the curve of a point is kept 10 minutes, the coast 5 (its "now").
+	tides: 600,
+	tideCoast: 300
 } as const;
 
 const cache = new TtlCache();
 // Points have their own cache, so that many places cannot push the shared answers out. So do the tiles of fires.
 const pointCache = new TtlCache(Date.now, 15_000, 2000);
 const fireCache = new TtlCache(Date.now, 15_000, 400);
+const tideCache = new TtlCache(Date.now, 15_000, 2000);
 
 export class ApiError extends Error {
 	constructor(
@@ -291,6 +303,32 @@ export function getEclipsePlace(date: string, lat: number, lon: number): Promise
 			return eclipse;
 		}
 	);
+}
+
+/**
+ * The tide at a coastal point, computed by the API from a tide model: two days from the current hour, every 15 minutes. The
+ * position is rounded to 0.05 degree (the model's cells are 1/8 degree); null where the model has no cell near (inland).
+ */
+export async function getTides(lat: number, lon: number): Promise<Cached<TideCurve> | null> {
+	const rlat = Math.round(lat * 20) / 20;
+	const rlon = Math.round(lon * 20) / 20;
+	try {
+		return await tideCache.get(`tides:${rlat},${rlon}`, TTL_S.tides * 1000, async () =>
+			tidesFromApi(await getJson(`/v1/tides?lat=${rlat}&lon=${rlon}&days=2&interval_minutes=15`, 15_000))
+		);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
+}
+
+/** One tile of the tide now along the coasts ($lib/tides). */
+export function getTideTile(level: TideLevel, x: number, y: number): Promise<Cached<TideTile>> {
+	return tideCache.get(`tidecoast:${level.id}:${x}_${y}`, TTL_S.tideCoast * 1000, async () => {
+		const bbox = tideTileBox(level, x, y).join(',');
+		return tideTileFromApi(await getJson(`/v1/tides/coast?bbox=${bbox}&limit=${level.limit}`, 15_000));
+	});
+}
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */
