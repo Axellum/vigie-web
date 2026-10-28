@@ -312,7 +312,8 @@ test('zones: a place from near me, a country, a drawn zone; checked, exported, d
 
 // MapLibre held back until the drawn zone is chosen, as on a slow phone: the map still opens on the place of the
 // address, and a zone drawn there is not refused as too large. The site's service worker serves its own files
-// from its cache, out of reach of page.route: it is blocked here.
+// from its cache, out of reach of page.route: it is blocked here. The page asks for MapLibre once it is running
+// (its buttons answer); its load event may wait for the held stylesheet, so it is not waited for.
 test.describe(() => {
 	test.use({ serviceWorkers: 'block' });
 	test('zones: a drawn zone chosen before the map has loaded is drawn on the place of the address', async ({
@@ -325,9 +326,13 @@ test.describe(() => {
 		const held = new Promise<void>((resolve) => (release = resolve));
 		await page.route(MAPLIBRE_CSS, (route) => held.then(() => route.fallback()));
 		const asked = page.waitForRequest(MAPLIBRE_CSS);
-		await page.goto('/account/zones/new#42.306,9.15,25');
-		await page.getByRole('button', { name: 'Une zone dessinée' }).click();
+		await page.goto('/account/zones/new#42.306,9.15,25', { waitUntil: 'commit' });
 		await asked;
+		await page.getByRole('button', { name: 'Une zone dessinée' }).click();
+		await expect(page.getByRole('button', { name: 'Une zone dessinée' })).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 		release();
 		await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 		const canvas = page.locator('.maplibregl-canvas');
