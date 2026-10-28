@@ -1,4 +1,4 @@
-// The tide, computed by the API from a global ocean tide model (vigie-api `GET /v1/tides`, `GET /v1/tides/coast`, its ADR 0012):
+// The tide, computed by the API from a global ocean tide model (vigie-api `GET /v1/tides`, `GET /v1/tides/coast`, its ADR 0013):
 // the curve of a coastal point, and the tide now along the coasts for the map. Every figure is the API's; a value it did not give
 // is left out, never guessed. Not for navigation, and the API says what the model cannot do (harbours, bays): the site shows it.
 import type { Feature, FeatureCollection } from 'geojson';

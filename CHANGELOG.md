@@ -20,7 +20,7 @@ All notable changes are listed here. Versions are git tags.
   look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0012). Needs a Vigie API with
   `/v1/sky/aurora`.
 
-- The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0012):
+- The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0013):
   a "Tide" card on "near me", after the sea in every profile (the tide now and the next waters; in its detail, a curve
   over two days with the high and low waters and their ranges), the same curve on a zone of the account that touches the
   sea, and a "Tides (computed)" layer on the world map, off until asked, with a dot per coastal point (filled: rising,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// The tide of a coastal point over two days, as the API computes it from a global tide model (vigie-api ADR 0012): the curve,
+	// The tide of a coastal point over two days, as the API computes it from a global tide model (vigie-api ADR 0013): the curve,
 	// the time now, the high and low waters with their ranges, and the French coefficient the API estimates (not the official one).
 	// Every figure is the API's. Times are the reader's own; heights are relative to the model's mean sea level.
 	import { onMount } from 'svelte';
