@@ -6,6 +6,14 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Solar eclipses (`/sky/eclipses`, linked from the sky page): NASA's eclipses of the next ten years, the map of the one
+  chosen (the path of totality or of the ring, its central line, bands of the share of the Sun hidden) and, for a place
+  found, located or clicked, plain sentences ("Éclipse totale ici : le Soleil sera entièrement caché pendant 2 min 54 s,
+  à partir de 10:45."), the contacts with the Sun's height, the forecast clouds in the 48 hours before, and the Sun and
+  the Moon drawn from the first contact to the last, with a slider. Worked out by the API from NASA's elements, with a link
+  to its comparison with NASA's tables; a reminder never to look at the Sun without eclipse glasses. Needs a Vigie API
+  with `/v1/sky/eclipses`.
+
 - The sky: the aurora. A "Sky" page (`/sky`) with NOAA's OVATION oval on the map (30 to 90 minutes ahead), the Kp
   observed then forecast for three days, the solar wind and NOAA's geomagnetic messages as written; a "Sky" card in
   "Near me" that says in one sentence whether an aurora may be seen tonight from the place, its best hours and where to

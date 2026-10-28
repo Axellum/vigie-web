@@ -9,6 +9,7 @@
 	import { dateTime, number } from '#lib/format.js';
 	import type { Box } from '#lib/geo.js';
 	import { snapToGrid, type Place } from '#lib/near.js';
+	import { eclipseText } from '#lib/eclipse.js';
 	import { activityWords, sky } from '#lib/sky.js';
 
 	let { data } = $props();
@@ -69,6 +70,7 @@
 	<header class="intro">
 		<h1>{sky(lang, 'page')}</h1>
 		<p class="muted">{sky(lang, 'pageIntro')}</p>
+		<p><a href="/sky/eclipses">{eclipseText(lang, 'link')} →</a></p>
 	</header>
 
 	<section class="card pick">

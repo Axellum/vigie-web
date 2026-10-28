@@ -8,7 +8,10 @@
   "fires.json": 1792528658,
   "hazards.json": 1792529303,
   "sky-aurora.json": 1793221630,
-  "sky-aurora-oval.json": 1793221630
+  "sky-aurora-oval.json": 1793221630,
+  "sky-eclipses.json": 1793224257,
+  "sky-eclipse-2027-08-02.json": 1793224257,
+  "sky-eclipse-2027-08-02-map.json": 1793224257
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -33,7 +36,10 @@
   "/v1/fires/grid": "fires-grid.json",
   "/v1/fires": "fires.json",
   "/v1/sky/aurora": "sky-aurora.json",
-  "/v1/sky/aurora.geojson": "sky-aurora-oval.json"
+  "/v1/sky/aurora.geojson": "sky-aurora-oval.json",
+  "/v1/sky/eclipses": "sky-eclipses.json",
+  "/v1/sky/eclipses/2027-08-02": "sky-eclipse-2027-08-02.json",
+  "/v1/sky/eclipses/2027-08-02.geojson": "sky-eclipse-2027-08-02-map.json"
  },
  "added": {
   "/v1/geojson/hazards": [

@@ -239,6 +239,27 @@ test('the sky page shows the oval, the Kp and, for a place, the estimate said to
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test("the eclipse page lists NASA's eclipses and says what a place will see", async ({ page }) => {
+	const errors = collectErrors(page);
+	// The mock answers its Cadiz recording for 2 August 2027, whatever the place.
+	await page.goto('/sky/eclipses?date=2027-08-02#36.53,-6.29');
+	await expect(page.getByRole('heading', { level: 1, name: 'Éclipses de Soleil' })).toBeVisible();
+	await expect(page.getByRole('link', { name: /2 août 2027/ })).toHaveAttribute('aria-current', 'true');
+	await expect(
+		page.getByText(/^Éclipse totale ici : le Soleil sera entièrement caché pendant 2 min 54 s, à partir de/)
+	).toBeVisible({ timeout: 15_000 });
+	await expect(page.getByText('Début de la totalité')).toBeVisible();
+	await expect(page.getByRole('img', { name: 'Le Soleil et la Lune vus d’ici' })).toBeVisible();
+	await expect(page.getByText(/Ne regardez jamais le Soleil sans lunettes spéciales éclipse/)).toBeVisible();
+	await page.getByText('Sources de cette page').click();
+	await expect(page.getByText("Eclipse Predictions by Fred Espenak, NASA's GSFC")).toBeVisible();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
 test('near me says when no source of official warnings covers the place', async ({ page }) => {
 	// São Paulo: Brazil has a border but no source.
 	await page.goto('/near#-23.55,-46.63,300');
