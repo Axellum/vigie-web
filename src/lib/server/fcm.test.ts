@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const env: Record<string, string | undefined> = {};
-vi.mock('$env/dynamic/private', () => ({ env }));
+// Getters, so that each test sees the settings it has just set.
+vi.mock('$app/env/private', () => ({
+	get VIGIE_FCM_SERVICE_ACCOUNT() {
+		return env.VIGIE_FCM_SERVICE_ACCOUNT;
+	},
+	get VIGIE_FCM_BASE_URL() {
+		return env.VIGIE_FCM_BASE_URL;
+	}
+}));
 
 const { assertion, fcmMessage, isFcmToken, resetFcm, sendFcm, CHANNEL_OTHER, CHANNEL_RED } =
 	await import('./fcm');

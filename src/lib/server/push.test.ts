@@ -1,7 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const env: Record<string, string | undefined> = {};
-vi.mock('$env/dynamic/private', () => ({ env }));
+// Getters, so that each test sees the settings it has just set.
+vi.mock('$app/env/private', () => ({
+	get VIGIE_VAPID_PUBLIC_KEY() {
+		return env.VIGIE_VAPID_PUBLIC_KEY;
+	},
+	get VIGIE_VAPID_PRIVATE_KEY() {
+		return env.VIGIE_VAPID_PRIVATE_KEY;
+	},
+	get VIGIE_PUSH_EXTRA_HOSTS() {
+		return env.VIGIE_PUSH_EXTRA_HOSTS;
+	},
+	get ORIGIN() {
+		return env.ORIGIN;
+	},
+	get VIGIE_VAPID_SUBJECT() {
+		return env.VIGIE_VAPID_SUBJECT;
+	}
+}));
 
 const { isPushEndpoint, parseSubscription } = await import('./push');
 const { inQuietHours } = await import('./notify');
