@@ -4,7 +4,8 @@
 	// air), in the order of the visitor's profile. The place is chosen in the browser (position, search, click
 	// on the map, the address of the page, or a followed place) and the matching is done here, on the data every
 	// visitor loads; only a position rounded to the weather grid leaves the browser. Followed places are kept in
-	// this browser only.
+	// this browser only; the places of an account (its zones that are a point and a radius) come from the
+	// account, asked for by the browser, so that the page stays the same for everybody.
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
@@ -25,6 +26,7 @@
 		sameSpot,
 		unfollow,
 		writeFollowed,
+		type AccountPlace,
 		type FollowedPlace
 	} from '#lib/followed.js';
 	import { number } from '#lib/format.js';
@@ -63,6 +65,9 @@
 	let locate = $state<'idle' | 'busy' | 'denied' | 'unsupported'>('idle');
 	let followed = $state<FollowedPlace[]>([]);
 	let followNote = $state<'full' | 'refused' | null>(null);
+	/** The places of the account signed in; none for a visitor without one. */
+	let account = $state<AccountPlace[]>([]);
+	let accountNote = $state<'saveFailed' | null>(null);
 	// The time of the page until the first tick in the browser, so that "until" stays right on a long visit.
 	let tick = $state<number | null>(null);
 	const now = $derived(tick ?? data.now);
@@ -76,9 +81,13 @@
 		if (place) goto(placeHash(place, radiusKm, profile), { shallow: true, replace: true });
 	}
 
+	/** A place followed in this browser, else one of the account. */
+	const knownAt = (at: Place) =>
+		followed.find((p) => sameSpot(p, at)) ?? account.find((a) => sameSpot(a, at));
+
 	function choose(next: Place, name: string | null = null) {
 		place = { lat: round3(next.lat), lon: round3(next.lon) };
-		const known = followed.find((p) => sameSpot(p, place!));
+		const known = knownAt(place);
 		placeName = name ?? known?.name ?? null;
 		if (known) {
 			radiusKm = known.radiusKm;
@@ -87,7 +96,7 @@
 		address();
 	}
 
-	function pickFollowed(f: FollowedPlace) {
+	function pickFollowed(f: FollowedPlace | AccountPlace) {
 		place = { lat: f.lat, lon: f.lon };
 		placeName = f.name;
 		radiusKm = f.radiusKm;
@@ -112,6 +121,37 @@
 		profile = next;
 		address();
 		keepSettings();
+		// A place of the account keeps its profile there; its radius is the zone's, changed in the account only.
+		if (inAccount && inAccount.profile !== next) void saveAccountProfile(inAccount, next);
+	}
+
+	const inAccount = $derived(place ? (account.find((a) => sameSpot(a, place!)) ?? null) : null);
+
+	async function loadAccount() {
+		try {
+			const response = await fetch('/account/places.json');
+			if (!response.ok) return;
+			account = ((await response.json()) as { places: AccountPlace[] }).places;
+			// A place opened by its address takes the name the account gives it.
+			if (place && !placeName) placeName = knownAt(place)?.name ?? null;
+		} catch {
+			// Without the account's places, the page works as for any visitor.
+		}
+	}
+
+	async function saveAccountProfile(at: AccountPlace, next: Profile | null) {
+		accountNote = null;
+		try {
+			const response = await fetch('/account/places.json', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ id: at.id, profile: next })
+			});
+			if (!response.ok) throw new Error(String(response.status));
+			account = account.map((a) => (a.id === at.id ? { ...a, profile: next } : a));
+		} catch {
+			accountNote = 'saveFailed';
+		}
 	}
 
 	function save(list: FollowedPlace[]) {
@@ -131,8 +171,7 @@
 	function readHash() {
 		const read = parsePlace(location.hash);
 		if (!read) return;
-		if (!place || place.lat !== read.lat || place.lon !== read.lon)
-			placeName = followed.find((p) => sameSpot(p, read))?.name ?? null;
+		if (!place || place.lat !== read.lat || place.lon !== read.lon) placeName = knownAt(read)?.name ?? null;
 		place = { lat: read.lat, lon: read.lon };
 		if (read.radiusKm && RADII.includes(read.radiusKm)) radiusKm = read.radiusKm;
 		profile = asProfile(read.profile);
@@ -161,6 +200,7 @@
 	onMount(() => {
 		followed = readFollowed();
 		readHash();
+		if (data.accounts) void loadAccount();
 		window.addEventListener('hashchange', readHash);
 		const clock = setInterval(() => (tick = Math.floor(Date.now() / 1000)), 60_000);
 		tick = Math.floor(Date.now() / 1000);
@@ -617,20 +657,26 @@
 		{#if data.apiDown}<p class="note">{tr('error.api')}</p>{/if}
 	</header>
 
-	{#if followed.length}
+	{#snippet chip(f: FollowedPlace | AccountPlace)}
+		<a
+			class="chip"
+			href={placeHash(f, f.radiusKm, f.profile)}
+			aria-current={place && sameSpot(f, place) ? 'true' : undefined}
+			onclick={(e) => {
+				e.preventDefault();
+				pickFollowed(f);
+			}}>{f.name ?? where(f)}</a
+		>
+	{/snippet}
+	{#if followed.length || account.length}
 		<nav class="followed" aria-label={tr('near.followed')}>
 			<span class="small muted">{tr('near.followed')}</span>
-			{#each followed as f (`${f.lat},${f.lon}`)}
-				<a
-					class="chip"
-					href={placeHash(f, f.radiusKm, f.profile)}
-					aria-current={place && sameSpot(f, place) ? 'true' : undefined}
-					onclick={(e) => {
-						e.preventDefault();
-						pickFollowed(f);
-					}}>{f.name ?? where(f)}</a
-				>
-			{/each}
+			{#if account.length}
+				<span class="group small">{tr('near.inAccount')}</span>
+				{#each account as a (a.id)}{@render chip(a)}{/each}
+				{#if followed.length}<span class="group small">{tr('near.inBrowser')}</span>{/if}
+			{/if}
+			{#each followed as f (`${f.lat},${f.lon}`)}{@render chip(f)}{/each}
 		</nav>
 	{/if}
 
@@ -666,15 +712,25 @@
 							{#each PROFILES as p (p)}<option value={p}>{tr(`profile.${p}` as Key)}</option>{/each}
 						</select>
 					</label>
-					<button type="button" class="btn quiet" aria-pressed={isFollowed} onclick={toggleFollow}>
-						{isFollowed ? tr('near.unfollow') : tr('near.follow')}
-					</button>
+					<!-- A zone of the account is followed already: following it in the browser too would show it twice. -->
+					{#if !inAccount || isFollowed}
+						<button type="button" class="btn quiet" aria-pressed={isFollowed} onclick={toggleFollow}>
+							{isFollowed ? tr('near.unfollow') : tr('near.follow')}
+						</button>
+					{/if}
 				</div>
 				{#if followNote === 'full'}
 					<p class="note">{tr('near.followFull', { n: MAX_FOLLOWED })}</p>
 				{:else if followNote === 'refused'}
 					<p class="note">{tr('near.followRefused')}</p>
 				{/if}
+				{#if inAccount}
+					<p class="muted small">
+						{tr('near.accountHere')}
+						<a href="/account#zones">{tr('near.manage')}</a>
+					</p>
+				{/if}
+				{#if accountNote === 'saveFailed'}<p class="note">{tr('near.profileSaveFailed')}</p>{/if}
 
 				{#if sentence.length}
 					<div class="said">
@@ -709,9 +765,9 @@
 					<p class="muted small">{tr('profile.rule')}</p>
 				</section>
 				<p class="muted small">{tr('near.followedNote')}</p>
-				{#if data.accounts}
+				{#if data.accounts && !inAccount}
 					<p class="small">
-						<a href="/account/zones/new{placeHash(place, radiusKm)}" rel="nofollow"
+						<a href="/account/zones/new{placeHash(place, radiusKm, profile)}" rel="nofollow"
 							>{tr('zones.watchHere', { km: radiusKm })}</a
 						>
 					</p>
@@ -749,6 +805,10 @@
 		flex-wrap: wrap;
 		gap: 6px;
 		align-items: center;
+	}
+	.followed .group {
+		font-weight: 600;
+		margin-left: 4px;
 	}
 	.followed .chip[aria-current='true'] {
 		background: var(--accent-soft);

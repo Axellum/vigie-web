@@ -12,6 +12,11 @@ All notable changes are listed here. Versions are git tags.
   look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0012). Needs a Vigie API with
   `/v1/sky/aurora`.
 
+- Places in the account: a zone that is a point and a radius can keep a profile, chosen when it is made (from
+  "near me", the profile comes with it). Once signed in, "near me" shows these places beside those of the
+  browser, asked for from the browser (`/account/places.json`, private, never cached) so that the page stays the
+  same for everybody; a profile changed there is kept in the account. The alerts of a zone keep its own rules.
+
 - Notifications for the Android app (to come): the server sends the alerts of the zones through Firebase Cloud
   Messaging to a device registered by its token, besides Web Push, with a channel for the red alerts. Off
   without `VIGIE_FCM_SERVICE_ACCOUNT`. The account page lists the app's devices; the privacy page says that

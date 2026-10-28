@@ -12,6 +12,16 @@ export interface FollowedPlace {
 	profile: Profile | null;
 }
 
+/** A place of an account: one of its zones that is a point and a radius, kept on the server with the account. */
+export interface AccountPlace {
+	id: string;
+	name: string;
+	lat: number;
+	lon: number;
+	radiusKm: number;
+	profile: Profile | null;
+}
+
 export const FOLLOWED_KEY = 'vigie-places';
 export const MAX_FOLLOWED = 10;
 const MAX_NAME = 80;
