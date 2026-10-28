@@ -6,7 +6,7 @@
 // it does for the notifications of any Android app. The privacy page says so.
 import { createSign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { env } from '$env/dynamic/private';
+import { VIGIE_FCM_SERVICE_ACCOUNT, VIGIE_FCM_BASE_URL } from '$app/env/private';
 import type { PushMessage } from './push';
 
 const SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -27,7 +27,7 @@ let account: { path: string; value: ServiceAccount } | null = null;
 
 /** The service account of the file VIGIE_FCM_SERVICE_ACCOUNT, read once; null when FCM is off. */
 function serviceAccount(): ServiceAccount | null {
-	const path = env.VIGIE_FCM_SERVICE_ACCOUNT;
+	const path = VIGIE_FCM_SERVICE_ACCOUNT;
 	if (!path) return null;
 	if (account?.path === path) return account.value;
 	const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
@@ -45,12 +45,12 @@ function serviceAccount(): ServiceAccount | null {
 }
 
 export function fcmEnabled(): boolean {
-	return Boolean(env.VIGIE_FCM_SERVICE_ACCOUNT);
+	return Boolean(VIGIE_FCM_SERVICE_ACCOUNT);
 }
 
 /** A registration token as the app gives it. */
 export function isFcmToken(value: unknown): value is string {
-	return typeof value === 'string' && /^[A-Za-z0-9_:-]{32,4096}$/.test(value);
+	return typeof value === 'string' && (/^[A-Za-z0-9_:-]{32,4096}$/).test(value);
 }
 
 const base64url = (data: string | Buffer) => Buffer.from(data).toString('base64url');
@@ -84,10 +84,9 @@ async function fetchToken(sa: ServiceAccount): Promise<string> {
 		await answer.body?.cancel();
 		throw new Error(`token ${answer.status}`);
 	}
-	const { access_token, expires_in } = (await answer.json()) as {
-		access_token?: string;
-		expires_in?: number;
-	};
+
+	const { access_token, expires_in } = await answer.json() as { access_token?: string; expires_in?: number };
+
 	if (!access_token) throw new Error('token without access_token');
 	// Renewed one minute before it ends.
 	cached = { token: access_token, until: Date.now() + Math.max(60, (expires_in ?? 3600) - 60) * 1000 };
@@ -97,7 +96,7 @@ async function fetchToken(sa: ServiceAccount): Promise<string> {
 /** The access token, cached until a minute before it ends; one request at a time. */
 async function accessToken(sa: ServiceAccount): Promise<string> {
 	if (cached && cached.until > Date.now()) return cached.token;
-	inFlight ??= fetchToken(sa).finally(() => (inFlight = null));
+	inFlight ??= fetchToken(sa).finally(() => inFlight = null);
 	return inFlight;
 }
 
@@ -140,7 +139,7 @@ export async function sendFcm(
 		console.error(`fcm: no access token (${(err as Error).message})`);
 		return 'server';
 	}
-	const base = env.VIGIE_FCM_BASE_URL || 'https://fcm.googleapis.com';
+	const base = VIGIE_FCM_BASE_URL || 'https://fcm.googleapis.com';
 	try {
 		const answer = await fetch(`${base}/v1/projects/${encodeURIComponent(sa.projectId)}/messages:send`, {
 			method: 'POST',
@@ -153,10 +152,18 @@ export async function sendFcm(
 			await answer.body?.cancel();
 			return 'sent';
 		}
-		const detail = (await answer.json().catch(() => null)) as {
-			error?: { status?: string; details?: { errorCode?: string }[] };
-		} | null;
-		const codes = [detail?.error?.status, ...(detail?.error?.details ?? []).map((d) => d.errorCode)];
+
+		const detail = await answer.json().catch(() => null) as 
+			{ 
+				error?: { status?: string; details?: { errorCode?: string }[] }
+			 } |
+			null;
+
+		const codes = [
+			detail?.error?.status,
+			...(detail?.error?.details ?? []).map((d) => d.errorCode)
+		];
+
 		if (answer.status === 404 || codes.includes('UNREGISTERED')) return 'gone';
 		// A refused access token is this server's fault: the next send asks for another one.
 		if (answer.status === 401) {

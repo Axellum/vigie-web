@@ -1,6 +1,6 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
-import { env } from '$env/dynamic/private';
+import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
 import { tileBox, type FireLevel } from '$lib/fires';
 import { hasBox } from '$lib/geo';
 import { snapToGrid } from '$lib/near';
@@ -56,7 +56,7 @@ export class ApiError extends Error {
 }
 
 function apiUrl(path: string): string {
-	const base = (env.VIGIE_API_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
+	const base = (VIGIE_API_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
 	return base + path;
 }
 
@@ -113,7 +113,7 @@ export async function servedCodes(): Promise<string[]> {
 /** Whether the API serves this country. When the API cannot tell, any country it has a border for may be,
  *  and its page says that the source does not answer. */
 export async function isServed(cc: string): Promise<boolean> {
-	if (!/^[A-Z]{2}$/.test(cc)) return false;
+	if (!(/^[A-Z]{2}$/).test(cc)) return false;
 	try {
 		return (await getServed()).value.some((c) => c.country === cc);
 	} catch (e) {
@@ -125,10 +125,10 @@ export async function isServed(cc: string): Promise<boolean> {
 /** Warnings of one served country; null for a country with no source. */
 export async function getWarnings(country: string): Promise<Cached<ParsedWarnings> | null> {
 	const cc = country.toUpperCase();
-	if (!(await isServed(cc))) return null;
-	return cache.get(`warnings:${cc}`, TTL_S.warnings * 1000, async () =>
-		warningsFromApi(cc, await getJson(`/v1/vigilances.geojson?country=${cc}`))
-	);
+
+	if (!await isServed(cc)) return null;
+
+	return cache.get(`warnings:${cc}`, TTL_S.warnings * 1000, async () => warningsFromApi(cc, await getJson(`/v1/vigilances.geojson?country=${cc}`)));
 }
 
 export function getProviders(): Promise<Cached<Provider[]>> {
@@ -140,7 +140,7 @@ export function getProviders(): Promise<Cached<Provider[]>> {
 
 /** The forecast of a hazard that has one; null when the API does not know the hazard (any more). */
 export async function getForecast(id: string): Promise<Cached<HazardForecast> | null> {
-	if (!/^[A-Za-z0-9_.:-]{1,80}$/.test(id)) return null;
+	if (!(/^[A-Za-z0-9_.:-]{1,80}$/).test(id)) return null;
 	try {
 		return await cache.get(`forecast:${id}`, TTL_S.forecast * 1000, async () =>
 			forecastFromApi(id, await getJson(`/v1/geojson/hazards/${encodeURIComponent(id)}/forecast`, 30_000))
@@ -162,7 +162,7 @@ export function getTsunamiWarnings(): Promise<Cached<ParsedWarnings>> {
 let pointBudget: SlidingBudget | null = null;
 function budget(): SlidingBudget {
 	if (!pointBudget) {
-		const value = Number(env.VIGIE_POINT_LOOKUPS_PER_DAY || 200);
+		const value = Number(VIGIE_POINT_LOOKUPS_PER_DAY || 200);
 		pointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 200);
 	}
 	return pointBudget;

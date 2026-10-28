@@ -1,6 +1,6 @@
 import type { Handle, ServerInit } from '@sveltejs/kit';
 import { asLang, langFromHeader, type Lang } from '$lib/i18n';
-import { env } from '$env/dynamic/private';
+import { VIGIE_MATCH_INTERVAL_S } from '$app/env/private';
 import { cleanUp } from '$lib/server/accounts';
 import { accountsEnabled, db } from '$lib/server/db';
 import { matchAndNotify } from '$lib/server/notify';
@@ -11,7 +11,7 @@ const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
 
 /** How often the zones are compared with the alerts in force (VIGIE_MATCH_INTERVAL_S, 120 s by default). */
 function matchInterval(): number {
-	const s = Number(env.VIGIE_MATCH_INTERVAL_S);
+	const s = Number(VIGIE_MATCH_INTERVAL_S);
 	return (Number.isFinite(s) && s >= 5 ? s : 120) * 1000;
 }
 
@@ -60,9 +60,8 @@ function chooseLang(event: Parameters<Handle>[0]['event']): Lang {
 		});
 		return fromQuery;
 	}
-	return (
-		asLang(event.cookies.get(LANG_COOKIE)) ?? langFromHeader(event.request.headers.get('accept-language'))
-	);
+
+	return asLang(event.cookies.get(LANG_COOKIE)) ?? langFromHeader(event.request.headers.get('accept-language'));
 }
 
 export const handle: Handle = async ({ event, resolve }) => {

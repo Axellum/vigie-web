@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { env } from '$env/dynamic/private';
+import { VIGIE_PLACES_FILE } from '$app/env/private';
 import { countryName } from '$lib/i18n';
 import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '$lib/places';
 
@@ -13,13 +13,10 @@ let unavailable = false;
 function load(): PlaceEntry[] | null {
 	if (entries || unavailable) return entries;
 	try {
-		const file = resolve(env.VIGIE_PLACES_FILE || 'data/places.tsv.gz');
-		entries = gunzipSync(readFileSync(file))
-			.toString('utf-8')
-			.split('\n')
-			.map(parsePlaceLine)
-			.filter((e): e is PlaceEntry => e !== null);
-	} catch (error) {
+		const file = resolve(VIGIE_PLACES_FILE || 'data/places.tsv.gz');
+
+		entries = gunzipSync(readFileSync(file)).toString('utf-8').split('\n').map(parsePlaceLine).filter((e): e is PlaceEntry => e !== null);
+	} catch(error) {
 		console.error(`Place search is off: ${(error as Error).message}`);
 		unavailable = true;
 	}
