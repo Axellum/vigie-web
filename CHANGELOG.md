@@ -70,6 +70,10 @@ All notable changes are listed here. Versions are git tags.
 
 ### Changed
 
+- SvelteKit 3 (with Vite 8, TypeScript 6, adapter-node 6 and Node 22.17 or later): the configuration moves to
+  `vite.config.ts`, `$lib` becomes `#lib`, the settings are declared in `src/env.ts`, and the service worker
+  is its own TypeScript project. Behind a proxy, set `PROTOCOL_HEADER=X-Forwarded-Proto` (the quadlets do):
+  adapter-node no longer reads `ORIGIN`. Closes the Dependabot alerts on `@sveltejs/kit` and `cookie`.
 - Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes
   with the map instead of blocking the page.
 
