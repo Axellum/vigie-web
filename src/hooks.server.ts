@@ -1,4 +1,4 @@
-import type { Handle, ServerInit } from '@sveltejs/kit';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { asLang, langFromHeader, type Lang } from '$lib/i18n';
 import { VIGIE_MATCH_INTERVAL_S } from '$app/env/private';
 import { cleanUp } from '$lib/server/accounts';
