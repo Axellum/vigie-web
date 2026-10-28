@@ -17,7 +17,7 @@ All notable changes are listed here. Versions are git tags.
 - The sky: the aurora. A "Sky" page (`/sky`) with NOAA's OVATION oval on the map (30 to 90 minutes ahead), the Kp
   observed then forecast for three days, the solar wind and NOAA's geomagnetic messages as written; a "Sky" card in
   "Near me" that says in one sentence whether an aurora may be seen tonight from the place, its best hours and where to
-  look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0012). Needs a Vigie API with
+  look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0013). Needs a Vigie API with
   `/v1/sky/aurora`.
 
 - The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0013):

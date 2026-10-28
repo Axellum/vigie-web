@@ -1,6 +1,6 @@
 // The sky: the aurora of the Vigie API (`/v1/sky/aurora`, `/v1/sky/aurora.geojson`). Pure functions: no network, no clock.
 // Two kinds of values, never mixed: what NOAA SWPC publishes, shown as it is, and the API's own estimate for a place
-// (its ADR 0012), always said to be an estimate. A value the API did not give stays null.
+// (its ADR 0013), always said to be an estimate. A value the API did not give stays null.
 import type { FeatureCollection } from 'geojson';
 import type { Lang } from './i18n';
 
