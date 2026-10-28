@@ -4,6 +4,13 @@ import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
 import { snapToGrid } from '#lib/near.js';
+import {
+	eclipseFromApi,
+	eclipseListFromApi,
+	eclipseMapFromApi,
+	type Eclipse,
+	type EclipseList
+} from '#lib/eclipse.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import {
 	firesFromApi,
@@ -42,7 +49,12 @@ export const TTL_S = {
 	fires: 600,
 	// The API keeps NOAA's aurora files 5 minutes (the Kp forecast 15); a place's estimate changes with them and the clouds.
 	aurora: 300,
-	auroraPlace: 900
+	auroraPlace: 900,
+	// NASA's eclipses are bundled in the API: they change with a new version of it only. A place's eclipse changes only
+	// when the clouds come in, 48 hours before.
+	eclipses: 86_400,
+	eclipsePlace: 3600,
+	eclipseSoon: 900
 } as const;
 
 const cache = new TtlCache();
@@ -239,6 +251,46 @@ export function getAuroraPlace(lat: number, lon: number): Promise<Cached<Aurora>
 		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
 		return auroraFromApi(await getJson(`/v1/sky/aurora?${query}`, 30_000));
 	});
+}
+
+/** NASA's solar eclipses of the next ten years, as the API gives them (one answer for every visitor). */
+export function getEclipses(): Promise<Cached<EclipseList>> {
+	return cache.get('eclipses', TTL_S.eclipses * 1000, async () =>
+		eclipseListFromApi(await getJson('/v1/sky/eclipses', 30_000))
+	);
+}
+
+/** The map of one eclipse (bands, path, central line), drawn by the API; the same for every visitor. */
+export function getEclipseMap(date: string): Promise<Cached<ReturnType<typeof eclipseMapFromApi>>> {
+	return cache.get(`eclipse:map:${date}`, TTL_S.eclipses * 1000, async () =>
+		eclipseMapFromApi(await getJson(`/v1/sky/eclipses/${date}.geojson`, 60_000))
+	);
+}
+
+/** Whether an eclipse is close enough for the API to ask the clouds (48 hours; a day of margin for the time). */
+export function eclipseSoon(date: string, now = Date.now()): boolean {
+	return Math.abs(Date.parse(`${date}T12:00:00Z`) - now) < 3 * 86_400_000;
+}
+
+/**
+ * One eclipse seen from a position rounded to 0.01 degree (about a kilometre: the edge of the path is that sharp).
+ * The API works it out without a request, except for the clouds in the 48 hours before: only then does it count
+ * against the daily share of weather requests.
+ */
+export function getEclipsePlace(date: string, lat: number, lon: number): Promise<Cached<Eclipse>> {
+	const at = { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100 };
+	const soon = eclipseSoon(date);
+	return pointCache.get(
+		`eclipse:${date}:${at.lat},${at.lon}`,
+		(soon ? TTL_S.eclipseSoon : TTL_S.eclipsePlace) * 1000,
+		async () => {
+			if (soon && !budget().take()) throw new BudgetError('The weather requests of the day are used up');
+			const query = new URLSearchParams({ lat: String(at.lat), lon: String(at.lon) });
+			const eclipse = eclipseFromApi(await getJson(`/v1/sky/eclipses/${date}?${query}`, 30_000));
+			if (!eclipse) throw new ApiError(`Vigie API gave no eclipse for ${date}`, null);
+			return eclipse;
+		}
+	);
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */

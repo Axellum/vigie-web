@@ -38,6 +38,8 @@
 		fires?: FeatureCollection | null;
 		/** NOAA's OVATION aurora oval as bands (`properties.min`), drawn under everything else. */
 		aurora?: FeatureCollection | null;
+		/** A solar eclipse as the API draws it: bands of the share hidden, the path and its central line (`properties.kind`). */
+		eclipse?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -57,6 +59,7 @@
 		forecast = null,
 		fires = null,
 		aurora = null,
+		eclipse = null,
 		onselect,
 		onmove,
 		onpick
@@ -182,6 +185,7 @@
 	const forecastData = () => forecast ?? EMPTY;
 	const fireData = () => fires ?? EMPTY;
 	const auroraData = () => aurora ?? EMPTY;
+	const eclipseData = () => eclipse ?? EMPTY;
 	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
 
 	function addForecastLayers() {
@@ -373,6 +377,33 @@
 				'fill-opacity': ['interpolate', ['linear'], ['get', 'min'], 5, 0.18, 20, 0.35, 60, 0.55],
 				'fill-antialias': false
 			}
+		});
+		map.addSource('eclipse', { type: 'geojson', data: eclipseData() });
+		// The share of the Sun hidden, darker as it grows; the path of totality (or of the ring) dark, its central line dashed.
+		map.addLayer({
+			id: 'eclipse-band',
+			type: 'fill',
+			source: 'eclipse',
+			filter: ['==', ['get', 'kind'], 'obscuration'],
+			paint: {
+				'fill-color': '#6b5bd6',
+				'fill-opacity': ['interpolate', ['linear'], ['get', 'min'], 0, 0.06, 0.8, 0.3],
+				'fill-antialias': false
+			}
+		});
+		map.addLayer({
+			id: 'eclipse-path',
+			type: 'fill',
+			source: 'eclipse',
+			filter: ['==', ['get', 'kind'], 'path'],
+			paint: { 'fill-color': '#1d1640', 'fill-opacity': 0.7 }
+		});
+		map.addLayer({
+			id: 'eclipse-line',
+			type: 'line',
+			source: 'eclipse',
+			filter: ['==', ['get', 'kind'], 'central_line'],
+			paint: { 'line-color': '#f2d22e', 'line-width': 1.5, 'line-dasharray': [2, 2] }
 		});
 		map.addLayer({
 			id: 'zone-fill',
@@ -685,6 +716,11 @@
 	$effect(() => {
 		void aurora;
 		if (ready && map?.getSource('aurora')) (map.getSource('aurora') as GeoJSONSource).setData(auroraData());
+	});
+	$effect(() => {
+		void eclipse;
+		if (ready && map?.getSource('eclipse'))
+			(map.getSource('eclipse') as GeoJSONSource).setData(eclipseData());
 	});
 	$effect(() => {
 		void fires;
