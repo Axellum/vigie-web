@@ -2,6 +2,7 @@
 // official warning area, with the lowest level and the kinds of alert wanted. Pure functions: the server
 // checks a form with them before anything reaches the database.
 import { cleanName } from './names';
+import { asProfile, type Profile } from './profiles';
 import type { Level } from './types';
 
 /** 'VIGILANCE' is the official warnings; the others are the API's categories of hazard. */
@@ -30,7 +31,13 @@ export type ZoneShape =
 	| { kind: 'country'; country: string }
 	| { kind: 'area'; country: string; area: string };
 
-export type ZoneInput = ZoneShape & { name: string; minLevel: Level; kinds: AlertKind[] };
+/** `profile` only orders the cards of "near me" for the zone; the alerts follow the level and the kinds. */
+export type ZoneInput = ZoneShape & {
+	name: string;
+	minLevel: Level;
+	kinds: AlertKind[];
+	profile: Profile | null;
+};
 
 export type ZoneError = 'name' | 'shape' | 'level' | 'kinds';
 
@@ -77,7 +84,8 @@ export function parseZone(form: {
 		(ALERT_KINDS as readonly unknown[]).includes(k)
 	);
 	if (kinds.length === 0) return { ok: false, error: 'kinds' };
-	const base = { name, minLevel: level as Level, kinds };
+	// No profile, or one the site does not know, is no profile: never a refused zone.
+	const base = { name, minLevel: level as Level, kinds, profile: asProfile(form.get('profile')) };
 
 	const country =
 		typeof form.get('country') === 'string' ? (form.get('country') as string).toUpperCase() : '';

@@ -86,14 +86,19 @@
 		}
 	}
 	function view(z: Zone): string | null {
-		if (z.kind === 'circle') return `/near#${z.lat},${z.lon},${z.radiusKm}`;
+		if (z.kind === 'circle')
+			return `/near#${z.lat},${z.lon},${z.radiusKm}${z.profile ? `,${z.profile}` : ''}`;
 		if (z.kind === 'polygon') return `/account/zones/${z.id}`;
 		if (!z.country || !data.served.includes(z.country)) return null;
 		const cc = z.country.toLowerCase();
 		return z.kind === 'area' && z.area ? `/country/${cc}/${slug(z.area)}` : `/country/${cc}`;
 	}
 	const rules = (z: Zone) =>
-		`${tr(`zones.level.${z.minLevel}` as Key)} · ${z.kinds.map((k) => tr(`cat.${k}` as Key)).join(', ')}`;
+		[
+			tr(`zones.level.${z.minLevel}` as Key),
+			z.kinds.map((k) => tr(`cat.${k}` as Key)).join(', '),
+			...(z.profile ? [tr('zones.profileIs', { profile: tr(`profile.${z.profile}` as Key) })] : [])
+		].join(' · ');
 </script>
 
 <svelte:head>

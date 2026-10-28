@@ -33,8 +33,9 @@
 			</li>
 			<li>
 				<b>Vos zones</b> : leur nom, leur forme (un point et un rayon, les coins d'une zone dessinée, un pays ou
-				une zone officielle) et leurs règles (niveau, types d'alerte). Un point peut être votre domicile : il ne
-				sert qu'à vos alertes et disparaît avec la zone ou le compte.
+				une zone officielle), leurs règles (niveau, types d'alerte) et, si vous en choisissez un, leur profil (l'ordre
+				des cartes d'« Autour de moi »). Un point peut être votre domicile : il ne sert qu'à vos alertes et à afficher
+				ce lieu sur « Autour de moi » quand vous êtes connecté, et disparaît avec la zone ou le compte.
 			</li>
 			<li>
 				<b>Vos appareils qui reçoivent les notifications</b> : pour un navigateur, l'adresse que son service de
@@ -134,8 +135,9 @@
 			</li>
 			<li>
 				<b>Your zones</b>: their name, their shape (a point and a radius, the corners of a drawn zone, a
-				country or an official area) and their rules (level, kinds of alert). A point may be your home: it
-				only serves your alerts and goes with the zone or the account.
+				country or an official area), their rules (level, kinds of alert) and, if you choose one, their
+				profile (the order of the cards of "Near me"). A point may be your home: it only serves your alerts
+				and shows this place on "Near me" when you are signed in, and goes with the zone or the account.
 			</li>
 			<li>
 				<b>Your devices that receive the notifications</b>: for a browser, the address its notification

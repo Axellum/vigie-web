@@ -22,9 +22,21 @@ describe('parseZone', () => {
 				kind: 'circle',
 				lat: 42.306,
 				lon: 9.15,
-				radiusKm: 25
+				radiusKm: 25,
+				profile: null
 			}
 		});
+	});
+
+	it('keeps a known profile, and reads an unknown one as none rather than refusing the zone', () => {
+		const circle = { ...rules, kind: 'circle', lat: '43.483', lon: '-1.559', radiusKm: '50' };
+		const read = (profile: string) => {
+			const r = parseZone(form({ ...circle, profile }));
+			return r.ok ? r.zone.profile : 'refused';
+		};
+		expect(read('surf')).toBe('surf');
+		expect(read('')).toBeNull();
+		expect(read('kite')).toBeNull();
 	});
 
 	it('refuses a radius that is not offered, a position off the Earth, or no shape', () => {

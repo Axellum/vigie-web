@@ -9,6 +9,7 @@
 	import { BOXES, countryBox, type Box } from '#lib/geo.js';
 	import { countryName, translator, type Key } from '#lib/i18n.js';
 	import { circleBox, parsePlace, type Place } from '#lib/near.js';
+	import { asProfile, PROFILES } from '#lib/profiles.js';
 	import { ALERT_KINDS, MIN_LEVELS, ZONE_RADII_KM } from '#lib/zones.js';
 
 	let { data, form } = $props();
@@ -20,6 +21,8 @@
 	let mode = $state<Mode>(data.area && data.country ? 'area' : data.country ? 'country' : 'circle');
 	let place = $state<Place | null>(null);
 	let radiusKm = $state(25);
+	/** The profile chosen on "near me", when the zone comes from there; '' for none. */
+	let profile = $state('');
 	let corners = $state<[number, number][]>([]);
 	// svelte-ignore state_referenced_locally
 	let country = $state(data.country ?? '');
@@ -39,6 +42,7 @@
 			mode = 'circle';
 			place = { lat: read.lat, lon: read.lon };
 			if (read.radiusKm && ZONE_RADII_KM.includes(read.radiusKm)) radiusKm = read.radiusKm;
+			profile = asProfile(read.profile) ?? '';
 		}
 		if (mode === 'area' && data.area && data.country)
 			setName(`${data.area} (${countryName(lang, data.country)})`);
@@ -171,6 +175,15 @@
 							oninput={() => (named = true)}
 						/>
 					</label>
+					{#if mode === 'circle'}
+						<label class="form-field">
+							<span>{tr('zones.profile')}</span>
+							<select class="input" name="profile" bind:value={profile}>
+								<option value="">{tr('profile.none')}</option>
+								{#each PROFILES as p (p)}<option value={p}>{tr(`profile.${p}` as Key)}</option>{/each}
+							</select>
+						</label>
+					{/if}
 					<label class="form-field">
 						<span>{tr('zones.minLevel')}</span>
 						<select class="input" name="minLevel">
