@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Seo from '#lib/components/Seo.svelte';
-	// "Near me": a place in one sentence, then its cards (official warnings, hazards around, weather, sea, sky,
-	// air), in the order of the visitor's profile. The place is chosen in the browser (position, search, click
+	// "Near me": a place in one sentence, then its cards (official warnings, hazards around, weather, sea, tide,
+	// sky, air), in the order of the visitor's profile. The place is chosen in the browser (position, search, click
 	// on the map, the address of the page, or a followed place) and the matching is done here, on the data every
 	// visitor loads; only a position rounded to the weather grid leaves the browser. Followed places are kept in
 	// this browser only; the places of an account (its zones that are a point and a radius) come from the
@@ -18,6 +18,7 @@
 	import NearSky from '#lib/components/NearSky.svelte';
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
+	import TideCurve from '#lib/components/TideCurve.svelte';
 	import { pointCredits } from '#lib/credits.js';
 	import {
 		follow,
@@ -46,6 +47,7 @@
 	} from '#lib/near.js';
 	import { asProfile, cardOrder, PROFILES, wantsSea, type Card, type Profile } from '#lib/profiles.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
+	import { TideAt } from '#lib/tideAt.svelte.js';
 	import { placeSentence, type OfficialState } from '#lib/sentence.js';
 	import type { Level, PointWeather as Weather, WarningsData } from '#lib/types.js';
 	import { compass, skyLabel } from '#lib/weather.js';
@@ -337,6 +339,13 @@
 	// The credit of the sky card (NOAA, and the weather source of the clouds), given by the card once it has loaded.
 	let skyCredit = $state<string | null>(null);
 
+	// The tide of the same rounded position, computed by the API; no card where the model has no point near (inland).
+	const tide = new TideAt();
+	$effect(() => {
+		const at = cell;
+		untrack(() => tide.follow(at));
+	});
+
 	// --- the place in one sentence, and its cards ---------------------------------------------------------
 	const sentence = $derived(
 		place
@@ -351,7 +360,7 @@
 				})
 			: []
 	);
-	const order = $derived(cardOrder(profile, here.length > 0));
+	const order = $derived(cardOrder(profile, here.length > 0).filter((c) => c !== 'tide' || !tide.none));
 
 	// --- map --------------------------------------------------------------------------------------------
 	const zones = $derived.by((): FeatureCollection => {
@@ -383,6 +392,12 @@
 	const km = (value: number) => number(lang, value, value < 10 ? 1 : 0);
 	const unit = (value: number | null | undefined, u: string, digits = 1) =>
 		value == null ? '–' : `${number(lang, value, digits)} ${u}`;
+	const signed = (h: number) => `${h > 0 ? '+' : ''}${number(lang, h, 2)} m`;
+	// The tide is loaded in the browser: its times are the reader's own.
+	const hour = (t: number) =>
+		new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { hour: '2-digit', minute: '2-digit' }).format(
+			new Date(t * 1000)
+		);
 	const day = (date: string) =>
 		new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', {
 			weekday: 'short',
@@ -395,6 +410,7 @@
 		hazards: 'card.hazards',
 		weather: 'card.weather',
 		sea: 'card.sea',
+		tide: 'card.tide',
 		sky: 'card.sky',
 		air: 'card.air'
 	};
@@ -590,6 +606,36 @@
 	{#if w}<PointWeather {lang} weather={w} parts={['marine']} />{/if}
 {/snippet}
 
+<!-- Tide -------------------------------------------------------------------------------------------------- -->
+{#snippet tideSummary()}
+	{#if tide.value?.now}
+		{@const n = tide.value.now}
+		<div class="figs">
+			<div>
+				<p class="fig">{signed(n.h)}</p>
+				<span>{tr(n.trend === 'rising' ? 'fig.tideRising' : 'fig.tideFalling')}</span>
+			</div>
+			<!-- The next high and low waters, the nearer first. -->
+			{#each [n.nextHigh, n.nextLow].filter((e) => e != null).sort((a, b) => a.t - b.t) as e (e.t)}
+				<div>
+					<p class="fig">{hour(e.t)}</p>
+					<span>{tr(e.kind === 'high' ? 'fig.nextHigh' : 'fig.nextLow')}</span>
+				</div>
+			{/each}
+		</div>
+		<p class="muted small">{tr('card.tideNote')}</p>
+	{:else if tide.value}
+		<p class="muted">–</p>
+	{:else if tide.state?.status === 'error'}
+		<p class="note">{tr('tide.failed')}</p>
+	{:else}
+		<p class="muted">{tr('tide.loading')}</p>
+	{/if}
+{/snippet}
+{#snippet tideDetails()}
+	{#if tide.value}<TideCurve {lang} curve={tide.value} now={tide.loadedAt} />{/if}
+{/snippet}
+
 <!-- Sky --------------------------------------------------------------------------------------------------- -->
 {#snippet skySummary()}
 	<!-- The aurora of the coming night in one sentence (the API's estimate, said to be one), not NOAA's raw index. -->
@@ -629,6 +675,7 @@
 		hazards: near.length || w?.fires ? hazardsDetails : undefined,
 		weather: w ? weatherDetails : undefined,
 		sea: w?.marine ? seaDetails : undefined,
+		tide: tide.value ? tideDetails : undefined,
 		sky: undefined,
 		air: w?.air ? airDetails : undefined
 	}}
@@ -637,6 +684,7 @@
 		hazards: hazardsSummary,
 		weather: weatherSummary,
 		sea: seaSummary,
+		tide: tideSummary,
 		sky: skySummary,
 		air: airSummary
 	}}
@@ -777,14 +825,15 @@
 	</div>
 
 	{#if place}
-		<!-- The credits of what the page shows: the warnings found here, the hazards around, the weather. -->
+		<!-- The credits of what the page shows: the warnings found here, the hazards around, the weather, the tide. -->
 		<Credits
 			{lang}
 			credits={[
 				...credits,
 				near.length ? data.hazardsAttribution : null,
 				...(w ? pointCredits(w) : []),
-				skyCredit
+				skyCredit,
+				tide.value?.attribution ?? null
 			]}
 		/>
 	{/if}

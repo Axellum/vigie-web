@@ -11,7 +11,9 @@
   "sky-aurora-oval.json": 1793221630,
   "sky-eclipses.json": 1793224257,
   "sky-eclipse-2027-08-02.json": 1793224257,
-  "sky-eclipse-2027-08-02-map.json": 1793224257
+  "sky-eclipse-2027-08-02-map.json": 1793224257,
+  "tides.json": 1793223084,
+  "tides-coast.json": 1793223085
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -39,7 +41,9 @@
   "/v1/sky/aurora.geojson": "sky-aurora-oval.json",
   "/v1/sky/eclipses": "sky-eclipses.json",
   "/v1/sky/eclipses/2027-08-02": "sky-eclipse-2027-08-02.json",
-  "/v1/sky/eclipses/2027-08-02.geojson": "sky-eclipse-2027-08-02-map.json"
+  "/v1/sky/eclipses/2027-08-02.geojson": "sky-eclipse-2027-08-02-map.json",
+  "/v1/tides?lat=48.65&lon=-2.05": "tides.json",
+  "/v1/tides/coast": "tides-coast.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -47,6 +51,7 @@
   ]
  },
  "notes": {
-  "hazards-storms.json, forecast-*.json, vigilances-tsunami.json": "Answers of vigie-api a87136f to its own recordings of the NHC (Hurricane Isaias, advisory 13A, 2026-10-09) and of tsunami.gov (Panama, 2026-10-09 18:55 UTC), made with its test setup (tests/test_storm_api.py), because no storm and no tsunami were active on 2026-10-20."
+  "hazards-storms.json, forecast-*.json, vigilances-tsunami.json": "Answers of vigie-api a87136f to its own recordings of the NHC (Hurricane Isaias, advisory 13A, 2026-10-09) and of tsunami.gov (Panama, 2026-10-09 18:55 UTC), made with its test setup (tests/test_storm_api.py), because no storm and no tsunami were active on 2026-10-20.",
+  "tides.json, tides-coast.json": "Answers of vigie-api bdbaf8e (its pull request 32, which adds GET /v1/tides and /v1/tides/coast), run locally on 2026-10-28 with scripts/record-fixtures.mjs: the tide is computed by the API from the EOT20 model, with no provider; the public instance did not compute tides yet."
  }
 }

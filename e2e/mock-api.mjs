@@ -16,7 +16,10 @@ createServer((req, res) => {
 	const key =
 		url.pathname +
 		(url.searchParams.has('country') ? `?country=${url.searchParams.get('country').toUpperCase()}` : '') +
-		(url.searchParams.has('source') ? `?source=${url.searchParams.get('source')}` : '');
+		(url.searchParams.has('source') ? `?source=${url.searchParams.get('source')}` : '') +
+		(url.pathname === '/v1/tides'
+			? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
+			: '');
 	const file = index[key];
 	if (!file) {
 		res.writeHead(url.pathname.startsWith('/v1/vigilances') ? 503 : 404, {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MapView from '#lib/components/MapView.svelte';
+	import ZoneTide from '#lib/components/ZoneTide.svelte';
 	import { countryBox, type Box } from '#lib/geo.js';
 	import { translator, type Key } from '#lib/i18n.js';
 	import { circleBox } from '#lib/near.js';
@@ -42,6 +43,13 @@
 			place={z.lat != null && z.lon != null ? { lat: z.lat, lon: z.lon, radiusKm: z.radiusKm } : null}
 		/>
 	</div>
+	{#if z.kind === 'circle' || z.kind === 'polygon'}
+		<ZoneTide
+			{lang}
+			box={frame}
+			centre={z.lat != null && z.lon != null ? { lat: z.lat, lon: z.lon } : null}
+		/>
+	{/if}
 </div>
 
 <style>
