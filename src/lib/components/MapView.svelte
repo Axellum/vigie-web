@@ -560,8 +560,8 @@
 				});
 				map.touchZoomRotate.disableRotation();
 				map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
-				if (frame) {
-					const first = frame;
+				const first = frame ?? given;
+				if (first) {
 					const fit = () =>
 						map?.fitBounds(
 							[
@@ -574,7 +574,7 @@
 					// it is framed at its first size instead of staying on the whole world.
 					if (container.clientWidth > 60 && container.clientHeight > 60) fit();
 					else map.once('resize', fit);
-					lastFrame = frame.join(',');
+					lastFrame = first.join(',');
 				}
 				map.on('style.load', () => {
 					localizeLabels();
@@ -667,10 +667,14 @@
 		if (ready && map?.getSource('drawing'))
 			(map.getSource('drawing') as GeoJSONSource).setData(drawingData());
 	});
-	// A new frame given after the map started (data loaded later): move to it once.
+	// A new frame given after the map started (data loaded later): move to it once. A frame taken back (null)
+	// leaves the map where it is, so the last one given is kept: a map that arrives after its frame was taken back
+	// (a drawn zone chosen before MapLibre loaded) opens on it, where it would be had it been there from the start.
 	let lastFrame = '';
+	let given: Box | null = null;
 	$effect(() => {
 		const f = frame;
+		if (f) given = f;
 		if (!ready || !f) return;
 		const key = f.join(',');
 		if (key === lastFrame) return;
