@@ -615,18 +615,13 @@
 				<p class="fig">{signed(n.h)}</p>
 				<span>{tr(n.trend === 'rising' ? 'fig.tideRising' : 'fig.tideFalling')}</span>
 			</div>
-			{#if n.nextHigh}
+			<!-- The next high and low waters, the nearer first. -->
+			{#each [n.nextHigh, n.nextLow].filter((e) => e != null).sort((a, b) => a.t - b.t) as e (e.t)}
 				<div>
-					<p class="fig">{hour(n.nextHigh.t)}</p>
-					<span>{tr('fig.nextHigh')}</span>
+					<p class="fig">{hour(e.t)}</p>
+					<span>{tr(e.kind === 'high' ? 'fig.nextHigh' : 'fig.nextLow')}</span>
 				</div>
-			{/if}
-			{#if n.nextLow}
-				<div>
-					<p class="fig">{hour(n.nextLow.t)}</p>
-					<span>{tr('fig.nextLow')}</span>
-				</div>
-			{/if}
+			{/each}
 		</div>
 		<p class="muted small">{tr('card.tideNote')}</p>
 	{:else if tide.value}
