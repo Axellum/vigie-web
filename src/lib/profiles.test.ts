@@ -16,7 +16,7 @@ describe('profiles', () => {
 
 	it('puts what the profile looks at first, and a warning in force before anything', () => {
 		expect(cardOrder(null, false)[0]).toBe('official');
-		expect(cardOrder('surf', false).slice(0, 2)).toEqual(['sea', 'official']);
+		expect(cardOrder('surf', false).slice(0, 3)).toEqual(['sea', 'tide', 'official']);
 		expect(cardOrder('sky', false)[0]).toBe('sky');
 		expect(cardOrder('allergy', false)[0]).toBe('air');
 		expect(cardOrder('surf', true).slice(0, 2)).toEqual(['official', 'sea']);
