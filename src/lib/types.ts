@@ -229,6 +229,8 @@ export interface PointWeather {
 		nearestKm: number | null;
 		maxFrpMw: number | null;
 		latest: number | null;
+		/** When the API last read FIRMS: the detections are from before. */
+		readAt: number | null;
 		stale: boolean;
 		attribution: string | null;
 		disclaimer: string | null;

@@ -2,6 +2,7 @@
 	import Seo from '#lib/components/Seo.svelte';
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import CountryWarnings from '#lib/components/CountryWarnings.svelte';
+	import Credits from '#lib/components/Credits.svelte';
 	import { countryName, translator } from '#lib/i18n.js';
 	import { byLevelThenTime } from '#lib/levels.js';
 	import { warningRow } from '#lib/rows.js';
@@ -44,6 +45,7 @@
 				<AlertRow {lang} {row} now={data.now} />
 			{/each}
 		</div>
+		<Credits {lang} credits={data.credits} />
 	{/if}
 </div>
 

@@ -13,6 +13,7 @@
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
 	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+	import { localizedTextField } from '#lib/basemap.js';
 	import { translator, type Lang } from '#lib/i18n.js';
 	import type { Box } from '#lib/geo.js';
 	import { circleRing, type Place } from '#lib/near.js';
@@ -69,6 +70,9 @@
 	let ml: typeof import('maplibre-gl') | null = null;
 	let failed = $state(false);
 	let ready = $state(false);
+	// The base map has drawn its first tiles: until then, the map says it is loading (on a slow phone connection,
+	// its first tiles take a few seconds).
+	let drawn = $state(false);
 	let globeOn = $state(false);
 	let markers = new Map<string, { marker: Marker; el: HTMLButtonElement }>();
 	let observer: MutationObserver | null = null;
@@ -321,6 +325,16 @@
 		});
 	}
 
+	// The base map names places in English: in the page's language instead, where the tiles have the name.
+	function localizeLabels() {
+		if (!map) return;
+		for (const layer of map.getStyle().layers) {
+			if (layer.type !== 'symbol') continue;
+			const field = localizedTextField(map.getLayoutProperty(layer.id, 'text-field'), lang);
+			if (field) map.setLayoutProperty(layer.id, 'text-field', field);
+		}
+	}
+
 	function addOverlay() {
 		if (!map) return;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
@@ -535,7 +549,14 @@
 					maxZoom: 12,
 					dragRotate: false,
 					pitchWithRotate: false,
-					attributionControl: { compact: true }
+					attributionControl: { compact: true },
+					// The words of MapLibre's own buttons, in the page's language.
+					locale: {
+						'Map.Title': label ?? tr('map.label'),
+						'NavigationControl.ZoomIn': tr('map.zoomIn'),
+						'NavigationControl.ZoomOut': tr('map.zoomOut'),
+						'AttributionControl.ToggleAttribution': tr('map.attribution')
+					}
 				});
 				map.touchZoomRotate.disableRotation();
 				map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
@@ -556,6 +577,7 @@
 					lastFrame = frame.join(',');
 				}
 				map.on('style.load', () => {
+					localizeLabels();
 					addOverlay();
 					if (globeOn) map?.setProjection({ type: 'globe' });
 					ready = true;
@@ -587,6 +609,7 @@
 					});
 				}
 				map.on('moveend', () => onmove?.(view(), map!.getZoom()));
+				map.once('idle', () => (drawn = true));
 				map.on('load', () => {
 					syncMarkers();
 					onmove?.(view(), map!.getZoom());
@@ -666,6 +689,8 @@
 	<div class="map" bind:this={container} role="region" aria-label={label ?? tr('map.label')}></div>
 	{#if failed}
 		<p class="failed">{tr('map.failed')}</p>
+	{:else if !drawn}
+		<p class="loading" role="status">{tr('map.loading')}</p>
 	{/if}
 	{#if globe && !failed}
 		<button type="button" class="globe" aria-pressed={globeOn} onclick={toggleGlobe}>{tr('map.globe')}</button
@@ -679,11 +704,26 @@
 		width: 100%;
 		height: 100%;
 		min-height: inherit;
-		background: var(--bg);
+		background: var(--map-land);
 	}
 	.map {
 		position: absolute;
 		inset: 0;
+	}
+	.loading {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		margin: 0;
+		padding: 6px 12px;
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--surface);
+		color: var(--muted);
+		font-size: 14px;
+		pointer-events: none;
+		white-space: nowrap;
 	}
 	.failed {
 		position: absolute;

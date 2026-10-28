@@ -26,13 +26,25 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 	}
 
 	let hazards: Awaited<ReturnType<typeof getHazards>>['value']['items'] = [];
+	let hazardsAttribution: string | null = null;
 	try {
-		const all = (await getHazards()).value.items;
-		hazards = box ? all.filter((h) => pointInBox(box, h.lon, h.lat)) : [];
+		const { value } = await getHazards();
+		hazards = box ? value.items.filter((h) => pointInBox(box, h.lon, h.lat)) : [];
+		hazardsAttribution = value.attribution;
 	} catch (e) {
 		if (!(e instanceof ApiError)) throw e;
 	}
 
 	setHeaders({ 'cache-control': 'public, max-age=60, s-maxage=120' });
-	return { cc, box, warnings, stale, fetchedAt, apiDown, hazards, now: Math.floor(Date.now() / 1000) };
+	return {
+		cc,
+		box,
+		warnings,
+		stale,
+		fetchedAt,
+		apiDown,
+		hazards,
+		hazardsAttribution,
+		now: Math.floor(Date.now() / 1000)
+	};
 };

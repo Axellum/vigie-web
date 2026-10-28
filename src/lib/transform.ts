@@ -359,6 +359,7 @@ export function pointFromApi(body: unknown): PointWeather {
 			nearestKm: num(fires.nearest_km),
 			maxFrpMw: num(fires.max_frp_mw),
 			latest: num(fires.latest_utc),
+			readAt: num(fires.data_read_utc),
 			stale: bool(fires.stale) ?? false,
 			attribution: str(fires.attribution),
 			disclaimer: str(fires.disclaimer)

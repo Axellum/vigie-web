@@ -8,9 +8,11 @@
 	import type { Feature, FeatureCollection } from 'geojson';
 	import { goto } from '$app/navigation';
 	import AlertRow from '#lib/components/AlertRow.svelte';
+	import Credits from '#lib/components/Credits.svelte';
 	import MapView from '#lib/components/MapView.svelte';
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
+	import { pointCredits } from '#lib/credits.js';
 	import { number } from '#lib/format.js';
 	import { countryName, tOr, translator } from '#lib/i18n.js';
 	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
@@ -311,7 +313,8 @@
 				{#if why}
 					<p class="muted small">
 						{tr('near.why', { reason: tOr(lang, `uncovered.${why.reasonCode}`, why.reasonCode ?? '') })}
-						{#if why.reason}<span lang="en">{why.reason}</span>{/if}
+						<!-- The API's own sentence is in English: an English page only. -->
+						{#if why.reason && lang === 'en'}<span lang="en">{why.reason}</span>{/if}
 					</p>
 				{/if}
 			{:else}
@@ -348,7 +351,6 @@
 						<a href="/country/{u.cc.toLowerCase()}">{countryName(lang, u.cc)}</a>
 					</p>
 				{/each}
-				{#each credits as credit (credit)}<p class="credit">{credit}</p>{/each}
 			{/if}
 		</section>
 
@@ -364,7 +366,6 @@
 						</div>
 					{/each}
 				</div>
-				{#if data.hazardsAttribution}<p class="credit">{data.hazardsAttribution}</p>{/if}
 			{:else}
 				<p>{tr('near.hazardsNone')}</p>
 			{/if}
@@ -390,6 +391,16 @@
 				<p class="muted">{tr('detail.loading')}</p>
 			{/if}
 		</section>
+
+		<!-- The credits of what the page shows: the warnings found here, the hazards around, the weather. -->
+		<Credits
+			{lang}
+			credits={[
+				...credits,
+				near.length ? data.hazardsAttribution : null,
+				...(weather?.status === 'ok' && weather.value ? pointCredits(weather.value) : [])
+			]}
+		/>
 	{/if}
 </div>
 
