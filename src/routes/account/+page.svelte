@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import Time from '#lib/components/Time.svelte';
 	import { countryName, translator, type Key } from '#lib/i18n.js';
@@ -26,7 +26,7 @@
 		try {
 			await createPasskey({});
 			added = true;
-			await invalidateAll();
+			await refreshAll();
 		} catch (e) {
 			problem = e instanceof PasskeyProblem ? e.code : 'refused';
 		} finally {
@@ -50,7 +50,7 @@
 		try {
 			pushNote = await run();
 			deviceId = await thisDevice();
-			await invalidateAll();
+			await refreshAll();
 		} finally {
 			pushBusy = false;
 		}

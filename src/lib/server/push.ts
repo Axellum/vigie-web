@@ -48,11 +48,14 @@ export function pushEnabled(): boolean {
 
 /** The public key the browser subscribes with; null when Web Push is off. */
 export function vapidPublicKey(): string | null {
-	return webPushEnabled() ? VIGIE_VAPID_PUBLIC_KEY ?? null : null;
+	return webPushEnabled() ? (VIGIE_VAPID_PUBLIC_KEY ?? null) : null;
 }
 
 function extraHosts(): string[] {
-	return (VIGIE_PUSH_EXTRA_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
+	return (VIGIE_PUSH_EXTRA_HOSTS ?? '')
+		.split(',')
+		.map((h) => h.trim().toLowerCase())
+		.filter(Boolean);
 }
 
 /** Whether an address is one of a push service (https), or one of the extra hosts set for tests. */
@@ -74,8 +77,8 @@ export type Subscription = { endpoint: string; keys: { p256dh: string; auth: str
 
 /** A subscription as the browser gives it (`PushSubscription.toJSON()`), or null when it is not one. */
 export function parseSubscription(value: unknown): Subscription | null {
-	const o = value && typeof value === 'object' ? value as Record<string, unknown> : null;
-	const keys = o?.keys && typeof o.keys === 'object' ? o.keys as Record<string, unknown> : null;
+	const o = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+	const keys = o?.keys && typeof o.keys === 'object' ? (o.keys as Record<string, unknown>) : null;
 	if (!o || !keys || !isPushEndpoint(o.endpoint)) return null;
 	const { p256dh, auth } = keys;
 	if (typeof p256dh !== 'string' || typeof auth !== 'string' || !KEY.test(p256dh) || !KEY.test(auth))
@@ -157,13 +160,15 @@ export async function sendToUser(
 
 	const subject = VIGIE_VAPID_SUBJECT || origin || 'https://github.com/Axellum/vigie-web';
 
-	const rows = await sql<{ 
-		id: string;
-		endpoint: string | null;
-		p256dh: string;
-		auth: string;
-		fcm_token: string | null
-	 }[]>`
+	const rows = await sql<
+		{
+			id: string;
+			endpoint: string | null;
+			p256dh: string;
+			auth: string;
+			fcm_token: string | null;
+		}[]
+	>`
 		select id, endpoint, p256dh, auth, fcm_token from push_subscriptions
 		where user_id = ${userId} ${device ? sql`and ${byDevice(sql, device)}` : sql``}`;
 	let sent = 0;

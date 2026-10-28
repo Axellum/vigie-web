@@ -21,7 +21,7 @@
 		problem = null;
 		try {
 			await createPasskey(data.recoverName ? { code: data.code } : { code: data.code, name });
-			await goto('/account', { invalidateAll: true, replaceState: true });
+			await goto('/account', { refreshAll: true, replace: true });
 		} catch (e) {
 			problem = e instanceof PasskeyProblem ? e.code : 'refused';
 		} finally {

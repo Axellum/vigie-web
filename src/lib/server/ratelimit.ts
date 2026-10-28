@@ -12,7 +12,11 @@ function limit(): number {
 
 /** Whether this address may make one more request now. Static files are not counted. */
 export function allow(address: string, path: string, now = Date.now()): boolean {
-	if (path.startsWith('/_app/') || path.startsWith('/fonts/') || (/\.(png|svg|ico|webmanifest|txt)$/).test(path)) {
+	if (
+		path.startsWith('/_app/') ||
+		path.startsWith('/fonts/') ||
+		/\.(png|svg|ico|webmanifest|txt)$/.test(path)
+	) {
 		return true;
 	}
 	let bucket = buckets.get(address);

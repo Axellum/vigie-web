@@ -50,7 +50,7 @@ export function fcmEnabled(): boolean {
 
 /** A registration token as the app gives it. */
 export function isFcmToken(value: unknown): value is string {
-	return typeof value === 'string' && (/^[A-Za-z0-9_:-]{32,4096}$/).test(value);
+	return typeof value === 'string' && /^[A-Za-z0-9_:-]{32,4096}$/.test(value);
 }
 
 const base64url = (data: string | Buffer) => Buffer.from(data).toString('base64url');
@@ -85,7 +85,10 @@ async function fetchToken(sa: ServiceAccount): Promise<string> {
 		throw new Error(`token ${answer.status}`);
 	}
 
-	const { access_token, expires_in } = await answer.json() as { access_token?: string; expires_in?: number };
+	const { access_token, expires_in } = (await answer.json()) as {
+		access_token?: string;
+		expires_in?: number;
+	};
 
 	if (!access_token) throw new Error('token without access_token');
 	// Renewed one minute before it ends.
@@ -96,7 +99,7 @@ async function fetchToken(sa: ServiceAccount): Promise<string> {
 /** The access token, cached until a minute before it ends; one request at a time. */
 async function accessToken(sa: ServiceAccount): Promise<string> {
 	if (cached && cached.until > Date.now()) return cached.token;
-	inFlight ??= fetchToken(sa).finally(() => inFlight = null);
+	inFlight ??= fetchToken(sa).finally(() => (inFlight = null));
 	return inFlight;
 }
 
@@ -153,16 +156,11 @@ export async function sendFcm(
 			return 'sent';
 		}
 
-		const detail = await answer.json().catch(() => null) as 
-			{ 
-				error?: { status?: string; details?: { errorCode?: string }[] }
-			 } |
-			null;
+		const detail = (await answer.json().catch(() => null)) as {
+			error?: { status?: string; details?: { errorCode?: string }[] };
+		} | null;
 
-		const codes = [
-			detail?.error?.status,
-			...(detail?.error?.details ?? []).map((d) => d.errorCode)
-		];
+		const codes = [detail?.error?.status, ...(detail?.error?.details ?? []).map((d) => d.errorCode)];
 
 		if (answer.status === 404 || codes.includes('UNREGISTERED')) return 'gone';
 		// A refused access token is this server's fault: the next send asks for another one.

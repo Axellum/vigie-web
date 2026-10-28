@@ -7,5 +7,5 @@ export const DEFAULT_PUBLIC_ORIGIN = 'https://vigie.auxfilsdesidees.fr';
 
 export function publicOrigin(): string {
 	const value = (VIGIE_PUBLIC_ORIGIN ?? '').trim().replace(/\/+$/, '');
-	return (/^https?:\/\/[^/\s]+$/).test(value) ? value : DEFAULT_PUBLIC_ORIGIN;
+	return /^https?:\/\/[^/\s]+$/.test(value) ? value : DEFAULT_PUBLIC_ORIGIN;
 }

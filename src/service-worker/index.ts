@@ -1,14 +1,12 @@
-/// <reference types="@sveltejs/kit" />
-/// <reference no-default-lib="true"/>
-/// <reference lib="esnext" />
-/// <reference lib="webworker" />
 // Keeps the site's own files so that it opens without a network; data and pages always come from the
 // network first (an alert site must not show old alerts as current), with the last copy as a fallback.
-import { build, files, version } from '$service-worker';
+import { version } from '$app/env';
+import { assets, immutable } from '$app/manifest';
+import { self as sw } from '$app/service-worker';
 
-const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `vigie-${version}`;
-const ASSETS = [...build, ...files];
+// The manifest's paths are relative to the site's base: made absolute here, as `fetch` compares them.
+const ASSETS = [...immutable, ...assets].map(({ path }) => new URL(path, sw.location.href).pathname);
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));

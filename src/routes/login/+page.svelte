@@ -17,7 +17,7 @@
 		problem = null;
 		try {
 			await signIn();
-			await goto('/account', { invalidateAll: true });
+			await goto('/account', { refreshAll: true });
 		} catch (e) {
 			problem = e instanceof PasskeyProblem ? e.code : 'refused';
 		} finally {

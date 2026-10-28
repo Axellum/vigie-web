@@ -76,7 +76,7 @@
 				locate = 'idle';
 				choose({ lat: position.coords.latitude, lon: position.coords.longitude });
 			},
-			() => locate = 'denied',
+			() => (locate = 'denied'),
 			{
 				enableHighAccuracy: false,
 				timeout: 15_000,
@@ -103,7 +103,7 @@
 		try {
 			const response = await fetch(`/data/warnings/${cc}.json`);
 			if (!response.ok) throw new Error(String(response.status));
-			countries.set(cc, { status: 'ok', data: await response.json() as WarningsData });
+			countries.set(cc, { status: 'ok', data: (await response.json()) as WarningsData });
 		} catch {
 			countries.set(cc, { status: 'error' });
 		}
@@ -135,13 +135,14 @@
 	// while they load, null outside every covered country.
 	let borders = $state<Borders | null>(null);
 	$effect(() => {
-		if (place && !borders) import('#lib/data/borders.json').then((m) => borders = m.default as unknown as Borders);
+		if (place && !borders)
+			import('#lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
 	});
 	const country = $derived(place && borders ? countryAt(borders, place) : undefined);
 	// Why the API reads no source for that country, when it says (a known reason code only).
-	const why = $derived(country
-		? data.uncovered.find((u) => u.country === country && u.reasonCode) ?? null
-		: null);
+	const why = $derived(
+		country ? (data.uncovered.find((u) => u.country === country && u.reasonCode) ?? null) : null
+	);
 	// Warnings without an area can only be said to concern the country the place is in.
 	const unplaced = $derived(
 		[...results.entries()]
@@ -155,12 +156,11 @@
 			[...results.entries()]
 				.filter(([, r]) => r.here.length > 0)
 				.flatMap(([cc]) => {
-			const d = countries.get(cc)?.data;
+					const d = countries.get(cc)?.data;
 
-			return d
-				? [...d.attributions, ...d.disclaimer ? [d.disclaimer] : []]
-				: [];
-		}))
+					return d ? [...d.attributions, ...(d.disclaimer ? [d.disclaimer] : [])] : [];
+				})
+		)
 	]);
 
 	// --- hazards around ---------------------------------------------------------------------------------
@@ -243,10 +243,7 @@
 		{#if data.apiDown}<p class="note">{tr('error.api')}</p>{/if}
 	</header>
 
-	<PlaceSearch
-		lang={lang}
-		onpick={(p, label) => choose(p, label)}
-	/>
+	<PlaceSearch {lang} onpick={(p, label) => choose(p, label)} />
 
 	<div class="controls">
 		<button type="button" class="action" onclick={locateMe} disabled={locate === 'busy'}>
@@ -291,10 +288,10 @@
 
 	<div class="map">
 		<MapView
-			lang={lang}
-			zones={zones}
+			{lang}
+			{zones}
 			hazards={near.map((h) => h.hazard)}
-			frame={frame}
+			{frame}
 			place={mapPlace}
 			onpick={choose}
 			label={tr('near.title')}
@@ -306,7 +303,7 @@
 	{:else}
 		<section class="block">
 			<h2>{tr('near.warnings')}</h2>
-			{#if nearCountries.length === 0 || here.length === 0 && (country === null || country !== undefined && !data.served.includes(country))}
+			{#if nearCountries.length === 0 || (here.length === 0 && (country === null || (country !== undefined && !data.served.includes(country))))}
 				<p>
 					{country ? tr('near.noSourceIn', { country: countryName(lang, country) }) : tr('near.noSource')}
 					<a href="/countries">{tr('nav.countries')}</a>
@@ -332,11 +329,7 @@
 					<div class="list">
 						{#each here as h (h.warning.cc + h.warning.id)}
 							<div class="item">
-								<AlertRow
-									lang={lang}
-									row={warningRow(h.warning)}
-									now={data.now}
-								/>
+								<AlertRow {lang} row={warningRow(h.warning)} now={data.now} />
 
 								{#if h.distanceKm != null}
 									<p class="muted small distance">
@@ -365,11 +358,7 @@
 				<div class="list">
 					{#each near as h (h.hazard.id)}
 						<div class="item">
-							<AlertRow
-								lang={lang}
-								row={hazardRow(h.hazard)}
-								now={data.now}
-							/>
+							<AlertRow {lang} row={hazardRow(h.hazard)} now={data.now} />
 
 							<p class="muted small distance">{tr('near.distance', { km: km(h.distanceKm) })}</p>
 						</div>
@@ -392,7 +381,7 @@
 				</p>
 			{/if}
 			{#if weather?.status === 'ok' && weather.value}
-				<PointWeather lang={lang} weather={weather.value} />
+				<PointWeather {lang} weather={weather.value} />
 			{:else if weather?.status === 'budget'}
 				<p class="note">{tr('near.weatherBudget')}</p>
 			{:else if weather?.status === 'error'}

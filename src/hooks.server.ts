@@ -61,7 +61,9 @@ function chooseLang(event: Parameters<Handle>[0]['event']): Lang {
 		return fromQuery;
 	}
 
-	return asLang(event.cookies.get(LANG_COOKIE)) ?? langFromHeader(event.request.headers.get('accept-language'));
+	return (
+		asLang(event.cookies.get(LANG_COOKIE)) ?? langFromHeader(event.request.headers.get('accept-language'))
+	);
 }
 
 export const handle: Handle = async ({ event, resolve }) => {

@@ -15,8 +15,12 @@ function load(): PlaceEntry[] | null {
 	try {
 		const file = resolve(VIGIE_PLACES_FILE || 'data/places.tsv.gz');
 
-		entries = gunzipSync(readFileSync(file)).toString('utf-8').split('\n').map(parsePlaceLine).filter((e): e is PlaceEntry => e !== null);
-	} catch(error) {
+		entries = gunzipSync(readFileSync(file))
+			.toString('utf-8')
+			.split('\n')
+			.map(parsePlaceLine)
+			.filter((e): e is PlaceEntry => e !== null);
+	} catch (error) {
 		console.error(`Place search is off: ${(error as Error).message}`);
 		unavailable = true;
 	}
