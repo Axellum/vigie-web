@@ -329,7 +329,6 @@ export function getTideTile(level: TideLevel, x: number, y: number): Promise<Cac
 		return tideTileFromApi(await getJson(`/v1/tides/coast?bbox=${bbox}&limit=${level.limit}`, 15_000));
 	});
 }
-}
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */
 export function cacheHeaders(ttl: number): Record<string, string> {
