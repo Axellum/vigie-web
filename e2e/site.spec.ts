@@ -374,8 +374,16 @@ test('near me shows the tide of a coastal point, computed by the API, with what 
 	const tide = fixture('tides');
 	// Saint-Malo: the site asks the API for the position rounded to 0.05° (the only one the mock answers).
 	await page.goto('/near#48.649,-2.026,50');
-	await expect(page.getByRole('heading', { level: 2, name: 'Marée' })).toBeVisible();
-	const section = page.locator('section.tides');
+	const section = page.getByRole('region', { name: 'Marée' });
+	// Folded: the tide now and the next waters, said to be computed and not for navigation.
+	await expect(section.getByText('Calculée par Vigie, pas pour la navigation.')).toBeVisible();
+	await expect(
+		section.getByText(tide.now.trend === 'rising' ? 'marée montante' : 'marée descendante', {
+			exact: true
+		})
+	).toBeVisible();
+	// Unfolded: the curve over two days.
+	await section.getByText('Détail').click();
 	await expect(section.locator('.extremes li')).toHaveCount(
 		tide.extremes.filter(
 			(e: Json) => e.time_utc >= tide.heights[0].time_utc && e.time_utc <= tide.heights.at(-1).time_utc
@@ -401,8 +409,8 @@ test('near me shows no tide inland, where the model has no point', async ({ page
 	await page.goto('/near#42.306,9.15,300');
 	// "Nothing here" is an answer, not an error: the browser logs none.
 	expect((await answer).status()).toBe(204);
-	await expect(page.getByRole('heading', { level: 2, name: /Météo/ })).toBeVisible();
-	await expect(page.getByRole('heading', { level: 2, name: 'Marée' })).toHaveCount(0);
+	await expect(page.getByRole('region', { name: 'Météo' })).toBeVisible();
+	await expect(page.getByRole('region', { name: 'Marée' })).toHaveCount(0);
 	await expect(page.getByText(fixture('tides').attribution)).toHaveCount(0);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
