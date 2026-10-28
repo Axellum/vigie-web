@@ -2,7 +2,8 @@
 	export type Selection =
 		| { kind: 'hazard'; id: string }
 		| { kind: 'zone'; key: string }
-		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown> };
+		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown> }
+		| { kind: 'tide'; lon: number; lat: number; props: Record<string, unknown> };
 </script>
 
 <script lang="ts">
@@ -40,6 +41,8 @@
 		aurora?: FeatureCollection | null;
 		/** A solar eclipse as the API draws it: bands of the share hidden, the path and its central line (`properties.kind`). */
 		eclipse?: FeatureCollection | null;
+		/** The tide now along the coasts, computed by the API (`TideTile.features`: `up` 1 rising, 0 falling). */
+		tides?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -60,6 +63,7 @@
 		fires = null,
 		aurora = null,
 		eclipse = null,
+		tides = null,
 		onselect,
 		onmove,
 		onpick
@@ -186,6 +190,7 @@
 	const fireData = () => fires ?? EMPTY;
 	const auroraData = () => aurora ?? EMPTY;
 	const eclipseData = () => eclipse ?? EMPTY;
+	const tideData = () => tides ?? EMPTY;
 	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
 
 	function addForecastLayers() {
@@ -333,6 +338,24 @@
 		});
 	}
 
+	// The tide along the coasts: a dot per point of the model, filled where the tide rises, open where it falls.
+	function addTideLayers() {
+		if (!map) return;
+		const accent = css('--accent');
+		map.addLayer({
+			id: 'tide-dot',
+			type: 'circle',
+			source: 'tides',
+			paint: {
+				'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 7, 4, 10, 6],
+				'circle-color': ['case', ['==', ['get', 'up'], 1], accent, css('--surface')],
+				'circle-stroke-color': accent,
+				'circle-stroke-width': 1.2,
+				'circle-opacity': 0.95
+			}
+		});
+	}
+
 	// The base map names places in English: in the page's language instead, where the tiles have the name.
 	function localizeLabels() {
 		if (!map) return;
@@ -405,6 +428,7 @@
 			filter: ['==', ['get', 'kind'], 'central_line'],
 			paint: { 'line-color': '#f2d22e', 'line-width': 1.5, 'line-dasharray': [2, 2] }
 		});
+		map.addSource('tides', { type: 'geojson', data: tideData() });
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -438,6 +462,7 @@
 			paint: { 'line-color': css('--ink'), 'line-width': 2.5 }
 		});
 		addFireLayers();
+		addTideLayers();
 		map.addLayer({
 			id: 'quake',
 			type: 'circle',
@@ -656,7 +681,13 @@
 						const [lon, lat] = f.geometry.coordinates;
 						onselect?.({ kind: 'fire', lon, lat, props: { ...f.properties } });
 					});
-				for (const layer of ['quake', 'zone-fill', 'zone-river', 'fire-cell', 'fire-dot']) {
+				map.on('click', 'tide-dot', (e) => {
+					const f = e.features?.[0];
+					if (f?.geometry.type !== 'Point') return;
+					const [lon, lat] = f.geometry.coordinates;
+					onselect?.({ kind: 'tide', lon, lat, props: { ...f.properties } });
+				});
+				for (const layer of ['quake', 'zone-fill', 'zone-river', 'fire-cell', 'fire-dot', 'tide-dot']) {
 					map.on('mouseenter', layer, () => (map!.getCanvas().style.cursor = 'pointer'));
 					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = onpick ? 'crosshair' : ''));
 				}
@@ -725,6 +756,10 @@
 	$effect(() => {
 		void fires;
 		if (ready && map?.getSource('fires')) (map.getSource('fires') as GeoJSONSource).setData(fireData());
+	});
+	$effect(() => {
+		void tides;
+		if (ready && map?.getSource('tides')) (map.getSource('tides') as GeoJSONSource).setData(tideData());
 	});
 	$effect(() => {
 		void place;

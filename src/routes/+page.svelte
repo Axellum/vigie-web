@@ -5,6 +5,9 @@
 	import type { Feature, FeatureCollection } from 'geojson';
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import FireDetails from '#lib/components/FireDetails.svelte';
+	import TideSection from '#lib/components/TideSection.svelte';
+	import { number } from '#lib/format.js';
+	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -49,6 +52,7 @@
 		| { kind: 'zone'; cc: string; key: string }
 		| { kind: 'warning'; cc: string; id: string }
 		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown>; cellDeg: number | null }
+		| { kind: 'tide'; lon: number; lat: number }
 		| null
 	>(null);
 	let detail = $state<{ key: string; status: 'loading' | 'ok' | 'error'; value?: WarningDetail } | null>(
@@ -103,6 +107,14 @@
 	});
 	const fireFirst = $derived(fireShown.find((f) => f.value)?.value ?? null);
 	const fireOff = $derived(fireShown.length > 0 && fireShown.every((f) => f.status === 'off'));
+
+	// --- the tide along the coasts (computed by the API; off until asked) --------------------------------
+	const tides = new TideLayer();
+	$effect(() => tides.move(view, zoom));
+	$effect(() => {
+		void tides.keys;
+		untrack(() => tides.sync());
+	});
 
 	// --- warnings of the countries in view -------------------------------------------------------------
 	const visibleCountries = $derived(
@@ -247,7 +259,7 @@
 	const mapSelected = $derived.by((): Selection | null => {
 		if (!selection) return null;
 		if (selection.kind === 'hazard') return { kind: 'hazard', id: selection.id };
-		if (selection.kind === 'fire') return null;
+		if (selection.kind === 'fire' || selection.kind === 'tide') return null;
 		if (selection.kind === 'zone') return { kind: 'zone', key: `${selection.cc}|${selection.key}` };
 		const w = countries
 			.get(selection.cc)
@@ -259,6 +271,7 @@
 	function onMapSelect(s: Selection) {
 		if (s.kind === 'hazard') selection = { kind: 'hazard', id: s.id };
 		else if (s.kind === 'fire') selection = { ...s, cellDeg: fireLevelNow.cellDeg };
+		else if (s.kind === 'tide') selection = { kind: 'tide', lon: s.lon, lat: s.lat };
 		else {
 			const [cc, key] = [s.key.slice(0, 2), s.key.slice(3)];
 			const inZone = countries.get(cc)?.data?.warnings.filter((w) => w.shape === key) ?? [];
@@ -441,6 +454,12 @@
 						cellDeg={selection.cellDeg}
 						windowHours={fireFirst?.windowHours ?? null}
 					/>
+				{:else if selection.kind === 'tide'}
+					<p class="eyebrow">{tr('tide.source')}</p>
+					<p class="muted small">
+						{tr('tide.point', { lat: number(lang, selection.lat, 3), lon: number(lang, selection.lon, 3) })}
+					</p>
+					<TideSection {lang} at={{ lat: selection.lat, lon: selection.lon }} />
 				{:else if selection.kind === 'zone'}
 					<div class="head">
 						<p class="eyebrow">{tr('detail.zone')} · {countryName(lang, selection.cc)}</p>
@@ -539,6 +558,16 @@
 						<p class="hint">{tr('fires.notAlert')}</p>
 					{/if}
 				{/if}
+				<label class="check">
+					<input type="checkbox" bind:checked={tides.on} />
+					<span class="swatch tide" aria-hidden="true"></span>
+					{tr('tide.toggle')}
+				</label>
+				{#if tides.on}
+					<p class="hint">{tides.tooFar ? tr('tide.zoomIn') : tr('tide.legend')}</p>
+					{#if tides.failed}<p class="hint">{tr('tide.layerFailed')}</p>{/if}
+					<p class="hint">{tr('tide.limits')}</p>
+				{/if}
 			</section>
 			<section class="block">
 				<h2 class="eyebrow">{tr('list.title')} · <span class="data">{shown.length}</span></h2>
@@ -583,6 +612,7 @@
 				{#if fireFirst.attribution}<p class="credit">{fireFirst.attribution}</p>{/if}
 				{#if fireFirst.disclaimer}<p class="credit">{fireFirst.disclaimer}</p>{/if}
 			{/if}
+			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
@@ -596,6 +626,7 @@
 			selected={mapSelected}
 			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
 			{fires}
+			tides={tides.features}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {
@@ -717,6 +748,9 @@
 		flex: none;
 		border-radius: 50%;
 		background: var(--fire);
+	}
+	.swatch.tide {
+		background: var(--accent);
 	}
 	.list {
 		display: flex;

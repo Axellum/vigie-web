@@ -20,6 +20,13 @@ All notable changes are listed here. Versions are git tags.
   look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0012). Needs a Vigie API with
   `/v1/sky/aurora`.
 
+- The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0012): a curve
+  over two days with the high and low waters, their ranges and the tide now on "near me" and on a zone of the account that
+  touches the sea; a "Tides (computed)" layer on the world map, off until asked, with a dot per coastal point (filled: rising,
+  open: falling) that opens its curve. The French coefficient the API estimates is shown on the French coasts only, said not to
+  be the official one. Every view says what the model cannot do (harbours, bays, surge) and that it is not for navigation.
+  Nothing is shown inland. Against an API that does not compute tides yet, the curve is left out and the layer says that the
+  tides could not be loaded.
 - Places in the account: a zone that is a point and a radius can keep a profile, chosen when it is made (from
   "near me", the profile comes with it). Once signed in, "near me" shows these places beside those of the
   browser, asked for from the browser (`/account/places.json`, private, never cached) so that the page stays the
