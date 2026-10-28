@@ -1,5 +1,5 @@
-import { ApiError, getHazards, getUncovered, servedCodes } from '$lib/server/vigie';
-import type { Hazard, UncoveredCountry } from '$lib/types';
+import { ApiError, getHazards, getUncovered, servedCodes } from '#lib/server/vigie.js';
+import type { Hazard, UncoveredCountry } from '#lib/types.js';
 import type { PageServerLoad } from './$types';
 
 // The page is the same for everybody: the place is chosen in the browser and never reaches this load.

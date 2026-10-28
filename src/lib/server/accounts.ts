@@ -2,8 +2,8 @@
 // SHA-256, and never logged. A session is a random token in an HttpOnly cookie, the only cookie of an account.
 import { createHash, randomBytes } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
-import type { Lang } from '$lib/i18n';
-export { cleanName } from '$lib/names';
+import type { Lang } from '#lib/i18n.js';
+export { cleanName } from '#lib/names.js';
 import type { Sql } from './db';
 import { listZones } from './zones';
 

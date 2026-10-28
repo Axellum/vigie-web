@@ -12,7 +12,7 @@ import {
 	type PublicKeyCredentialRequestOptionsJSON,
 	type RegistrationResponseJSON
 } from '@simplewebauthn/server';
-import type { Lang } from '$lib/i18n';
+import type { Lang } from '#lib/i18n.js';
 import { digest, readInvitation, type User } from './accounts';
 import type { Sql } from './db';
 

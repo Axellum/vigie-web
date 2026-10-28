@@ -4,8 +4,16 @@
 // VIGIE_VAPID_PRIVATE_KEY, no Web Push; without VIGIE_FCM_SERVICE_ACCOUNT, no FCM.
 import { randomUUID } from 'node:crypto';
 import webpush from 'web-push';
-import { env } from '$env/dynamic/private';
-import type { Level } from '$lib/types';
+
+import {
+	VIGIE_VAPID_PUBLIC_KEY,
+	VIGIE_VAPID_PRIVATE_KEY,
+	VIGIE_PUSH_EXTRA_HOSTS,
+	ORIGIN,
+	VIGIE_VAPID_SUBJECT
+} from '$app/env/private';
+
+import type { Level } from '#lib/types.js';
 import type { Query, Sql } from './db';
 import { fcmEnabled, sendFcm } from './fcm';
 
@@ -30,7 +38,7 @@ const PUSH_HOSTS = [
 ];
 
 export function webPushEnabled(): boolean {
-	return Boolean(env.VIGIE_VAPID_PUBLIC_KEY && env.VIGIE_VAPID_PRIVATE_KEY);
+	return Boolean(VIGIE_VAPID_PUBLIC_KEY && VIGIE_VAPID_PRIVATE_KEY);
 }
 
 /** Whether the server sends notifications at all, to browsers or to the app. */
@@ -40,11 +48,11 @@ export function pushEnabled(): boolean {
 
 /** The public key the browser subscribes with; null when Web Push is off. */
 export function vapidPublicKey(): string | null {
-	return webPushEnabled() ? (env.VIGIE_VAPID_PUBLIC_KEY ?? null) : null;
+	return webPushEnabled() ? (VIGIE_VAPID_PUBLIC_KEY ?? null) : null;
 }
 
 function extraHosts(): string[] {
-	return (env.VIGIE_PUSH_EXTRA_HOSTS ?? '')
+	return (VIGIE_PUSH_EXTRA_HOSTS ?? '')
 		.split(',')
 		.map((h) => h.trim().toLowerCase())
 		.filter(Boolean);
@@ -148,10 +156,18 @@ export async function sendToUser(
 ): Promise<{ sent: number; failed: number } | null> {
 	if (!pushEnabled()) return null;
 	// Who sends, for the push service: an https: or mailto: address (a site on plain http gives the project's).
-	const origin = env.ORIGIN?.startsWith('https://') ? env.ORIGIN : null;
-	const subject = env.VIGIE_VAPID_SUBJECT || origin || 'https://github.com/Axellum/vigie-web';
+	const origin = ORIGIN?.startsWith('https://') ? ORIGIN : null;
+
+	const subject = VIGIE_VAPID_SUBJECT || origin || 'https://github.com/Axellum/vigie-web';
+
 	const rows = await sql<
-		{ id: string; endpoint: string | null; p256dh: string; auth: string; fcm_token: string | null }[]
+		{
+			id: string;
+			endpoint: string | null;
+			p256dh: string;
+			auth: string;
+			fcm_token: string | null;
+		}[]
 	>`
 		select id, endpoint, p256dh, auth, fcm_token from push_subscriptions
 		where user_id = ${userId} ${device ? sql`and ${byDevice(sql, device)}` : sql``}`;
@@ -203,8 +219,8 @@ async function sendWebPush(row: WebRow, message: PushMessage, subject: string): 
 			{
 				vapidDetails: {
 					subject,
-					publicKey: env.VIGIE_VAPID_PUBLIC_KEY!,
-					privateKey: env.VIGIE_VAPID_PRIVATE_KEY!
+					publicKey: VIGIE_VAPID_PUBLIC_KEY!,
+					privateKey: VIGIE_VAPID_PRIVATE_KEY!
 				},
 				// An alert that waited a day on a phone that was off is no longer news.
 				TTL: 24 * 3600,

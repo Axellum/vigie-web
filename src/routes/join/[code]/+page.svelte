@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import Time from '$lib/components/Time.svelte';
-	import { translator } from '$lib/i18n';
-	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '$lib/passkey';
+	import Time from '#lib/components/Time.svelte';
+	import { translator } from '#lib/i18n.js';
+	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '#lib/passkey.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -21,7 +21,7 @@
 		problem = null;
 		try {
 			await createPasskey(data.recoverName ? { code: data.code } : { code: data.code, name });
-			await goto('/account', { invalidateAll: true, replaceState: true });
+			await goto('/account', { refreshAll: true, replace: true });
 		} catch (e) {
 			problem = e instanceof PasskeyProblem ? e.code : 'refused';
 		} finally {

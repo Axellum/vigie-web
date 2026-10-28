@@ -1,5 +1,5 @@
-import { getHazards, servedCodes } from '$lib/server/vigie';
-import type { HazardsData } from '$lib/types';
+import { getHazards, servedCodes } from '#lib/server/vigie.js';
+import type { HazardsData } from '#lib/types.js';
 import type { PageServerLoad } from './$types';
 
 // The hazards are rendered on the server (they are the same for everybody); the warnings of the

@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
-import { exportUser, sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
+import { exportUser, sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
 import type { RequestHandler } from './$types';
 
 // Everything the site keeps about the person signed in, as a file.

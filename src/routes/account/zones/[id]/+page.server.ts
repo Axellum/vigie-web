@@ -1,7 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
-import { sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
-import { listZones } from '$lib/server/zones';
+import { sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
+import { listZones } from '#lib/server/zones.js';
 import type { PageServerLoad } from './$types';
 
 // One zone of the account, on a map (a drawn zone has no public page to show it).

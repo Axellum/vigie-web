@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
-	import ForecastDetails from '$lib/components/ForecastDetails.svelte';
-	import HazardFacts from '$lib/components/HazardFacts.svelte';
-	import LevelPill from '$lib/components/LevelPill.svelte';
-	import MapView from '$lib/components/MapView.svelte';
-	import WarningBody from '$lib/components/WarningBody.svelte';
-	import { grow, type Box } from '$lib/geo';
-	import { tOr, translator } from '$lib/i18n';
+	import Seo from '#lib/components/Seo.svelte';
+	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
+	import HazardFacts from '#lib/components/HazardFacts.svelte';
+	import LevelPill from '#lib/components/LevelPill.svelte';
+	import MapView from '#lib/components/MapView.svelte';
+	import WarningBody from '#lib/components/WarningBody.svelte';
+	import { grow, type Box } from '#lib/geo.js';
+	import { tOr, translator } from '#lib/i18n.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

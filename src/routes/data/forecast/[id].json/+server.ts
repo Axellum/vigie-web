@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { ApiError, cacheHeaders, getForecast, TTL_S } from '$lib/server/vigie';
+import { ApiError, cacheHeaders, getForecast, TTL_S } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 /** The forecast of a hazard that has one: a storm's cone, track and positions, a tsunami's arrival times. */

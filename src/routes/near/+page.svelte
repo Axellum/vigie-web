@@ -1,19 +1,19 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
+	import Seo from '#lib/components/Seo.svelte';
 	// "Near me": the official warnings that hold a place, the hazards around it and its weather. The place is
 	// chosen in the browser (position, click on the map, or the address of the page) and the matching is done
 	// here, on the data every visitor loads; only a position rounded to the weather grid leaves the browser.
 	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import { replaceState } from '$app/navigation';
-	import AlertRow from '$lib/components/AlertRow.svelte';
-	import MapView from '$lib/components/MapView.svelte';
-	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
-	import PointWeather from '$lib/components/PointWeather.svelte';
-	import { number } from '$lib/format';
-	import { countryName, tOr, translator } from '$lib/i18n';
-	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
+	import { goto } from '$app/navigation';
+	import AlertRow from '#lib/components/AlertRow.svelte';
+	import MapView from '#lib/components/MapView.svelte';
+	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
+	import PointWeather from '#lib/components/PointWeather.svelte';
+	import { number } from '#lib/format.js';
+	import { countryName, tOr, translator } from '#lib/i18n.js';
+	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
 	import {
 		circleBox,
 		countriesNear,
@@ -25,10 +25,10 @@
 		warningsAt,
 		type Borders,
 		type Place
-	} from '$lib/near';
-	import { hazardRow, warningRow } from '$lib/rows';
-	import type { Level, PointWeather as Weather, WarningsData } from '$lib/types';
-	import { ZONE_RADII_KM } from '$lib/zones';
+	} from '#lib/near.js';
+	import { hazardRow, warningRow } from '#lib/rows.js';
+	import type { Level, PointWeather as Weather, WarningsData } from '#lib/types.js';
+	import { ZONE_RADII_KM } from '#lib/zones.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -49,12 +49,12 @@
 	function choose(next: Place, name: string | null = null) {
 		place = { lat: round3(next.lat), lon: round3(next.lon) };
 		placeName = name;
-		replaceState(placeHash(place, radiusKm), {});
+		goto(placeHash(place, radiusKm), { shallow: true, replace: true });
 	}
 
 	function setRadius(km: number) {
 		radiusKm = km;
-		if (place) replaceState(placeHash(place, radiusKm), {});
+		if (place) goto(placeHash(place, radiusKm), { shallow: true, replace: true });
 	}
 
 	function readHash() {
@@ -77,7 +77,11 @@
 				choose({ lat: position.coords.latitude, lon: position.coords.longitude });
 			},
 			() => (locate = 'denied'),
-			{ enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
+			{
+				enableHighAccuracy: false,
+				timeout: 15_000,
+				maximumAge: 600_000
+			}
 		);
 	}
 
@@ -132,7 +136,7 @@
 	let borders = $state<Borders | null>(null);
 	$effect(() => {
 		if (place && !borders)
-			import('$lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
+			import('#lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
 	});
 	const country = $derived(place && borders ? countryAt(borders, place) : undefined);
 	// Why the API reads no source for that country, when it says (a known reason code only).
@@ -153,6 +157,7 @@
 				.filter(([, r]) => r.here.length > 0)
 				.flatMap(([cc]) => {
 					const d = countries.get(cc)?.data;
+
 					return d ? [...d.attributions, ...(d.disclaimer ? [d.disclaimer] : [])] : [];
 				})
 		)
@@ -325,6 +330,7 @@
 						{#each here as h (h.warning.cc + h.warning.id)}
 							<div class="item">
 								<AlertRow {lang} row={warningRow(h.warning)} now={data.now} />
+
 								{#if h.distanceKm != null}
 									<p class="muted small distance">
 										{tr(h.river ? 'near.riverDistance' : 'near.areaMargin', { km: km(h.distanceKm) })}
@@ -353,6 +359,7 @@
 					{#each near as h (h.hazard.id)}
 						<div class="item">
 							<AlertRow {lang} row={hazardRow(h.hazard)} now={data.now} />
+
 							<p class="muted small distance">{tr('near.distance', { km: km(h.distanceKm) })}</p>
 						</div>
 					{/each}

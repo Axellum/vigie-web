@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { t, type Key, type Lang } from '$lib/i18n';
-	import type { Level } from '$lib/types';
+	import { t, type Key, type Lang } from '#lib/i18n.js';
+	import type { Level } from '#lib/types.js';
 
 	let { lang, level }: { lang: Lang; level: Level | null } = $props();
 </script>

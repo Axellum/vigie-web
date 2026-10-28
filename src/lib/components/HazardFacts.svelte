@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { number } from '$lib/format';
-	import { tOr, translator, type Lang } from '$lib/i18n';
-	import type { Hazard } from '$lib/types';
+	import { number } from '#lib/format.js';
+	import { tOr, translator, type Lang } from '#lib/i18n.js';
+	import type { Hazard } from '#lib/types.js';
 	import Time from './Time.svelte';
 
 	let { lang, hazard }: { lang: Lang; hazard: Hazard } = $props();

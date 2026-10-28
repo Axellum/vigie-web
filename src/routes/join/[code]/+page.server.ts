@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { readInvitation } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
+import { readInvitation } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
 import type { PageServerLoad } from './$types';
 
 // The page of an invitation link. The code stays in the address only: it is sent back with the passkey.

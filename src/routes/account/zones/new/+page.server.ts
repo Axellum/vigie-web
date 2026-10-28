@@ -1,9 +1,9 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
-import { servedCodes } from '$lib/server/vigie';
-import { addZone, listZones, ZoneError } from '$lib/server/zones';
-import { MAX_ZONES, parseZone } from '$lib/zones';
+import { sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
+import { servedCodes } from '#lib/server/vigie.js';
+import { addZone, listZones, ZoneError } from '#lib/server/zones.js';
+import { MAX_ZONES, parseZone } from '#lib/zones.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ cookies, url, setHeaders }) => {

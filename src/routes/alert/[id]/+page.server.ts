@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { ApiError, getForecast, getHazards, getTsunamiWarnings } from '$lib/server/vigie';
-import type { HazardForecast, WarningDetail } from '$lib/types';
+import { ApiError, getForecast, getHazards, getTsunamiWarnings } from '#lib/server/vigie.js';
+import type { HazardForecast, WarningDetail } from '#lib/types.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, setHeaders }) => {

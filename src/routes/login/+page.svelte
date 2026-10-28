@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { translator } from '$lib/i18n';
-	import { passkeysBlocked, PasskeyProblem, signIn, type PasskeyFailure } from '$lib/passkey';
+	import { translator } from '#lib/i18n.js';
+	import { passkeysBlocked, PasskeyProblem, signIn, type PasskeyFailure } from '#lib/passkey.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -17,7 +17,7 @@
 		problem = null;
 		try {
 			await signIn();
-			await goto('/account', { invalidateAll: true });
+			await goto('/account', { refreshAll: true });
 		} catch (e) {
 			problem = e instanceof PasskeyProblem ? e.code : 'refused';
 		} finally {

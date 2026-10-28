@@ -72,6 +72,7 @@ export default defineConfig({
 			env: {
 				PORT: String(SITE_PORT),
 				HOST: '127.0.0.1',
+				PROTOCOL_HEADER: 'x-forwarded-proto',
 				ORIGIN: SITE,
 				DATABASE_URL,
 				DATABASE_POOL_MAX: '1',

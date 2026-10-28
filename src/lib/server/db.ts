@@ -1,7 +1,7 @@
 // The site's own database, for the accounts. It is optional: without DATABASE_URL the site runs without
 // accounts, as before. The migrations run once, at the first use, under a lock (several processes may start).
 import postgres from 'postgres';
-import { env } from '$env/dynamic/private';
+import { DATABASE_URL, DATABASE_POOL_MAX } from '$app/env/private';
 import accounts from './migrations/001_accounts.sql?raw';
 import zones from './migrations/002_zones.sql?raw';
 import notifications from './migrations/003_notifications.sql?raw';
@@ -22,7 +22,7 @@ let client: Sql | null = null;
 let ready: Promise<void> | null = null;
 
 export function accountsEnabled(): boolean {
-	return Boolean(env.DATABASE_URL);
+	return Boolean(DATABASE_URL);
 }
 
 async function migrate(sql: Sql): Promise<void> {
@@ -43,9 +43,9 @@ async function migrate(sql: Sql): Promise<void> {
 
 /** The database, migrated. Throws when accounts are off or when the database cannot be reached. */
 export async function db(): Promise<Sql> {
-	if (!env.DATABASE_URL) throw new Error('accounts are off: DATABASE_URL is not set');
-	const max = Number(env.DATABASE_POOL_MAX);
-	client ??= postgres(env.DATABASE_URL, {
+	if (!DATABASE_URL) throw new Error('accounts are off: DATABASE_URL is not set');
+	const max = Number(DATABASE_POOL_MAX);
+	client ??= postgres(DATABASE_URL, {
 		max: Number.isInteger(max) && max > 0 ? max : 5,
 		idle_timeout: 60,
 		connect_timeout: 10,

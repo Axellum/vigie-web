@@ -1,21 +1,21 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
+	import Seo from '#lib/components/Seo.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import AlertRow from '$lib/components/AlertRow.svelte';
-	import FireDetails from '$lib/components/FireDetails.svelte';
-	import ForecastDetails from '$lib/components/ForecastDetails.svelte';
-	import HazardFacts from '$lib/components/HazardFacts.svelte';
-	import LevelPill from '$lib/components/LevelPill.svelte';
-	import MapView, { type Selection } from '$lib/components/MapView.svelte';
-	import WarningBody from '$lib/components/WarningBody.svelte';
-	import { fireLevel, tilesInView } from '$lib/fires';
-	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '$lib/geo';
-	import { countryName, t, tOr, translator, type Key } from '$lib/i18n';
-	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
-	import { hazardHref, hazardRow, warningHref, warningRow, warningTitle, type Row } from '$lib/rows';
-	import type { FireTile, Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '$lib/types';
+	import AlertRow from '#lib/components/AlertRow.svelte';
+	import FireDetails from '#lib/components/FireDetails.svelte';
+	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
+	import HazardFacts from '#lib/components/HazardFacts.svelte';
+	import LevelPill from '#lib/components/LevelPill.svelte';
+	import MapView, { type Selection } from '#lib/components/MapView.svelte';
+	import WarningBody from '#lib/components/WarningBody.svelte';
+	import { fireLevel, tilesInView } from '#lib/fires.js';
+	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '#lib/geo.js';
+	import { countryName, t, tOr, translator, type Key } from '#lib/i18n.js';
+	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
+	import { hazardHref, hazardRow, warningHref, warningRow, warningTitle, type Row } from '#lib/rows.js';
+	import type { FireTile, Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '#lib/types.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

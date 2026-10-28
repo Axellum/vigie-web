@@ -4,12 +4,12 @@
 	// zone is saved.
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
-	import MapView from '$lib/components/MapView.svelte';
-	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
-	import { BOXES, countryBox, type Box } from '$lib/geo';
-	import { countryName, translator, type Key } from '$lib/i18n';
-	import { circleBox, parsePlace, type Place } from '$lib/near';
-	import { ALERT_KINDS, MIN_LEVELS, ZONE_RADII_KM } from '$lib/zones';
+	import MapView from '#lib/components/MapView.svelte';
+	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
+	import { BOXES, countryBox, type Box } from '#lib/geo.js';
+	import { countryName, translator, type Key } from '#lib/i18n.js';
+	import { circleBox, parsePlace, type Place } from '#lib/near.js';
+	import { ALERT_KINDS, MIN_LEVELS, ZONE_RADII_KM } from '#lib/zones.js';
 
 	let { data, form } = $props();
 	const lang = $derived(data.lang);

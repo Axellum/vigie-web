@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { ApiError, cacheHeaders, getWarnings, TTL_S } from '$lib/server/vigie';
+import { ApiError, cacheHeaders, getWarnings, TTL_S } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 // The warnings of one country for the map: short texts and shared shapes (the full texts are in

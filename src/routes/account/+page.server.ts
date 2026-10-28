@@ -1,12 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { closeSession, deleteUser, sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
-import { listZoneAlerts } from '$lib/server/notify';
-import { PasskeyError, removePasskey } from '$lib/server/passkeys';
-import { listDevices, vapidPublicKey } from '$lib/server/push';
-import { servedCodes } from '$lib/server/vigie';
-import { listZones, removeZone, ZoneError } from '$lib/server/zones';
-import { MAX_ZONES } from '$lib/zones';
+import { closeSession, deleteUser, sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
+import { listZoneAlerts } from '#lib/server/notify.js';
+import { PasskeyError, removePasskey } from '#lib/server/passkeys.js';
+import { listDevices, vapidPublicKey } from '#lib/server/push.js';
+import { servedCodes } from '#lib/server/vigie.js';
+import { listZones, removeZone, ZoneError } from '#lib/server/zones.js';
+import { MAX_ZONES } from '#lib/zones.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // A private page: never kept by a shared cache or by the service worker.

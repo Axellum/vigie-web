@@ -3,9 +3,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { env } from '$env/dynamic/private';
-import { countryName } from '$lib/i18n';
-import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '$lib/places';
+import { VIGIE_PLACES_FILE } from '$app/env/private';
+import { countryName } from '#lib/i18n.js';
+import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '#lib/places.js';
 
 let entries: PlaceEntry[] | null = null;
 let unavailable = false;
@@ -13,7 +13,8 @@ let unavailable = false;
 function load(): PlaceEntry[] | null {
 	if (entries || unavailable) return entries;
 	try {
-		const file = resolve(env.VIGIE_PLACES_FILE || 'data/places.tsv.gz');
+		const file = resolve(VIGIE_PLACES_FILE || 'data/places.tsv.gz');
+
 		entries = gunzipSync(readFileSync(file))
 			.toString('utf-8')
 			.split('\n')

@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
-import { PLACES_ATTRIBUTION } from '$lib/places';
-import { findPlaces } from '$lib/server/places';
+import { PLACES_ATTRIBUTION } from '#lib/places.js';
+import { findPlaces } from '#lib/server/places.js';
 import type { RequestHandler } from './$types';
 
 /** Places whose name matches `q` (at least 2 letters), for the "near me" page. */

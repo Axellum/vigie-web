@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { ApiError, cacheHeaders, getHazards, TTL_S } from '$lib/server/vigie';
+import { ApiError, cacheHeaders, getHazards, TTL_S } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {

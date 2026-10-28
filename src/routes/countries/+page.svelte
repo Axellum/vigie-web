@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
-	import { countryName, tOr, translator } from '$lib/i18n';
+	import Seo from '#lib/components/Seo.svelte';
+	import { countryName, tOr, translator } from '#lib/i18n.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

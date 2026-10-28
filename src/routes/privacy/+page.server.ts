@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { accountsEnabled } from '$lib/server/db';
+import { accountsEnabled } from '#lib/server/db.js';
 import type { PageServerLoad } from './$types';
 
 // The page describes the accounts: on a server without accounts, there is nothing to describe.

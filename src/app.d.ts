@@ -1,4 +1,4 @@
-import type { Lang } from '$lib/i18n';
+import type { Lang } from '#lib/i18n.js';
 
 declare global {
 	namespace App {

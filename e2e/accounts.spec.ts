@@ -51,6 +51,17 @@ async function createAccount(page: Page, name: string): Promise<void> {
 
 test.describe.configure({ mode: 'serial' });
 
+// The forms and passkeys are checked against the site's origin, whose scheme SvelteKit 3 takes from
+// X-Forwarded-Proto (PROTOCOL_HEADER in playwright.config.ts), as Caddy sends it in production; without it the
+// server would believe it is on https. Added to the site's requests only: on the map's tiles it would turn them
+// into cross-origin requests that need a preflight.
+const PROXY = { 'x-forwarded-proto': 'http' };
+const forwardedProto = (context: BrowserContext) =>
+	context.route(`${SITE}/**`, (route) =>
+		route.continue({ headers: { ...route.request().headers(), ...PROXY } })
+	);
+test.beforeEach(({ context }) => forwardedProto(context));
+
 const unique = (prefix: string) => `${prefix} ${randomBytes(3).toString('hex')}`;
 
 async function cookieNames(context: BrowserContext): Promise<string[]> {
@@ -151,6 +162,7 @@ test('a recovery invitation adds a passkey to an account; the last one cannot be
 
 	// Another device, with no passkey yet.
 	const other = await browser.newContext();
+	await forwardedProto(other);
 	const phone = await other.newPage();
 	await authenticator(phone);
 	await phone.goto(invite('--recover', user.id, 'new phone'));
@@ -333,7 +345,7 @@ test('notifications: a device, a test, the alerts of a zone, quiet hours, histor
 	const name = unique('Noa');
 	await createAccount(page, name);
 	const push = (body: unknown, origin = SITE) =>
-		page.request.post('/account/push', { data: body, headers: { origin } });
+		page.request.post('/account/push', { data: body, headers: { origin, ...PROXY } });
 
 	// A zone: France, red only (one red warning in the recorded answers).
 	await page.goto('/country/fr');
@@ -453,7 +465,7 @@ test('the Android app: a device by its token, a test through FCM, forgotten when
 	const name = unique('Lou');
 	await createAccount(page, name);
 	const push = (body: unknown) =>
-		page.request.post('/account/push', { data: body, headers: { origin: SITE } });
+		page.request.post('/account/push', { data: body, headers: { origin: SITE, ...PROXY } });
 	const token = `e2e:APA91b${randomBytes(48).toString('base64url')}`;
 
 	expect((await push({ action: 'register', token: 'not a token' })).status()).toBe(400);

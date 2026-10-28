@@ -1,9 +1,9 @@
 <script lang="ts">
 	// What a hazard's forecast says, in words: a storm's forecast positions and coastal warnings, a tsunami's
 	// estimated arrival times. Every value is the source's; the labels of the warnings are its own words.
-	import { number } from '$lib/format';
-	import { translator, type Lang } from '$lib/i18n';
-	import type { HazardForecast } from '$lib/types';
+	import { number } from '#lib/format.js';
+	import { translator, type Lang } from '#lib/i18n.js';
+	import type { HazardForecast } from '#lib/types.js';
 	import Time from './Time.svelte';
 
 	// `level` is the level of the section's heading: 2 on a hazard's own page, 3 under the side panel's title.

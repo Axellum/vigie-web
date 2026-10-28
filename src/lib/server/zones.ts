@@ -1,9 +1,9 @@
 // The zones of an account in the database. The surface of a circle or a polygon is a PostGIS geography, so
 // that the alerts can later be matched to the zones in one query.
 import { randomUUID } from 'node:crypto';
-import { hasBox } from '$lib/geo';
-import type { Level } from '$lib/types';
-import { MAX_ZONES, polygonWkt, type AlertKind, type ZoneInput } from '$lib/zones';
+import { hasBox } from '#lib/geo.js';
+import type { Level } from '#lib/types.js';
+import { MAX_ZONES, polygonWkt, type AlertKind, type ZoneInput } from '#lib/zones.js';
 import type { Sql } from './db';
 
 /** The largest surface a drawn polygon may have: about the area of the European Union. */
