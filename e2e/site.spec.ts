@@ -196,8 +196,14 @@ test('near me shows the warnings and the weather of a place given in the address
 	// The weather is the recorded answer, with its credit; the temperature in French notation.
 	const temp = `${String(point.current.temp_c).replace('.', ',')} °C`;
 	await expect(page.getByText(temp, { exact: true }).first()).toBeVisible();
-	// The sky of now and the sky of the day are told apart.
-	await expect(page.getByText('Ciel du jour : le temps le plus marqué prévu dans la journée')).toBeVisible();
+	// The place in one sentence, the site's own: the issuer's words already name the level, said once.
+	await expect(page.getByText('Phrase calculée par Vigie à partir des cartes ci-dessous.')).toBeVisible();
+	// The sky of now and the sky of the day are told apart, in the detail of the weather card.
+	const weather = page.getByRole('region', { name: 'Météo' });
+	await weather.getByText('Détail').click();
+	await expect(
+		weather.getByText('Ciel du jour : le temps le plus marqué prévu dans la journée')
+	).toBeVisible();
 	// The credits are folded at the end of the page, one click away.
 	const credit = page.getByText('Weather data by Open-Meteo.com (https://open-meteo.com/)');
 	await expect(credit).toBeHidden();
@@ -268,12 +274,15 @@ test('the weather answer checks its position and is cacheable', async ({ request
 test('near me tells the fires seen by satellite around the place, with their credit', async ({ page }) => {
 	const fires = point.fires_nearby;
 	await page.goto('/near#42.306,9.15,25');
-	await expect(page.getByRole('heading', { level: 3, name: 'Feux vus par satellite' })).toBeVisible({
-		timeout: 15_000
-	});
-	if (fires.count_24h === 0)
-		await expect(page.getByText(`Aucune détection en 24 h à moins de ${fires.radius_km} km.`)).toBeVisible();
-	else await expect(page.getByText(`Détections en 24 h à moins de ${fires.radius_km} km`)).toBeVisible();
+	// In a few words on the card of the hazards around, in full in its detail.
+	const hazards = page.getByRole('region', { name: 'Dangers à moins de 25 km' });
+	const said =
+		fires.count_24h === 0
+			? `Aucune détection en 24 h à moins de ${fires.radius_km} km.`
+			: `Détections en 24 h à moins de ${fires.radius_km} km`;
+	await expect(hazards.getByText(said).first()).toBeVisible({ timeout: 15_000 });
+	await hazards.getByText('Détail').click();
+	await expect(hazards.getByRole('heading', { level: 3, name: 'Feux vus par satellite' })).toBeVisible();
 	await page.getByText('Sources de cette page').click();
 	await expect(page.getByText(fires.attribution)).toBeVisible();
 	await expect(page.getByText(fires.disclaimer)).toBeVisible();
@@ -327,10 +336,43 @@ test('a place found by name is chosen, with its warnings', async ({ page, reques
 		.first()
 		.click();
 	await expect(page).toHaveURL(/#42\.3\d*,9\.1\d*,300$/);
-	await expect(page.getByText(/Lieu choisi : Corte, Corsica, France/)).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2, name: /Corte, Corsica, France/ })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 3, name: 'Vigilances officielles' })).toBeVisible();
 	await expect(
-		page.getByRole('heading', { level: 2, name: 'Vigilances officielles à cet endroit' })
-	).toBeVisible();
+		page.getByRole('region', { name: 'Vigilances officielles' }).getByText(/\d+ en cours/)
+	).toBeVisible({
+		timeout: 15_000
+	});
+});
+
+test('near me orders its cards by profile and keeps followed places in the browser only', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/near#42.306,9.15,300');
+	const cards = page.locator('.cards > section');
+	// A warning in force comes first, whatever the profile.
+	await expect(cards.first()).toHaveAccessibleName('Vigilances officielles', { timeout: 15_000 });
+	await page.getByLabel('Profil').selectOption('surf');
+	await expect(page).toHaveURL(/#42\.306,9\.15,300,surf$/);
+	await expect(cards.first()).toHaveAccessibleName('Vigilances officielles');
+	await expect(cards.nth(1)).toHaveAccessibleName('Mer');
+	// Followed: kept in this browser, offered again on the next visit with its radius and profile.
+	await page.getByRole('button', { name: 'Suivre ce lieu' }).click();
+	await expect(page.getByRole('button', { name: 'Ne plus suivre' })).toBeVisible();
+	const stored = await page.evaluate(() => localStorage.getItem('vigie-places'));
+	expect(JSON.parse(stored ?? '[]')).toEqual([
+		{ lat: 42.306, lon: 9.15, radiusKm: 300, name: null, profile: 'surf' }
+	]);
+	expect((await page.context().cookies()).map((c) => c.name)).not.toContain('vigie-places');
+	await page.goto('/near');
+	const followed = page.getByRole('navigation', { name: 'Mes lieux' });
+	await followed.getByRole('link').first().click();
+	await expect(page).toHaveURL(/#42\.306,9\.15,300,surf$/);
+	await expect(page.getByLabel('Profil')).toHaveValue('surf');
+	await page.getByRole('button', { name: 'Ne plus suivre' }).click();
+	expect(await page.evaluate(() => localStorage.getItem('vigie-places'))).toBeNull();
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
 test('a storm shows its forecast in the panel and on its page', async ({ page }) => {

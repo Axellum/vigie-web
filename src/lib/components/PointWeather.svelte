@@ -8,7 +8,16 @@
 	import type { PointWeather } from '#lib/types.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
-	let { lang, weather }: { lang: Lang; weather: PointWeather & { stale?: boolean } } = $props();
+	type Part = 'now' | 'rain' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space';
+	const ALL: Part[] = ['now', 'rain', 'days', 'air', 'river', 'fires', 'marine', 'space'];
+
+	// `parts`: the blocks to show, so that the cards of a place can each hold their own.
+	let {
+		lang,
+		weather,
+		parts = ALL
+	}: { lang: Lang; weather: PointWeather & { stale?: boolean }; parts?: Part[] } = $props();
+	const show = (part: Part) => parts.includes(part);
 	const tr = $derived(translator(lang));
 	const LOCALE = { fr: 'fr-FR', en: 'en-GB' } as const;
 
@@ -24,11 +33,11 @@
 </script>
 
 <div class="weather">
-	{#if weather.stale}
+	{#if weather.stale && show('now')}
 		<p class="note">{tr('near.weatherStale')}</p>
 	{/if}
 
-	{#if current}
+	{#if current && show('now')}
 		<div class="now card">
 			<div class="headline">
 				<span class="temp data">{unit(current.tempC, '°C')}</span>
@@ -57,7 +66,7 @@
 		</div>
 	{/if}
 
-	{#if weather.rain}
+	{#if weather.rain && show('rain')}
 		<section class="part">
 			<h3>{tr('w.rain60')}</h3>
 			{#if weather.rain.expected60 === false}
@@ -81,7 +90,7 @@
 		</section>
 	{/if}
 
-	{#if weather.daily.length}
+	{#if weather.daily.length && show('days')}
 		<section class="part">
 			<h3>{tr('w.days')}</h3>
 			<div class="scroll">
@@ -117,7 +126,7 @@
 	{/if}
 
 	<div class="grid">
-		{#if weather.air}
+		{#if weather.air && show('air')}
 			<section class="part card">
 				<h3>
 					{tr('w.air')}{#if weather.air.stale}<span class="muted small"> · {tr('w.stale')}</span>{/if}
@@ -137,7 +146,7 @@
 			</section>
 		{/if}
 
-		{#if weather.river}
+		{#if weather.river && show('river')}
 			<section class="part card">
 				<h3>
 					{tr('w.river')}{#if weather.river.stale}<span class="muted small"> · {tr('w.stale')}</span>{/if}
@@ -154,7 +163,7 @@
 			</section>
 		{/if}
 
-		{#if weather.fires}
+		{#if weather.fires && show('fires')}
 			{@const fires = weather.fires}
 			{@const km = number(lang, fires.radiusKm, 0)}
 			<section class="part card">
@@ -180,7 +189,7 @@
 			</section>
 		{/if}
 
-		{#if weather.marine}
+		{#if weather.marine && show('marine')}
 			<section class="part card">
 				<h3>
 					{tr('w.marine')}{#if weather.marine.stale}<span class="muted small"> · {tr('w.stale')}</span>{/if}
@@ -207,7 +216,7 @@
 			</section>
 		{/if}
 
-		{#if weather.space}
+		{#if weather.space && show('space')}
 			<section class="part card">
 				<h3>{tr('w.space')}</h3>
 				<dl class="facts">
@@ -220,7 +229,7 @@
 		{/if}
 	</div>
 
-	<p class="muted small">{tr('w.skyNote')}</p>
+	{#if show('now') || show('days')}<p class="muted small">{tr('w.skyNote')}</p>{/if}
 </div>
 
 <style>
