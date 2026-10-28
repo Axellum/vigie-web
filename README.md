@@ -1,3 +1,5 @@
+<img src="static/favicon.svg" alt="" width="72" height="72">
+
 # Vigie Web
 
 A personal project, made with the help of AI and shared in case it helps someone. It comes as is, with

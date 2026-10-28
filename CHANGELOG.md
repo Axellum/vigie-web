@@ -76,6 +76,8 @@ All notable changes are listed here. Versions are git tags.
   adapter-node no longer reads `ORIGIN`. Closes the Dependabot alerts on `@sveltejs/kit` and `cookie`.
 - Faster first paint: the site's small stylesheets are inlined in the page, and the map's stylesheet comes
   with the map instead of blocking the page.
+- New logo, an eye with an orange iris, instead of the "V" with a dot: favicon, app icons, the site's header
+  and the README.
 
 ### Fixed
 
