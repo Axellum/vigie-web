@@ -16,7 +16,7 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   shapes (one shape per territory, not one per warning). The full texts come with the alert's page or
   `/data/warning/<cc>/<id>.json`.
 - **Near me** (`/near`). The place is chosen in the browser (its position, a click on the map, or the page's
-  address, `#lat,lon,radius`) and the matching is done there, on the data every visitor loads: the warnings of
+  address, `#lat,lon,radius[,profile]`) and the matching is done there, on the data every visitor loads: the warnings of
   the countries around it (an area that holds it, a river section within 5 km, the areas within 2 km when a
   simplified coast leaves it outside, like the API's margins) and the hazards within the radius. Which country
   the place is in comes from simplified borders (`src/lib/data/borders.json`, every country of the API's
@@ -69,6 +69,8 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/lib/transform.ts`                          | API answers to the site's models (pure functions, tested).                                                                                                           |
 | `src/lib/geo.ts`, `src/lib/data/countries.json` | The boxes of every country the API has a border for (Natural Earth, public domain, by `scripts/build-countries.mjs`; run it again when the API's borders change).    |
 | `src/lib/near.ts`, `src/lib/data/borders.json`  | Where a place stands: warnings that hold it, rivers and hazards around it, its country (borders simplified by `scripts/build-countries.mjs`).                        |
+| `src/lib/sentence.ts`, `src/lib/profiles.ts`    | Near me: the place in one sentence, and the order of the cards for each profile.                                                                                     |
+| `src/lib/followed.ts`                           | The places followed without an account, kept in the browser (localStorage), never sent.                                                                              |
 | `src/lib/places.ts`, `src/lib/server/places.ts` | The search by name, and the places kept in memory (`data/places.tsv.gz`, built by `scripts/build-places.mjs`).                                                       |
 | `src/lib/server/db.ts`, `migrations/`           | The accounts database and its schema, migrated at start.                                                                                                             |
 | `src/lib/server/accounts.ts`, `passkeys.ts`     | Sessions, invitations, export and deletion; the passkey ceremonies.                                                                                                  |

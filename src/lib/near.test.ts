@@ -41,12 +41,28 @@ describe('distances and grid', () => {
 
 describe('the address of a place', () => {
 	it('reads a position and an optional radius', () => {
-		expect(parsePlace('#48.853,2.349')).toEqual({ lat: 48.853, lon: 2.349, radiusKm: null });
-		expect(parsePlace('#-33.9,151.2,300')).toEqual({ lat: -33.9, lon: 151.2, radiusKm: 300 });
+		expect(parsePlace('#48.853,2.349')).toEqual({ lat: 48.853, lon: 2.349, radiusKm: null, profile: null });
+		expect(parsePlace('#-33.9,151.2,300')).toEqual({ lat: -33.9, lon: 151.2, radiusKm: 300, profile: null });
+		expect(parsePlace('#43.483,-1.559,50,surf')).toEqual({
+			lat: 43.483,
+			lon: -1.559,
+			radiusKm: 50,
+			profile: 'surf'
+		});
 	});
 
 	it('refuses anything else', () => {
-		for (const bad of ['', '#', '#abc', '#91,0', '#0,181', '#1,2,3,4', '#lat=1&lon=2']) {
+		for (const bad of [
+			'',
+			'#',
+			'#abc',
+			'#91,0',
+			'#0,181',
+			'#1,2,3,4',
+			'#1,2,surf',
+			'#1,2,3,Surf!',
+			'#lat=1&lon=2'
+		]) {
 			expect(parsePlace(bad)).toBeNull();
 		}
 	});
@@ -54,7 +70,8 @@ describe('the address of a place', () => {
 	it('writes 3 decimals and the radius, and reads back the same place', () => {
 		const hash = placeHash({ lat: 48.85341, lon: 2.3488 }, 300);
 		expect(hash).toBe('#48.853,2.349,300');
-		expect(parsePlace(hash)).toEqual({ lat: 48.853, lon: 2.349, radiusKm: 300 });
+		expect(parsePlace(hash)).toEqual({ lat: 48.853, lon: 2.349, radiusKm: 300, profile: null });
+		expect(placeHash({ lat: 43.4834, lon: -1.5586 }, 50, 'surf')).toBe('#43.483,-1.559,50,surf');
 	});
 });
 
