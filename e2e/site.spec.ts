@@ -367,6 +367,94 @@ test('a tile of fires checks its level and place, and is cut down and cacheable'
 	expect(JSON.stringify(body)).not.toContain('bright_ti4');
 });
 
+test('near me shows the tide of a coastal point, computed by the API, with what it cannot do and its credit', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const tide = fixture('tides');
+	// Saint-Malo: the site asks the API for the position rounded to 0.05° (the only one the mock answers).
+	await page.goto('/near#48.649,-2.026,50');
+	await expect(page.getByRole('heading', { level: 2, name: 'Marée' })).toBeVisible();
+	const section = page.locator('section.tides');
+	await expect(section.locator('.extremes li')).toHaveCount(
+		tide.extremes.filter(
+			(e: Json) => e.time_utc >= tide.heights[0].time_utc && e.time_utc <= tide.heights.at(-1).time_utc
+		).length
+	);
+	// The coefficient is the API's estimate, shown on the French coasts only, and said not to be the official one.
+	await expect(section.locator('.coefficient')).toHaveText(
+		tide.coefficients_estimated.map((c: Json) => String(c.value))
+	);
+	await expect(section.getByText(/n.est pas le coefficient officiel/)).toBeVisible();
+	await expect(section.getByText(/Pas pour la navigation/)).toBeVisible();
+	// Its credit goes with the others of the page, folded at the end.
+	const credit = page.getByText(tide.attribution);
+	await expect(credit).toBeHidden();
+	await page.getByText('Sources de cette page').click();
+	await expect(credit).toBeVisible();
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('near me shows no tide inland, where the model has no point', async ({ page }) => {
+	const errors = collectErrors(page);
+	const answer = page.waitForResponse((r) => r.url().includes('/data/tides.json'));
+	await page.goto('/near#42.306,9.15,300');
+	// "Nothing here" is an answer, not an error: the browser logs none.
+	expect((await answer).status()).toBe(204);
+	await expect(page.getByRole('heading', { level: 2, name: /Météo/ })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2, name: 'Marée' })).toHaveCount(0);
+	await expect(page.getByText(fixture('tides').attribution)).toHaveCount(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('the tide layer is off until asked, and asks to come closer on the world map', async ({ page }) => {
+	const coast = fixture('tides-coast');
+	await page.goto('/');
+	await expect(page.getByRole('heading', { level: 2, name: /Alertes/ })).toBeVisible();
+	await expect(page.getByText(/Pas pour la navigation/)).toHaveCount(0);
+	await page.getByLabel('Marées (calculées)').check();
+	await expect(page.getByText('Rapprochez la carte pour voir la marée le long des côtes.')).toBeVisible();
+	await expect(page.getByText(/Pas pour la navigation/)).toBeVisible();
+	// No tile at this distance, so no credit yet.
+	await expect(page.getByText(coast.metadata.attribution)).toHaveCount(0);
+});
+
+test('the tide of a point and a tile of the coast check what they are asked, and are cacheable', async ({
+	request
+}) => {
+	expect((await request.get('/data/tides.json')).status()).toBe(400);
+	expect((await request.get('/data/tides.json?lat=91&lon=0')).status()).toBe(400);
+	expect((await request.get('/data/tides.json?lat=42.306&lon=9.15')).status()).toBe(204);
+	const tide = fixture('tides');
+	const point = await request.get('/data/tides.json?lat=48.649&lon=-2.026');
+	expect(point.status()).toBe(200);
+	expect(point.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	const curve = await point.json();
+	expect(curve.heights).toHaveLength(tide.heights.length);
+	expect(curve.cell).toEqual({ lat: tide.cell.lat, lon: tide.cell.lon, distanceKm: tide.cell.distance_km });
+	expect(curve.attribution).toBe(tide.attribution);
+
+	expect((await request.get('/data/tides/nope/0_0.json')).status()).toBe(404);
+	expect((await request.get('/data/tides/c/72_0.json')).status()).toBe(404);
+	expect((await request.get('/data/tides/w/0_6.json')).status()).toBe(404);
+	const coast = fixture('tides-coast');
+	const tile = await request.get('/data/tides/c/35_27.json');
+	expect(tile.status()).toBe(200);
+	expect(tile.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	const body = await tile.json();
+	expect(body.features.features).toHaveLength(coast.features.length);
+	const first = coast.features[0].properties;
+	expect(body.features.features[0].properties).toEqual({
+		h: first.height_m,
+		up: first.trend === 'rising' ? 1 : 0,
+		hi: first.next_high.time_utc,
+		hh: first.next_high.height_m,
+		lo: first.next_low.time_utc,
+		lh: first.next_low.height_m
+	});
+	expect(body.attribution).toBe(coast.metadata.attribution);
+});
+
 test('a place found by name is chosen, with its warnings', async ({ page, request }) => {
 	expect((await request.get('/data/places.json?q=a')).status()).toBe(400);
 	const answer = await (await request.get('/data/places.json?q=Corte')).json();

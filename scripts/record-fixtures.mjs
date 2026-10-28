@@ -26,7 +26,11 @@ const targets = [
 	// Active fires (NASA FIRMS): a grid of southern Africa and the detections of one tile of 2° in Zambia. The mock
 	// gives them for every tile.
 	['fires-grid', '/v1/fires/grid?bbox=20,-20,40,0&cell_deg=1&limit=20000', '/v1/fires/grid'],
-	['fires', '/v1/fires?bbox=28,-16,30,-14&limit=300', '/v1/fires']
+	['fires', '/v1/fires?bbox=28,-16,30,-14&limit=300', '/v1/fires'],
+	// The tide (computed by the API, no provider): the curve near Saint-Malo, answered only for that position (elsewhere the
+	// mock says "no tide here", as the API does inland), and the coast of one tile of 5° (Brittany), given for every tile.
+	['tides', '/v1/tides?lat=48.65&lon=-2.05&days=2&interval_minutes=15', '/v1/tides?lat=48.65&lon=-2.05'],
+	['tides-coast', '/v1/tides/coast?bbox=-5,45,0,50&limit=400', '/v1/tides/coast']
 ];
 
 await mkdir(out, { recursive: true });
