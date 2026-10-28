@@ -36,6 +36,7 @@
 <div class="shell" class:map-shell={isMap}>
 	<header class="top">
 		<a class="brand" href="/" aria-label="Vigie">
+			<img src="/favicon.svg" alt="" width="30" height="30" />
 			<b>Vigie</b><span>{tr('site.tagline')}</span>
 		</a>
 		<nav aria-label="Vigie">
@@ -106,6 +107,10 @@
 		gap: 10px;
 		color: var(--ink);
 		text-decoration: none;
+	}
+	.brand img {
+		align-self: center;
+		flex: none;
 	}
 	.brand b {
 		font-family: var(--font-display);
