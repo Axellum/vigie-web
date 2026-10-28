@@ -352,6 +352,65 @@ test.describe(() => {
 	});
 });
 
+test('a place of the account keeps its profile, and near me offers it once signed in', async ({
+	page,
+	request
+}) => {
+	await authenticator(page);
+	const name = unique('Noa');
+	await createAccount(page, name);
+
+	// From near me with a profile: the new zone takes it.
+	await page.goto('/near#43.483,-1.559,50,surf');
+	await page.getByRole('link', { name: 'Surveiller cet endroit (50 km) dans mon compte' }).click();
+	await expect(page).toHaveURL(/\/account\/zones\/new#43\.483,-1\.559,50,surf$/);
+	await expect(page.getByLabel(/^Profil, pour l’ordre des cartes/)).toHaveValue('surf');
+	await page.getByLabel('Nom de la zone').fill('Côte');
+	await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+	await expect(page).toHaveURL(/\/account#zones$/);
+	const zone = page.locator('.zones li').filter({ hasText: 'Côte' });
+	await expect(zone).toContainText('profil Surf');
+	await expect(zone.getByRole('link', { name: 'Voir' })).toHaveAttribute(
+		'href',
+		'/near#43.483,-1.559,50,surf'
+	);
+
+	// Near me lists it under the account; a new profile chosen there is kept in the account.
+	await page.goto('/near');
+	const places = page.getByRole('navigation', { name: 'Mes lieux' });
+	await expect(places.getByText('Mon compte')).toBeVisible();
+	await places.getByRole('link', { name: 'Côte' }).click();
+	await expect(page).toHaveURL(/#43\.483,-1\.559,50,surf$/);
+	await expect(page.getByRole('heading', { level: 2, name: 'Côte' })).toBeVisible();
+	await expect(page.getByText(/Ce lieu est une zone de votre compte/)).toBeVisible();
+	await expect(page.getByRole('link', { name: /Surveiller cet endroit/ })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Suivre ce lieu' })).toHaveCount(0);
+	const saved = page.waitForResponse(
+		(r) => r.url().endsWith('/account/places.json') && r.request().method() === 'POST'
+	);
+	await page.getByLabel('Profil').selectOption('sky');
+	expect((await saved).status()).toBe(200);
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [row] = await sql`
+			select z.profile from zones z join users u on u.id = z.user_id where u.name = ${name}`;
+		expect(row.profile).toBe('sky');
+	} finally {
+		await sql.end();
+	}
+
+	// The answer is private; without a session it is an empty list, not an error.
+	const mine = await page.request.get('/account/places.json');
+	expect(mine.headers()['cache-control']).toBe('private, no-store');
+	expect((await mine.json()).places).toMatchObject([{ name: 'Côte', radiusKm: 50, profile: 'sky' }]);
+	const anonymous = await request.get(`${SITE}/account/places.json`);
+	expect(anonymous.status()).toBe(200);
+	expect(await anonymous.json()).toEqual({ signedIn: false, places: [] });
+	expect(
+		(await request.post(`${SITE}/account/places.json`, { data: { id: 'x', profile: null } })).status()
+	).toBe(401);
+});
+
 /** A device as a browser would give it to the site, its push service being e2e/mock-push.mjs. */
 function device(label: string) {
 	const ecdh = createECDH('prime256v1');
