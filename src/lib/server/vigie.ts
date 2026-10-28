@@ -4,6 +4,7 @@ import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
 import { snapToGrid } from '#lib/near.js';
+import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import {
 	firesFromApi,
 	forecastFromApi,
@@ -38,7 +39,10 @@ export const TTL_S = {
 	point: 900,
 	forecast: 300,
 	served: 600,
-	fires: 600
+	fires: 600,
+	// The API keeps NOAA's aurora files 5 minutes (the Kp forecast 15); a place's estimate changes with them and the clouds.
+	aurora: 300,
+	auroraPlace: 900
 } as const;
 
 const cache = new TtlCache();
@@ -207,6 +211,33 @@ export function getFires(level: FireLevel, x: number, y: number): Promise<Cached
 				? `/v1/fires?bbox=${bbox}&limit=5000`
 				: `/v1/fires/grid?bbox=${bbox}&cell_deg=${level.cellDeg}&limit=20000`;
 		return firesFromApi(await getJson(path, 30_000), level.cellDeg == null ? 'dots' : 'cells');
+	});
+}
+
+/** NOAA's aurora data as the API relays it, without a place (one answer for every visitor). */
+export function getAurora(): Promise<Cached<Aurora>> {
+	return cache.get('aurora', TTL_S.aurora * 1000, async () =>
+		auroraFromApi(await getJson('/v1/sky/aurora', 30_000))
+	);
+}
+
+/** NOAA's OVATION oval as map bands. */
+export function getAuroraOval(): Promise<Cached<ReturnType<typeof ovalFromApi>>> {
+	return cache.get('aurora:oval', TTL_S.aurora * 1000, async () =>
+		ovalFromApi(await getJson('/v1/sky/aurora.geojson', 30_000))
+	);
+}
+
+/**
+ * The aurora estimate of the coming night at the grid point nearest to a position. It costs the API at most the daily
+ * forecast request of that point (shared with the weather), so it counts against the same daily share.
+ */
+export function getAuroraPlace(lat: number, lon: number): Promise<Cached<Aurora>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`aurora:${cell.lat},${cell.lon}`, TTL_S.auroraPlace * 1000, async () => {
+		if (!budget().take()) throw new BudgetError('The weather requests of the day are used up');
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return auroraFromApi(await getJson(`/v1/sky/aurora?${query}`, 30_000));
 	});
 }
 

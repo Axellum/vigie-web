@@ -14,6 +14,7 @@
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import MapView from '#lib/components/MapView.svelte';
 	import NearCard from '#lib/components/NearCard.svelte';
+	import NearSky from '#lib/components/NearSky.svelte';
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
 	import { pointCredits } from '#lib/credits.js';
@@ -293,6 +294,8 @@
 		});
 	});
 	const w = $derived(weather?.status === 'ok' ? (weather.value ?? null) : null);
+	// The credit of the sky card (NOAA, and the weather source of the clouds), given by the card once it has loaded.
+	let skyCredit = $state<string | null>(null);
 
 	// --- the place in one sentence, and its cards ---------------------------------------------------------
 	const sentence = $derived(
@@ -549,22 +552,8 @@
 
 <!-- Sky --------------------------------------------------------------------------------------------------- -->
 {#snippet skySummary()}
-	{#if w?.space}
-		<div class="figs">
-			<div>
-				<p class="fig">{number(lang, w.space.kp)}</p>
-				<span>{tr('fig.kp')}</span>
-			</div>
-			<div>
-				<p class="fig">{w.space.storm ?? '–'}</p>
-				<span>{tr('fig.storm')}</span>
-			</div>
-		</div>
-	{:else if w}
-		<p class="muted">–</p>
-	{:else}
-		{@render weatherState()}
-	{/if}
+	<!-- The aurora of the coming night in one sentence (the API's estimate, said to be one), not NOAA's raw index. -->
+	<NearSky {lang} {cell} bare link onattribution={(a) => (skyCredit = a)} />
 {/snippet}
 
 <!-- Air --------------------------------------------------------------------------------------------------- -->
@@ -735,7 +724,12 @@
 		<!-- The credits of what the page shows: the warnings found here, the hazards around, the weather. -->
 		<Credits
 			{lang}
-			credits={[...credits, near.length ? data.hazardsAttribution : null, ...(w ? pointCredits(w) : [])]}
+			credits={[
+				...credits,
+				near.length ? data.hazardsAttribution : null,
+				...(w ? pointCredits(w) : []),
+				skyCredit
+			]}
 		/>
 	{/if}
 </div>
