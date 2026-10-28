@@ -1,9 +1,9 @@
 <script lang="ts">
 	// The facts and the official text of a warning. The text is the issuer's, unchanged; the site's own
 	// labels (level, phenomenon) are said to be derived.
-	import { translator, type Lang } from '$lib/i18n';
-	import { pickText } from '$lib/transform';
-	import type { WarningDetail } from '$lib/types';
+	import { translator, type Lang } from '#lib/i18n.js';
+	import { pickText } from '#lib/transform.js';
+	import type { WarningDetail } from '#lib/types.js';
 	import Time from './Time.svelte';
 
 	let { lang, detail }: { lang: Lang; detail: WarningDetail } = $props();

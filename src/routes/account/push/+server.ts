@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
-import { sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
-import { fcmEnabled, isFcmToken } from '$lib/server/fcm';
+import { sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
+import { fcmEnabled, isFcmToken } from '#lib/server/fcm.js';
 import {
 	deviceId,
 	isPushEndpoint,
@@ -13,8 +13,8 @@ import {
 	sendToUser,
 	webPushEnabled,
 	type Device
-} from '$lib/server/push';
-import { t } from '$lib/i18n';
+} from '#lib/server/push.js';
+import { t } from '#lib/i18n.js';
 import type { RequestHandler } from './$types';
 
 // The devices of an account, called by the account page's script (JSON, same origin only):

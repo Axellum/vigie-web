@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { translator } from '$lib/i18n';
+	import { translator } from '#lib/i18n.js';
 
 	const tr = $derived(translator(page.data.lang ?? 'fr'));
 </script>

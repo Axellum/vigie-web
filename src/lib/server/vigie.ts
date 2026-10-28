@@ -1,9 +1,9 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
 import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
-import { tileBox, type FireLevel } from '$lib/fires';
-import { hasBox } from '$lib/geo';
-import { snapToGrid } from '$lib/near';
+import { tileBox, type FireLevel } from '#lib/fires.js';
+import { hasBox } from '#lib/geo.js';
+import { snapToGrid } from '#lib/near.js';
 import {
 	firesFromApi,
 	forecastFromApi,
@@ -13,7 +13,7 @@ import {
 	uncoveredFromApi,
 	warningsFromApi,
 	type ParsedWarnings
-} from '$lib/transform';
+} from '#lib/transform.js';
 import type {
 	FireTile,
 	HazardForecast,
@@ -22,7 +22,7 @@ import type {
 	Provider,
 	ServedCountry,
 	UncoveredCountry
-} from '$lib/types';
+} from '#lib/types.js';
 import { SlidingBudget } from './budget';
 import { TtlCache, type Cached } from './cache';
 

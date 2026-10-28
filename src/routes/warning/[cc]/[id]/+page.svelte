@@ -1,13 +1,13 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
+	import Seo from '#lib/components/Seo.svelte';
 	import type { FeatureCollection } from 'geojson';
-	import LevelPill from '$lib/components/LevelPill.svelte';
-	import MapView from '$lib/components/MapView.svelte';
-	import WarningBody from '$lib/components/WarningBody.svelte';
-	import { geometryBox } from '$lib/geo';
-	import { countryName, tOr, translator } from '$lib/i18n';
-	import { warningTitle } from '$lib/rows';
-	import { slug } from '$lib/transform';
+	import LevelPill from '#lib/components/LevelPill.svelte';
+	import MapView from '#lib/components/MapView.svelte';
+	import WarningBody from '#lib/components/WarningBody.svelte';
+	import { geometryBox } from '#lib/geo.js';
+	import { countryName, tOr, translator } from '#lib/i18n.js';
+	import { warningTitle } from '#lib/rows.js';
+	import { slug } from '#lib/transform.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

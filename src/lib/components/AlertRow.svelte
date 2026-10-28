@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { number, relative } from '$lib/format';
-	import { countryName, t, tOr, type Key, type Lang } from '$lib/i18n';
-	import { hazardHref, warningHref, warningTitle, type Row } from '$lib/rows';
+	import { number, relative } from '#lib/format.js';
+	import { countryName, t, tOr, type Key, type Lang } from '#lib/i18n.js';
+	import { hazardHref, warningHref, warningTitle, type Row } from '#lib/rows.js';
 
 	interface Props {
 		lang: Lang;

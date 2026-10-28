@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
-import { sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
+import { sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ cookies, url, setHeaders }) => {

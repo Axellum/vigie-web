@@ -1,5 +1,5 @@
-import { accountsEnabled } from '$lib/server/db';
-import { publicOrigin } from '$lib/server/origin';
+import { accountsEnabled } from '#lib/server/db.js';
+import { publicOrigin } from '#lib/server/origin.js';
 import type { LayoutServerLoad } from './$types';
 
 // The same for every visitor (public pages are cached): whether this server has accounts, not who is signed in.

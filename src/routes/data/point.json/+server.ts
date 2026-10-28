@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { ApiError, BudgetError, cacheHeaders, getPoint, TTL_S } from '$lib/server/vigie';
+import { ApiError, BudgetError, cacheHeaders, getPoint, TTL_S } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 /** Weather at a point. The page sends the position already rounded to the weather grid (about 5 km). */

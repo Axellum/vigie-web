@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
+	import Seo from '#lib/components/Seo.svelte';
 	// "Near me": the official warnings that hold a place, the hazards around it and its weather. The place is
 	// chosen in the browser (position, click on the map, or the address of the page) and the matching is done
 	// here, on the data every visitor loads; only a position rounded to the weather grid leaves the browser.
@@ -7,13 +7,13 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import { goto } from '$app/navigation';
-	import AlertRow from '$lib/components/AlertRow.svelte';
-	import MapView from '$lib/components/MapView.svelte';
-	import PlaceSearch from '$lib/components/PlaceSearch.svelte';
-	import PointWeather from '$lib/components/PointWeather.svelte';
-	import { number } from '$lib/format';
-	import { countryName, tOr, translator } from '$lib/i18n';
-	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
+	import AlertRow from '#lib/components/AlertRow.svelte';
+	import MapView from '#lib/components/MapView.svelte';
+	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
+	import PointWeather from '#lib/components/PointWeather.svelte';
+	import { number } from '#lib/format.js';
+	import { countryName, tOr, translator } from '#lib/i18n.js';
+	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
 	import {
 		circleBox,
 		countriesNear,
@@ -25,10 +25,10 @@
 		warningsAt,
 		type Borders,
 		type Place
-	} from '$lib/near';
-	import { hazardRow, warningRow } from '$lib/rows';
-	import type { Level, PointWeather as Weather, WarningsData } from '$lib/types';
-	import { ZONE_RADII_KM } from '$lib/zones';
+	} from '#lib/near.js';
+	import { hazardRow, warningRow } from '#lib/rows.js';
+	import type { Level, PointWeather as Weather, WarningsData } from '#lib/types.js';
+	import { ZONE_RADII_KM } from '#lib/zones.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -135,7 +135,7 @@
 	// while they load, null outside every covered country.
 	let borders = $state<Borders | null>(null);
 	$effect(() => {
-		if (place && !borders) import('$lib/data/borders.json').then((m) => borders = m.default as unknown as Borders);
+		if (place && !borders) import('#lib/data/borders.json').then((m) => borders = m.default as unknown as Borders);
 	});
 	const country = $derived(place && borders ? countryAt(borders, place) : undefined);
 	// Why the API reads no source for that country, when it says (a known reason code only).

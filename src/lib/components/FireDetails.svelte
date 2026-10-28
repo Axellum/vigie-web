@@ -1,9 +1,9 @@
 <script lang="ts">
 	// One cell of active fires or one detection, chosen on the map: the figures of NASA FIRMS as the API gave
 	// them, and what they are not (an alert, a fire's size, a proof that there is no fire elsewhere).
-	import Time from '$lib/components/Time.svelte';
-	import { number } from '$lib/format';
-	import { tOr, translator, type Lang } from '$lib/i18n';
+	import Time from '#lib/components/Time.svelte';
+	import { number } from '#lib/format.js';
+	import { tOr, translator, type Lang } from '#lib/i18n.js';
 
 	let {
 		lang,

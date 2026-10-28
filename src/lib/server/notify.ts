@@ -6,13 +6,13 @@
 // - An alert is told once per zone and level; it is told again only when its level rises.
 // - Quiet hours (22:00 to 07:00 in the person's time zone): only red alerts are sent; the others are kept.
 import type { Geometry } from 'geojson';
-import { boxesOverlap, coveredInView, geometryBox, type Box } from '$lib/geo';
-import { t, type Key, type Lang } from '$lib/i18n';
-import { asLevel, rank } from '$lib/levels';
-import { countryAt, type Borders } from '$lib/near';
-import { hazardHref, warningHref, warningTitle } from '$lib/rows';
-import { slug } from '$lib/transform';
-import type { Level, WarningSummary } from '$lib/types';
+import { boxesOverlap, coveredInView, geometryBox, type Box } from '#lib/geo.js';
+import { t, type Key, type Lang } from '#lib/i18n.js';
+import { asLevel, rank } from '#lib/levels.js';
+import { countryAt, type Borders } from '#lib/near.js';
+import { hazardHref, warningHref, warningTitle } from '#lib/rows.js';
+import { slug } from '#lib/transform.js';
+import type { Level, WarningSummary } from '#lib/types.js';
 import type { Query, Sql } from './db';
 import { sendToUser } from './push';
 import { getHazards, getWarnings, servedCodes } from './vigie';
@@ -51,7 +51,7 @@ export interface ZoneRow {
 
 let borders: Borders | null = null;
 async function loadBorders(): Promise<Borders> {
-	borders ??= (await import('$lib/data/borders.json')).default as unknown as Borders;
+	borders ??= (await import('#lib/data/borders.json')).default as unknown as Borders;
 	return borders;
 }
 

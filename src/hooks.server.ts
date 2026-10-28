@@ -1,11 +1,11 @@
 import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
-import { asLang, langFromHeader, type Lang } from '$lib/i18n';
+import { asLang, langFromHeader, type Lang } from '#lib/i18n.js';
 import { VIGIE_MATCH_INTERVAL_S } from '$app/env/private';
-import { cleanUp } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
-import { matchAndNotify } from '$lib/server/notify';
-import { allow } from '$lib/server/ratelimit';
-import { lowerCasePath } from '$lib/seo';
+import { cleanUp } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
+import { matchAndNotify } from '#lib/server/notify.js';
+import { allow } from '#lib/server/ratelimit.js';
+import { lowerCasePath } from '#lib/seo.js';
 
 const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
 

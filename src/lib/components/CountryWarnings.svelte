@@ -2,11 +2,11 @@
 	// Map and list of the warnings of one country (or of one of its areas), for the reading pages.
 	import { onMount } from 'svelte';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import { geometryBox, type Box } from '$lib/geo';
-	import type { Lang } from '$lib/i18n';
-	import { byLevelThenTime, LEVELS, maxLevel } from '$lib/levels';
-	import { warningHref, warningRow } from '$lib/rows';
-	import type { Hazard, Level, WarningsData, WarningSummary } from '$lib/types';
+	import { geometryBox, type Box } from '#lib/geo.js';
+	import type { Lang } from '#lib/i18n.js';
+	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
+	import { warningHref, warningRow } from '#lib/rows.js';
+	import type { Hazard, Level, WarningsData, WarningSummary } from '#lib/types.js';
 	import { goto } from '$app/navigation';
 	import MapView, { type Selection } from './MapView.svelte';
 

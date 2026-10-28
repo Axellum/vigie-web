@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { countryBox } from '$lib/geo';
-import { ApiError, getWarnings, isServed } from '$lib/server/vigie';
-import { slug } from '$lib/transform';
+import { countryBox } from '#lib/geo.js';
+import { ApiError, getWarnings, isServed } from '#lib/server/vigie.js';
+import { slug } from '#lib/transform.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, setHeaders }) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { translator, type Lang } from '$lib/i18n';
+	import { translator, type Lang } from '#lib/i18n.js';
 
 	let { lang }: { lang: Lang } = $props();
 	const tr = $derived(translator(lang));

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
-	import AlertRow from '$lib/components/AlertRow.svelte';
-	import CountryWarnings from '$lib/components/CountryWarnings.svelte';
-	import Time from '$lib/components/Time.svelte';
-	import { countryName, t, translator, type Key } from '$lib/i18n';
-	import { byLevelThenTime, LEVELS, maxLevel, rank } from '$lib/levels';
-	import { hazardRow, warningRow } from '$lib/rows';
-	import { slug } from '$lib/transform';
+	import Seo from '#lib/components/Seo.svelte';
+	import AlertRow from '#lib/components/AlertRow.svelte';
+	import CountryWarnings from '#lib/components/CountryWarnings.svelte';
+	import Time from '#lib/components/Time.svelte';
+	import { countryName, t, translator, type Key } from '#lib/i18n.js';
+	import { byLevelThenTime, LEVELS, maxLevel, rank } from '#lib/levels.js';
+	import { hazardRow, warningRow } from '#lib/rows.js';
+	import { slug } from '#lib/transform.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

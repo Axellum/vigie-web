@@ -1,10 +1,10 @@
 <script lang="ts">
 	// The search of a place by name: the server keeps the GeoNames places; the browser asks after 250 ms
 	// without typing. Enter takes the first answer.
-	import { number } from '$lib/format';
-	import { countryName, translator, type Lang } from '$lib/i18n';
-	import type { Place } from '$lib/near';
-	import type { PlaceMatch } from '$lib/places';
+	import { number } from '#lib/format.js';
+	import { countryName, translator, type Lang } from '#lib/i18n.js';
+	import type { Place } from '#lib/near.js';
+	import type { PlaceMatch } from '#lib/places.js';
 
 	let {
 		lang,

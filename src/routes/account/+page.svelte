@@ -2,12 +2,12 @@
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import LevelPill from '$lib/components/LevelPill.svelte';
-	import Time from '$lib/components/Time.svelte';
-	import { countryName, translator, type Key } from '$lib/i18n';
-	import { slug } from '$lib/transform';
-	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '$lib/passkey';
-	import { disablePush, enablePush, pushSupported, testPush, thisDevice } from '$lib/notifications';
+	import LevelPill from '#lib/components/LevelPill.svelte';
+	import Time from '#lib/components/Time.svelte';
+	import { countryName, translator, type Key } from '#lib/i18n.js';
+	import { slug } from '#lib/transform.js';
+	import { createPasskey, passkeysBlocked, PasskeyProblem, type PasskeyFailure } from '#lib/passkey.js';
+	import { disablePush, enablePush, pushSupported, testPush, thisDevice } from '#lib/notifications.js';
 
 	let { data, form } = $props();
 	const lang = $derived(data.lang);

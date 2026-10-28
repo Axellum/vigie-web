@@ -1,13 +1,13 @@
 import { error, json } from '@sveltejs/kit';
-import { cleanName, isCode, openSession, sessionUser } from '$lib/server/accounts';
-import { accountsEnabled, db } from '$lib/server/db';
+import { cleanName, isCode, openSession, sessionUser } from '#lib/server/accounts.js';
+import { accountsEnabled, db } from '#lib/server/db.js';
 import {
 	authenticate,
 	authenticationOptions,
 	PasskeyError,
 	register,
 	registrationOptions
-} from '$lib/server/passkeys';
+} from '#lib/server/passkeys.js';
 import type { RequestHandler } from './$types';
 
 // The four steps of the passkey ceremonies, called by the page's script (JSON, same origin only).

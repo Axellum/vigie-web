@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { VIGIE_PLACES_FILE } from '$app/env/private';
-import { countryName } from '$lib/i18n';
-import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '$lib/places';
+import { countryName } from '#lib/i18n.js';
+import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '#lib/places.js';
 
 let entries: PlaceEntry[] | null = null;
 let unavailable = false;

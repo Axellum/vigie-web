@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Seo from '$lib/components/Seo.svelte';
-	import AlertRow from '$lib/components/AlertRow.svelte';
-	import CountryWarnings from '$lib/components/CountryWarnings.svelte';
-	import { countryName, translator } from '$lib/i18n';
-	import { byLevelThenTime } from '$lib/levels';
-	import { warningRow } from '$lib/rows';
+	import Seo from '#lib/components/Seo.svelte';
+	import AlertRow from '#lib/components/AlertRow.svelte';
+	import CountryWarnings from '#lib/components/CountryWarnings.svelte';
+	import { countryName, translator } from '#lib/i18n.js';
+	import { byLevelThenTime } from '#lib/levels.js';
+	import { warningRow } from '#lib/rows.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

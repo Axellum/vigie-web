@@ -1,5 +1,5 @@
-import { ApiError, getServed, getUncovered } from '$lib/server/vigie';
-import type { ServedCountry, UncoveredCountry } from '$lib/types';
+import { ApiError, getServed, getUncovered } from '#lib/server/vigie.js';
+import type { ServedCountry, UncoveredCountry } from '#lib/types.js';
 import type { PageServerLoad } from './$types';
 
 // The list is the API's answer: the countries its settings serve, then the others and why (when it says).

@@ -1,6 +1,6 @@
-import { publicOrigin } from '$lib/server/origin';
-import { countryPaths, sitemapXml, STATIC_PATHS } from '$lib/seo';
-import { ApiError, servedCodes } from '$lib/server/vigie';
+import { publicOrigin } from '#lib/server/origin.js';
+import { countryPaths, sitemapXml, STATIC_PATHS } from '#lib/seo.js';
+import { ApiError, servedCodes } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 // The fixed pages and one page per served country (the API's list, cached by the server like the pages that

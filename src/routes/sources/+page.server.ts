@@ -1,4 +1,4 @@
-import { ApiError, getHazards, getProviders } from '$lib/server/vigie';
+import { ApiError, getHazards, getProviders } from '#lib/server/vigie.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ setHeaders }) => {

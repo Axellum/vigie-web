@@ -13,10 +13,10 @@
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
 	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-	import { translator, type Lang } from '$lib/i18n';
-	import type { Box } from '$lib/geo';
-	import { circleRing, type Place } from '$lib/near';
-	import type { Hazard } from '$lib/types';
+	import { translator, type Lang } from '#lib/i18n.js';
+	import type { Box } from '#lib/geo.js';
+	import { circleRing, type Place } from '#lib/near.js';
+	import type { Hazard } from '#lib/types.js';
 
 	interface Props {
 		lang: Lang;

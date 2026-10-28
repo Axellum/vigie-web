@@ -8,8 +8,8 @@
 	import '@fontsource/barlow-semi-condensed/latin-700.css';
 	import '../app.css';
 	import { page } from '$app/state';
-	import { translator } from '$lib/i18n';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import { translator } from '#lib/i18n.js';
+	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
 
 	let { data, children } = $props();
 	const tr = $derived(translator(data.lang));

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import MapView from '$lib/components/MapView.svelte';
-	import { countryBox, type Box } from '$lib/geo';
-	import { translator, type Key } from '$lib/i18n';
-	import { circleBox } from '$lib/near';
+	import MapView from '#lib/components/MapView.svelte';
+	import { countryBox, type Box } from '#lib/geo.js';
+	import { translator, type Key } from '#lib/i18n.js';
+	import { circleBox } from '#lib/near.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);

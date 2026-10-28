@@ -2,11 +2,11 @@
 	// The weather of one grid point (`/v1/point`): now, the next hour, the next days, air, river, fires seen by
 	// satellite, sea, space.
 	// Every value comes from the API as it is; an unknown one shows "–", a block the API did not give is left out.
-	import Time from '$lib/components/Time.svelte';
-	import { number } from '$lib/format';
-	import { translator, type Lang } from '$lib/i18n';
-	import type { PointWeather } from '$lib/types';
-	import { compass, skyLabel } from '$lib/weather';
+	import Time from '#lib/components/Time.svelte';
+	import { number } from '#lib/format.js';
+	import { translator, type Lang } from '#lib/i18n.js';
+	import type { PointWeather } from '#lib/types.js';
+	import { compass, skyLabel } from '#lib/weather.js';
 
 	let { lang, weather }: { lang: Lang; weather: PointWeather & { stale?: boolean } } = $props();
 	const tr = $derived(translator(lang));

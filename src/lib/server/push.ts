@@ -13,7 +13,7 @@ import {
 	VIGIE_VAPID_SUBJECT
 } from '$app/env/private';
 
-import type { Level } from '$lib/types';
+import type { Level } from '#lib/types.js';
 import type { Query, Sql } from './db';
 import { fcmEnabled, sendFcm } from './fcm';
 

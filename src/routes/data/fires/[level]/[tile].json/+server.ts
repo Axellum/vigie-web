@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
-import { fireLevelById, isTile } from '$lib/fires';
-import { ApiError, cacheHeaders, getFires, TTL_S } from '$lib/server/vigie';
+import { fireLevelById, isTile } from '#lib/fires.js';
+import { ApiError, cacheHeaders, getFires, TTL_S } from '#lib/server/vigie.js';
 import type { RequestHandler } from './$types';
 
 // One tile of the active fires of the world map: /data/fires/<level>/<x>_<y>.json ($lib/fires).
