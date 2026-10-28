@@ -310,6 +310,43 @@ test('zones: a place from near me, a country, a drawn zone; checked, exported, d
 	}
 });
 
+// MapLibre held back until the drawn zone is chosen, as on a slow phone: the map still opens on the place of the
+// address, and a zone drawn there is not refused as too large. The site's service worker serves its own files
+// from its cache, out of reach of page.route: it is blocked here.
+test.describe(() => {
+	test.use({ serviceWorkers: 'block' });
+	test('zones: a drawn zone chosen before the map has loaded is drawn on the place of the address', async ({
+		page
+	}) => {
+		await authenticator(page);
+		await createAccount(page, unique('Noa'));
+		const MAPLIBRE_CSS = '**/maplibre-gl.*.css';
+		let release = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		await page.route(MAPLIBRE_CSS, (route) => held.then(() => route.fallback()));
+		const asked = page.waitForRequest(MAPLIBRE_CSS);
+		await page.goto('/account/zones/new#42.306,9.15,25');
+		await page.getByRole('button', { name: 'Une zone dessinée' }).click();
+		await asked;
+		release();
+		await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+		const canvas = page.locator('.maplibregl-canvas');
+		const box = (await canvas.boundingBox())!;
+		for (const [x, y] of [
+			[0.3, 0.3],
+			[0.7, 0.3],
+			[0.5, 0.7]
+		])
+			await canvas.click({ position: { x: box.width * x, y: box.height * y } });
+		await expect(page.getByText('3 coin(s)')).toBeVisible();
+		await page.getByLabel('Nom de la zone').fill('Triangle');
+		await page.getByRole('button', { name: 'Enregistrer la zone' }).click();
+		await expect(page.locator('.zones li').filter({ hasText: 'Triangle' })).toContainText(
+			'Zone dessinée, 3 coins'
+		);
+	});
+});
+
 /** A device as a browser would give it to the site, its push service being e2e/mock-push.mjs. */
 function device(label: string) {
 	const ecdh = createECDH('prime256v1');

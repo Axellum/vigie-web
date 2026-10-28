@@ -105,6 +105,8 @@ All notable changes are listed here. Versions are git tags.
   to their lower-case address; an area with no warning in force (or a made-up one) is `noindex`; the language
   switch and the "watch this zone" links are `nofollow`, and `robots.txt` keeps crawlers out of `/account`.
 - On a phone, a wide table no longer makes the whole page wider than the screen.
+- A drawn zone chosen before the map has loaded (a slow phone, a place from "near me") is drawn on that place,
+  instead of on the whole world where it was refused as too large.
 
 ### Security
 
