@@ -21,19 +21,6 @@
 	const current = $derived(weather.current);
 	const steps = $derived(weather.rain?.mmPerStep ?? null);
 	const stepMax = $derived(steps ? Math.max(0.1, ...steps) : 0.1);
-	const credits = $derived([
-		...new Set(
-			[
-				weather.attribution,
-				weather.rain?.attribution,
-				weather.air?.attribution,
-				weather.river?.attribution,
-				weather.fires?.attribution,
-				weather.marine?.attribution,
-				weather.space?.attribution
-			].flatMap((a) => (a ? a.split(' | ').map((part) => part.trim()) : []))
-		)
-	]);
 </script>
 
 <div class="weather">
@@ -46,6 +33,7 @@
 			<div class="headline">
 				<span class="temp data">{unit(current.tempC, '°C')}</span>
 				<span class="sky">
+					<span class="muted small">{tr('w.now')}</span>
 					<strong>{skyLabel(lang, current.code)}</strong>
 					{#if current.feelsLikeC != null}
 						<span class="muted">{tr('w.feels', { t: unit(current.feelsLikeC, '°C') })}</span>
@@ -124,6 +112,7 @@
 					</tbody>
 				</table>
 			</div>
+			<p class="muted small">{tr('w.daysNote')}</p>
 		</section>
 	{/if}
 
@@ -169,9 +158,10 @@
 			{@const fires = weather.fires}
 			{@const km = number(lang, fires.radiusKm, 0)}
 			<section class="part card">
-				<h3>
-					{tr('w.fires')}{#if fires.stale}<span class="muted small"> · {tr('w.stale')}</span>{/if}
-				</h3>
+				<h3>{tr('w.fires')}</h3>
+				{#if fires.stale}
+					<p class="muted small">{tr('w.firesStale')} <Time {lang} unix={fires.readAt} /></p>
+				{/if}
 				{#if fires.count === 0}
 					<p class="small">{tr('w.firesNone', { km })}</p>
 				{:else}
@@ -231,8 +221,6 @@
 	</div>
 
 	<p class="muted small">{tr('w.skyNote')}</p>
-	{#each credits as credit (credit)}<p class="credit">{credit}</p>{/each}
-	{#if weather.fires?.disclaimer}<p class="credit">{weather.fires.disclaimer}</p>{/if}
 </div>
 
 <style>

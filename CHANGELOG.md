@@ -78,6 +78,16 @@ All notable changes are listed here. Versions are git tags.
   with the map instead of blocking the page.
 - New logo, an eye with an orange iris, instead of the "V" with a dot: favicon, app icons, the site's header
   and the README.
+- No more English or technical text in a French page: the sources of a country are named and counted in the
+  page's language (the API's notes for developers are left out), the base map names places in French where
+  its tiles have the name, MapLibre's buttons are translated, and the API's own reason for a country without
+  a source shows on the English page only.
+- The credits of a page are folded under "Sources of this page" at its end, still on every page that shows
+  data (an area page now has them too, a country page also credits its hazards).
+- On a phone, every tab of the header stays in sight (the map's takes a short name); the map says it is
+  loading until its first tiles are drawn, instead of an empty box; "near me" tells the sky of now from the
+  most marked weather of the day, and says when the fires come from an earlier reading of NASA's data.
+- The place search says it is searching while the answer comes, and keeps the last answer in sight meanwhile.
 
 ### Fixed
 

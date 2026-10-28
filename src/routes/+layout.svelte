@@ -17,8 +17,9 @@
 	const path = $derived(page.url.pathname);
 	const isMap = $derived(path === '/');
 
+	// On a phone the tabs hold on one line: the map's takes its short name there (`short`).
 	const nav = [
-		{ href: '/', key: 'nav.map' },
+		{ href: '/', key: 'nav.map', short: 'nav.mapShort' },
 		{ href: '/near', key: 'nav.near' },
 		{ href: '/countries', key: 'nav.countries' },
 		{ href: '/sources', key: 'nav.sources' },
@@ -41,7 +42,13 @@
 		</a>
 		<nav aria-label="Vigie">
 			{#each nav as item (item.href)}
-				<a href={item.href} aria-current={current(item.href) ? 'page' : undefined}>{tr(item.key)}</a>
+				{#if 'short' in item}
+					<a href={item.href} aria-current={current(item.href) ? 'page' : undefined} aria-label={tr(item.key)}
+						><span class="long">{tr(item.key)}</span><span class="short">{tr(item.short)}</span></a
+					>
+				{:else}
+					<a href={item.href} aria-current={current(item.href) ? 'page' : undefined}>{tr(item.key)}</a>
+				{/if}
 			{/each}
 		</nav>
 		<div class="tools">
@@ -145,6 +152,9 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 	}
+	nav .short {
+		display: none;
+	}
 	.tools {
 		display: flex;
 		align-items: center;
@@ -199,16 +209,21 @@
 			display: none;
 		}
 	}
+	/* Every tab stays in sight: on one line from 375 px, on two below if they need it. */
 	@media (max-width: 640px) {
 		nav {
 			margin-left: 0;
 			width: 100%;
-			flex-wrap: nowrap;
-			overflow-x: auto;
 		}
 		nav a {
 			white-space: nowrap;
-			padding: 6px 8px;
+			padding: 6px;
+		}
+		nav .long {
+			display: none;
+		}
+		nav .short {
+			display: inline;
 		}
 		.tools {
 			position: absolute;

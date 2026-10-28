@@ -77,6 +77,36 @@ test('the country page counts the warnings by level', async ({ page }) => {
 	}
 });
 
+test('the country page tells its sources in its own words, and folds their credits', async ({ page }) => {
+	await page.goto('/country/fr');
+	const sources = page.locator('ul.coverage');
+	await expect(sources.getByText('Vigicrues')).toBeVisible();
+	const vigicrues = fr.metadata.coverage.find((c: Json) => c.source === 'vigicrues');
+	await expect(sources).toContainText(`${vigicrues.warnings_in_feed} vigilance(s) en cours`);
+	// The API's note is for developers, in English: not on the page.
+	await expect(page.getByText(/river_radius_km|river sections/)).toHaveCount(0);
+	const credit = page.getByText(/^Source: Vigicrues/);
+	await expect(credit).toBeHidden();
+	await page.getByText('Sources de cette page').click();
+	await expect(credit).toBeVisible();
+});
+
+test('every tab of the header is in sight, on a phone too', async ({ page }) => {
+	for (const lang of ['fr', 'en']) {
+		await page.goto(`/sources?lang=${lang}`);
+		const width = page.viewportSize()!.width;
+		const links = page.getByRole('navigation', { name: 'Vigie' }).getByRole('link');
+		await expect(links).toHaveCount(5);
+		for (const link of await links.all()) {
+			await expect(link).toBeVisible();
+			const box = (await link.boundingBox())!;
+			expect(box.x + box.width).toBeLessThanOrEqual(width);
+		}
+	}
+	// The map's tab keeps its whole name for screen readers when it shows a short one.
+	await expect(page.getByRole('link', { name: 'World map' })).toBeVisible();
+});
+
 test('a warning page shows the official text unchanged', async ({ page }) => {
 	const withText = fr.features.find((f: Json) => f.properties.texts?.[0]?.description);
 	test.skip(!withText, 'the recording has no French warning with a text');
@@ -166,7 +196,13 @@ test('near me shows the warnings and the weather of a place given in the address
 	// The weather is the recorded answer, with its credit; the temperature in French notation.
 	const temp = `${String(point.current.temp_c).replace('.', ',')} °C`;
 	await expect(page.getByText(temp, { exact: true }).first()).toBeVisible();
-	await expect(page.getByText('Weather data by Open-Meteo.com (https://open-meteo.com/)')).toBeVisible();
+	// The sky of now and the sky of the day are told apart.
+	await expect(page.getByText('Ciel du jour : le temps le plus marqué prévu dans la journée')).toBeVisible();
+	// The credits are folded at the end of the page, one click away.
+	const credit = page.getByText('Weather data by Open-Meteo.com (https://open-meteo.com/)');
+	await expect(credit).toBeHidden();
+	await page.getByText('Sources de cette page').click();
+	await expect(credit).toBeVisible();
 	const overflow = await page.evaluate(
 		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
 	);
@@ -180,12 +216,17 @@ test('near me says when no source of official warnings covers the place', async 
 	await expect(page.getByText(/Aucune source de vigilances officielles .* \(Brésil\)/)).toBeVisible({
 		timeout: 15_000
 	});
-	// And why, as the API says it: its reason code in the site's words, its own sentence in English.
+	// And why, as the API says it: its reason code in the site's words; its own sentence, in English, on the
+	// English page only.
 	const brazil = (fixture('vigilances-countries') as unknown as Json[]).find((c) => c.country === 'BR');
 	if (brazil?.reason_code === 'licence_unverified') {
 		await expect(page.getByText(/Pourquoi : Une source existe, mais sa licence/)).toBeVisible();
-		if (brazil.reason)
-			await expect(page.locator('[lang="en"]', { hasText: brazil.reason.slice(0, 40) })).toBeVisible();
+		if (brazil.reason) {
+			const sentence = page.locator('span[lang="en"]', { hasText: brazil.reason.slice(0, 40) });
+			await expect(sentence).toHaveCount(0);
+			await page.goto('/near?lang=en#-23.55,-46.63,300');
+			await expect(sentence).toBeVisible({ timeout: 15_000 });
+		}
 	}
 });
 
@@ -233,6 +274,7 @@ test('near me tells the fires seen by satellite around the place, with their cre
 	if (fires.count_24h === 0)
 		await expect(page.getByText(`Aucune détection en 24 h à moins de ${fires.radius_km} km.`)).toBeVisible();
 	else await expect(page.getByText(`Détections en 24 h à moins de ${fires.radius_km} km`)).toBeVisible();
+	await page.getByText('Sources de cette page').click();
 	await expect(page.getByText(fires.attribution)).toBeVisible();
 	await expect(page.getByText(fires.disclaimer)).toBeVisible();
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The search of a place by name: the server keeps the GeoNames places; the browser asks after 250 ms
-	// without typing. Enter takes the first answer.
+	// without typing. Enter takes the first answer. While a new answer is on its way, the last one stays.
 	import { number } from '#lib/format.js';
 	import { countryName, translator, type Lang } from '#lib/i18n.js';
 	import type { Place } from '#lib/near.js';
@@ -16,7 +16,6 @@
 	let query = $state('');
 	let found = $state<PlaceMatch[]>([]);
 	let search = $state<'idle' | 'busy' | 'ok' | 'none' | 'failed'>('idle');
-	let placesCredit = $state('');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let asked = 0;
 
@@ -28,6 +27,7 @@
 			search = 'idle';
 			return;
 		}
+		search = 'busy';
 		timer = setTimeout(() => void runSearch(q), 250);
 	}
 
@@ -37,18 +37,27 @@
 		try {
 			const response = await fetch(`/data/places.json?q=${encodeURIComponent(q)}`);
 			if (!response.ok) throw new Error(String(response.status));
-			const body = (await response.json()) as { places: PlaceMatch[]; attribution: string };
+			const body = (await response.json()) as { places: PlaceMatch[] };
 			if (ticket !== asked) return;
 			found = body.places;
-			placesCredit = body.attribution;
 			search = found.length ? 'ok' : 'none';
 		} catch {
-			if (ticket === asked) search = 'failed';
+			if (ticket === asked) {
+				found = [];
+				search = 'failed';
+			}
 		}
 	}
 
 	const placeLabel = (p: PlaceMatch) =>
 		[p.name, p.region, countryName(lang, p.cc)].filter(Boolean).join(', ');
+	const placeDetail = (p: PlaceMatch) =>
+		[
+			[p.region, countryName(lang, p.cc)].filter(Boolean).join(', '),
+			p.population ? tr('near.inhabitants', { n: number(lang, p.population, 0) }) : null
+		]
+			.filter(Boolean)
+			.join(' · ');
 
 	function pick(p: PlaceMatch) {
 		onpick({ lat: p.lat, lon: p.lon }, placeLabel(p));
@@ -76,21 +85,20 @@
 		bind:value={query}
 		oninput={onQuery}
 	/>
-	{#if search === 'ok'}
+	{#if found.length && (search === 'ok' || search === 'busy')}
 		<ul class="results">
 			{#each found as p (`${p.name}|${p.region}|${p.cc}|${p.lat}`)}
 				<li>
 					<button type="button" onclick={() => pick(p)}>
 						<strong>{p.name}</strong>
-						<span class="muted">
-							{[p.region, countryName(lang, p.cc)].filter(Boolean).join(', ')}{#if p.population}
-								· {tr('near.inhabitants', { n: number(lang, p.population, 0) })}{/if}
-						</span>
+						<span class="muted">{placeDetail(p)}</span>
 					</button>
 				</li>
 			{/each}
 		</ul>
-		<p class="credit">{placesCredit}</p>
+		<p class="credit">{tr('near.placesCredit')}</p>
+	{:else if search === 'busy'}
+		<p class="muted small" role="status">{tr('near.searching')}</p>
 	{:else if search === 'none'}
 		<p class="muted small">{tr('near.searchNone')}</p>
 	{:else if search === 'failed'}

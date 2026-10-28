@@ -290,6 +290,7 @@ describe('fires', () => {
 		expect(point.fires?.count).toBe(raw.fires_nearby.count_24h);
 		expect(point.fires?.radiusKm).toBe(raw.fires_nearby.radius_km);
 		expect(point.fires?.nearestKm).toBe(raw.fires_nearby.nearest_km ?? null);
+		expect(point.fires?.readAt).toBe(raw.fires_nearby.data_read_utc);
 		expect(point.fires?.attribution).toContain('FIRMS');
 		expect(point.fires?.disclaimer).toBeTruthy();
 		expect(pointFromApi({ fires_nearby: null }).fires).toBeNull();
@@ -307,6 +308,7 @@ describe('fires', () => {
 			nearestKm: 11,
 			maxFrpMw: 73.12,
 			latest: 1792497060,
+			readAt: null,
 			stale: false
 		});
 	});

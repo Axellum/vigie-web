@@ -2,7 +2,9 @@
 	import Seo from '#lib/components/Seo.svelte';
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import CountryWarnings from '#lib/components/CountryWarnings.svelte';
+	import Credits from '#lib/components/Credits.svelte';
 	import Time from '#lib/components/Time.svelte';
+	import { coverageCount, sourceName } from '#lib/credits.js';
 	import { countryName, t, translator, type Key } from '#lib/i18n.js';
 	import { byLevelThenTime, LEVELS, maxLevel, rank } from '#lib/levels.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
@@ -105,15 +107,18 @@
 			<h2>{tr('country.coverage')}</h2>
 			<ul class="coverage">
 				{#each data.warnings.coverage as c (c.source + c.country)}
+					{@const count = coverageCount(lang, c)}
 					<li>
-						<strong>{c.source}</strong>
-						{#if c.status !== 'ok'}<span class="note">{tr('country.unavailable')}</span>{/if}
-						{#if c.note}<span class="muted small">{c.note}</span>{/if}
+						<strong>{sourceName(lang, c.source)}</strong>
+						{#if c.status === 'unavailable'}
+							<span class="note">{tr('country.unavailable')}</span>
+						{:else if c.status === 'stale'}
+							<span class="note">{tr('country.staleSource')}</span>
+						{/if}
+						{#if count}<span class="muted small">· {count}</span>{/if}
 					</li>
 				{/each}
 			</ul>
-			{#each data.warnings.attributions as a (a)}<p class="credit">{a}</p>{/each}
-			{#if data.warnings.disclaimer}<p class="credit">{data.warnings.disclaimer}</p>{/if}
 		</section>
 	{/if}
 
@@ -127,6 +132,15 @@
 			</div>
 		</section>
 	{/if}
+
+	<Credits
+		{lang}
+		credits={[
+			...(data.warnings?.attributions ?? []),
+			data.warnings?.disclaimer,
+			hazardRows.length ? data.hazardsAttribution : null
+		]}
+	/>
 </div>
 
 <style>

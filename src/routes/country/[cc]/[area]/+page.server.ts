@@ -15,9 +15,10 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		throw e;
 	}
 	const all = result?.value.data.warnings ?? [];
+	const credits = result ? [...result.value.data.attributions, result.value.data.disclaimer] : [];
 	const warnings = all.filter((w) => w.area && slug(w.area) === params.area);
 	// An area with no warning in force any more is still a valid page: it says so.
 	const area = warnings[0]?.area ?? params.area.replace(/-/g, ' ');
 	setHeaders({ 'cache-control': 'public, max-age=60, s-maxage=120' });
-	return { cc, area, warnings, box: countryBox(cc), now: Math.floor(Date.now() / 1000) };
+	return { cc, area, warnings, credits, box: countryBox(cc), now: Math.floor(Date.now() / 1000) };
 };
