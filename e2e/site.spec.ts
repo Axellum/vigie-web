@@ -546,7 +546,7 @@ test('the surf page lists the spots, and a spot shows its best slot with its rat
 	])
 		await expect(best.locator('.criteria .name', { hasText: new RegExp(`^${name}$`) })).toBeVisible();
 	await expect(best.getByText('pas compté')).toBeVisible();
-	await expect(best.getByText(hossegor.rules.swell_height)).toBeVisible();
+	await expect(best.getByText(/^houle principale sous 0,5 m : 0 ;/)).toBeVisible();
 	// An hour opens on its own rating.
 	const hour = page.locator('details.hour').first();
 	await hour.locator('summary').click();

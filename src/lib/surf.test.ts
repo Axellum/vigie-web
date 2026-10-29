@@ -6,6 +6,7 @@ import {
 	criterionValue,
 	hoursByDay,
 	nearSurfSpots,
+	ruleText,
 	share,
 	surfForecastFromApi,
 	surfSpotsFromApi,
@@ -112,5 +113,22 @@ describe('the words and figures', () => {
 		expect(nearSurfSpots({ lat: 43.66, lon: -1.44 })).toBe(true);
 		expect(nearSurfSpots({ lat: 43.3, lon: 5.37 })).toBe(false);
 		expect(nearSurfSpots(null)).toBe(false);
+	});
+});
+
+describe('the rules of the rating', () => {
+	const rules = surfForecastFromApi(fixture('surf-hossegor.json'))!.rules;
+
+	it('are in French on the French page while the API says what was translated', () => {
+		expect(ruleText('fr', rules, 'swell_period')).toBe('sous 8 s : 0 ; de 8 à 11 s : 1 ; 11 s et plus : 2');
+		expect(ruleText('en', rules, 'swell_period')).toBe(rules.swell_period);
+		for (const name of ['swell_height', 'swell_direction', 'wind', 'tide', 'best_slot'] as const)
+			expect(ruleText('fr', rules, name)).not.toBe(rules[name]);
+	});
+
+	it("are the API's own words once the API changes one", () => {
+		const changed = { ...rules, swell_period: 'under 9 s: 0; 9 to 12 s: 1; 12 s and over: 2' };
+		expect(ruleText('fr', changed, 'swell_period')).toBe(changed.swell_period);
+		expect(ruleText('fr', {}, 'wind')).toBeNull();
 	});
 });

@@ -334,6 +334,7 @@ const TEXT = {
 		'criterion.wind': 'Vent',
 		'criterion.tide': 'Marée',
 		ours: 'La note est une règle à nous : quelques seuils, donnés ici ; elle ne connaît ni le spot ni le surfeur.',
+		bestRule: 'Le meilleur créneau est ',
 		model: 'Houle : {model}.',
 		updated: 'Prévision calculée à {time}.',
 		limits: 'Ce que la prévision ne voit pas',
@@ -382,12 +383,54 @@ const TEXT = {
 		'criterion.wind': 'Wind',
 		'criterion.tide': 'Tide',
 		ours: 'The rating is a rule of ours: a few thresholds, given here; it knows neither the spot nor the surfer.',
+		bestRule: 'The best slot is ',
 		model: 'Swell: {model}.',
 		updated: 'Forecast worked out at {time}.',
 		limits: 'What the forecast does not see',
 		tideLink: 'The surf forecast of the spots'
 	}
 } as const;
+
+// The rules of the rating are the API's, in English. The French below says the same thresholds; it is shown only while the
+// API's text is the one it was written from, so that a rule changed in the API is never shown in an old French version.
+const RULES_FR: Record<Criterion | 'best_slot', [string, string]> = {
+	swell_height: [
+		'primary swell under 0.5 m: 0; 0.5 to 1 m: 1; 1 to 2.5 m: 2; 2.5 to 4 m: 1; 4 m and over: 0',
+		'houle principale sous 0,5 m : 0 ; de 0,5 à 1 m : 1 ; de 1 à 2,5 m : 2 ; de 2,5 à 4 m : 1 ; 4 m et plus : 0'
+	],
+	swell_period: [
+		'under 8 s: 0; 8 to 11 s: 1; 11 s and over: 2',
+		'sous 8 s : 0 ; de 8 à 11 s : 1 ; 11 s et plus : 2'
+	],
+	swell_direction: [
+		'angle between where the swell comes from and the facing of the spot: up to 30 degrees: 2; up to 60: 1; more: 0',
+		'angle entre la direction d’où vient la houle et celle vers laquelle la plage regarde : jusqu’à 30° : 2 ; jusqu’à 60° : 1 ; au-delà : 0'
+	],
+	wind: [
+		'under 10 km/h: 2; offshore (from the land side, within 45 degrees) under 35 km/h: 2; cross-shore under 20 km/h: 1; anything else: 0',
+		'moins de 10 km/h : 2 ; de terre (du côté de la terre, à 45° près) sous 35 km/h : 2 ; parallèle à la côte sous 20 km/h : 1 ; sinon : 0'
+	],
+	tide: [
+		'2 when the tide stage is the one the spot works best with, 0 otherwise; left out while that is unknown (every spot today)',
+		'2 quand la marée est dans le tiers où le spot marche le mieux, 0 sinon ; laissée de côté tant que ce tiers est inconnu (pour tous les spots aujourd’hui)'
+	],
+	best_slot: [
+		'the daylight hour of the next 72 with the most points for what could be scored, at least three criteria; the first on a tie',
+		'l’heure de jour des 72 prochaines qui a le plus de points pour ce qui a pu être noté, avec au moins trois critères ; la première en cas d’égalité'
+	]
+};
+
+/** A rule of the rating in the page's language: the API's words, or their French while they are the ones translated. */
+export function ruleText(
+	lang: Lang,
+	rules: SurfForecast['rules'],
+	name: Criterion | 'best_slot'
+): string | null {
+	const api = rules[name] ?? null;
+	if (api == null || lang !== 'fr') return api;
+	const [from, fr] = RULES_FR[name];
+	return api === from ? fr : api;
+}
 
 export type SurfKey = keyof (typeof TEXT)['fr'];
 

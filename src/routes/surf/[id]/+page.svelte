@@ -9,6 +9,7 @@
 		dayLabel,
 		hourLabel,
 		hoursByDay,
+		ruleText,
 		share,
 		surfText,
 		swellText,
@@ -56,7 +57,9 @@
 				<span class="data">{criterionValue(lang, c) ?? surfText(lang, 'unknownValue')}</span>
 				<span class="data pts">{c.points == null ? surfText(lang, 'notScored') : `${c.points}/${c.max}`}</span
 				>
-				{#if f?.rules[c.name]}<span class="rule muted small">{f.rules[c.name]}</span>{/if}
+				{#if f && ruleText(lang, f.rules, c.name)}<span class="rule muted small"
+						>{ruleText(lang, f.rules, c.name)}</span
+					>{/if}
 			</li>
 		{/each}
 	</ul>
@@ -109,8 +112,8 @@
 				<h3>{surfText(lang, 'why')}</h3>
 				{@render why(f.best.rating)}
 				<p class="muted small">
-					{surfText(lang, 'ours')}{#if f.rules.best_slot}
-						{' '}{f.rules.best_slot}.{/if}
+					{surfText(lang, 'ours')}{#if ruleText(lang, f.rules, 'best_slot')}
+						{' '}{surfText(lang, 'bestRule')}{ruleText(lang, f.rules, 'best_slot')}.{/if}
 				</p>
 			{:else}
 				<p class="muted">{surfText(lang, 'bestNone')}</p>
@@ -132,7 +135,7 @@
 								<span class="sw">{swellText(lang, h.swell) ?? '—'}</span>
 								<span class="wd"
 									>{windText(lang, { ...h.wind, gust: null }) ?? '—'}{#if h.wind.relative}
-										<span class="muted small">{surfText(lang, `relative.${h.wind.relative}`)}</span
+										{' '}<span class="muted small">{surfText(lang, `relative.${h.wind.relative}`)}</span
 										>{/if}</span
 								>
 								<span class="rt">{@render bar(h.rating)}</span>
