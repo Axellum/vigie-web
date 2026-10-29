@@ -711,7 +711,10 @@ test('near me orders its cards by profile and keeps followed places in the brows
 	await page.getByLabel('Profil').selectOption('surf');
 	await expect(page).toHaveURL(/#42\.306,9\.15,300,surf$/);
 	await expect(cards.first()).toHaveAccessibleName('Vigilances officielles');
-	await expect(cards.nth(1)).toHaveAccessibleName('Mer');
+	// Then the surf spots (none within 300 km of Corsica: the card says so), then the sea.
+	await expect(cards.nth(1)).toHaveAccessibleName('Surf · spots à moins de 300 km');
+	await expect(cards.nth(1).getByText('Aucun spot de la liste à moins de 300 km.')).toBeVisible();
+	await expect(cards.nth(2)).toHaveAccessibleName('Mer');
 	// Followed: kept in this browser, offered again on the next visit with its radius and profile.
 	await page.getByRole('button', { name: 'Suivre ce lieu' }).click();
 	await expect(page.getByRole('button', { name: 'Ne plus suivre' })).toBeVisible();
