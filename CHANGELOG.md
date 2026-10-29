@@ -97,6 +97,13 @@ All notable changes are listed here. Versions are git tags.
 
 ### Changed
 
+- The home page opens on "the point": what is red in the world, how many events are orange and yellow, and what
+  counts, the strongest first. These are the API's events (`/v1/events`, compact): the official warnings of one
+  phenomenon close together and earthquake sequences are one line each, ranked by the API's impact score; the title
+  is written by the site in the reader's language (a hazard keeps its source's own), and the page says the grouping
+  and the titles are its own work. The server reads the world every five minutes at most and serves the last answer
+  while it reads it again. The places followed show as shortcuts to "near me"; green is no longer a counter.
+
 - "Near me" in cards: the place in one sentence (the site's own, built from the cards), then the official
   warnings ("nothing in force" and "no source" told apart), the hazards around, the weather, the sea, the sky
   and the air, each folded to a few figures with its detail one click away. A profile (surf, sea, mountain, sky,

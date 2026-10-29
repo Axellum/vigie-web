@@ -13,6 +13,17 @@
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import MapView, { type Selection } from '#lib/components/MapView.svelte';
 	import WarningBody from '#lib/components/WarningBody.svelte';
+	import {
+		eventTitle,
+		hazardsOf,
+		MIN_IMPACT,
+		worldSentence,
+		type WorldEvent,
+		type WorldEvents
+	} from '#lib/events.js';
+	import { readFollowed, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
+	import { placeHash } from '#lib/near.js';
+	import { untilPhrase } from '#lib/sentence.js';
 	import { fireLevel, tilesInView } from '#lib/fires.js';
 	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '#lib/geo.js';
 	import { countryName, t, tOr, translator, type Key } from '#lib/i18n.js';
@@ -35,6 +46,51 @@
 	let hazards = $derived<Hazard[]>(data.hazards?.items ?? []);
 	let hazardsAttribution = $derived<string | null>(data.hazards?.attribution ?? null);
 	let now = $derived(data.now);
+
+	// --- the point of the world: the API's events, the strongest first ---------------------------------
+	/** How many events the list shows before "show all". */
+	const POINT_ROWS = 12;
+	let world = $derived<WorldEvents | null>(data.events);
+	let worldStatus = $state<'ok' | 'loading' | 'failed'>('ok');
+	let allEvents = $state(false);
+	const listed = $derived(world?.events.filter((e) => e.impact >= MIN_IMPACT) ?? []);
+	const pointRows = $derived(allEvents ? listed : listed.slice(0, POINT_ROWS));
+	const said = $derived(world ? worldSentence(lang, world, hazards) : []);
+	// The places followed in this browser, and those of the account signed in: shortcuts to "near me".
+	let places = $state<(FollowedPlace | AccountPlace)[]>([]);
+
+	async function loadWorld() {
+		worldStatus = 'loading';
+		try {
+			const response = await fetch('/data/events.json');
+			if (!response.ok) throw new Error(String(response.status));
+			world = (await response.json()) as WorldEvents;
+			worldStatus = 'ok';
+		} catch {
+			worldStatus = 'failed';
+		}
+	}
+
+	async function loadPlaces() {
+		places = readFollowed();
+		if (!data.accounts) return;
+		try {
+			const response = await fetch('/account/places.json');
+			if (response.ok)
+				places = [...((await response.json()) as { places: AccountPlace[] }).places, ...places];
+		} catch {
+			// The places of this browser are enough.
+		}
+	}
+
+	function pickEvent(e: WorldEvent) {
+		const own = hazardsOf(e, hazards)[0];
+		if (own) {
+			pick(hazardRow(own));
+			return;
+		}
+		if (e.bbox) mapView?.show(e.bbox, 6);
+	}
 	let view = $state<Box | null>(null);
 	let zoom = $state(0);
 	let inView = $state(true);
@@ -380,13 +436,20 @@
 		for (const part of (hazardsAttribution ?? '').split(' | ')) if (part) set.add(part);
 		for (const cc of visibleCountries)
 			for (const a of countries.get(cc)?.data?.attributions ?? []) set.add(a);
+		for (const e of pointRows) if (e.attribution) set.add(e.attribution);
 		return [...set];
 	});
 	const disclaimers = $derived([
-		...new Set(visibleCountries.map((cc) => countries.get(cc)?.data?.disclaimer).filter(Boolean))
+		...new Set(
+			[...visibleCountries.map((cc) => countries.get(cc)?.data?.disclaimer), world?.disclaimer].filter(
+				Boolean
+			)
+		)
 	] as string[]);
 
 	onMount(() => {
+		if (!world) void loadWorld();
+		void loadPlaces();
 		const tick = setInterval(() => (now = Math.floor(Date.now() / 1000)), 60_000);
 		const refresh = setInterval(async () => {
 			try {
@@ -499,10 +562,78 @@
 				{/if}
 			</section>
 		{:else}
+			<section class="block point" aria-labelledby="point-title">
+				<h2 id="point-title" class="eyebrow">{tr('point.title')}</h2>
+				{#if world}
+					<p class="said">{said.join(' ')}</p>
+					{#if world.missing.length}
+						<p class="hint">
+							{tr('point.missing', {
+								sources: [
+									...new Set(
+										world.missing.map((m) =>
+											m.country ? `${m.source} (${countryName(lang, m.country)})` : m.source
+										)
+									)
+								].join(', ')
+							})}
+						</p>
+					{/if}
+				{:else if worldStatus === 'failed'}
+					<p class="muted">{tr('point.failed')}</p>
+				{:else}
+					<p class="muted">{tr('point.loading')}</p>
+				{/if}
+				{#if places.length}
+					<nav class="chips" aria-label={tr('near.followed')}>
+						<span class="hint">{tr('near.followed')}</span>
+						{#each places as p (`${p.lat},${p.lon}`)}
+							<a class="chip" href="/near{placeHash(p, p.radiusKm, p.profile)}"
+								>{p.name ?? `${p.lat}, ${p.lon}`}</a
+							>
+						{/each}
+					</nav>
+				{/if}
+			</section>
+			{#if world}
+				<section class="block" aria-labelledby="point-list">
+					<h2 id="point-list" class="eyebrow">
+						{tr('point.list')} · <span class="data">{listed.length}</span>
+					</h2>
+					<ol class="events">
+						{#each pointRows as e (e.id)}
+							<li>
+								<button type="button" class="event sev-{e.level ?? 'NONE'}" onclick={() => pickEvent(e)}>
+									<span class="t">{eventTitle(lang, e, hazards)}</span>
+									<span class="m">
+										{e.level ? t(lang, `level.${e.level}` as Key) : t(lang, 'level.none')}
+										{#if e.end && e.end > now}· {untilPhrase(lang, e.end, now)}{/if}
+										<!-- The hazards' sources by name (GDACS, USGS…); the warnings' sources are credited below. -->
+										{#if e.kind !== 'warnings' && e.sources.length}· {e.sources.join(', ')}{/if}
+									</span>
+								</button>
+								{#if e.kind === 'warnings' && e.country && data.served.includes(e.country)}
+									<a class="more" href="/country/{e.country.toLowerCase()}">{countryName(lang, e.country)}</a>
+								{/if}
+							</li>
+						{/each}
+					</ol>
+					{#if listed.length > POINT_ROWS}
+						<button type="button" class="btn quiet" onclick={() => (allEvents = !allEvents)}>
+							{allEvents ? tr('point.less') : tr('point.more', { n: listed.length })}
+						</button>
+					{/if}
+					{#if world.counts.unknown}<p class="hint">
+							{tr('point.unknown', { n: world.counts.unknown })}
+						</p>{/if}
+					<p class="hint">{tr('point.note')}</p>
+				</section>
+			{/if}
 			<section class="block">
 				<h2 class="eyebrow">{tr('levels.title')}</h2>
 				<div class="levels">
-					{#each LEVELS as level (level)}
+					<!-- No green counter: green is nothing in force (the audit); green zones stay drawn on the map. -->
+					{#each LEVELS.filter((l) => l !== 'GREEN') as level (level)}
 						<button
 							type="button"
 							class="level sev-{level}"
@@ -638,6 +769,53 @@
 </div>
 
 <style>
+	.said {
+		font-family: var(--font-display);
+		font-weight: 600;
+		font-size: 19px;
+		line-height: 1.25;
+		text-wrap: pretty;
+	}
+	.events {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--line);
+	}
+	.events li {
+		display: flex;
+		flex-direction: column;
+		border-bottom: 1px solid var(--line);
+		padding-bottom: 6px;
+	}
+	.event {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		width: 100%;
+		text-align: left;
+		background: none;
+		border: 0;
+		border-left: 4px solid var(--c);
+		padding: 8px 0 2px 10px;
+		font: inherit;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	.event .t {
+		font-weight: 600;
+		overflow-wrap: anywhere;
+	}
+	.event .m {
+		font-size: 12.5px;
+		color: var(--muted);
+	}
+	.events .more {
+		font-size: 12.5px;
+		margin-left: 14px;
+	}
 	.app {
 		display: flex;
 		flex-direction: column-reverse;

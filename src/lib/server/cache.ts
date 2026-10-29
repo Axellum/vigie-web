@@ -72,6 +72,14 @@ export class TtlCache {
 		return current.pending;
 	}
 
+	/** The last value of a key, however old, without asking for it again; null when there is none. */
+	peek<T>(key: string): Cached<T> | null {
+		const entry = this.entries.get(key) as Entry<T> | undefined;
+		if (entry?.value === undefined) return null;
+		const stale = (entry.stale ?? false) || this.now() >= entry.expiresAt;
+		return { value: entry.value, stale, fetchedAt: entry.fetchedAt };
+	}
+
 	private evict(): void {
 		while (this.entries.size > this.maxEntries) {
 			const oldest = this.entries.keys().next().value as string;

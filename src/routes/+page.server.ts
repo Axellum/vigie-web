@@ -1,4 +1,4 @@
-import { getHazards, servedCodes } from '#lib/server/vigie.js';
+import { eventsNow, getHazards, servedCodes } from '#lib/server/vigie.js';
 import type { HazardsData } from '#lib/types.js';
 import type { PageServerLoad } from './$types';
 
@@ -15,6 +15,8 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
 		hazards = null;
 	}
 	const served = await servedCodes();
+	// The world in events as last read (null before the first reading: the page then asks for it itself).
+	const events = eventsNow();
 	setHeaders({ 'cache-control': 'public, max-age=30, s-maxage=60' });
-	return { hazards, served, stale, now: Math.floor(Date.now() / 1000) };
+	return { hazards, served, stale, events: events?.value ?? null, now: Math.floor(Date.now() / 1000) };
 };

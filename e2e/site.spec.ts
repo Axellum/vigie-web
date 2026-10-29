@@ -49,6 +49,42 @@ test('the world map lists the recorded hazards', async ({ page }) => {
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test('the home page opens on the point of the world: what is red, then what counts, the strongest first', async ({
+	page,
+	request
+}) => {
+	const errors = collectErrors(page);
+	const events = fixture('events') as unknown as {
+		events: Json[];
+		counts: { by_level: Record<string, number> };
+	};
+	const counted = events.events.filter((e) => e.impact >= 20);
+	await page.goto('/');
+	const point = page.getByRole('region', { name: 'Le point' });
+	await expect(point.getByText(/en orange, \d+ en jaune\./)).toBeVisible({ timeout: 15_000 });
+	await expect(
+		point.getByText(`${events.counts.by_level.ORANGE ?? 0} en orange`, { exact: false })
+	).toBeVisible();
+	const list = page.getByRole('region', { name: /Ce qui compte/ });
+	await expect(list.getByRole('heading', { name: `Ce qui compte · ${counted.length}` })).toBeVisible();
+	await expect(list.locator('.events > li')).toHaveCount(Math.min(12, counted.length));
+	if (counted.length > 12) {
+		await list.getByRole('button', { name: `Tout voir (${counted.length})` }).click();
+		await expect(list.locator('.events > li')).toHaveCount(counted.length);
+	}
+	// The strongest first, with its level in words; the page says the grouping and the titles are its own.
+	await expect(list.locator('.events > li').first()).toContainText(
+		{ RED: 'Rouge', ORANGE: 'Orange', YELLOW: 'Jaune' }[counted[0].level as string] ?? 'Niveau inconnu'
+	);
+	await expect(list.getByText(/calculés par Vigie/)).toBeVisible();
+	// Green is not a counter (nothing in force), and the answer for the browser is cacheable.
+	await expect(page.locator('.levels button')).toHaveCount(3);
+	const answer = await request.get('/data/events.json');
+	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
+	expect((await answer.json()).events).toHaveLength(events.events.length);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
 test('a hazard opens in the side panel, then on its own page', async ({ page }) => {
 	await page.goto('/');
 	await page.getByLabel('Seulement ce que montre la carte').uncheck();
