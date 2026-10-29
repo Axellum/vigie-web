@@ -6,6 +6,14 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Travel advice (`/travel`, linked from the footer and from each country page): what five foreign ministries (United
+  Kingdom, United States, Canada, Australia, the Netherlands) advise their citizens, on a map of one ministry at a time
+  (colours chosen by Vigie, each with the ministry's own words, the FCDO's statuses with a label said to be Vigie's) and in
+  a list of every country; the countries where they disagree, by Vigie's comparison on a common scale, never an official
+  level. A page per country (`/travel/ug`): each advice side by side in its words and language, the date the ministry
+  published it and the time Vigie read it, its text as words (the ministry's HTML is not shown), the versions the API
+  archived, Germany and France with why they are not read, and the ECDC's publications that name the country (matched by
+  Vigie on the names, said so), with the WHO and the CDC linked only. Needs a Vigie API with `/v1/travel`.
 - Solar eclipses (`/sky/eclipses`, linked from the sky page): NASA's eclipses of the next ten years, the map of the one
   chosen (the path of totality or of the ring, its central line, bands of the share of the Sun hidden) and, for a place
   found, located or clicked, plain sentences ("Éclipse totale ici : le Soleil sera entièrement caché pendant 2 min 54 s,

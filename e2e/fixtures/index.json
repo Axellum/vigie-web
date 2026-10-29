@@ -14,7 +14,10 @@
   "sky-eclipse-2027-08-02-map.json": 1793224257,
   "tides.json": 1793223084,
   "tides-coast.json": 1793223085,
-  "events.json": 1793258177
+  "events.json": 1793258177,
+  "travel.json": 1793258283,
+  "travel-UG.json": 1793258283,
+  "travel-health.json": 1793258283
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -45,7 +48,10 @@
   "/v1/sky/eclipses/2027-08-02.geojson": "sky-eclipse-2027-08-02-map.json",
   "/v1/tides?lat=48.65&lon=-2.05": "tides.json",
   "/v1/tides/coast": "tides-coast.json",
-  "/v1/events": "events.json"
+  "/v1/events": "events.json",
+  "/v1/travel": "travel.json",
+  "/v1/travel/UG": "travel-UG.json",
+  "/v1/travel/health": "travel-health.json"
  },
  "added": {
   "/v1/geojson/hazards": [

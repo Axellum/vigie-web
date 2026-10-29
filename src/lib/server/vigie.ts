@@ -22,6 +22,14 @@ import {
 	type TideTile
 } from '#lib/tides.js';
 import {
+	countryFromApi,
+	healthFromApi,
+	overviewFromApi,
+	type CountryDetail,
+	type Health,
+	type Overview
+} from '#lib/travel.js';
+import {
 	firesFromApi,
 	forecastFromApi,
 	hazardsFromApi,
@@ -68,7 +76,9 @@ export const TTL_S = {
 	eclipseSoon: 900,
 	// The tide is computed by the API (no provider): the curve of a point is kept 10 minutes, the coast 5 (its "now").
 	tides: 600,
-	tideCoast: 300
+	tideCoast: 300,
+	// The API reads each ministry and the ECDC at most once an hour.
+	travel: 600
 } as const;
 
 const cache = new TtlCache();
@@ -349,6 +359,34 @@ export function getTideTile(level: TideLevel, x: number, y: number): Promise<Cac
 		const bbox = tideTileBox(level, x, y).join(',');
 		return tideTileFromApi(await getJson(`/v1/tides/coast?bbox=${bbox}&limit=${level.limit}`, 15_000));
 	});
+}
+
+/** Every ministry's level for each country (`/v1/travel`): one answer for every visitor. */
+export function getTravel(): Promise<Cached<Overview>> {
+	return cache.get('travel', TTL_S.travel * 1000, async () =>
+		overviewFromApi(await getJson('/v1/travel', 30_000))
+	);
+}
+
+/** One country's advices, texts, comparison, archive and health items; null for a code the API refuses. */
+export async function getTravelCountry(country: string): Promise<Cached<CountryDetail | null> | null> {
+	const cc = country.toUpperCase();
+	if (!/^[A-Z]{2}$/.test(cc)) return null;
+	try {
+		return await cache.get(`travel:${cc}`, TTL_S.travel * 1000, async () =>
+			countryFromApi(await getJson(`/v1/travel/${cc}`, 30_000))
+		);
+	} catch (e) {
+		if (e instanceof ApiError && (e.status === 404 || e.status === 422)) return null;
+		throw e;
+	}
+}
+
+/** The ECDC's recent publications on communicable disease threats (`/v1/travel/health`). */
+export function getTravelHealth(): Promise<Cached<Health>> {
+	return cache.get('travel:health', TTL_S.travel * 1000, async () =>
+		healthFromApi(await getJson('/v1/travel/health', 30_000))
+	);
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */

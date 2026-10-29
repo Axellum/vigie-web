@@ -9,6 +9,7 @@
 	import { byLevelThenTime, LEVELS, maxLevel, rank } from '#lib/levels.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
 	import { slug } from '#lib/transform.js';
+	import { travel } from '#lib/travel.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -64,6 +65,9 @@
 				<a href="/account/zones/new?country={data.cc}" rel="nofollow">{tr('zones.watchCountry')}</a>
 			</p>
 		{/if}
+		<p class="small">
+			<a href="/travel/{data.cc.toLowerCase()}">{travel(lang, 'countryTitle', { country: name })}</a>
+		</p>
 	</header>
 
 	{#if data.warnings}
