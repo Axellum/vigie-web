@@ -305,6 +305,42 @@ test('the sky page shows the oval, the Kp and, for a place, the estimate said to
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test('the travel pages show each ministry in its words, the disagreements and the ECDC, said to be matched by Vigie', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/travel');
+	await expect(page.getByRole('heading', { level: 1, name: 'Conseils aux voyageurs' })).toBeVisible();
+	// The legend of the map carries the ministry's own words (the Department of State's scale is in English).
+	await page.getByRole('radio', { name: 'États-Unis' }).click();
+	await expect(page.getByText('Level 4: Do Not Travel')).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Les ministères ne sont pas d’accord/ })).toBeVisible();
+	await page.getByLabel('Chercher un pays').fill('Ouganda');
+	await page.getByRole('cell', { name: 'Ouganda' }).click();
+
+	await expect(page).toHaveURL(/\/travel\/ug$/);
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Ouganda : conseils aux voyageurs' })
+	).toBeVisible();
+	await expect(page.getByText('Désaccord : 2 niveau(x) d’écart')).toBeVisible();
+	// Canada gives its words in French; the FCDO's statuses get a label said to be Vigie's.
+	await expect(
+		page.getByText('Éviter tout voyage non-essentiel (avec avertissements régionaux)', { exact: true })
+	).toBeVisible();
+	await expect(page.getByText('Ne déconseille pas de voyager', { exact: true })).toBeVisible();
+	await expect(page.getByText(/Pays repérés par Vigie/)).toBeVisible();
+	await expect(page.getByRole('link', { name: /Auswärtiges Amt/ })).toBeVisible();
+	await page.getByText('Sources de cette page').click();
+	await expect(page.getByText(/^Source: European Centre for Disease Prevention and Control/)).toBeVisible();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+	// A code that is not a country is not a page.
+	expect((await page.goto('/travel/zz1'))?.status()).toBe(404);
+});
+
 test("the eclipse page lists NASA's eclipses and says what a place will see", async ({ page }) => {
 	const errors = collectErrors(page);
 	// The mock answers its Cadiz recording for 2 August 2027, whatever the place.

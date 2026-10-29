@@ -12,7 +12,7 @@
 		bare = false,
 		link = false
 	}: { lang: Lang; aurora: Aurora; bare?: boolean; link?: boolean } = $props();
-	const METHOD_URL = 'https://github.com/Axellum/vigie-api/blob/main/docs/decisions/0012-aurora-estimate.md';
+	const METHOD_URL = 'https://github.com/Axellum/vigie-api/blob/main/docs/decisions/0013-aurora-estimate.md';
 
 	const place = $derived(aurora.place);
 	const estimate = $derived(place?.estimate ?? null);

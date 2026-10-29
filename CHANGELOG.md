@@ -11,6 +11,14 @@ All notable changes are listed here. Versions are git tags.
   address, so that a filtered view can be kept or shared, and act on the world already read: a filter asks the API
   for nothing. The profiles (surf, sea, mountain…) are shortcuts to a set of filters.
 
+- Travel advice (`/travel`, linked from the footer and from each country page): what five foreign ministries (United
+  Kingdom, United States, Canada, Australia, the Netherlands) advise their citizens, on a map of one ministry at a time
+  (colours chosen by Vigie, each with the ministry's own words, the FCDO's statuses with a label said to be Vigie's) and in
+  a list of every country; the countries where they disagree, by Vigie's comparison on a common scale, never an official
+  level. A page per country (`/travel/ug`): each advice side by side in its words and language, the date the ministry
+  published it and the time Vigie read it, its text as words (the ministry's HTML is not shown), the versions the API
+  archived, Germany and France with why they are not read, and the ECDC's publications that name the country (matched by
+  Vigie on the names, said so), with the WHO and the CDC linked only. Needs a Vigie API with `/v1/travel`.
 - Solar eclipses (`/sky/eclipses`, linked from the sky page): NASA's eclipses of the next ten years, the map of the one
   chosen (the path of totality or of the ring, its central line, bands of the share of the Sun hidden) and, for a place
   found, located or clicked, plain sentences ("Éclipse totale ici : le Soleil sera entièrement caché pendant 2 min 54 s,
@@ -22,10 +30,10 @@ All notable changes are listed here. Versions are git tags.
 - The sky: the aurora. A "Sky" page (`/sky`) with NOAA's OVATION oval on the map (30 to 90 minutes ahead), the Kp
   observed then forecast for three days, the solar wind and NOAA's geomagnetic messages as written; a "Sky" card in
   "Near me" that says in one sentence whether an aurora may be seen tonight from the place, its best hours and where to
-  look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0012). Needs a Vigie API with
+  look, marked as the API's estimate with a link to its method and measure (vigie-api ADR 0013). Needs a Vigie API with
   `/v1/sky/aurora`.
 
-- The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0013):
+- The tide, computed by the API from the EOT20 model (its `GET /v1/tides` and `/v1/tides/coast`, vigie-api ADR 0015):
   a "Tide" card on "near me", after the sea in every profile (the tide now and the next waters; in its detail, a curve
   over two days with the high and low waters and their ranges), the same curve on a zone of the account that touches the
   sea, and a "Tides (computed)" layer on the world map, off until asked, with a dot per coastal point (filled: rising,
