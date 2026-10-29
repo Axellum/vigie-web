@@ -12,6 +12,7 @@ describe('countryPaths', () => {
 describe('lowerCasePath', () => {
 	it('lowers a country or area page spelled with capitals', () => {
 		expect(lowerCasePath('/country/FR')).toBe('/country/fr');
+		expect(lowerCasePath('/travel/UG')).toBe('/travel/ug');
 		expect(lowerCasePath('/country/fr/FINISTERE')).toBe('/country/fr/finistere');
 	});
 

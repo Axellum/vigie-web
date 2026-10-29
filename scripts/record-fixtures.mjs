@@ -32,7 +32,12 @@ const targets = [
 	['tides', '/v1/tides?lat=48.65&lon=-2.05&days=2&interval_minutes=15', '/v1/tides?lat=48.65&lon=-2.05'],
 	['tides-coast', '/v1/tides/coast?bbox=-5,45,0,50&limit=400', '/v1/tides/coast'],
 	// The world in events (the home page): the compact answer the site asks for, without the alerts themselves.
-	['events', '/v1/events?compact=true', '/v1/events']
+	['events', '/v1/events?compact=true', '/v1/events'],
+	// Travel advice: every country, one country (Uganda: the ministries disagree, Canada's text in two languages, an ECDC
+	// item names it or not), and the ECDC's publications.
+	['travel', '/v1/travel'],
+	['travel-UG', '/v1/travel/UG'],
+	['travel-health', '/v1/travel/health']
 ];
 
 await mkdir(out, { recursive: true });
