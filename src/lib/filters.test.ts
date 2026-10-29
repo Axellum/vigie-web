@@ -3,6 +3,8 @@ import type { WorldEvent } from './events';
 import {
 	applyFilter,
 	filterQuery,
+	folded,
+	foldedSummary,
 	isFiltered,
 	NO_FILTER,
 	parseFilter,
@@ -28,6 +30,8 @@ function event(over: Partial<WorldEvent>): WorldEvent {
 		bbox: null,
 		sources: [],
 		quakes: null,
+		alertIds: [],
+		sourceTitle: null,
 		attribution: null,
 		...over
 	};
@@ -77,6 +81,22 @@ describe('applying the filters', () => {
 		expect(ids({ kind: 'official' })).not.toContain('quake');
 		expect(ids({ period: 'now' })).toEqual(['red-rain', 'wind', 'quake']);
 		expect(ids({ period: '24h' })).toEqual(['red-rain', 'wind', 'quake', 'later']);
+	});
+});
+
+describe('orange first', () => {
+	it('folds what is below orange, and says how many of each', () => {
+		const events = [
+			event({ id: 'red', level: 'RED' }),
+			event({ id: 'orange' }),
+			event({ id: 'y1', level: 'YELLOW' }),
+			event({ id: 'y2', level: 'YELLOW' }),
+			event({ id: 'storm', kind: 'hazard', family: 'cyclone', level: 'GREEN' }),
+			event({ id: 'tsunami', kind: 'tsunami', family: 'tsunami', level: null })
+		];
+		expect(events.filter((e) => !folded(e)).map((e) => e.id)).toEqual(['red', 'orange']);
+		expect(foldedSummary('fr', events.filter(folded))).toBe('2 en jaune · 1 en vert · 1 sans niveau');
+		expect(foldedSummary('en', [events[2]])).toBe('1 yellow');
 	});
 });
 
