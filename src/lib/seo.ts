@@ -7,6 +7,7 @@ export const STATIC_PATHS = [
 	'/near',
 	'/countries',
 	'/travel',
+	'/surf',
 	'/sources',
 	'/about',
 	'/privacy'
