@@ -13,6 +13,7 @@ import {
 } from '#lib/eclipse.js';
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
+import { surfForecastFromApi, surfSpotsFromApi, type SurfForecast, type SurfSpots } from '#lib/surf.js';
 import {
 	tideTileBox,
 	tideTileFromApi,
@@ -78,7 +79,10 @@ export const TTL_S = {
 	tides: 600,
 	tideCoast: 300,
 	// The API reads each ministry and the ECDC at most once an hour.
-	travel: 600
+	travel: 600,
+	// The spots are bundled in the API (they change with a new version of it); a spot's forecast is kept 10 minutes by the API.
+	surfSpots: 86_400,
+	surf: 600
 } as const;
 
 const cache = new TtlCache();
@@ -387,6 +391,28 @@ export function getTravelHealth(): Promise<Cached<Health>> {
 	return cache.get('travel:health', TTL_S.travel * 1000, async () =>
 		healthFromApi(await getJson('/v1/travel/health', 30_000))
 	);
+}
+
+/** The surf spots of the API (OpenStreetMap), north to south. */
+export function getSurfSpots(): Promise<Cached<SurfSpots>> {
+	return cache.get('surf-spots', TTL_S.surfSpots * 1000, async () =>
+		surfSpotsFromApi(await getJson('/v1/surf/spots', 15_000))
+	);
+}
+
+/** The forecast of a spot for the next three days; null for a spot the API does not know. */
+export async function getSurfForecast(id: string): Promise<Cached<SurfForecast> | null> {
+	if (!/^[a-z0-9-]{1,80}$/.test(id)) return null;
+	try {
+		return await pointCache.get(`surf:${id}`, TTL_S.surf * 1000, async () => {
+			const forecast = surfForecastFromApi(await getJson(`/v1/surf/spots/${id}?days=3`, 30_000));
+			if (!forecast) throw new ApiError(`Vigie API gave no surf forecast for ${id}`, null);
+			return forecast;
+		});
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */
