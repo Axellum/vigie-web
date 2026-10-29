@@ -19,7 +19,8 @@ Public instance: <https://vigie.auxfilsdesidees.fr>
 
 ## What it shows
 
-- a world map of the current hazards and, for the covered countries, of the official warnings;
+- a world map of the current hazards and, for the covered countries, of the official warnings, opening on "the point":
+  what is red in the world, then what counts, the API's events (`/v1/events`) the strongest first;
 - a list that follows the map, with filters by level and by type;
 - a page for each country and each area, and a page for each alert with the issuer's text unchanged;
 - "near me": for a place (found by name, the browser's position, a click on the map, or the page's address), the official

@@ -11,6 +11,7 @@ import {
 	type Eclipse,
 	type EclipseList
 } from '#lib/eclipse.js';
+import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import {
 	tideTileBox,
@@ -49,6 +50,8 @@ import { TtlCache, type Cached } from './cache';
 // The API reads the fires at most every 60 minutes.
 export const TTL_S = {
 	hazards: 60,
+	// The world in events reads every served country: kept 5 minutes, and served old while it is read again.
+	events: 300,
 	warnings: 120,
 	providers: 60,
 	point: 900,
@@ -100,6 +103,24 @@ async function getJson(path: string, timeoutMs = 60_000): Promise<unknown> {
 	}
 	if (!response.ok) throw new ApiError(`Vigie API answered ${response.status} for ${path}`, response.status);
 	return response.json();
+}
+
+// A world view asks every source the API serves: the first one after a quiet spell can take a minute.
+const EVENTS_TIMEOUT_MS = 90_000;
+
+/** The world in events (compact: without the alerts themselves). */
+export function getEvents(): Promise<Cached<WorldEvents>> {
+	return cache.get('events', TTL_S.events * 1000, async () =>
+		eventsFromApi(await getJson('/v1/events?compact=true', EVENTS_TIMEOUT_MS))
+	);
+}
+
+/** The last world view at once, a new reading started behind it when it is old; null before the first one. The
+ *  home page never waits for the API's world view. */
+export function eventsNow(): Cached<WorldEvents> | null {
+	const last = cache.peek<WorldEvents>('events');
+	getEvents().catch(() => {});
+	return last;
 }
 
 export function getHazards(): Promise<Cached<HazardsData>> {
