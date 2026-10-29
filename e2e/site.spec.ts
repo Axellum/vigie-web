@@ -517,6 +517,64 @@ test('near me shows no tide inland, where the model has no point', async ({ page
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
+test('the surf page lists the spots, and a spot shows its best slot with its rating explained', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const spots = fixture('surf-spots');
+	const hossegor = fixture('surf-hossegor');
+	await page.goto('/surf');
+	await expect(page.getByRole('heading', { level: 1, name: 'Surf' })).toBeVisible();
+	await expect(page.locator('.spots a')).toHaveCount(spots.spots.length);
+	await expect(page.getByText(/Pas pour la sécurité ni pour la navigation/)).toBeVisible();
+	await page.getByRole('link', { name: /Plage Sud \(Point d.Or\)/ }).click();
+	await expect(page.getByRole('heading', { level: 1, name: hossegor.spot.name })).toBeVisible();
+	const best = page.locator('section.best');
+	await expect(
+		best.getByRole('heading', { name: 'Le meilleur créneau des 3 prochains jours' })
+	).toBeVisible();
+	await expect(
+		best.getByText(`${hossegor.best_slot.rating.points}/${hossegor.best_slot.rating.out_of}`)
+	).toBeVisible();
+	// Every criterion with its figure and its points; the tide is not counted while the spot's best tide is unknown.
+	for (const name of [
+		'Hauteur de la houle',
+		'Période de la houle',
+		'Angle de la houle avec la plage',
+		'Vent',
+		'Marée'
+	])
+		await expect(best.locator('.criteria .name', { hasText: new RegExp(`^${name}$`) })).toBeVisible();
+	await expect(best.getByText('pas compté')).toBeVisible();
+	await expect(best.getByText(hossegor.rules.swell_height)).toBeVisible();
+	// An hour opens on its own rating.
+	const hour = page.locator('details.hour').first();
+	await hour.locator('summary').click();
+	await expect(hour.locator('.criteria li')).toHaveCount(5);
+	// The credits of the swell, the spots and the tide, folded at the end.
+	await page.getByText('Sources de cette page').click();
+	await expect(page.getByText(/Generated using E\.U\. Copernicus Marine Service Information/)).toBeVisible();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors).toEqual([]);
+});
+
+test('a spot the API does not know is not found, and the tide links to the surf on its coasts', async ({
+	page,
+	request
+}) => {
+	expect((await request.get('/surf/nowhere')).status()).toBe(404);
+	await page.goto('/near#48.649,-2.026,50');
+	const section = page.getByRole('region', { name: 'Marée' });
+	await section.getByText('Détail').click();
+	await expect(section.getByRole('link', { name: 'La prévision de surf des spots' })).toHaveAttribute(
+		'href',
+		'/surf'
+	);
+});
+
 test('the tide layer is off until asked, and asks to come closer on the world map', async ({ page }) => {
 	const coast = fixture('tides-coast');
 	await page.goto('/');
