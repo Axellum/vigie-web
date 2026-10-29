@@ -6,6 +6,11 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Fine filters for "what counts" on the home page: the families of phenomena, the lowest level (orange, red), the
+  period (in force, within 24 hours) and the kind of source (official warnings, hazards). They live in the page's
+  address, so that a filtered view can be kept or shared, and act on the world already read: a filter asks the API
+  for nothing. The profiles (surf, sea, mountain…) are shortcuts to a set of filters.
+
 - Travel advice (`/travel`, linked from the footer and from each country page): what five foreign ministries (United
   Kingdom, United States, Canada, Australia, the Netherlands) advise their citizens, on a map of one ministry at a time
   (colours chosen by Vigie, each with the ministry's own words, the FCDO's statuses with a label said to be Vigie's) and in
