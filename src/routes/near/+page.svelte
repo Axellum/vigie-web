@@ -47,6 +47,7 @@
 	} from '#lib/near.js';
 	import { asProfile, cardOrder, PROFILES, wantsSea, type Card, type Profile } from '#lib/profiles.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
+	import { nearSurfSpots, surfText } from '#lib/surf.js';
 	import { TideAt } from '#lib/tideAt.svelte.js';
 	import { placeSentence, type OfficialState } from '#lib/sentence.js';
 	import type { Level, PointWeather as Weather, WarningsData } from '#lib/types.js';
@@ -634,6 +635,7 @@
 {/snippet}
 {#snippet tideDetails()}
 	{#if tide.value}<TideCurve {lang} curve={tide.value} now={tide.loadedAt} />{/if}
+	{#if nearSurfSpots(cell)}<p class="small"><a href="/surf">{surfText(lang, 'tideLink')}</a></p>{/if}
 {/snippet}
 
 <!-- Sky --------------------------------------------------------------------------------------------------- -->

@@ -17,7 +17,9 @@
   "events.json": 1793258177,
   "travel.json": 1793258283,
   "travel-UG.json": 1793258283,
-  "travel-health.json": 1793258283
+  "travel-health.json": 1793258283,
+  "surf-spots.json": 1793258770,
+  "surf-hossegor.json": 1793258770
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -51,7 +53,9 @@
   "/v1/events": "events.json",
   "/v1/travel": "travel.json",
   "/v1/travel/UG": "travel-UG.json",
-  "/v1/travel/health": "travel-health.json"
+  "/v1/travel/health": "travel-health.json",
+  "/v1/surf/spots": "surf-spots.json",
+  "/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or": "surf-hossegor.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -60,6 +64,7 @@
  },
  "notes": {
   "hazards-storms.json, forecast-*.json, vigilances-tsunami.json": "Answers of vigie-api a87136f to its own recordings of the NHC (Hurricane Isaias, advisory 13A, 2026-10-09) and of tsunami.gov (Panama, 2026-10-09 18:55 UTC), made with its test setup (tests/test_storm_api.py), because no storm and no tsunami were active on 2026-10-20.",
-  "tides.json, tides-coast.json": "Answers of vigie-api bdbaf8e (its pull request 32, which adds GET /v1/tides and /v1/tides/coast), run locally on 2026-10-28 with scripts/record-fixtures.mjs: the tide is computed by the API from the EOT20 model, with no provider; the public instance did not compute tides yet."
+  "tides.json, tides-coast.json": "Answers of vigie-api bdbaf8e (its pull request 32, which adds GET /v1/tides and /v1/tides/coast), run locally on 2026-10-28 with scripts/record-fixtures.mjs: the tide is computed by the API from the EOT20 model, with no provider; the public instance did not compute tides yet.",
+  "surf-spots.json, surf-hossegor.json": "Answers of vigie-api's surf branch (the pull request that adds GET /v1/surf/spots and /v1/surf/spots/{id}), run locally on 2026-10-29 with scripts/record-fixtures.mjs: the spots are bundled in the API (OpenStreetMap), the forecast asked Open-Meteo (MFWAM swell, wind) and computed the tide; the public instance did not serve the surf yet."
  }
 }

@@ -37,7 +37,15 @@ const targets = [
 	// item names it or not), and the ECDC's publications.
 	['travel', '/v1/travel'],
 	['travel-UG', '/v1/travel/UG'],
-	['travel-health', '/v1/travel/health']
+	['travel-health', '/v1/travel/health'],
+	// The surf spots (OpenStreetMap, bundled in the API) and the forecast of one, Hossegor, for three days (Open-Meteo through
+	// the API); the mock gives that forecast for that spot only.
+	['surf-spots', '/v1/surf/spots'],
+	[
+		'surf-hossegor',
+		'/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or?days=3',
+		'/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or'
+	]
 ];
 
 await mkdir(out, { recursive: true });
