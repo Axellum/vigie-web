@@ -6,6 +6,11 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Surf (`/surf`, linked from the tide of a point on the French Atlantic and Channel coasts): the API's 51 spots, north to
+  south, each with the direction its beach faces, and a page per spot with the best slot of the next three days and every
+  daylight hour (the night ones on demand): the swell (Météo-France's MFWAM model), the wind and whether it blows from the
+  land or the sea, the tide, and the API's own rating, explained criterion by criterion (the figure, the points, the rule).
+  What the forecast cannot see and the credits go with it; not for safety. Needs a Vigie API with `/v1/surf/spots`.
 - Fine filters for "what counts" on the home page: the families of phenomena, the lowest level (orange, red), the
   period (in force, within 24 hours) and the kind of source (official warnings, hazards). They live in the page's
   address, so that a filtered view can be kept or shared, and act on the world already read: a filter asks the API
