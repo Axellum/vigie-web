@@ -30,7 +30,9 @@ const targets = [
 	// The tide (computed by the API, no provider): the curve near Saint-Malo, answered only for that position (elsewhere the
 	// mock says "no tide here", as the API does inland), and the coast of one tile of 5° (Brittany), given for every tile.
 	['tides', '/v1/tides?lat=48.65&lon=-2.05&days=2&interval_minutes=15', '/v1/tides?lat=48.65&lon=-2.05'],
-	['tides-coast', '/v1/tides/coast?bbox=-5,45,0,50&limit=400', '/v1/tides/coast']
+	['tides-coast', '/v1/tides/coast?bbox=-5,45,0,50&limit=400', '/v1/tides/coast'],
+	// The world in events (the home page): the compact answer the site asks for, without the alerts themselves.
+	['events', '/v1/events?compact=true', '/v1/events']
 ];
 
 await mkdir(out, { recursive: true });
