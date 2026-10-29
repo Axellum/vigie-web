@@ -24,7 +24,7 @@ Public instance: <https://vigie.auxfilsdesidees.fr>
 - a list that follows the map, with filters by level and by type;
 - a page for each country and each area, and a page for each alert with the issuer's text unchanged;
 - "near me": for a place (found by name, the browser's position, a click on the map, or the page's address), the official
-  warnings that hold it, the hazards around it, its weather, sea, sky and air, in cards that a profile (surf,
+  warnings that hold it, the hazards around it, its weather, sea, surf spots, sky and air, in cards that a profile (surf,
   mountain, garden…) orders, with the place in one sentence; the place stays in the browser, only a position
   rounded to the weather grid (about 5 km) is sent, for the weather; places can be followed without an account,
   in the browser only;

@@ -2,6 +2,7 @@
 // Channel coasts (OpenStreetMap), and for one of them the swell (MFWAM), the wind and the tide hour by hour, with the API's own
 // rating, criterion by criterion. Every figure is the API's; a value it did not give is left out, never guessed.
 import type { Lang } from './i18n';
+import { distanceKm } from './near';
 
 export type Criterion = 'swell_height' | 'swell_period' | 'swell_direction' | 'wind' | 'tide';
 const CRITERIA: Criterion[] = ['swell_height', 'swell_period', 'swell_direction', 'wind', 'tide'];
@@ -189,6 +190,122 @@ export function surfForecastFromApi(raw: unknown): SurfForecast | null {
 	};
 }
 
+// --- every spot at once (`GET /v1/surf/overview`) ----------------------------------------------------------------------
+
+export interface SurfScore {
+	points: number;
+	outOf: number;
+	unknown: Criterion[];
+}
+
+/** The current hour of a spot, in short (the API's, as its page gives it). */
+export interface SurfNow {
+	t: number;
+	daylight: boolean | null;
+	swell: Swell;
+	wind: SurfHour['wind'];
+	tide: SurfHour['tide'];
+	rating: SurfScore | null;
+}
+
+export interface SurfSpotNow extends SurfSpot {
+	/** null: the wave model gave nothing for this spot. */
+	now: SurfNow | null;
+	best: { t: number; points: number; outOf: number } | null;
+}
+
+export interface SurfOverview {
+	generated: number;
+	spots: SurfSpotNow[];
+	model: string | null;
+	stale: boolean;
+	limits: string | null;
+	disclaimer: string | null;
+	attribution: string | null;
+}
+
+function scoreFromApi(raw: unknown): SurfScore | null {
+	const r = obj(raw);
+	const points = num(r.points);
+	const outOf = num(r.out_of);
+	if (points == null || outOf == null) return null;
+	const unknown = (Array.isArray(r.unknown) ? r.unknown : []).filter((u): u is Criterion =>
+		CRITERIA.includes(u as Criterion)
+	);
+	return { points, outOf, unknown };
+}
+
+/** Every spot in short, north to south; null when the answer has none. */
+export function surfOverviewFromApi(raw: unknown): SurfOverview | null {
+	const r = obj(raw);
+	const generated = num(r.generated_utc);
+	if (generated == null) return null;
+	const spots = (Array.isArray(r.spots) ? r.spots : [])
+		.flatMap((item): SurfSpotNow[] => {
+			const spot = spotFromApi(item);
+			if (!spot) return [];
+			const s = obj(item);
+			const n = obj(s.now);
+			const t = num(n.time_utc);
+			const hour = s.now && t != null ? hourFromApi(n) : null;
+			const best = obj(s.best_slot);
+			const bestT = num(best.time_utc);
+			const bestPoints = num(best.points);
+			const bestOutOf = num(best.out_of);
+			return [
+				{
+					...spot,
+					now: hour
+						? {
+								t: hour.t,
+								daylight: hour.daylight,
+								swell: hour.swell,
+								wind: hour.wind,
+								tide: hour.tide,
+								rating: n.rating ? scoreFromApi(n.rating) : null
+							}
+						: null,
+					best:
+						bestT != null && bestPoints != null && bestOutOf != null
+							? { t: bestT, points: bestPoints, outOf: bestOutOf }
+							: null
+				}
+			];
+		})
+		.sort((a, b) => b.lat - a.lat);
+	if (!spots.length) return null;
+	return {
+		generated,
+		spots,
+		model: str(r.swell_model),
+		stale: r.stale === true,
+		limits: str(r.limits),
+		disclaimer: str(r.disclaimer),
+		attribution: str(r.attribution)
+	};
+}
+
+/** The spots within `radiusKm` of a place, the nearest first, at most `max` (all of them when `radiusKm` is null). */
+export function spotsAround<T extends SurfSpot>(
+	spots: T[],
+	at: { lat: number; lon: number },
+	radiusKm: number | null,
+	max = Infinity
+): (T & { km: number })[] {
+	return spots
+		.map((s) => ({ ...s, km: distanceKm(at, s) }))
+		.filter((s) => radiusKm == null || s.km <= radiusKm)
+		.sort((a, b) => a.km - b.km)
+		.slice(0, max);
+}
+
+/** The four bands of a rating's share of points, for its colour (0: under a quarter … 3: three quarters and more). */
+export function band(r: { points: number; outOf: number } | null): 0 | 1 | 2 | 3 | null {
+	const s = share(r);
+	if (s == null) return null;
+	return s >= 0.75 ? 3 : s >= 0.5 ? 2 : s >= 0.25 ? 1 : 0;
+}
+
 // --- what the page shows ----------------------------------------------------------------------------------------------
 
 /** The box of the API's spots (the French coasts from Hendaye to the north of Brittany), with some 30 km to spare: a tide
@@ -240,6 +357,16 @@ export function hourLabel(lang: Lang, t: number): string {
 	}).format(t * 1000);
 }
 
+/** A slot in a few characters, in the spots' time zone: `jeu. 10:00`. */
+export function slotLabel(lang: Lang, t: number): string {
+	return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+		timeZone: SURF_TIME_ZONE,
+		weekday: 'short',
+		hour: '2-digit',
+		minute: '2-digit'
+	}).format(t * 1000);
+}
+
 /** The hours of each day, in order; only the daylight ones unless `night` (an hour whose daylight is unknown is kept). */
 export function hoursByDay(
 	hours: SurfHour[],
@@ -257,7 +384,7 @@ export function hoursByDay(
 }
 
 /** A share of points from 0 to 1, for the colour of a rating; null when nothing could be scored. */
-export function share(r: SurfRating | null): number | null {
+export function share(r: { points: number; outOf: number } | null): number | null {
 	return r && r.outOf > 0 ? r.points / r.outOf : null;
 }
 
@@ -338,7 +465,39 @@ const TEXT = {
 		model: 'Houle : {model}.',
 		updated: 'Prévision calculée à {time}.',
 		limits: 'Ce que la prévision ne voit pas',
-		tideLink: 'La prévision de surf des spots'
+		tideLink: 'La prévision de surf des spots',
+		now: 'Maintenant',
+		bestShort: 'Meilleur créneau',
+		away: 'à {km} km',
+		nearNone: 'Aucun spot de la liste à moins de {km} km.',
+		nearNoneLink: 'Voir tous les spots sur la carte',
+		allSpots: 'Tous les spots',
+		loading: 'Chargement des spots…',
+		failed: 'La prévision de surf ne répond pas pour le moment.',
+		map: 'Les spots et leur note de l’heure',
+		mapNote:
+			'Couleur : la note de l’heure en cours, en part des points de ce qui a pu être noté (une règle à nous). Toucher un spot ouvre sa prévision.',
+		'band.0': 'moins d’un quart des points',
+		'band.1': 'd’un quart à la moitié',
+		'band.2': 'de la moitié aux trois quarts',
+		'band.3': 'trois quarts et plus',
+		'band.none': 'pas de note',
+		nearMe: 'Près de moi',
+		locate: 'Trier par distance depuis ma position',
+		locating: 'Position en cours…',
+		locateFailed: 'Position non disponible.',
+		from: 'Depuis {place}',
+		myPosition: 'ma position',
+		staleNote: 'Prévision gardée en cache : le fournisseur n’a pas répondu à la dernière demande.',
+		chart: 'Houle, vent et marée sur 3 jours',
+		chartNote:
+			'Barres : hauteur de la houle principale, colorées selon la note de l’heure. Points : période. Ligne : vent. En bas : la marée. Zones grises : la nuit.',
+		chartSwell: 'Houle (m)',
+		chartPeriod: 'Période (s)',
+		chartWind: 'Vent (km/h)',
+		chartTide: 'Marée (m)',
+		chartBest: 'Meilleur créneau',
+		chartNow: 'Maintenant'
 	},
 	en: {
 		page: 'Surf',
@@ -387,7 +546,39 @@ const TEXT = {
 		model: 'Swell: {model}.',
 		updated: 'Forecast worked out at {time}.',
 		limits: 'What the forecast does not see',
-		tideLink: 'The surf forecast of the spots'
+		tideLink: 'The surf forecast of the spots',
+		now: 'Now',
+		bestShort: 'Best slot',
+		away: '{km} km away',
+		nearNone: 'No spot of the list within {km} km.',
+		nearNoneLink: 'See all the spots on the map',
+		allSpots: 'All the spots',
+		loading: 'Loading the spots…',
+		failed: 'The surf forecast does not answer at the moment.',
+		map: 'The spots and their rating now',
+		mapNote:
+			'Colour: the rating of the current hour, as the share of the points of what could be scored (a rule of ours). Tap a spot to open its forecast.',
+		'band.0': 'under a quarter of the points',
+		'band.1': 'a quarter to a half',
+		'band.2': 'a half to three quarters',
+		'band.3': 'three quarters and more',
+		'band.none': 'no rating',
+		nearMe: 'Near me',
+		locate: 'Sort by distance from my position',
+		locating: 'Finding the position…',
+		locateFailed: 'Position not available.',
+		from: 'From {place}',
+		myPosition: 'my position',
+		staleNote: 'Forecast kept in cache: the provider did not answer the last request.',
+		chart: 'Swell, wind and tide over 3 days',
+		chartNote:
+			'Bars: height of the primary swell, coloured by the rating of the hour. Dots: period. Line: wind. At the bottom: the tide. Grey: the night.',
+		chartSwell: 'Swell (m)',
+		chartPeriod: 'Period (s)',
+		chartWind: 'Wind (km/h)',
+		chartTide: 'Tide (m)',
+		chartBest: 'Best slot',
+		chartNow: 'Now'
 	}
 } as const;
 

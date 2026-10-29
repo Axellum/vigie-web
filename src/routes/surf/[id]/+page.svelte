@@ -3,6 +3,7 @@
 	// explained criterion by criterion, then every daylight hour (the night ones on demand), each one opening on its rating.
 	import Credits from '#lib/components/Credits.svelte';
 	import Seo from '#lib/components/Seo.svelte';
+	import SurfChart from '#lib/components/SurfChart.svelte';
 	import {
 		compass,
 		criterionValue,
@@ -119,6 +120,14 @@
 				<p class="muted">{surfText(lang, 'bestNone')}</p>
 			{/if}
 		</section>
+
+		{#if f.hours.length}
+			<section class="block">
+				<h2>{surfText(lang, 'chart')}</h2>
+				<SurfChart {lang} hours={f.hours} best={f.best?.t ?? null} now={f.generated} />
+				<p class="muted small">{surfText(lang, 'chartNote')}</p>
+			</section>
+		{/if}
 
 		<section class="block">
 			<h2>{surfText(lang, 'hours')}</h2>

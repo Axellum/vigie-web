@@ -366,7 +366,7 @@
 		if (s.kind === 'hazard') selection = { kind: 'hazard', id: s.id };
 		else if (s.kind === 'fire') selection = { ...s, cellDeg: fireLevelNow.cellDeg };
 		else if (s.kind === 'tide') selection = { kind: 'tide', lon: s.lon, lat: s.lat };
-		else {
+		else if (s.kind === 'zone') {
 			const [cc, key] = [s.key.slice(0, 2), s.key.slice(3)];
 			const inZone = countries.get(cc)?.data?.warnings.filter((w) => w.shape === key) ?? [];
 			selection = inZone.length === 1 ? { kind: 'warning', cc, id: inZone[0].id } : { kind: 'zone', cc, key };

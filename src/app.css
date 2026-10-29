@@ -24,6 +24,11 @@
 	/* No source read: hatched, never the colour of a level nor of the water. */
 	--nosource-bg: #e7e4dc;
 	--nosource-line: #c3bdaf;
+	/* A surf rating's share of points (ours): a ramp of the sea's blue, never a level colour. */
+	--surf-q0: #d5e0e7;
+	--surf-q1: #9fc0d6;
+	--surf-q2: #4f8fbd;
+	--surf-q3: #1b5582;
 	--font-display: 'Barlow Semi Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
 	--font-body: 'IBM Plex Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	--font-data: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
@@ -54,6 +59,10 @@
 		--calm-ink: #58c178;
 		--nosource-bg: #26333b;
 		--nosource-line: #3d4c56;
+		--surf-q0: #2a3b46;
+		--surf-q1: #2f6185;
+		--surf-q2: #4f97c9;
+		--surf-q3: #9fd3f5;
 		color-scheme: dark;
 	}
 }
@@ -78,6 +87,10 @@
 	--calm-ink: #58c178;
 	--nosource-bg: #26333b;
 	--nosource-line: #3d4c56;
+	--surf-q0: #2a3b46;
+	--surf-q1: #2f6185;
+	--surf-q2: #4f97c9;
+	--surf-q3: #9fd3f5;
 	color-scheme: dark;
 }
 
@@ -163,6 +176,22 @@ p {
 }
 
 /* Severity: a token per level, used by stripes, pills and markers. */
+.surf-q0 {
+	background: var(--surf-q0);
+}
+.surf-q1 {
+	background: var(--surf-q1);
+}
+.surf-q2 {
+	background: var(--surf-q2);
+}
+.surf-q3 {
+	background: var(--surf-q3);
+}
+.surf-qn {
+	background: transparent;
+	border: 1px dashed var(--muted);
+}
 .sev-RED {
 	--c: var(--sev-red);
 }

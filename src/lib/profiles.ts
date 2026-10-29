@@ -5,20 +5,21 @@
 export const PROFILES = ['surf', 'sea', 'mountain', 'sky', 'travel', 'allergy', 'garden', 'home'] as const;
 export type Profile = (typeof PROFILES)[number];
 
-/** The cards of a place. The tide follows the sea in every order (a page leaves it out inland). */
-export const CARDS = ['official', 'hazards', 'weather', 'sea', 'tide', 'sky', 'air'] as const;
+/** The cards of a place. The tide follows the sea in every order (a page leaves it out inland); the surf spots are shown for
+ *  the sea profiles only (`wantsSea`). */
+export const CARDS = ['official', 'hazards', 'weather', 'surf', 'sea', 'tide', 'sky', 'air'] as const;
 export type Card = (typeof CARDS)[number];
 
 const ORDER: Record<Profile | 'none', Card[]> = {
-	none: ['official', 'hazards', 'weather', 'sea', 'tide', 'sky', 'air'],
-	surf: ['sea', 'tide', 'official', 'weather', 'hazards', 'sky', 'air'],
-	sea: ['sea', 'tide', 'official', 'weather', 'hazards', 'air', 'sky'],
-	mountain: ['official', 'weather', 'hazards', 'sky', 'air', 'sea', 'tide'],
-	sky: ['sky', 'weather', 'official', 'hazards', 'air', 'sea', 'tide'],
-	travel: ['official', 'hazards', 'weather', 'air', 'sea', 'tide', 'sky'],
-	allergy: ['air', 'official', 'weather', 'hazards', 'sky', 'sea', 'tide'],
-	garden: ['weather', 'official', 'air', 'hazards', 'sky', 'sea', 'tide'],
-	home: ['official', 'hazards', 'weather', 'air', 'sky', 'sea', 'tide']
+	none: ['official', 'hazards', 'weather', 'sea', 'tide', 'sky', 'air', 'surf'],
+	surf: ['surf', 'sea', 'tide', 'official', 'weather', 'hazards', 'sky', 'air'],
+	sea: ['sea', 'tide', 'surf', 'official', 'weather', 'hazards', 'air', 'sky'],
+	mountain: ['official', 'weather', 'hazards', 'sky', 'air', 'sea', 'tide', 'surf'],
+	sky: ['sky', 'weather', 'official', 'hazards', 'air', 'sea', 'tide', 'surf'],
+	travel: ['official', 'hazards', 'weather', 'air', 'sea', 'tide', 'sky', 'surf'],
+	allergy: ['air', 'official', 'weather', 'hazards', 'sky', 'sea', 'tide', 'surf'],
+	garden: ['weather', 'official', 'air', 'hazards', 'sky', 'sea', 'tide', 'surf'],
+	home: ['official', 'hazards', 'weather', 'air', 'sky', 'sea', 'tide', 'surf']
 };
 
 export function asProfile(value: unknown): Profile | null {

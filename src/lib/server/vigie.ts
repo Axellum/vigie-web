@@ -13,7 +13,14 @@ import {
 } from '#lib/eclipse.js';
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
-import { surfForecastFromApi, surfSpotsFromApi, type SurfForecast, type SurfSpots } from '#lib/surf.js';
+import {
+	surfForecastFromApi,
+	surfOverviewFromApi,
+	surfSpotsFromApi,
+	type SurfForecast,
+	type SurfOverview,
+	type SurfSpots
+} from '#lib/surf.js';
 import {
 	tideTileBox,
 	tideTileFromApi,
@@ -82,7 +89,9 @@ export const TTL_S = {
 	travel: 600,
 	// The spots are bundled in the API (they change with a new version of it); a spot's forecast is kept 10 minutes by the API.
 	surfSpots: 86_400,
-	surf: 600
+	surf: 600,
+	// Every spot at once: the API keeps the swell and the wind of the overview 3 hours, and works it out once an hour.
+	surfOverview: 600
 } as const;
 
 const cache = new TtlCache();
@@ -398,6 +407,15 @@ export function getSurfSpots(): Promise<Cached<SurfSpots>> {
 	return cache.get('surf-spots', TTL_S.surfSpots * 1000, async () =>
 		surfSpotsFromApi(await getJson('/v1/surf/spots', 15_000))
 	);
+}
+
+/** Every spot in short, north to south: its current hour and its best slot of the next three days. */
+export function getSurfOverview(): Promise<Cached<SurfOverview>> {
+	return cache.get('surf-overview', TTL_S.surfOverview * 1000, async () => {
+		const overview = surfOverviewFromApi(await getJson('/v1/surf/overview', 30_000));
+		if (!overview) throw new ApiError('Vigie API gave no surf overview', null);
+		return overview;
+	});
 }
 
 /** The forecast of a spot for the next three days; null for a spot the API does not know. */

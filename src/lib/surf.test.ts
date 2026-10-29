@@ -2,13 +2,17 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+	band,
 	compass,
 	criterionValue,
 	hoursByDay,
 	nearSurfSpots,
 	ruleText,
 	share,
+	slotLabel,
+	spotsAround,
 	surfForecastFromApi,
+	surfOverviewFromApi,
 	surfSpotsFromApi,
 	swellText
 } from './surf';
@@ -104,8 +108,8 @@ describe('the words and figures', () => {
 	});
 
 	it('gives a share only when something could be scored', () => {
-		expect(share({ points: 6, outOf: 8, criteria: [], unknown: [] })).toBe(0.75);
-		expect(share({ points: 0, outOf: 0, criteria: [], unknown: [] })).toBeNull();
+		expect(share({ points: 6, outOf: 8 })).toBe(0.75);
+		expect(share({ points: 0, outOf: 0 })).toBeNull();
 		expect(share(null)).toBeNull();
 	});
 
@@ -130,5 +134,68 @@ describe('the rules of the rating', () => {
 		const changed = { ...rules, swell_period: 'under 9 s: 0; 9 to 12 s: 1; 12 s and over: 2' };
 		expect(ruleText('fr', changed, 'swell_period')).toBe(changed.swell_period);
 		expect(ruleText('fr', {}, 'wind')).toBeNull();
+	});
+});
+
+describe('every spot at once', () => {
+	const raw = fixture('surf-overview.json');
+	const overview = surfOverviewFromApi(raw)!;
+
+	it('reads every spot, north to south, with its current hour and best slot as the API gives them', () => {
+		expect(overview.spots.length).toBe(raw.spots.length);
+		expect(overview.spots[0].lat).toBeGreaterThan(overview.spots.at(-1)!.lat);
+		const api = raw.spots.find((s: { id: string }) => s.id === 'soorts-hossegor-plage-sud-point-d-or');
+		const hossegor = overview.spots.find((s) => s.id === api.id)!;
+		expect(hossegor.now?.t).toBe(api.now.time_utc);
+		expect(hossegor.now?.swell.height).toBe(api.now.swell.height_m);
+		expect(hossegor.now?.wind.relative).toBe(api.now.wind.relative);
+		expect(hossegor.now?.rating).toEqual({
+			points: api.now.rating.points,
+			outOf: api.now.rating.out_of,
+			unknown: api.now.rating.unknown
+		});
+		expect(hossegor.best).toEqual({
+			t: api.best_slot.time_utc,
+			points: api.best_slot.points,
+			outOf: api.best_slot.out_of
+		});
+		expect(overview.attribution).toContain('OpenStreetMap');
+		expect(overview.spots.some((s) => s.name === 'Plage de la Marbella')).toBe(true);
+	});
+
+	it('keeps a spot the wave model gave nothing for, with nothing made up', () => {
+		const read = surfOverviewFromApi({
+			generated_utc: 1,
+			spots: [{ id: 'a', name: 'A', lat: 44, lon: -1.2, facing_deg: 270, now: null, best_slot: null }]
+		})!;
+		expect(read.spots[0].now).toBeNull();
+		expect(read.spots[0].best).toBeNull();
+		expect(surfOverviewFromApi({ generated_utc: 1, spots: [] })).toBeNull();
+		expect(surfOverviewFromApi(null)).toBeNull();
+	});
+
+	it('picks the spots within the radius, the nearest first', () => {
+		const biarritz = { lat: 43.4832, lon: -1.5586 };
+		const around = spotsAround(overview.spots, biarritz, 30, 5);
+		expect(around.length).toBe(5);
+		expect(around.every((s) => s.km <= 30)).toBe(true);
+		expect(around.map((s) => s.km)).toEqual([...around.map((s) => s.km)].sort((a, b) => a - b));
+		expect(spotsAround(overview.spots, { lat: 45.76, lon: 4.84 }, 100)).toEqual([]); // Lyon
+		expect(spotsAround(overview.spots, biarritz, null).length).toBe(overview.spots.length);
+	});
+
+	it('colours a rating by its share of the points', () => {
+		expect(band({ points: 8, outOf: 8 })).toBe(3);
+		expect(band({ points: 6, outOf: 8 })).toBe(3);
+		expect(band({ points: 5, outOf: 8 })).toBe(2);
+		expect(band({ points: 2, outOf: 8 })).toBe(1);
+		expect(band({ points: 1, outOf: 8 })).toBe(0);
+		expect(band({ points: 0, outOf: 0 })).toBeNull();
+		expect(band(null)).toBeNull();
+	});
+
+	it('says a slot in the spots time zone', () => {
+		expect(slotLabel('fr', 1793451600)).toBe('sam. 14:00'); // 2026-10-31 13:00 UTC, winter time
+		expect(slotLabel('en', 1793451600)).toBe('Sat 14:00');
 	});
 });
