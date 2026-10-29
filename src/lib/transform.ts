@@ -182,6 +182,7 @@ export function warningsFromApi(cc: string, body: unknown): ParsedWarnings {
 		if (attribution) attributions.add(attribution.split(' | Last update')[0]);
 		const summary: WarningSummary = {
 			id,
+			apiId: typeof feature.id === 'string' && feature.id ? feature.id : null,
 			cc,
 			source: str(p.source) ?? '',
 			level: asLevel(p.level),

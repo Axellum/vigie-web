@@ -19,7 +19,9 @@
   "travel-UG.json": 1793258283,
   "travel-health.json": 1793258283,
   "surf-spots.json": 1793258770,
-  "surf-hossegor.json": 1793258770
+  "surf-hossegor.json": 1793258770,
+  "warnings-GR.json": 1793265175,
+  "warnings-HR.json": 1793265175
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -55,7 +57,9 @@
   "/v1/travel/UG": "travel-UG.json",
   "/v1/travel/health": "travel-health.json",
   "/v1/surf/spots": "surf-spots.json",
-  "/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or": "surf-hossegor.json"
+  "/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or": "surf-hossegor.json",
+  "/v1/vigilances.geojson?country=GR": "warnings-GR.json",
+  "/v1/vigilances.geojson?country=HR": "warnings-HR.json"
  },
  "added": {
   "/v1/geojson/hazards": [

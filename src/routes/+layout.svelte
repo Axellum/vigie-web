@@ -17,10 +17,13 @@
 	const path = $derived(page.url.pathname);
 	const isMap = $derived(path === '/');
 
-	// On a phone the tabs hold on one line: the map's takes its short name there (`short`).
+	// On a phone the map's tab takes its short name (`short`); the tabs then hold on two lines, at 320 px too.
 	const nav = [
 		{ href: '/', key: 'nav.map', short: 'nav.mapShort' },
 		{ href: '/near', key: 'nav.near' },
+		{ href: '/surf', key: 'nav.surf' },
+		{ href: '/sky', key: 'nav.sky' },
+		{ href: '/travel', key: 'nav.travel' },
 		{ href: '/countries', key: 'nav.countries' },
 		{ href: '/sources', key: 'nav.sources' },
 		{ href: '/about', key: 'nav.about' }
@@ -210,7 +213,7 @@
 			display: none;
 		}
 	}
-	/* Every tab stays in sight: on one line from 375 px, on two below if they need it. */
+	/* Every tab stays in sight on a phone: they wrap, on two lines from 320 px. */
 	@media (max-width: 640px) {
 		nav {
 			margin-left: 0;

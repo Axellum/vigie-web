@@ -1,8 +1,11 @@
 // The world in events (`GET /v1/events`, compact): what the API groups (the warnings of one phenomenon close
 // together, an earthquake sequence, one hazard) and ranks by its impact score. The grouping, the score, the level
 // of an event and its title are the API's or the site's own work, never an official word: the page says so. The
-// title is written here in the reader's language from the family, the country and the areas; a hazard keeps
-// its source's own title, taken from the hazards the site reads anyway. Pure functions.
+// title is written here in the reader's language from the family (or the kind of hazard) and the place: the
+// country, the areas, or for a hazard at sea its ocean. The source's own words stay in the detail, where the
+// hazards the site reads anyway and the official warnings are shown unchanged. Pure functions.
+import { number } from './format';
+import { boxesOverlap, countryBox, type Box } from './geo';
 import { countryName, t, tOr, type Key, type Lang } from './i18n';
 import { rank } from './levels';
 import type { Hazard, Level } from './types';
@@ -48,6 +51,11 @@ export interface WorldEvent {
 	sources: string[];
 	/** How many earthquakes make a sequence, as the API counts them; null for anything else. */
 	quakes: number | null;
+	/** The API's ids of the official warnings of the event (`/v1/vigilances`): the warnings it unfolds into. */
+	alertIds: string[];
+	/** The source's own title of a hazard, in its language (a storm's or a volcano's name is read from it); null
+	 *  for warnings, whose title the API writes itself. Never shown as the event's title. */
+	sourceTitle: string | null;
 	attribution: string | null;
 }
 
@@ -110,6 +118,10 @@ export function eventsFromApi(raw: unknown): WorldEvents {
 		bbox: bboxOf(e.bbox),
 		sources: (Array.isArray(e.sources) ? e.sources : []).filter((s): s is string => typeof s === 'string'),
 		quakes: quakesOf(e.impact_reasons),
+		alertIds: (Array.isArray(e.alert_ids) ? e.alert_ids : []).filter(
+			(id): id is string => typeof id === 'string'
+		),
+		sourceTitle: e.kind === 'warnings' ? null : str(e.title),
 		attribution: str(e.attribution)
 	}));
 	// The API sends the strongest first; the page relies on it, so it is kept even if an answer came unsorted.
@@ -158,9 +170,64 @@ export function familyLabel(lang: Lang, family: Family): string {
 	return t(lang, `family.${family}` as Key);
 }
 
+/** The oceans a hazard at sea is said to be in, when no country holds it. */
+export const SEAS = [
+	'arctic',
+	'southern',
+	'mediterranean',
+	'northAtlantic',
+	'southAtlantic',
+	'indian',
+	'northPacific',
+	'southPacific'
+] as const;
+export type Sea = (typeof SEAS)[number];
+
 /**
- * The title of an event in the reader's language. Warnings: the family, the country, the area when there is
- * one, else how many. A hazard: its source's own title when the site reads it, else its kind.
+ * The ocean of a point, roughly: the Americas part the Pacific from the Atlantic, Africa and Australia part both
+ * from the Indian Ocean. Null inland Asia, where a point without a country is no sea. Vigie's own reckoning.
+ */
+export function seaOf(lon: number, lat: number): Sea | null {
+	const x = ((((lon + 180) % 360) + 360) % 360) - 180;
+	if (lat >= 66) return 'arctic';
+	if (lat <= -60) return 'southern';
+	if (lat >= 30 && lat <= 46 && x >= -6 && x <= 37) return 'mediterranean';
+	if (lat >= 30 && x > 37 && x < 100) return null;
+	// The western shore of the Americas, from north to south.
+	const americas =
+		lat >= 50 ? -130 : lat >= 30 ? -120 : lat >= 15 ? -100 : lat >= 8 ? -85 : lat >= -5 ? -78 : -70;
+	const north = lat >= 0;
+	if (x >= americas && x < (north ? 30 : 20)) return north ? 'northAtlantic' : 'southAtlantic';
+	if (x >= (north ? 30 : 20) && x < (north ? 100 : 147)) return 'indian';
+	return north ? 'northPacific' : 'southPacific';
+}
+
+const STORM = /\b(?:Cyclone|Storm|Depression|Hurricane|Typhoon)\s+(\p{Lu}\p{L}*(?:-\d+)?)/u;
+const VOLCANO = /^(.+?) volcano\b/i;
+
+/** The proper name a source gives a storm or a volcano in its title ("Tropical Cyclone CHAMPI-26 (…)", "Kilauea
+ *  volcano (…)"); null for anything else. A name is not translated. */
+export function nameOf(category: string | null, title: string | null): string | null {
+	if (!title) return null;
+	if (category === 'HURRICANE') return STORM.exec(title)?.[1] ?? null;
+	if (category === 'VOLCANO') return VOLCANO.exec(title)?.[1]?.trim() || null;
+	return null;
+}
+
+/** Where an event is, in the reader's language: its country, else the ocean of its box. */
+export function placeOf(lang: Lang, event: WorldEvent): string | null {
+	if (event.country) return countryName(lang, event.country);
+	if (!event.bbox) return null;
+	const [w, s, e, n] = event.bbox;
+	const sea = seaOf((w + e) / 2, (s + n) / 2);
+	return sea ? t(lang, `sea.${sea}` as Key) : null;
+}
+
+/**
+ * The title of an event in the reader's language, written by the site. Warnings: the family, the country, the
+ * area when there is one, else how many. A hazard: its kind, the name of a storm or a volcano, the magnitude of an
+ * earthquake (of the strongest the site reads, else as the source's title gives it), the size of a sequence and
+ * the place. The words are whole: nothing is cut.
  */
 export function eventTitle(lang: Lang, event: WorldEvent, hazards: Hazard[]): string {
 	if (event.kind === 'warnings') {
@@ -171,26 +238,62 @@ export function eventTitle(lang: Lang, event: WorldEvent, hazards: Hazard[]): st
 		return parts.join(' · ');
 	}
 	const own = hazardsOf(event, hazards)[0];
-	const kind = event.category ? tOr(lang, `cat1.${event.category}`, familyLabel(lang, event.family)) : null;
-	// Without the hazard itself (the site reads the hazards a little apart), its kind and its country.
-	const head =
-		own?.title ??
-		[
-			kind ?? familyLabel(lang, event.family),
-			...(event.country ? [countryName(lang, event.country)] : [])
-		].join(' · ');
-	return event.quakes && event.quakes > 1
-		? `${head} · ${t(lang, 'point.quakes', { n: event.quakes })}`
-		: head;
+	const kind = event.category
+		? tOr(lang, `cat1.${event.category}`, familyLabel(lang, event.family))
+		: familyLabel(lang, event.family);
+	const name = nameOf(event.category, own?.title ?? event.sourceTitle);
+	const given = event.sourceTitle ? /\bM\s?(\d+(?:\.\d+)?)\b/.exec(event.sourceTitle)?.[1] : undefined;
+	const magnitude = event.category === 'EARTHQUAKE' ? (own?.value ?? (given ? Number(given) : null)) : null;
+	const head = [kind, name, magnitude != null ? `M ${number(lang, magnitude)}` : null]
+		.filter(Boolean)
+		.join(' ');
+	const parts = [head];
+	if (event.quakes && event.quakes > 1) parts.push(t(lang, 'point.quakes', { n: event.quakes }));
+	const place = placeOf(lang, event);
+	if (place) parts.push(place);
+	return parts.join(' · ');
+}
+
+/** A view this wide (degrees of longitude) or wider shows the world: "the point" is then the world's. */
+export const WORLD_SPAN_DEG = 150;
+
+export function isWorldView(view: Box | null): boolean {
+	return !view || view[2] - view[0] >= WORLD_SPAN_DEG;
+}
+
+/**
+ * Whether an event touches the area the map shows: its box, else the main part of its country (the warnings a
+ * source gives without a shape). An event with neither cannot be placed: it is left out of an area.
+ */
+export function eventInView(event: WorldEvent, view: Box): boolean {
+	const box = event.bbox ?? (event.country ? countryBox(event.country) : null);
+	return box != null && boxesOverlap(view, box);
+}
+
+function sentence(
+	lang: Lang,
+	events: WorldEvent[],
+	counts: { ORANGE: number; YELLOW: number },
+	hazards: Hazard[],
+	zone: boolean
+): string[] {
+	const red = events.filter((e) => e.level === 'RED');
+	const names = red.slice(0, 3).map((e) => eventTitle(lang, e, hazards));
+	const more = red.length > 3 ? ` (+${red.length - 3})` : '';
+	const params = { n: red.length, names: names.join(' ; ') + more };
+	const first = red.length
+		? t(lang, zone ? 'point.zoneRed' : 'point.red', params)
+		: t(lang, zone ? 'point.zoneNoRed' : 'point.noRed');
+	return [first, t(lang, 'point.others', { orange: counts.ORANGE, yellow: counts.YELLOW })];
 }
 
 /** "The point" of the world in two sentences: what is red, then how many orange and yellow. */
 export function worldSentence(lang: Lang, world: WorldEvents, hazards: Hazard[]): string[] {
-	const red = world.events.filter((e) => e.level === 'RED');
-	const names = red.slice(0, 3).map((e) => eventTitle(lang, e, hazards));
-	const more = red.length > 3 ? ` (+${red.length - 3})` : '';
-	const first = red.length
-		? t(lang, 'point.red', { n: red.length, names: names.join(' ; ') + more })
-		: t(lang, 'point.noRed');
-	return [first, t(lang, 'point.others', { orange: world.counts.ORANGE, yellow: world.counts.YELLOW })];
+	return sentence(lang, world.events, world.counts, hazards, false);
+}
+
+/** The same for the area the map shows, counted on its events. */
+export function zoneSentence(lang: Lang, events: WorldEvent[], hazards: Hazard[]): string[] {
+	const count = (level: Level) => events.filter((e) => e.level === level).length;
+	return sentence(lang, events, { ORANGE: count('ORANGE'), YELLOW: count('YELLOW') }, hazards, true);
 }

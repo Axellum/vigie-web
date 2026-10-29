@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 const api = (process.env.VIGIE_API_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
 const out = join(import.meta.dirname, '..', 'e2e', 'fixtures');
-const countries = ['FR', 'DE', 'BE', 'ES', 'IT', 'GB', 'US', 'CA', 'NZ', 'MX'];
+const countries = ['FR', 'DE', 'BE', 'ES', 'IT', 'GB', 'US', 'CA', 'NZ', 'MX', 'GR', 'HR'];
 
 // [file name, path asked, key the mock answers it under (default: the path)]
 const targets = [

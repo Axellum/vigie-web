@@ -115,6 +115,17 @@ All notable changes are listed here. Versions are git tags.
 
 ### Changed
 
+- "The point" follows the map again: at the scale of the world it is the world's; zoomed in or moved, the sentence ("In
+  the area shown: …"), the counts and the list keep the events whose box, or whose country for the warnings a source
+  gives without a shape, touches the area shown. It is the one list now: the list of the alerts in view below it is
+  gone, and an event unfolds into what makes it, its official warnings (matched by the API's ids, read with its
+  country's) or its hazards, each opening in the panel with the issuer's words. The titles are the site's, in the
+  reader's language and whole: the kind, a storm's or a volcano's name, a magnitude and the place (the country, or for
+  a hazard at sea its ocean); a source's title, which the API may cut, stays in the detail. Orange and red come first,
+  what is below is folded behind one line ("Folded: 52 yellow"). The places followed, in the browser and in the
+  account, are small cards at the head of the page with what is in force there, matched in the browser as on "near
+  me".
+- The header links to Surf, Sky and Travel, on a phone too: the tabs wrap on two lines, down to 320 px.
 - The home page opens on "the point": what is red in the world, how many events are orange and yellow, and what
   counts, the strongest first. These are the API's events (`/v1/events`, compact): the official warnings of one
   phenomenon close together and earthquake sequences are one line each, ranked by the API's impact score; the title

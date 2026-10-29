@@ -73,6 +73,8 @@ export interface WarningText {
 export interface WarningSummary {
 	/** The site's id: the message identifier and the area. */
 	id: string;
+	/** The API's id of the warning, which the API's events list (`alert_ids`); null when it gave none. */
+	apiId: string | null;
 	cc: string;
 	source: string;
 	level: Level | null;
