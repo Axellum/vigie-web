@@ -6,6 +6,12 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Surf you can see: `/surf` opens on a map of the spots, each coloured by the API's rating of the current hour, then the
+  spots near a followed place or the visitor's position (asked on a click), then every spot with its rating now, its swell
+  and wind, and its best slot of the next three days. "Near me" has a Surf card, first with the surf profile and also with
+  the sea one: the five nearest spots within the radius with the same figures, or a sentence when there is none. A spot's
+  page draws its three days (swell and period, wind and gusts, tide, the night, the best slot). Needs a Vigie API with
+  `/v1/surf/overview`; every figure is the API's, read once for all the spots and the place picked in the browser.
 - Surf (`/surf`, linked from the tide of a point on the French Atlantic and Channel coasts): the API's 51 spots, north to
   south, each with the direction its beach faces, and a page per spot with the best slot of the next three days and every
   daylight hour (the night ones on demand): the swell (Météo-France's MFWAM model), the wind and whether it blows from the

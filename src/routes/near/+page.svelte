@@ -15,6 +15,7 @@
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import MapView from '#lib/components/MapView.svelte';
 	import NearCard from '#lib/components/NearCard.svelte';
+	import SurfSpotRow from '#lib/components/SurfSpotRow.svelte';
 	import NearSky from '#lib/components/NearSky.svelte';
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
@@ -47,7 +48,7 @@
 	} from '#lib/near.js';
 	import { asProfile, cardOrder, PROFILES, wantsSea, type Card, type Profile } from '#lib/profiles.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
-	import { nearSurfSpots, surfText } from '#lib/surf.js';
+	import { nearSurfSpots, spotsAround, surfText, type SurfOverview } from '#lib/surf.js';
 	import { TideAt } from '#lib/tideAt.svelte.js';
 	import { placeSentence, type OfficialState } from '#lib/sentence.js';
 	import type { Level, PointWeather as Weather, WarningsData } from '#lib/types.js';
@@ -347,6 +348,25 @@
 		untrack(() => tide.follow(at));
 	});
 
+	// The surf spots around, for the sea profiles: every spot in short, read once (the same answer for everybody), and the
+	// nearest picked here, so that the place stays in the browser.
+	let surfAll = $state<{ status: 'loading' | 'ok' | 'error'; value?: SurfOverview } | null>(null);
+	const withSurf = $derived(wantsSea(profile));
+	$effect(() => {
+		if (!withSurf || !place) return;
+		untrack(() => {
+			if (surfAll && surfAll.status !== 'error') return;
+			surfAll = { status: 'loading' };
+			fetch('/data/surf.json')
+				.then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+				.then((value: SurfOverview) => (surfAll = { status: 'ok', value }))
+				.catch(() => (surfAll = { status: 'error' }));
+		});
+	});
+	const surfNear = $derived(
+		surfAll?.value && place ? spotsAround(surfAll.value.spots, place, radiusKm, 5) : []
+	);
+
 	// --- the place in one sentence, and its cards ---------------------------------------------------------
 	const sentence = $derived(
 		place
@@ -361,7 +381,11 @@
 				})
 			: []
 	);
-	const order = $derived(cardOrder(profile, here.length > 0).filter((c) => c !== 'tide' || !tide.none));
+	const order = $derived(
+		cardOrder(profile, here.length > 0).filter(
+			(c) => (c !== 'tide' || !tide.none) && (c !== 'surf' || withSurf)
+		)
+	);
 
 	// --- map --------------------------------------------------------------------------------------------
 	const zones = $derived.by((): FeatureCollection => {
@@ -412,6 +436,7 @@
 		weather: 'card.weather',
 		sea: 'card.sea',
 		tide: 'card.tide',
+		surf: 'card.surf',
 		sky: 'card.sky',
 		air: 'card.air'
 	};
@@ -638,6 +663,28 @@
 	{#if nearSurfSpots(cell)}<p class="small"><a href="/surf">{surfText(lang, 'tideLink')}</a></p>{/if}
 {/snippet}
 
+<!-- Surf -------------------------------------------------------------------------------------------------- -->
+{#snippet surfSummary()}
+	{#if surfAll?.status === 'ok' && surfAll.value}
+		{#if surfNear.length}
+			<ul class="surf-near">
+				{#each surfNear as s (s.id)}<li><SurfSpotRow {lang} spot={s} km={s.km} /></li>{/each}
+			</ul>
+			{#if surfAll.value.stale}<p class="muted small">{surfText(lang, 'staleNote')}</p>{/if}
+			<p class="small"><a href="/surf">{surfText(lang, 'allSpots')}</a></p>
+		{:else}
+			<p class="muted small">
+				{surfText(lang, 'nearNone', { km: radiusKm })}
+				<a href="/surf">{surfText(lang, 'nearNoneLink')}</a>
+			</p>
+		{/if}
+	{:else if surfAll?.status === 'error'}
+		<p class="note">{surfText(lang, 'failed')}</p>
+	{:else}
+		<p class="muted">{surfText(lang, 'loading')}</p>
+	{/if}
+{/snippet}
+
 <!-- Sky --------------------------------------------------------------------------------------------------- -->
 {#snippet skySummary()}
 	<!-- The aurora of the coming night in one sentence (the API's estimate, said to be one), not NOAA's raw index. -->
@@ -678,6 +725,7 @@
 		weather: w ? weatherDetails : undefined,
 		sea: w?.marine ? seaDetails : undefined,
 		tide: tide.value ? tideDetails : undefined,
+		surf: undefined,
 		sky: undefined,
 		air: w?.air ? airDetails : undefined
 	}}
@@ -687,6 +735,7 @@
 		weather: weatherSummary,
 		sea: seaSummary,
 		tide: tideSummary,
+		surf: surfSummary,
 		sky: skySummary,
 		air: airSummary
 	}}
@@ -835,13 +884,22 @@
 				near.length ? data.hazardsAttribution : null,
 				...(w ? pointCredits(w) : []),
 				skyCredit,
-				tide.value?.attribution ?? null
+				tide.value?.attribution ?? null,
+				withSurf && surfNear.length ? (surfAll?.value?.attribution ?? null) : null
 			]}
 		/>
 	{/if}
 </div>
 
 <style>
+	.surf-near {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
 	/* Wider than the reading pages: the cards and the map side by side. */
 	.page.near {
 		max-width: 1240px;

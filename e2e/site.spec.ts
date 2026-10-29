@@ -624,11 +624,11 @@ test('the surf page lists the spots, and a spot shows its best slot with its rat
 	page
 }) => {
 	const errors = collectErrors(page);
-	const spots = fixture('surf-spots');
+	const overview = fixture('surf-overview');
 	const hossegor = fixture('surf-hossegor');
 	await page.goto('/surf');
 	await expect(page.getByRole('heading', { level: 1, name: 'Surf' })).toBeVisible();
-	await expect(page.locator('.spots a')).toHaveCount(spots.spots.length);
+	await expect(page.locator('.spots a')).toHaveCount(overview.spots.length);
 	await expect(page.getByText(/Pas pour la sécurité ni pour la navigation/)).toBeVisible();
 	await page.getByRole('link', { name: /Plage Sud \(Point d.Or\)/ }).click();
 	await expect(page.getByRole('heading', { level: 1, name: hossegor.spot.name })).toBeVisible();
@@ -650,6 +650,11 @@ test('the surf page lists the spots, and a spot shows its best slot with its rat
 		await expect(best.locator('.criteria .name', { hasText: new RegExp(`^${name}$`) })).toBeVisible();
 	await expect(best.getByText('pas compté')).toBeVisible();
 	await expect(best.getByText(/^houle principale sous 0,5 m : 0 ;/)).toBeVisible();
+	// The three days in one picture: a bar of swell per hour the API gave it.
+	await expect(page.getByRole('img', { name: 'Houle, vent et marée sur 3 jours' })).toBeVisible();
+	await expect(page.locator('.chart rect.bar')).toHaveCount(
+		hossegor.hours.filter((h: Json) => h.swell.height_m != null).length
+	);
 	// An hour opens on its own rating.
 	const hour = page.locator('details.hour').first();
 	await hour.locator('summary').click();
@@ -662,6 +667,56 @@ test('the surf page lists the spots, and a spot shows its best slot with its rat
 	);
 	expect(overflow).toBeLessThanOrEqual(0);
 	expect(errors).toEqual([]);
+});
+
+test('the surf map colours each spot by its rating now, and near a place the nearest spots come first', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const overview = fixture('surf-overview');
+	const marbella = overview.spots.find((s: Json) => s.id === 'biarritz-plage-de-la-marbella');
+	await page.addInitScript(() =>
+		localStorage.setItem(
+			'vigie-places',
+			JSON.stringify([{ lat: 43.483, lon: -1.559, radiusKm: 25, name: 'Biarritz', profile: 'surf' }])
+		)
+	);
+	await page.goto('/surf');
+	await expect(page.getByRole('heading', { name: 'Les spots et leur note de l’heure' })).toBeVisible();
+	await expect(page.getByText('trois quarts et plus')).toBeVisible();
+	// Each spot with its rating now and its best slot, as the API gives them; the name OpenStreetMap misspells, corrected.
+	const row = page.locator('.spots').last().locator('a[href="/surf/biarritz-plage-de-la-marbella"]');
+	await expect(row).toContainText('Plage de la Marbella');
+	await expect(row).toContainText(`${marbella.now.rating.points}/${marbella.now.rating.out_of}`);
+	await expect(row).toContainText(`Meilleur créneau`);
+	// Near the followed place, the five nearest spots.
+	const near = page.locator('section.block', { has: page.getByRole('heading', { name: 'Près de moi' }) });
+	await expect(near.getByText('Depuis Biarritz')).toBeVisible();
+	await expect(near.locator('.spots li')).toHaveCount(5);
+	await expect(near.locator('.spots li').first()).toContainText(/à \d/);
+	expect(errors).toEqual([]);
+});
+
+test('near me, the surf profile puts the nearest spots first, and says when there is none', async ({
+	page
+}) => {
+	await page.goto('/near#43.483,-1.559,25,surf');
+	const card = page.getByRole('region', { name: 'Surf · spots à moins de 25 km' });
+	await expect(card.locator('li')).toHaveCount(5);
+	await expect(card.locator('li a').first()).toHaveAttribute('href', /^\/surf\/[a-z0-9-]+$/);
+	await expect(card.getByText(/Maintenant : /).first()).toBeVisible();
+	await expect(page.locator('.near-card').first()).toHaveAttribute(
+		'aria-label',
+		'Surf · spots à moins de 25 km'
+	);
+	await page.goto('/surf');
+	await page.goto('/near#45.76,4.84,50,sea');
+	const none = page.getByRole('region', { name: 'Surf · spots à moins de 50 km' });
+	await expect(none.getByText('Aucun spot de la liste à moins de 50 km.')).toBeVisible();
+	await expect(none.getByRole('link', { name: 'Voir tous les spots sur la carte' })).toHaveAttribute(
+		'href',
+		'/surf'
+	);
 });
 
 test('a spot the API does not know is not found, and the tide links to the surf on its coasts', async ({
@@ -759,7 +814,10 @@ test('near me orders its cards by profile and keeps followed places in the brows
 	await page.getByLabel('Profil').selectOption('surf');
 	await expect(page).toHaveURL(/#42\.306,9\.15,300,surf$/);
 	await expect(cards.first()).toHaveAccessibleName('Vigilances officielles');
-	await expect(cards.nth(1)).toHaveAccessibleName('Mer');
+	// Then the surf spots (none within 300 km of Corsica: the card says so), then the sea.
+	await expect(cards.nth(1)).toHaveAccessibleName('Surf · spots à moins de 300 km');
+	await expect(cards.nth(1).getByText('Aucun spot de la liste à moins de 300 km.')).toBeVisible();
+	await expect(cards.nth(2)).toHaveAccessibleName('Mer');
 	// Followed: kept in this browser, offered again on the next visit with its radius and profile.
 	await page.getByRole('button', { name: 'Suivre ce lieu' }).click();
 	await expect(page.getByRole('button', { name: 'Ne plus suivre' })).toBeVisible();

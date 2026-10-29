@@ -3,7 +3,8 @@
 		| { kind: 'hazard'; id: string }
 		| { kind: 'zone'; key: string }
 		| { kind: 'fire'; lon: number; lat: number; props: Record<string, unknown> }
-		| { kind: 'tide'; lon: number; lat: number; props: Record<string, unknown> };
+		| { kind: 'tide'; lon: number; lat: number; props: Record<string, unknown> }
+		| { kind: 'spot'; id: string };
 </script>
 
 <script lang="ts">
@@ -43,6 +44,8 @@
 		eclipse?: FeatureCollection | null;
 		/** The tide now along the coasts, computed by the API (`TideTile.features`: `up` 1 rising, 0 falling). */
 		tides?: FeatureCollection | null;
+		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
+		spots?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -64,6 +67,7 @@
 		aurora = null,
 		eclipse = null,
 		tides = null,
+		spots = null,
 		onselect,
 		onmove,
 		onpick
@@ -191,6 +195,7 @@
 	const auroraData = () => aurora ?? EMPTY;
 	const eclipseData = () => eclipse ?? EMPTY;
 	const tideData = () => tides ?? EMPTY;
+	const spotData = () => spots ?? EMPTY;
 	const kindIs = (...kinds: string[]): ExpressionSpecification => ['in', ['get', 'kind'], ['literal', kinds]];
 
 	function addForecastLayers() {
@@ -356,6 +361,50 @@
 		});
 	}
 
+	// The surf spots: a dot coloured by the rating of the current hour (its band, `surf.ts`), open without one; named from zoom 8.
+	function addSpotLayers() {
+		if (!map) return;
+		map.addLayer({
+			id: 'spot-dot',
+			type: 'circle',
+			source: 'spots',
+			paint: {
+				'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 8, 7, 12, 10],
+				'circle-color': [
+					'match',
+					['get', 'q'],
+					0,
+					css('--surf-q0'),
+					1,
+					css('--surf-q1'),
+					2,
+					css('--surf-q2'),
+					3,
+					css('--surf-q3'),
+					css('--surface')
+				],
+				'circle-stroke-color': css('--ink'),
+				'circle-stroke-width': 1,
+				'circle-stroke-opacity': 0.55
+			}
+		});
+		map.addLayer({
+			id: 'spot-label',
+			type: 'symbol',
+			source: 'spots',
+			minzoom: 8,
+			layout: {
+				'text-field': ['get', 'name'],
+				'text-font': ['Noto Sans Regular'],
+				'text-size': 12,
+				'text-offset': [0, 1],
+				'text-anchor': 'top',
+				'text-optional': true
+			},
+			paint: { 'text-color': css('--ink'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.5 }
+		});
+	}
+
 	// The base map names places in English: in the page's language instead, where the tiles have the name.
 	function localizeLabels() {
 		if (!map) return;
@@ -429,6 +478,7 @@
 			paint: { 'line-color': '#f2d22e', 'line-width': 1.5, 'line-dasharray': [2, 2] }
 		});
 		map.addSource('tides', { type: 'geojson', data: tideData() });
+		map.addSource('spots', { type: 'geojson', data: spotData() });
 		map.addLayer({
 			id: 'zone-fill',
 			type: 'fill',
@@ -463,6 +513,7 @@
 		});
 		addFireLayers();
 		addTideLayers();
+		addSpotLayers();
 		map.addLayer({
 			id: 'quake',
 			type: 'circle',
@@ -674,6 +725,7 @@
 				pick('quake', (p) => ({ kind: 'hazard', id: String(p.id) }));
 				pick('zone-fill', (p) => ({ kind: 'zone', key: String(p.key) }));
 				pick('zone-river', (p) => ({ kind: 'zone', key: String(p.key) }));
+				pick('spot-dot', (p) => ({ kind: 'spot', id: String(p.id) }));
 				for (const layer of ['fire-cell', 'fire-dot'])
 					map.on('click', layer, (e) => {
 						const f = e.features?.[0];
@@ -687,7 +739,15 @@
 					const [lon, lat] = f.geometry.coordinates;
 					onselect?.({ kind: 'tide', lon, lat, props: { ...f.properties } });
 				});
-				for (const layer of ['quake', 'zone-fill', 'zone-river', 'fire-cell', 'fire-dot', 'tide-dot']) {
+				for (const layer of [
+					'quake',
+					'zone-fill',
+					'zone-river',
+					'fire-cell',
+					'fire-dot',
+					'tide-dot',
+					'spot-dot'
+				]) {
 					map.on('mouseenter', layer, () => (map!.getCanvas().style.cursor = 'pointer'));
 					map.on('mouseleave', layer, () => (map!.getCanvas().style.cursor = onpick ? 'crosshair' : ''));
 				}
@@ -760,6 +820,10 @@
 	$effect(() => {
 		void tides;
 		if (ready && map?.getSource('tides')) (map.getSource('tides') as GeoJSONSource).setData(tideData());
+	});
+	$effect(() => {
+		void spots;
+		if (ready && map?.getSource('spots')) (map.getSource('spots') as GeoJSONSource).setData(spotData());
 	});
 	$effect(() => {
 		void place;
