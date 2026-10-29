@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Seo from '#lib/components/Seo.svelte';
 	import { onMount, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import type { Feature, FeatureCollection } from 'geojson';
 	import AlertRow from '#lib/components/AlertRow.svelte';
@@ -15,13 +17,29 @@
 	import WarningBody from '#lib/components/WarningBody.svelte';
 	import {
 		eventTitle,
+		FAMILIES,
+		familyLabel,
 		hazardsOf,
 		MIN_IMPACT,
 		worldSentence,
+		type Family,
 		type WorldEvent,
 		type WorldEvents
 	} from '#lib/events.js';
+	import {
+		applyFilter,
+		filterQuery,
+		isFiltered,
+		KINDS,
+		NO_FILTER,
+		parseFilter,
+		PERIODS,
+		PROFILE_FILTERS,
+		profileOf,
+		type EventFilter
+	} from '#lib/filters.js';
 	import { readFollowed, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
+	import { PROFILES } from '#lib/profiles.js';
 	import { placeHash } from '#lib/near.js';
 	import { untilPhrase } from '#lib/sentence.js';
 	import { fireLevel, tilesInView } from '#lib/fires.js';
@@ -53,7 +71,27 @@
 	let world = $derived<WorldEvents | null>(data.events);
 	let worldStatus = $state<'ok' | 'loading' | 'failed'>('ok');
 	let allEvents = $state(false);
-	const listed = $derived(world?.events.filter((e) => e.impact >= MIN_IMPACT) ?? []);
+	// The fine filters, in the address: they act on the world already read, never on the API.
+	// Read from the address once; a change of filter rewrites the address without a new page.
+	let filter = $state(parseFilter(page.url.searchParams));
+	const counting = $derived(world?.events.filter((e) => e.impact >= MIN_IMPACT) ?? []);
+	const listed = $derived(world ? applyFilter(world.events, filter, now) : []);
+	const families = $derived(
+		FAMILIES.map((f) => ({ f, n: counting.filter((e) => e.family === f).length })).filter(
+			({ f, n }) => n > 0 || filter.families.includes(f)
+		)
+	);
+
+	function setFilter(next: EventFilter) {
+		allEvents = false;
+		filter = next;
+		goto(`/${filterQuery(next)}${location.hash}`, { shallow: true, replace: true });
+	}
+	const toggleFamily = (f: Family) =>
+		setFilter({
+			...filter,
+			families: filter.families.includes(f) ? filter.families.filter((x) => x !== f) : [...filter.families, f]
+		});
 	const pointRows = $derived(allEvents ? listed : listed.slice(0, POINT_ROWS));
 	const said = $derived(world ? worldSentence(lang, world, hazards) : []);
 	// The places followed in this browser, and those of the account signed in: shortcuts to "near me".
@@ -600,6 +638,72 @@
 					<h2 id="point-list" class="eyebrow">
 						{tr('point.list')} · <span class="data">{listed.length}</span>
 					</h2>
+					<div class="chips" role="group" aria-label={tr('filter.profiles')}>
+						{#each PROFILES as p (p)}
+							<button
+								type="button"
+								class="chip"
+								aria-pressed={profileOf(filter) === p}
+								onclick={() => setFilter(profileOf(filter) === p ? NO_FILTER : PROFILE_FILTERS[p])}
+								>{tr(`profile.${p}` as Key)}</button
+							>
+						{/each}
+					</div>
+					<details class="filters" open={isFiltered(filter) && !profileOf(filter)}>
+						<summary>{tr('filter.title')}{isFiltered(filter) ? ` · ${tr('filter.active')}` : ''}</summary>
+						<div class="stack">
+							<div class="chips" role="group" aria-label={tr('filter.families')}>
+								{#each families as { f, n } (f)}
+									<button
+										type="button"
+										class="chip"
+										aria-pressed={filter.families.includes(f)}
+										onclick={() => toggleFamily(f)}
+										>{familyLabel(lang, f)} <span class="count">{n}</span></button
+									>
+								{/each}
+							</div>
+							<label class="check">
+								{tr('filter.level')}
+								<select
+									value={filter.level ?? ''}
+									onchange={(e) =>
+										setFilter({ ...filter, level: (e.currentTarget.value || null) as EventFilter['level'] })}
+								>
+									<option value="">{tr('filter.level.all')}</option>
+									<option value="orange">{tr('filter.level.orange')}</option>
+									<option value="red">{tr('filter.level.red')}</option>
+								</select>
+							</label>
+							<div class="chips" role="group" aria-label={tr('filter.period')}>
+								{#each [null, ...PERIODS] as p (p ?? 'all')}
+									<button
+										type="button"
+										class="chip"
+										aria-pressed={filter.period === p}
+										onclick={() => setFilter({ ...filter, period: p })}
+										>{tr(`filter.period.${p ?? 'all'}` as Key)}</button
+									>
+								{/each}
+							</div>
+							<div class="chips" role="group" aria-label={tr('filter.kind')}>
+								{#each [null, ...KINDS] as k (k ?? 'all')}
+									<button
+										type="button"
+										class="chip"
+										aria-pressed={filter.kind === k}
+										onclick={() => setFilter({ ...filter, kind: k })}
+										>{tr(`filter.kind.${k ?? 'all'}` as Key)}</button
+									>
+								{/each}
+							</div>
+						</div>
+					</details>
+					{#if isFiltered(filter)}
+						<button type="button" class="btn quiet" onclick={() => setFilter(NO_FILTER)}
+							>{tr('filter.clear')}</button
+						>
+					{/if}
 					<ol class="events">
 						{#each pointRows as e (e.id)}
 							<li>
@@ -618,6 +722,7 @@
 							</li>
 						{/each}
 					</ol>
+					{#if !listed.length}<p class="muted">{tr('filter.none')}</p>{/if}
 					{#if listed.length > POINT_ROWS}
 						<button type="button" class="btn quiet" onclick={() => (allEvents = !allEvents)}>
 							{allEvents ? tr('point.less') : tr('point.more', { n: listed.length })}
@@ -811,6 +916,14 @@
 	.event .m {
 		font-size: 12.5px;
 		color: var(--muted);
+	}
+	.filters summary {
+		cursor: pointer;
+		font-size: 13.5px;
+		color: var(--accent);
+	}
+	.filters .stack {
+		padding-top: 10px;
 	}
 	.events .more {
 		font-size: 12.5px;

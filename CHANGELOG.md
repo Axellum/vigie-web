@@ -6,6 +6,11 @@ All notable changes are listed here. Versions are git tags.
 
 ### Added
 
+- Fine filters for "what counts" on the home page: the families of phenomena, the lowest level (orange, red), the
+  period (in force, within 24 hours) and the kind of source (official warnings, hazards). They live in the page's
+  address, so that a filtered view can be kept or shared, and act on the world already read: a filter asks the API
+  for nothing. The profiles (surf, sea, mountain…) are shortcuts to a set of filters.
+
 - Solar eclipses (`/sky/eclipses`, linked from the sky page): NASA's eclipses of the next ten years, the map of the one
   chosen (the path of totality or of the ring, its central line, bands of the share of the Sun hidden) and, for a place
   found, located or clicked, plain sentences ("Éclipse totale ici : le Soleil sera entièrement caché pendant 2 min 54 s,

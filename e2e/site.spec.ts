@@ -66,7 +66,9 @@ test('the home page opens on the point of the world: what is red, then what coun
 		point.getByText(`${events.counts.by_level.ORANGE ?? 0} en orange`, { exact: false })
 	).toBeVisible();
 	const list = page.getByRole('region', { name: /Ce qui compte/ });
-	await expect(list.getByRole('heading', { name: `Ce qui compte · ${counted.length}` })).toBeVisible();
+	await expect(
+		list.getByRole('heading', { name: `Ce qui compte · ${counted.length}`, exact: true })
+	).toBeVisible();
 	await expect(list.locator('.events > li')).toHaveCount(Math.min(12, counted.length));
 	if (counted.length > 12) {
 		await list.getByRole('button', { name: `Tout voir (${counted.length})` }).click();
@@ -82,6 +84,34 @@ test('the home page opens on the point of the world: what is red, then what coun
 	const answer = await request.get('/data/events.json');
 	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
 	expect((await answer.json()).events).toHaveLength(events.events.length);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('the fine filters of what counts live in the address, and a profile is a shortcut to them', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const events = fixture('events') as unknown as { events: Json[] };
+	const counted = events.events.filter((e) => e.impact >= 20);
+	const quakes = counted.filter((e) => e.family === 'earthquake');
+	const orange = counted.filter((e) => e.level === 'RED' || e.level === 'ORANGE');
+	const heading = (n: number) => page.getByRole('heading', { name: `Ce qui compte · ${n}`, exact: true });
+	await page.goto('/?families=earthquake');
+	await expect(heading(quakes.length)).toBeVisible({ timeout: 15_000 });
+	const list = page.getByRole('region', { name: /Ce qui compte/ });
+	// A profile gives its filters, kept in the address.
+	const surf = list.getByRole('button', { name: 'Surf', exact: true });
+	await surf.click();
+	await expect(page).toHaveURL(/\/\?families=wind,coastal,cyclone,tsunami$/);
+	await expect(surf).toHaveAttribute('aria-pressed', 'true');
+	await list.getByRole('button', { name: 'Effacer les filtres' }).click();
+	await expect(page).toHaveURL(/:\d+\/$/);
+	await expect(heading(counted.length)).toBeVisible();
+	// The lowest level, from the panel of filters.
+	await list.locator('summary').click();
+	await list.getByLabel('Niveau').selectOption('orange');
+	await expect(page).toHaveURL(/\/\?level=orange$/);
+	await expect(heading(orange.length)).toBeVisible();
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
