@@ -115,6 +115,7 @@ All notable changes are listed here. Versions are git tags.
 
 ### Changed
 
+- The header links to Surf, Sky and Travel, on a phone too: the tabs wrap on two lines, down to 320 px.
 - The home page opens on "the point": what is red in the world, how many events are orange and yellow, and what
   counts, the strongest first. These are the API's events (`/v1/events`, compact): the official warnings of one
   phenomenon close together and earthquake sequences are one line each, ranked by the API's impact score; the title

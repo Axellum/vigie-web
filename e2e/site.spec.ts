@@ -157,18 +157,27 @@ test('the country page tells its sources in its own words, and folds their credi
 	await expect(credit).toBeVisible();
 });
 
-test('every tab of the header is in sight, on a phone too', async ({ page }) => {
-	for (const lang of ['fr', 'en']) {
-		await page.goto(`/sources?lang=${lang}`);
-		const width = page.viewportSize()!.width;
-		const links = page.getByRole('navigation', { name: 'Vigie' }).getByRole('link');
-		await expect(links).toHaveCount(5);
-		for (const link of await links.all()) {
-			await expect(link).toBeVisible();
-			const box = (await link.boundingBox())!;
-			expect(box.x + box.width).toBeLessThanOrEqual(width);
+test('every tab of the header is in sight, on a phone too, down to 320 px', async ({ page }) => {
+	for (const size of [page.viewportSize()!, { width: 320, height: 640 }]) {
+		await page.setViewportSize(size);
+		for (const lang of ['fr', 'en']) {
+			await page.goto(`/sources?lang=${lang}`);
+			const links = page.getByRole('navigation', { name: 'Vigie' }).getByRole('link');
+			await expect(links).toHaveCount(8);
+			for (const link of await links.all()) {
+				await expect(link).toBeVisible();
+				const box = (await link.boundingBox())!;
+				expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+			}
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
 		}
+		await page.goto('/?lang=fr');
+		await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
 	}
+	await page.goto('/sources?lang=en');
+	for (const name of ['Surf', 'Sky', 'Travel'])
+		await expect(page.getByRole('navigation', { name: 'Vigie' }).getByRole('link', { name })).toBeVisible();
 	// The map's tab keeps its whole name for screen readers when it shows a short one.
 	await expect(page.getByRole('link', { name: 'World map' })).toBeVisible();
 });
