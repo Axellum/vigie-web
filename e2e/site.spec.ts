@@ -34,18 +34,23 @@ function collectErrors(page: Page): string[] {
 	return errors;
 }
 
-test('the world map lists the recorded hazards', async ({ page }) => {
+// The hazards drawn as markers, which name them: all but the earthquakes, a layer of their own.
+const marked = [...hazards.features, ...storms.features].filter(
+	(f: Json) => f.properties.category !== 'EARTHQUAKE'
+);
+const marker = (page: Page, title: string) =>
+	page
+		.locator('.vigie-marker')
+		.and(page.getByRole('button', { name: title, exact: true }))
+		.first();
+
+test('the world map draws the recorded hazards', async ({ page }) => {
 	const errors = collectErrors(page);
 	await page.goto('/');
-	await expect(page.getByRole('heading', { level: 2, name: /Alertes/ })).toBeVisible();
-	// The strongest hazard of the recording is in the list.
-	const red = hazards.features.find((f: Json) => f.properties.severity === 'RED') ?? hazards.features[0];
-	await page.getByLabel('Seulement ce que montre la carte').uncheck();
-	await expect(page.getByText(red.properties.title, { exact: true }).first()).toBeVisible();
-	// Every hazard of the recording is in the list once the "in view" filter is off.
-	await expect(page.locator('.rail .list > .row')).toHaveCount(
-		hazards.features.length + storms.features.length
-	);
+	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
+	await expect(page.locator('.vigie-marker')).toHaveCount(marked.length, { timeout: 15_000 });
+	const red = marked.find((f: Json) => f.properties.severity === 'RED') ?? marked[0];
+	await expect(marker(page, red.properties.title)).toBeAttached();
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
@@ -69,21 +74,37 @@ test('the home page opens on the point of the world: what is red, then what coun
 	await expect(
 		list.getByRole('heading', { name: `Ce qui compte · ${counted.length}`, exact: true })
 	).toBeVisible();
-	await expect(list.locator('.events > li')).toHaveCount(Math.min(12, counted.length));
-	if (counted.length > 12) {
-		await list.getByRole('button', { name: `Tout voir (${counted.length})` }).click();
-		await expect(list.locator('.events > li')).toHaveCount(counted.length);
+	// Orange and red first, 12 then all; what is below orange is folded behind one line.
+	const strong = counted.filter((e) => e.level === 'RED' || e.level === 'ORANGE');
+	await expect(list.locator('.events > li')).toHaveCount(Math.min(12, strong.length));
+	if (strong.length > 12) {
+		await list.getByRole('button', { name: `Tout voir (${strong.length})` }).click();
+		await expect(list.locator('.events > li')).toHaveCount(strong.length);
 	}
+	const yellow = counted.filter((e) => e.level === 'YELLOW').length;
+	await list.getByRole('button', { name: new RegExp(`^Replié : ${yellow} en jaune`) }).click();
+	await expect(list.locator('.events > li')).toHaveCount(counted.length);
 	// The strongest first, with its level in words; the page says the grouping and the titles are its own.
 	await expect(list.locator('.events > li').first()).toContainText(
 		{ RED: 'Rouge', ORANGE: 'Orange', YELLOW: 'Jaune' }[counted[0].level as string] ?? 'Niveau inconnu'
 	);
 	await expect(list.getByText(/calculés par Vigie/)).toBeVisible();
+	// The titles are the site's, in French and whole: a source's words stay in the detail.
+	await expect(list.locator('.events .t').filter({ hasText: /Tropical|earthquakes|volcano/ })).toHaveCount(0);
+	await expect(list.getByText('Cyclone CHAMPI-26 · Pacifique nord', { exact: true })).toBeVisible();
 	// Green is not a counter (nothing in force), and the answer for the browser is cacheable.
 	await expect(page.locator('.levels button')).toHaveCount(3);
 	const answer = await request.get('/data/events.json');
 	expect(answer.headers()['cache-control']).toMatch(/public, max-age=\d+/);
 	expect((await answer.json()).events).toHaveLength(events.events.length);
+	// A hazard unfolds into what its source says, and opens in the panel.
+	const volcano = list.locator('.events > li').filter({ hasText: /^Volcan Great Sitkin · États-Unis/ });
+	await volcano.getByRole('button', { expanded: false }).click();
+	await expect(volcano.getByText('Selon la source (1)')).toBeVisible();
+	await volcano.getByText('Great Sitkin volcano (aviation color code ORANGE)').click();
+	await expect(
+		page.getByRole('heading', { level: 2, name: 'Great Sitkin volcano (aviation color code ORANGE)' })
+	).toBeVisible();
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
@@ -117,9 +138,9 @@ test('the fine filters of what counts live in the address, and a profile is a sh
 
 test('a hazard opens in the side panel, then on its own page', async ({ page }) => {
 	await page.goto('/');
-	await page.getByLabel('Seulement ce que montre la carte').uncheck();
-	const first = hazards.features[0];
-	await page.locator('.rail .list > .row').filter({ hasText: first.properties.title }).first().click();
+	const first = marked[0];
+	// The marker may be on the far side of the globe: its click is given to it directly.
+	await marker(page, first.properties.title).dispatchEvent('click');
 	await expect(page.getByRole('heading', { level: 2, name: first.properties.title })).toBeVisible();
 	await page.getByRole('link', { name: 'Ouvrir la fiche' }).click();
 	await expect(page).toHaveURL(
@@ -157,18 +178,27 @@ test('the country page tells its sources in its own words, and folds their credi
 	await expect(credit).toBeVisible();
 });
 
-test('every tab of the header is in sight, on a phone too', async ({ page }) => {
-	for (const lang of ['fr', 'en']) {
-		await page.goto(`/sources?lang=${lang}`);
-		const width = page.viewportSize()!.width;
-		const links = page.getByRole('navigation', { name: 'Vigie' }).getByRole('link');
-		await expect(links).toHaveCount(5);
-		for (const link of await links.all()) {
-			await expect(link).toBeVisible();
-			const box = (await link.boundingBox())!;
-			expect(box.x + box.width).toBeLessThanOrEqual(width);
+test('every tab of the header is in sight, on a phone too, down to 320 px', async ({ page }) => {
+	for (const size of [page.viewportSize()!, { width: 320, height: 640 }]) {
+		await page.setViewportSize(size);
+		for (const lang of ['fr', 'en']) {
+			await page.goto(`/sources?lang=${lang}`);
+			const links = page.getByRole('navigation', { name: 'Vigie' }).getByRole('link');
+			await expect(links).toHaveCount(8);
+			for (const link of await links.all()) {
+				await expect(link).toBeVisible();
+				const box = (await link.boundingBox())!;
+				expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+			}
+			expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
 		}
+		await page.goto('/?lang=fr');
+		await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
 	}
+	await page.goto('/sources?lang=en');
+	for (const name of ['Surf', 'Sky', 'Travel'])
+		await expect(page.getByRole('navigation', { name: 'Vigie' }).getByRole('link', { name })).toBeVisible();
 	// The map's tab keeps its whole name for screen readers when it shows a short one.
 	await expect(page.getByRole('link', { name: 'World map' })).toBeVisible();
 });
@@ -226,21 +256,94 @@ test('data answers are cacheable and pages carry the security headers', async ({
 	expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
 });
 
-test('the Europe shortcut shows the official warnings of the countries in view', async ({ page }, info) => {
+test('the point follows the map: the world, then the area shown, then the world again', async ({
+	page
+}, info) => {
 	test.skip(info.project.name !== 'desktop', 'one viewport is enough for the map');
-	const red = fr.features.find((f: Json) => f.properties.level === 'RED' && f.properties.texts?.length);
-	test.skip(!red, 'the recording has no red French warning with a text');
+	const counted = (fixture('events').events as Json[]).filter((e) => e.impact >= 20);
+	const heading = (name: string | RegExp) => page.getByRole('heading', { level: 2, name });
+	const point = page.getByRole('region', { name: 'Le point' });
+	await page.goto('/');
+	await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+	await expect(heading(`Ce qui compte · ${counted.length}`)).toBeVisible({ timeout: 15_000 });
+	await expect(point.getByText(/^Dans la zone affichée/)).toHaveCount(0);
+	// On France, only the events whose box, or whose country, touches the area shown.
+	await page.getByRole('button', { name: 'France', exact: true }).click();
+	await expect(point.getByText(/^Dans la zone affichée : /)).toBeVisible({ timeout: 15_000 });
+	await expect(heading(/^Ce qui compte · \d+$/)).not.toHaveText(`Ce qui compte · ${counted.length}`);
+	await page.getByRole('button', { name: 'Monde', exact: true }).click();
+	await expect(heading(`Ce qui compte · ${counted.length}`)).toBeVisible({ timeout: 15_000 });
+});
+
+test("an event unfolds into its official warnings, which open with the issuer's words", async ({
+	page
+}, info) => {
+	test.skip(info.project.name !== 'desktop', 'one viewport is enough for the map');
+	// Croatia's warnings were recorded with the events: the same messages, by the API's ids.
+	const hr = fixture('warnings-HR');
+	const wind = (fixture('events').events as Json[]).find(
+		(e) => e.country === 'HR' && e.alert_ids.length > 1
+	)!;
+	const own = hr.features.filter((f: Json) => wind.alert_ids.includes(f.id));
+	const words = own
+		.map(
+			(f: Json) => f.properties.texts.find((t: Json) => t.language.startsWith('en')) ?? f.properties.texts[0]
+		)
+		.map((t: Json) =>
+			String(t?.description ?? '')
+				.split('\n')[0]
+				.trim()
+		)
+		.filter(Boolean);
 	await page.goto('/');
 	await expect(page.locator('.maplibregl-canvas')).toBeVisible();
 	await page.getByRole('button', { name: 'Europe' }).click();
-	const headline = (
-		red.properties.texts.find((t: Json) => t.language.startsWith('fr')) ?? red.properties.texts[0]
-	).headline;
-	await expect(page.locator('.rail .list > .row').filter({ hasText: headline }).first()).toBeVisible({
-		timeout: 15_000
-	});
-	// Countries that were not recorded answer 503: the list says so instead of showing nothing.
+	const point = page.getByRole('region', { name: 'Le point' });
+	await expect(point.getByText(/^Dans la zone affichée : /)).toBeVisible({ timeout: 15_000 });
+	const list = page.getByRole('region', { name: /Ce qui compte/ });
+	// Yellow is folded at first.
+	await list.getByRole('button', { name: /^Replié : / }).click();
+	const event = list.locator('.events > li').filter({ hasText: /^Vent · Croatie · \d+ zones/ });
+	await event.getByRole('button', { expanded: false }).click();
+	await expect(event.getByText(`Vigilances d’origine (${own.length})`)).toBeVisible({ timeout: 15_000 });
+	await expect(event.locator('.origin .list > *')).toHaveCount(own.length);
+	await event.locator('.origin .list > *').first().click();
+	await expect
+		.poll(async () => {
+			const text = await page.locator('.detail').innerText();
+			const flat = (v: string) => v.replace(/\s+/g, ' ');
+			return words.some((w: string) => flat(text).includes(flat(w)));
+		})
+		.toBe(true);
+	// Countries that were not recorded answer 503: the page says so instead of showing nothing.
+	await page.getByRole('button', { name: '← Toutes les alertes' }).click();
 	await expect(page.getByText(/Vigilances indisponibles pour le moment/)).toBeVisible();
+});
+
+test('the places followed in this browser are cards with what is in force there, matched in the browser', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const red = fr.features.find(
+		(f: Json) => f.properties.level === 'RED' && f.properties.area?.description === 'Haute-Corse'
+	);
+	test.skip(!red, 'the recording has no red warning in Haute-Corse');
+	const asked: string[] = [];
+	page.on('request', (r) => asked.push(r.url()));
+	await page.addInitScript(() =>
+		localStorage.setItem(
+			'vigie-places',
+			JSON.stringify([{ lat: 42.306, lon: 9.15, radiusKm: 300, name: 'Corte', profile: null }])
+		)
+	);
+	await page.goto('/');
+	const card = page.getByRole('navigation', { name: 'Mes lieux' }).getByRole('link', { name: /Corte/ });
+	await expect(card).toHaveClass(/sev-RED/, { timeout: 15_000 });
+	await expect(card).toContainText(/rouge/i);
+	await expect(card).toHaveAttribute('href', '/near#42.306,9.15,300');
+	// The position never leaves the browser.
+	expect(asked.filter((u) => u.includes('42.3') || u.includes('9.15'))).toEqual([]);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
 test('near me shows the warnings and the weather of a place given in the address', async ({ page }) => {
@@ -438,7 +541,7 @@ test('the fires seen by satellite are off until asked, then drawn with their cre
 	const errors = collectErrors(page);
 	const grid = fixture('fires-grid');
 	await page.goto('/');
-	await expect(page.getByRole('heading', { level: 2, name: /Alertes/ })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
 	await expect(page.getByText(grid.metadata.attribution)).toHaveCount(0);
 	// The world, far away: the one tile of the coarsest grid.
 	const tile = page.waitForResponse((r) => r.url().endsWith('/data/fires/w5/0_0.json'));
@@ -633,7 +736,7 @@ test('a spot the API does not know is not found, and the tide links to the surf 
 test('the tide layer is off until asked, and asks to come closer on the world map', async ({ page }) => {
 	const coast = fixture('tides-coast');
 	await page.goto('/');
-	await expect(page.getByRole('heading', { level: 2, name: /Alertes/ })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
 	await expect(page.getByText(/Pas pour la navigation/)).toHaveCount(0);
 	await page.getByLabel('Marées (calculées)').check();
 	await expect(page.getByText('Rapprochez la carte pour voir la marée le long des côtes.')).toBeVisible();
@@ -736,8 +839,7 @@ test('near me orders its cards by profile and keeps followed places in the brows
 test('a storm shows its forecast in the panel and on its page', async ({ page }) => {
 	const errors = collectErrors(page);
 	await page.goto('/');
-	await page.getByLabel('Seulement ce que montre la carte').uncheck();
-	await page.locator('.rail .list > .row').filter({ hasText: 'Hurricane Isaias' }).first().click();
+	await marker(page, 'Hurricane Isaias').dispatchEvent('click');
 	await expect(page.getByRole('heading', { level: 3, name: 'Prévision' })).toBeVisible();
 	await expect(page.getByText('Avis 13A', { exact: false })).toBeVisible();
 	// One row per forecast position, with the source's own stage and wind.

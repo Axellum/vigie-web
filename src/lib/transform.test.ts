@@ -95,10 +95,11 @@ describe('warningsFromApi', () => {
 		}
 	});
 
-	it('gives each area of a message its own id', () => {
-		const raw = fixture('warnings-FR') as { features: { properties: Record<string, unknown> }[] };
+	it('gives each area of a message its own id, and keeps the id the API gives it', () => {
+		const raw = fixture('warnings-FR') as { features: { id: string; properties: Record<string, unknown> }[] };
 		const { data } = warningsFromApi('FR', raw);
 		expect(new Set(data.warnings.map((w) => w.id)).size).toBe(raw.features.length);
+		expect(data.warnings.map((w) => w.apiId)).toEqual(raw.features.map((f) => f.id));
 	});
 
 	it('lists the warnings that cannot be placed, with no shape', () => {

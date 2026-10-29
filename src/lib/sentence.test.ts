@@ -15,6 +15,7 @@ function warning(
 ) {
 	return {
 		id: `${level}-${phenomenon}`,
+		apiId: null,
 		cc: 'FR',
 		source: 'meteofrance',
 		level,

@@ -20,8 +20,10 @@ Public instance: <https://vigie.auxfilsdesidees.fr>
 ## What it shows
 
 - a world map of the current hazards and, for the covered countries, of the official warnings, opening on "the point":
-  what is red in the world, then what counts, the API's events (`/v1/events`) the strongest first;
-- a list that follows the map, with filters by level and by type;
+  what is red, then what counts, the API's events (`/v1/events`) the strongest first, orange and red before the rest;
+  it follows the map (the world, or the area shown), each event unfolds into its official warnings or its hazards, and
+  fine filters (phenomena, level, period, kind of source) live in the page's address;
+- the places followed, as small cards with what is in force there;
 - a page for each country and each area, and a page for each alert with the issuer's text unchanged;
 - "near me": for a place (found by name, the browser's position, a click on the map, or the page's address), the official
   warnings that hold it, the hazards around it, its weather, sea, surf spots, sky and air, in cards that a profile (surf,

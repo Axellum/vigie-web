@@ -3,6 +3,7 @@
 // official`), so that a filtered view can be kept or shared, and they act in the browser on the world already
 // read: a filter never asks the API for anything. A profile is a shortcut to a set of filters. Pure functions.
 import { FAMILIES, MIN_IMPACT, type Family, type WorldEvent } from './events';
+import { t, type Key, type Lang } from './i18n';
 import type { Profile } from './profiles';
 import { rank } from './levels';
 
@@ -96,4 +97,23 @@ export function profileOf(f: EventFilter): Profile | null {
 		(p) => filterQuery(PROFILE_FILTERS[p]) === query
 	);
 	return found ?? null;
+}
+
+/** Below orange an event is folded at first, behind one line that says how many: the list opens on orange and red. */
+export function folded(e: WorldEvent): boolean {
+	return rank(e.level) < rank('ORANGE');
+}
+
+/** What the folded line says: "52 en jaune · 1 en vert · 3 sans niveau". */
+export function foldedSummary(lang: Lang, events: WorldEvent[]): string {
+	const n = (level: WorldEvent['level']) => events.filter((e) => e.level === level).length;
+	const parts: [number, Key][] = [
+		[n('YELLOW'), 'point.foldYellow'],
+		[n('GREEN'), 'point.foldGreen'],
+		[n(null), 'point.foldNone']
+	];
+	return parts
+		.filter(([count]) => count > 0)
+		.map(([count, key]) => t(lang, key, { n: count }))
+		.join(' · ');
 }

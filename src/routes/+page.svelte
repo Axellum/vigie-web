@@ -16,12 +16,15 @@
 	import MapView, { type Selection } from '#lib/components/MapView.svelte';
 	import WarningBody from '#lib/components/WarningBody.svelte';
 	import {
+		eventInView,
 		eventTitle,
 		FAMILIES,
 		familyLabel,
 		hazardsOf,
+		isWorldView,
 		MIN_IMPACT,
 		worldSentence,
+		zoneSentence,
 		type Family,
 		type WorldEvent,
 		type WorldEvents
@@ -29,6 +32,8 @@
 	import {
 		applyFilter,
 		filterQuery,
+		folded,
+		foldedSummary,
 		isFiltered,
 		KINDS,
 		NO_FILTER,
@@ -38,9 +43,10 @@
 		profileOf,
 		type EventFilter
 	} from '#lib/filters.js';
-	import { readFollowed, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
+	import { readFollowed, sameSpot, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
 	import { PROFILES } from '#lib/profiles.js';
-	import { placeHash } from '#lib/near.js';
+	import { countriesNear, countryAt, placeHash, type Borders } from '#lib/near.js';
+	import { placeLine, placeStatus, type PlaceStatus } from '#lib/placeStatus.js';
 	import { untilPhrase } from '#lib/sentence.js';
 	import { fireLevel, tilesInView } from '#lib/fires.js';
 	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '#lib/geo.js';
@@ -65,17 +71,30 @@
 	let hazardsAttribution = $derived<string | null>(data.hazards?.attribution ?? null);
 	let now = $derived(data.now);
 
-	// --- the point of the world: the API's events, the strongest first ---------------------------------
+	// --- the point: the API's events, the strongest first, of the area the map shows ---------------------------
 	/** How many events the list shows before "show all". */
 	const POINT_ROWS = 12;
+	let view = $state<Box | null>(null);
+	let zoom = $state(0);
 	let world = $derived<WorldEvents | null>(data.events);
 	let worldStatus = $state<'ok' | 'loading' | 'failed'>('ok');
 	let allEvents = $state(false);
+	let unfold = $state(false);
 	// The fine filters, in the address: they act on the world already read, never on the API.
 	// Read from the address once; a change of filter rewrites the address without a new page.
 	let filter = $state(parseFilter(page.url.searchParams));
-	const counting = $derived(world?.events.filter((e) => e.impact >= MIN_IMPACT) ?? []);
-	const listed = $derived(world ? applyFilter(world.events, filter, now) : []);
+	// "The point" follows the map: the world's at the scale of the world, else the events that touch the area shown.
+	const worldScale = $derived(isWorldView(view));
+	const zoneEvents = $derived.by(() => {
+		const v = view;
+		if (!world) return [];
+		return worldScale || !v ? world.events : world.events.filter((e) => eventInView(e, v));
+	});
+	const counting = $derived(zoneEvents.filter((e) => e.impact >= MIN_IMPACT));
+	const listed = $derived(applyFilter(zoneEvents, filter, now));
+	// Orange and red first; what is below is folded behind one line.
+	const strong = $derived(listed.filter((e) => !folded(e)));
+	const weak = $derived(listed.filter(folded));
 	const families = $derived(
 		FAMILIES.map((f) => ({ f, n: counting.filter((e) => e.family === f).length })).filter(
 			({ f, n }) => n > 0 || filter.families.includes(f)
@@ -84,6 +103,7 @@
 
 	function setFilter(next: EventFilter) {
 		allEvents = false;
+		unfold = false;
 		filter = next;
 		goto(`/${filterQuery(next)}${location.hash}`, { shallow: true, replace: true });
 	}
@@ -92,9 +112,18 @@
 			...filter,
 			families: filter.families.includes(f) ? filter.families.filter((x) => x !== f) : [...filter.families, f]
 		});
-	const pointRows = $derived(allEvents ? listed : listed.slice(0, POINT_ROWS));
-	const said = $derived(world ? worldSentence(lang, world, hazards) : []);
-	// The places followed in this browser, and those of the account signed in: shortcuts to "near me".
+	const pointRows = $derived(allEvents ? strong : strong.slice(0, POINT_ROWS));
+	const said = $derived(
+		world ? (worldScale ? worldSentence(lang, world, hazards) : zoneSentence(lang, zoneEvents, hazards)) : []
+	);
+	// Warnings with no known level count for little (impact 10): they are counted, not listed.
+	const unknown = $derived(
+		zoneEvents.filter((e) => e.kind === 'warnings' && !e.level && e.impact < MIN_IMPACT).length
+	);
+	const levelCounts = $derived(
+		Object.fromEntries(LEVELS.map((l) => [l, zoneEvents.filter((e) => e.level === l).length]))
+	);
+	// The places followed in this browser, and those of the account signed in: cards, shortcuts to "near me".
 	let places = $state<(FollowedPlace | AccountPlace)[]>([]);
 
 	async function loadWorld() {
@@ -110,28 +139,34 @@
 	}
 
 	async function loadPlaces() {
-		places = readFollowed();
+		const own = readFollowed();
+		places = own;
 		if (!data.accounts) return;
 		try {
 			const response = await fetch('/account/places.json');
-			if (response.ok)
-				places = [...((await response.json()) as { places: AccountPlace[] }).places, ...places];
+			if (!response.ok) return;
+			const account = ((await response.json()) as { places: AccountPlace[] }).places;
+			places = [...account, ...own.filter((p) => !account.some((a) => sameSpot(a, p)))];
 		} catch {
 			// The places of this browser are enough.
 		}
 	}
 
-	function pickEvent(e: WorldEvent) {
-		const own = hazardsOf(e, hazards)[0];
-		if (own) {
-			pick(hazardRow(own));
-			return;
-		}
-		if (e.bbox) mapView?.show(e.bbox, 6);
+	// An event unfolds into what makes it: its official warnings, read with its country's, or its hazards.
+	let opened = $state<string | null>(null);
+	function toggleEvent(e: WorldEvent) {
+		opened = opened === e.id ? null : e.id;
+		if (opened && e.kind === 'warnings' && e.country && data.served.includes(e.country))
+			void loadCountry(e.country);
 	}
-	let view = $state<Box | null>(null);
-	let zoom = $state(0);
-	let inView = $state(true);
+	function originRows(e: WorldEvent): Row[] {
+		if (e.kind !== 'warnings') return hazardsOf(e, hazards).map(hazardRow);
+		const ids = new Set(e.alertIds);
+		return (countries.get(e.country ?? '')?.data?.warnings ?? [])
+			.filter((w) => w.apiId != null && ids.has(w.apiId))
+			.map(warningRow)
+			.sort(byLevelThenTime);
+	}
 	const levels = new SvelteSet<Level | 'NONE'>([...LEVELS, 'NONE']);
 	const hidden = new SvelteSet<string>();
 	type CountryState = {
@@ -257,7 +292,40 @@
 	const loading = $derived(visibleCountries.filter((cc) => countries.get(cc)?.status === 'loading'));
 	const failedCountries = $derived(visibleCountries.filter((cc) => countries.get(cc)?.status === 'error'));
 
-	// --- rows ------------------------------------------------------------------------------------------
+	// --- the places followed: what is in force there, matched in this browser as "near me" does ---------------
+	let borders = $state<Borders | null>(null);
+	const placeCountries = $derived(places.map((p) => countriesNear(p, data.served)));
+	$effect(() => {
+		const wanted = new Set(placeCountries.flat());
+		untrack(() => {
+			for (const cc of wanted) void loadCountry(cc);
+		});
+	});
+	// The country a place is in, from simplified borders (100 kB) loaded only when places are followed.
+	$effect(() => {
+		if (places.length && !borders)
+			import('#lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
+	});
+	const cards = $derived(
+		places.map((p, i) => {
+			const status = placeStatus(
+				p,
+				placeCountries[i].map((cc) => ({ cc, state: countries.get(cc) })),
+				borders ? countryAt(borders, p) : undefined,
+				data.served
+			);
+			return { p, status, line: placeLine(lang, status, now) };
+		})
+	);
+	// "Nothing in force" and "no source" are not levels: they never take a level's colour.
+	const cardClass = (s: PlaceStatus) =>
+		s.kind === 'here' || s.kind === 'country'
+			? `sev-${s.level ?? 'NONE'}`
+			: s.kind === 'none' || s.kind === 'nosource'
+				? s.kind
+				: 'sev-NONE';
+
+	// --- what the map shows, by kind -----------------------------------------------------------------------
 	const levelKey = (l: Level | null) => l ?? 'NONE';
 	const allRows = $derived.by(() => {
 		const rows: { row: Row; placed: boolean; inView: boolean }[] = [];
@@ -278,27 +346,6 @@
 		}
 		return rows;
 	});
-	const scoped = $derived(
-		allRows.filter((r) => !hidden.has(r.row.category) && (!inView || !r.placed || r.inView))
-	);
-	const levelCounts = $derived(
-		Object.fromEntries(
-			[...LEVELS, 'NONE'].map((l) => [l, scoped.filter((r) => levelKey(r.row.level) === l).length])
-		)
-	);
-	const shown = $derived(scoped.filter((r) => levels.has(levelKey(r.row.level))));
-	const placedRows = $derived(
-		shown
-			.filter((r) => r.placed)
-			.map((r) => r.row)
-			.sort(byLevelThenTime)
-	);
-	const unplacedRows = $derived(
-		shown
-			.filter((r) => !r.placed)
-			.map((r) => r.row)
-			.sort(byLevelThenTime)
-	);
 
 	const categories = $derived.by(() => {
 		const order = [
@@ -318,7 +365,7 @@
 		return [...present].sort((a, b) => ((order.indexOf(a) + 100) % 100) - ((order.indexOf(b) + 100) % 100));
 	});
 	const categoryCount = (c: string) =>
-		allRows.filter((r) => r.row.category === c && (!inView || !r.placed || r.inView)).length;
+		allRows.filter((r) => r.row.category === c && (worldScale || !r.placed || r.inView)).length;
 
 	// --- what the map draws -------------------------------------------------------------------------
 	const mapHazards = $derived(
@@ -469,19 +516,23 @@
 		{ key: 'views.westPacific', box: [110, -48, 180, 40] }
 	];
 
+	// The countries whose warnings the page shows: on the map, in an event unfolded, on the cards of the places.
+	const openedCountry = $derived(
+		world?.events.find((e) => e.id === opened && e.kind === 'warnings')?.country ?? null
+	);
+	const shownCountries = $derived([
+		...new Set([...visibleCountries, ...placeCountries.flat(), ...(openedCountry ? [openedCountry] : [])])
+	]);
 	const credits = $derived.by(() => {
 		const set = new Set<string>();
 		for (const part of (hazardsAttribution ?? '').split(' | ')) if (part) set.add(part);
-		for (const cc of visibleCountries)
-			for (const a of countries.get(cc)?.data?.attributions ?? []) set.add(a);
-		for (const e of pointRows) if (e.attribution) set.add(e.attribution);
+		for (const cc of shownCountries) for (const a of countries.get(cc)?.data?.attributions ?? []) set.add(a);
+		for (const e of [...pointRows, ...(unfold ? weak : [])]) if (e.attribution) set.add(e.attribution);
 		return [...set];
 	});
 	const disclaimers = $derived([
 		...new Set(
-			[...visibleCountries.map((cc) => countries.get(cc)?.data?.disclaimer), world?.disclaimer].filter(
-				Boolean
-			)
+			[...shownCountries.map((cc) => countries.get(cc)?.data?.disclaimer), world?.disclaimer].filter(Boolean)
 		)
 	] as string[]);
 
@@ -523,6 +574,62 @@
 </svelte:head>
 
 <h1 class="visually-hidden">Vigie · {tr('site.tagline')}</h1>
+
+{#snippet eventItem(e: WorldEvent)}
+	<li>
+		<button
+			type="button"
+			class="event sev-{e.level ?? 'NONE'}"
+			aria-expanded={opened === e.id}
+			onclick={() => toggleEvent(e)}
+		>
+			<span class="t">{eventTitle(lang, e, hazards)}</span>
+			<span class="m">
+				{e.level ? t(lang, `level.${e.level}` as Key) : t(lang, 'level.none')}
+				{#if e.end && e.end > now}· {untilPhrase(lang, e.end, now)}{/if}
+				<!-- The hazards' sources by name (GDACS, USGS…); the warnings' sources are credited below. -->
+				{#if e.kind !== 'warnings' && e.sources.length}· {e.sources.join(', ')}{/if}
+			</span>
+		</button>
+		{#if opened === e.id}
+			{@const rows = originRows(e)}
+			{@const served = e.kind === 'warnings' && !!e.country && data.served.includes(e.country)}
+			{@const state = served ? countries.get(e.country ?? '') : undefined}
+			<div class="origin">
+				{#if rows.length}
+					<p class="small muted">
+						{tr(e.kind === 'warnings' ? 'point.origin' : 'point.originHazards', { n: rows.length })}
+					</p>
+					<div class="list">
+						{#each rows as row (row.key)}<AlertRow {lang} {row} {now} onpick={pick} />{/each}
+					</div>
+				{:else if e.kind !== 'warnings'}
+					<p class="hint">{tr('point.noHazard')}</p>
+				{:else if !served || state?.status === 'error'}
+					<p class="hint">
+						{tr('list.failedWarnings', { countries: e.country ? countryName(lang, e.country) : '–' })}
+					</p>
+				{:else if !state?.data}
+					<p class="hint">
+						{tr('list.loadingWarnings', { countries: e.country ? countryName(lang, e.country) : '–' })}
+					</p>
+				{:else}
+					<p class="hint">{tr('point.changed')}</p>
+				{/if}
+				<div class="links">
+					{#if e.bbox}
+						<button type="button" class="btn quiet" onclick={() => e.bbox && mapView?.show(e.bbox, 6)}
+							>{tr('point.show')}</button
+						>
+					{/if}
+					{#if served && e.country}
+						<a href="/country/{e.country.toLowerCase()}">{countryName(lang, e.country)}</a>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</li>
+{/snippet}
 
 <div class="app">
 	<aside class="rail" bind:this={rail} aria-label={tr('list.title')}>
@@ -622,13 +729,15 @@
 				{:else}
 					<p class="muted">{tr('point.loading')}</p>
 				{/if}
-				{#if places.length}
-					<nav class="chips" aria-label={tr('near.followed')}>
-						<span class="hint">{tr('near.followed')}</span>
-						{#each places as p (`${p.lat},${p.lon}`)}
-							<a class="chip" href="/near{placeHash(p, p.radiusKm, p.profile)}"
-								>{p.name ?? `${p.lat}, ${p.lon}`}</a
-							>
+				{#if cards.length}
+					<nav class="places" aria-label={tr('near.followed')}>
+						{#each cards as { p, status, line }, i (i)}
+							<a class="place {cardClass(status)}" href="/near{placeHash(p, p.radiusKm, p.profile)}">
+								<span class="name"
+									><i class="dot" aria-hidden="true"></i>{p.name ?? `${p.lat}, ${p.lon}`}</span
+								>
+								<span class="line">{line}</span>
+							</a>
 						{/each}
 					</nav>
 				{/if}
@@ -705,32 +814,45 @@
 						>
 					{/if}
 					<ol class="events">
-						{#each pointRows as e (e.id)}
-							<li>
-								<button type="button" class="event sev-{e.level ?? 'NONE'}" onclick={() => pickEvent(e)}>
-									<span class="t">{eventTitle(lang, e, hazards)}</span>
-									<span class="m">
-										{e.level ? t(lang, `level.${e.level}` as Key) : t(lang, 'level.none')}
-										{#if e.end && e.end > now}· {untilPhrase(lang, e.end, now)}{/if}
-										<!-- The hazards' sources by name (GDACS, USGS…); the warnings' sources are credited below. -->
-										{#if e.kind !== 'warnings' && e.sources.length}· {e.sources.join(', ')}{/if}
-									</span>
-								</button>
-								{#if e.kind === 'warnings' && e.country && data.served.includes(e.country)}
-									<a class="more" href="/country/{e.country.toLowerCase()}">{countryName(lang, e.country)}</a>
-								{/if}
-							</li>
-						{/each}
+						{#each pointRows as e (e.id)}{@render eventItem(e)}{/each}
 					</ol>
-					{#if !listed.length}<p class="muted">{tr('filter.none')}</p>{/if}
-					{#if listed.length > POINT_ROWS}
+					{#if !listed.length}
+						<p class="muted">{isFiltered(filter) ? tr('filter.none') : tr('point.nothing')}</p>
+					{:else if !strong.length}
+						<p class="muted">{tr('point.noStrong')}</p>
+					{/if}
+					{#if strong.length > POINT_ROWS}
 						<button type="button" class="btn quiet" onclick={() => (allEvents = !allEvents)}>
-							{allEvents ? tr('point.less') : tr('point.more', { n: listed.length })}
+							{allEvents ? tr('point.less') : tr('point.more', { n: strong.length })}
 						</button>
 					{/if}
-					{#if world.counts.unknown}<p class="hint">
-							{tr('point.unknown', { n: world.counts.unknown })}
-						</p>{/if}
+					{#if weak.length}
+						<button type="button" class="fold" aria-expanded={unfold} onclick={() => (unfold = !unfold)}>
+							<span aria-hidden="true">{unfold ? '−' : '+'}</span>
+							{tr(unfold ? 'point.foldedOpen' : 'point.folded', { what: foldedSummary(lang, weak) })}
+						</button>
+						{#if unfold}
+							<ol class="events">
+								{#each weak as e (e.id)}{@render eventItem(e)}{/each}
+							</ol>
+						{/if}
+					{/if}
+					{#if unknown}<p class="hint">{tr('point.unknown', { n: unknown })}</p>{/if}
+					{#if data.hazards === null}<p class="muted">{tr('error.api')}</p>{/if}
+					{#if loading.length}
+						<p class="hint">
+							{tr('list.loadingWarnings', {
+								countries: loading.map((cc) => countryName(lang, cc)).join(', ')
+							})}
+						</p>
+					{/if}
+					{#if failedCountries.length}
+						<p class="hint">
+							{tr('list.failedWarnings', {
+								countries: failedCountries.map((cc) => countryName(lang, cc)).join(', ')
+							})}
+						</p>
+					{/if}
 					<p class="hint">{tr('point.note')}</p>
 				</section>
 			{/if}
@@ -774,7 +896,6 @@
 						</button>
 					{/each}
 				</div>
-				<label class="check"><input type="checkbox" bind:checked={inView} /> {tr('types.inView')}</label>
 				<label class="check">
 					<input type="checkbox" bind:checked={showFires} />
 					<span class="swatch" aria-hidden="true"></span>
@@ -804,40 +925,6 @@
 					{#if tides.failed}<p class="hint">{tr('tide.layerFailed')}</p>{/if}
 					<p class="hint">{tr('tide.limits')}</p>
 				{/if}
-			</section>
-			<section class="block">
-				<h2 class="eyebrow">{tr('list.title')} · <span class="data">{shown.length}</span></h2>
-				{#if data.hazards === null}
-					<p class="muted">{tr('error.api')}</p>
-				{/if}
-				{#if zoom < WARNINGS_MIN_ZOOM && !hidden.has('VIGILANCE')}
-					<p class="hint">{tr('list.zoomForWarnings')}</p>
-				{/if}
-				{#if loading.length}
-					<p class="hint">
-						{tr('list.loadingWarnings', { countries: loading.map((cc) => countryName(lang, cc)).join(', ') })}
-					</p>
-				{/if}
-				{#if failedCountries.length}
-					<p class="hint">
-						{tr('list.failedWarnings', {
-							countries: failedCountries.map((cc) => countryName(lang, cc)).join(', ')
-						})}
-					</p>
-				{/if}
-				<div class="list">
-					{#each placedRows as row (row.key)}
-						<AlertRow {lang} {row} {now} onpick={pick} />
-					{:else}
-						<p class="muted empty">{tr('list.empty')}</p>
-					{/each}
-					{#if unplacedRows.length}
-						<p class="group">{tr('list.unplaced')} · {unplacedRows.length} ({tr('list.unplacedWhy')})</p>
-						{#each unplacedRows as row (row.key)}
-							<AlertRow {lang} {row} {now} onpick={pick} />
-						{/each}
-					{/if}
-				</div>
 			</section>
 		{/if}
 		<section class="credits">
@@ -925,9 +1012,75 @@
 	.filters .stack {
 		padding-top: 10px;
 	}
-	.events .more {
+	.origin {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 4px 0 6px 14px;
+	}
+	.origin .links {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px 14px;
+		font-size: 13px;
+	}
+	.fold {
+		align-self: flex-start;
+		background: none;
+		border: 0;
+		padding: 4px 0;
+		font: inherit;
+		font-size: 13.5px;
+		color: var(--accent);
+		cursor: pointer;
+		text-align: left;
+	}
+	.places {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 8px;
+	}
+	.place {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		min-width: 0;
+		padding: 8px 10px;
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--bg);
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.place:hover {
+		border-color: var(--accent);
+	}
+	.place .name {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-weight: 600;
+		overflow-wrap: anywhere;
+	}
+	.place .dot {
+		flex: none;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--c, var(--sev-none));
+	}
+	.place.none .dot {
+		background: transparent;
+		box-shadow: inset 0 0 0 2px var(--calm-ink);
+	}
+	.place.nosource .dot {
+		background: repeating-linear-gradient(135deg, var(--nosource-bg) 0 2px, var(--nosource-line) 2px 4px);
+		box-shadow: inset 0 0 0 1px var(--nosource-line);
+	}
+	.place .line {
 		font-size: 12.5px;
-		margin-left: 14px;
+		color: var(--muted);
 	}
 	.app {
 		display: flex;

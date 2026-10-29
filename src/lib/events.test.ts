@@ -1,7 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { eventsFromApi, eventTitle, hazardsOf, MIN_IMPACT, worldSentence, type WorldEvent } from './events';
+import {
+	eventInView,
+	eventsFromApi,
+	eventTitle,
+	hazardsOf,
+	isWorldView,
+	MIN_IMPACT,
+	nameOf,
+	seaOf,
+	worldSentence,
+	zoneSentence,
+	type WorldEvent
+} from './events';
 import type { Hazard } from './types';
 
 const raw = JSON.parse(readFileSync(join(process.cwd(), 'e2e', 'fixtures', 'events.json'), 'utf-8'));
@@ -22,6 +34,8 @@ function event(over: Partial<WorldEvent>): WorldEvent {
 		bbox: [7.34, 45.82, 9.3, 46.5],
 		sources: ['meteoalarm'],
 		quakes: null,
+		alertIds: [],
+		sourceTitle: null,
 		attribution: null,
 		...over
 	};
@@ -78,7 +92,7 @@ describe('titles and the sentence', () => {
 		expect(eventTitle('en', event({ areasCount: 1 }), [])).toBe('Cold · Switzerland · Vispertal - Nanztal');
 	});
 
-	it("keeps a hazard's own title when the site reads it, else its kind and country", () => {
+	it("writes a hazard in the reader's language: its kind, a name, a magnitude and the place, nothing cut", () => {
 		const quakes = event({
 			kind: 'earthquakes',
 			family: 'earthquake',
@@ -86,21 +100,81 @@ describe('titles and the sentence', () => {
 			country: null,
 			areasCount: null,
 			bbox: [165.44, -13.99, 165.71, -13.7],
-			quakes: 5
+			quakes: 5,
+			sourceTitle: '5 earthquakes · strongest: M 6.0 - VANUATU'
 		});
-		const strongest = hazard({});
+		const strongest = hazard({ value: 6.1 });
 		expect(hazardsOf(quakes, [hazard({ id: 'a', value: 4.5 }), strongest, hazard({ lon: 10 })])[0]).toBe(
 			strongest
 		);
-		expect(eventTitle('fr', quakes, [strongest])).toBe('M 6.0 - VANUATU · 5 séismes');
+		// The magnitude of the strongest the site reads, else as the source's title gives it.
+		expect(eventTitle('fr', quakes, [strongest])).toBe('Séisme M 6,1 · 5 séismes · Pacifique sud');
+		expect(eventTitle('en', quakes, [])).toBe('Earthquake M 6 · 5 earthquakes · South Pacific');
 		const storm = event({
 			kind: 'hazard',
 			family: 'cyclone',
 			category: 'HURRICANE',
-			country: 'IN',
-			bbox: [81.8, 16.4, 81.8, 16.4]
+			country: null,
+			bbox: [127.4, 31.2, 127.4, 31.2],
+			// As the API gives it: cut in the middle of a word.
+			sourceTitle:
+				'Tropical Cyclone CHAMPI-26 (Philippines, Guam, Northern Mariana Islands, Japan, China, South Kor'
 		});
-		expect(eventTitle('fr', storm, [])).toBe('Cyclone · Inde');
+		expect(eventTitle('fr', storm, [])).toBe('Cyclone CHAMPI-26 · Pacifique nord');
+		expect(eventTitle('fr', { ...storm, country: 'IN', sourceTitle: null }, [])).toBe('Cyclone · Inde');
+		const volcano = event({
+			kind: 'hazard',
+			family: 'volcano',
+			category: 'VOLCANO',
+			country: 'US',
+			sourceTitle: 'Great Sitkin volcano (aviation color code ORANGE)'
+		});
+		expect(eventTitle('fr', volcano, [])).toBe('Volcan Great Sitkin · États-Unis');
+	});
+
+	it('takes only the names of storms and volcanoes from a source', () => {
+		expect(nameOf('HURRICANE', 'Tropical Depression Vance')).toBe('Vance');
+		expect(nameOf('HURRICANE', 'Hurricane Isaias')).toBe('Isaias');
+		expect(nameOf('HURRICANE', 'Tropical Cyclone SIMON-26 (México)')).toBe('SIMON-26');
+		expect(nameOf('VOLCANO', 'Ahyi Seamount volcano (aviation color code YELLOW)')).toBe('Ahyi Seamount');
+		expect(nameOf('FLOOD', 'Flood Warning - Lake, FL')).toBeNull();
+		expect(nameOf('HURRICANE', null)).toBeNull();
+	});
+
+	it('names the ocean of a hazard at sea, roughly, and no sea inland Asia', () => {
+		expect(seaOf(-108.1, 21.1)).toBe('northPacific');
+		expect(seaOf(-90, 25)).toBe('northAtlantic');
+		expect(seaOf(-32.4, 58.4)).toBe('northAtlantic');
+		expect(seaOf(-173.2, -16.5)).toBe('southPacific');
+		expect(seaOf(70, -10)).toBe('indian');
+		expect(seaOf(18, 36)).toBe('mediterranean');
+		expect(seaOf(-28, -60.3)).toBe('southern');
+		expect(seaOf(60, 45)).toBeNull();
+	});
+
+	it("gives no title of the recorded answer in a source's words", () => {
+		const world = eventsFromApi(raw);
+		for (const e of world.events) {
+			const title = eventTitle('fr', e, []);
+			if (e.sourceTitle) expect(title).not.toContain(e.sourceTitle);
+			expect(title).not.toMatch(/Tropical|earthquakes|volcano/);
+		}
+	});
+
+	it('follows the area the map shows: an event by its box, else by its country', () => {
+		const greece: [number, number, number, number] = [19, 34.5, 29.7, 42];
+		expect(isWorldView(null)).toBe(true);
+		expect(isWorldView([-180, -85, 180, 85])).toBe(true);
+		expect(isWorldView(greece)).toBe(false);
+		expect(eventInView(event({ bbox: [22, 39, 23, 40] }), greece)).toBe(true);
+		expect(eventInView(event({ bbox: null, country: 'GR' }), greece)).toBe(true);
+		expect(eventInView(event({ bbox: null, country: 'FR' }), greece)).toBe(false);
+		expect(eventInView(event({ bbox: null, country: null }), greece)).toBe(false);
+		const said = zoneSentence('fr', [event({ level: 'ORANGE' }), event({ level: 'YELLOW' })], []);
+		expect(said).toEqual(['Dans la zone affichée : rien en rouge.', '1 en orange, 1 en jaune.']);
+		expect(zoneSentence('en', [event({ level: 'RED' })], [])[0]).toBe(
+			'In the area shown: 1 red, Cold · Switzerland · 13 areas.'
+		);
 	});
 
 	it('names what is red, then counts orange and yellow', () => {
