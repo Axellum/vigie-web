@@ -21,11 +21,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      # A pull request adds a file to changelog.d/ and leaves CHANGELOG.md alone (a release or assemble branch edits it).
+      - name: Changelog fragments apply, and CHANGELOG.md is not edited by hand
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          case "$EVENT:$HEAD_REF" in
+            pull_request:release/* | pull_request:assemble/*) node scripts/changelog.mjs --check ;;
+            pull_request:*) node scripts/changelog.mjs --check --base "origin/$BASE_REF" ;;
+            *) node scripts/changelog.mjs --check ;;
+          esac
+      - run: node --test scripts/*.test.mjs
 
       - run: npm ci --no-audit --no-fund
       - run: npm run check

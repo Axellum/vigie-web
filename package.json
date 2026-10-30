@@ -17,6 +17,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test": "vitest run",
+		"test:scripts": "node --test scripts/*.test.mjs",
+		"changelog:check": "node scripts/changelog.mjs --check",
 		"test:e2e": "playwright test",
 		"record-fixtures": "node scripts/record-fixtures.mjs"
 	},

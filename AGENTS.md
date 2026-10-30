@@ -19,6 +19,7 @@ npm run format:check        # prettier
 npm test                    # unit tests (vitest), no network
 npm run build               # Node server in build/
 npm run test:e2e            # Playwright against the build and a mock API that replays recorded answers
+npm run changelog:check     # the fragments of changelog.d/ are valid (CI runs it); node --test scripts/*.test.mjs tests the script
 ```
 
 Use PowerShell 5.1-compatible commands when you give a command to the owner (no `&&`).
@@ -51,4 +52,20 @@ Use PowerShell 5.1-compatible commands when you give a command to the owner (no 
 9. **Public-facing text stays modest**: a personal project, made with AI, shared in case it helps; no
    promise, no marketing word, no detail of a private network or machine.
 10. **Git**: work on a branch, one commit per topic, stage files one by one, open a pull request against
-    `main`; never push to `main`. Add a line to [`CHANGELOG.md`](CHANGELOG.md) for a visible change.
+    `main`; never push to `main`.
+11. **Changelog by fragments**: do not edit [`CHANGELOG.md`](CHANGELOG.md) in a pull request (two of them added a line at the
+    same place and conflicted every time). For a visible change add one file to [`changelog.d/`](changelog.d/README.md),
+    `<slug>.<added|changed|fixed|...>.md`, holding the bullet. CI runs `npm run changelog:check` and fails a pull request
+    that edits `CHANGELOG.md`; a `release/` or `assemble/` branch puts the fragments in with
+    `node scripts/changelog.mjs --write [--release X.Y.Z]`.
+
+## Testing on a Windows machine with several sessions
+
+- **vitest and the build fail under a path that contains `.claude`** (Rolldown: "Tsconfig not found"). Run them from a
+  worktree outside any dot folder (`git worktree add ../_tests/<name> -b <branch> origin/main`, then `npm ci`), not from
+  `.claude/worktrees/`.
+- **The end-to-end tests use fixed ports** (site 4174, mock API 18181, mock push 18282, test database 15433), and
+  `playwright.config.ts` reuses a server that already answers on them when `CI` is not set: another session's server would be
+  used silently. Check that the four ports are free before `npm run test:e2e`
+  (`Get-NetTCPConnection -LocalPort 4174,18181,18282,15433 -State Listen` in PowerShell; on this machine it has missed
+  listening ports, so also try to open each one from another process) and run one end-to-end suite at a time.
