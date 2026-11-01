@@ -15,7 +15,7 @@ which caches every feed once for everybody.
 
 Public instance: <https://vigie.auxfilsdesidees.fr>
 
-![The world map of Vigie Web: hazards on the map, counts by level and the list of alerts](docs/images/map.png)
+![The world map of Vigie Web: the point of the moment, the alerts the strongest first, the hazards on the map](docs/images/map.png)
 
 ## What it shows
 
