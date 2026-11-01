@@ -7,7 +7,7 @@
 	import Seo from '#lib/components/Seo.svelte';
 	import { countryName, t } from '#lib/i18n.js';
 	import type { Borders } from '#lib/near.js';
-	import { kindLabel, legend, travel, travelDate, whyNotRead } from '#lib/travel.js';
+	import { feedState, kindLabel, legend, travel, travelDate, whyNotRead } from '#lib/travel.js';
 	import type { FeatureCollection } from 'geojson';
 
 	let { data } = $props();
@@ -90,8 +90,10 @@
 				{/each}
 			</div>
 			<p class="small">
-				<strong>{ministry.name}</strong>{#if ministry.state && ministry.state !== 'ok'}
-					· <span class="muted">{travel(lang, ministry.state === 'loading' ? 'loading' : 'stale')}</span>{/if}
+				<strong>{ministry.name}</strong>
+				{#if feedState(lang, ministry.state)}
+					· <span class="muted">{feedState(lang, ministry.state)}</span>
+				{/if}
 			</p>
 			<div class="map">
 				<MapView
