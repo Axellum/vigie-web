@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	countryFromApi,
 	decodeEntities,
+	feedState,
 	healthFromApi,
 	legend,
 	mapLevel,
@@ -119,6 +120,17 @@ describe('the health answer', () => {
 		expect(whyNotRead('fr', h.agencies[1])).toContain('commerciale');
 		expect(h.items.every((i) => i.countries === null || Array.isArray(i.countries))).toBe(true);
 	});
+});
+
+it('says a ministry that does not answer, without claiming a version is kept', () => {
+	expect(feedState('fr', 'ok')).toBeNull();
+	expect(feedState('fr', null)).toBeNull();
+	expect(feedState('fr', 'loading')).toBe('en cours de lecture');
+	// Its last read failed and nothing read before is served (Smartraveller, 2026-11-01).
+	expect(feedState('fr', 'unavailable')).toBe('ne répond pas pour l’instant');
+	expect(feedState('en', 'unavailable')).toBe('does not answer for now');
+	expect(feedState('fr', 'stale')).toBe('dernière version relue (le ministère ne répond pas)');
+	expect(feedState('fr', 'kept')).toBe('dernière version relue (le ministère ne répond pas)');
 });
 
 it('has the same texts in French and English', () => {

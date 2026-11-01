@@ -597,6 +597,7 @@ const TEXT = {
 		unavailable: 'Les conseils aux voyageurs ne répondent pas pour l’instant.',
 		loading: 'en cours de lecture',
 		stale: 'dernière version relue (le ministère ne répond pas)',
+		down: 'ne répond pas pour l’instant',
 		health: 'Santé',
 		healthIntro:
 			"Les publications récentes de l'ECDC (Centre européen de prévention et de contrôle des maladies) sur les menaces de maladies transmissibles, dans leurs mots.",
@@ -664,6 +665,7 @@ const TEXT = {
 		unavailable: 'The travel advice does not answer for now.',
 		loading: 'being read',
 		stale: 'last version read (the ministry does not answer)',
+		down: 'does not answer for now',
 		health: 'Health',
 		healthIntro:
 			'The recent publications of the ECDC (European Centre for Disease Prevention and Control) on communicable disease threats, in its words.',
@@ -698,4 +700,11 @@ export function travel(lang: Lang, key: TravelKey, params: Record<string, string
 }
 
 /** The two dictionaries have the same keys (for the test). */
+/** What a ministry's state says after its name; `null` when it was read (`ok`) or the API said nothing. `unavailable`: its
+ * last read failed and nothing read before is served, so no version is said to be kept. */
+export function feedState(lang: Lang, state: string | null): string | null {
+	if (!state || state === 'ok') return null;
+	return travel(lang, state === 'loading' ? 'loading' : state === 'unavailable' ? 'down' : 'stale');
+}
+
 export const TRAVEL_KEYS = { fr: Object.keys(TEXT.fr), en: Object.keys(TEXT.en) };
