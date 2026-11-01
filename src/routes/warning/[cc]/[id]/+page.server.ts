@@ -13,7 +13,8 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 	}
 	if (!result) error(404, 'No source of official warnings for this country');
 	const detail = result.value.details.get(params.id);
-	if (!detail) error(404, 'This warning is not in force any more, or never was');
+	// 410, not 404: a warning lasts hours, and its address is gone for good once it ends, so a crawler stops asking.
+	if (!detail) error(410, 'This warning is not in force any more, or never was');
 	setHeaders({ 'cache-control': 'public, max-age=60, s-maxage=120' });
 	return { detail, stale: result.stale, now: Math.floor(Date.now() / 1000) };
 };

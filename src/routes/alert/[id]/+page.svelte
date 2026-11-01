@@ -18,7 +18,7 @@
 	const category = $derived(tOr(lang, `cat1.${h.category}`, h.category));
 </script>
 
-<Seo title={`${category} · ${h.title}`} description={`${category} · ${h.title}`} />
+<Seo title={`${category} · ${h.title}`} description={`${category} · ${h.title}`} noindex />
 
 <div class="page">
 	<header class="intro">

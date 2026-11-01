@@ -12,7 +12,8 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		throw e;
 	}
 	const hazard = items.find((h) => h.id === params.id);
-	if (!hazard) error(404, 'This alert is not in the current list any more');
+	// 410, not 404: an alert leaves the list for good when it ends (see the warning page).
+	if (!hazard) error(410, 'This alert is not in the current list any more');
 
 	// A storm's or a tsunami's forecast, and the official messages a tsunami's forecast comes from. Either can
 	// fail without the page failing: the hazard is still shown.
