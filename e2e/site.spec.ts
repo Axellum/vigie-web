@@ -235,7 +235,8 @@ test('the sources page lists the providers of the API', async ({ page }) => {
 
 test('a country with no source, an unknown alert and a down source', async ({ page, request }) => {
 	expect((await request.get('/country/jp')).status()).toBe(404);
-	expect((await request.get('/alert/does-not-exist')).status()).toBe(404);
+	// An alert that is not in the list is one that ended: gone for good.
+	expect((await request.get('/alert/does-not-exist')).status()).toBe(410);
 	// Spain was not recorded: the mock answers 503, like a source that is down.
 	expect((await request.get('/data/warnings/ES.json')).status()).toBe(200);
 	expect((await request.get('/data/warnings/PT.json')).status()).toBe(502);
@@ -945,6 +946,20 @@ test('an area with no warning in force is not indexed, and the language link is 
 	await expect(page.locator('a.lang')).toHaveAttribute('rel', 'nofollow');
 	await page.goto('/country/fr/haute-corse');
 	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+});
+
+test('a warning and an alert are not indexed, and an ended warning answers 410 and points to its country', async ({
+	page
+}) => {
+	await page.goto('/country/fr');
+	const href = await page.locator('a[href^="/warning/fr/"]').first().getAttribute('href');
+	await page.goto(href!);
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow');
+	await page.goto('/alert/nhc_al092026');
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow');
+	expect((await page.goto('/warning/fr/ended-warning'))?.status()).toBe(410);
+	await expect(page.locator('h1')).toHaveText("Cette alerte n'est plus en cours");
+	await expect(page.locator('.page a[href="/country/fr"]')).toHaveText('France');
 });
 
 test('the map page has a heading, its own description and a WebSite for search engines', async ({ page }) => {

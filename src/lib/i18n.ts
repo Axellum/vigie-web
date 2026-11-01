@@ -265,6 +265,7 @@ const fr = {
 	'about.description':
 		"Vigie, projet personnel et non commercial : ce qu'il montre, ses limites et l'origine des données.",
 	'error.title': 'Page introuvable',
+	'error.gone': "Cette alerte n'est plus en cours",
 	'error.generic': "Une erreur s'est produite.",
 	'error.api': "L'API Vigie ne répond pas pour le moment. Réessayez dans quelques minutes.",
 	'nav.near': 'Autour de moi',
@@ -921,6 +922,7 @@ const en: Record<Key, string> = {
 	'about.description':
 		'Vigie, a personal, non-commercial project: what it shows, its limits and where the data come from.',
 	'error.title': 'Page not found',
+	'error.gone': 'This alert is no longer in force',
 	'error.generic': 'Something went wrong.',
 	'error.api': 'The Vigie API does not answer for now. Try again in a few minutes.',
 	'nav.near': 'Near me',

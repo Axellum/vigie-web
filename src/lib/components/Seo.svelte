@@ -3,8 +3,8 @@
 
 	// Title, description, canonical address and the basics of a social preview, in one place. The canonical
 	// address has no query: the language (`?lang=`) and the filters never make another page.
-	// `noindex`: a page worth visiting but not worth a search result (an area with no warning in force); its
-	// links are still followed.
+	// `noindex`: a page worth visiting but not worth a search result (an area with no warning in force; a
+	// warning or an alert, which lasts hours and whose address is gone once it ends); its links are still followed.
 	let {
 		title,
 		description = undefined,

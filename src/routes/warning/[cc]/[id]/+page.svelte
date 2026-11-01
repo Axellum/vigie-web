@@ -24,7 +24,11 @@
 	const frame = $derived(d.geometry ? geometryBox(d.geometry) : null);
 </script>
 
-<Seo title={`${title}${d.area ? ` · ${d.area}` : ''}`} description={`${title} · ${d.area ?? ''} · ${name}`} />
+<Seo
+	title={`${title}${d.area ? ` · ${d.area}` : ''}`}
+	description={`${title} · ${d.area ?? ''} · ${name}`}
+	noindex
+/>
 
 <div class="page">
 	<header class="intro">
