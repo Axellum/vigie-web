@@ -69,14 +69,8 @@ const TEXT = {
 		windDenied:
 			'La plage demandée n’a pas pu être appliquée aujourd’hui : les verdicts sont ceux de la plage par défaut.',
 		windBad: 'Une plage commence au-dessus de 0 et finit au-dessus de son début, à {max} {unit} au plus.',
-		rules: 'Les règles de Vigie',
-		rulesNote:
-			'Ce que chaque verdict veut dire, les seuils et leurs limites sont au bas de la page d’un spot.',
-		firstSpot: 'La page d’un spot',
-		detail: 'Voir les heures et les critères',
 		surfPage: 'La prévision de surf, note par note',
-		allActivities: 'Les autres activités',
-		goodShort: 'Bon',
+		updated: 'Verdicts calculés {time}.',
 		legend: 'Vert ✓ bon · jaune ~ possible · rouge ✕ déconseillé · tireté ? pas de verdict'
 	},
 	en: {
@@ -145,13 +139,8 @@ const TEXT = {
 		windDenied:
 			'The range asked for could not be applied today: the verdicts are those of the default range.',
 		windBad: 'A range starts above 0 and ends above its start, at {max} {unit} at most.',
-		rules: 'The rules of Vigie',
-		rulesNote: 'What each verdict means, the thresholds and their limits are at the bottom of a spot’s page.',
-		firstSpot: 'A spot’s page',
-		detail: 'See the hours and the criteria',
 		surfPage: 'The surf forecast, rating by rating',
-		allActivities: 'The other activities',
-		goodShort: 'Good',
+		updated: 'Verdicts worked out {time}.',
 		legend: 'Green ✓ good · yellow ~ possible · red ✕ poor · dashed ? no verdict'
 	}
 } as const;
