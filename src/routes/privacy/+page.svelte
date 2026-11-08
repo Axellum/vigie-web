@@ -41,8 +41,10 @@
 				<b>Vos lieux et votre page</b> : les lieux que « Ma page » garde pour vous (un nom, un point arrondi à une
 				centaine de mètres, un rayon et, si vous en choisissez un, un profil) et la page elle-même (son titre et
 				ses blocs : une carte, un lieu, une taille). La première fois que vous l'ouvrez, vos zones en cercle y sont
-				reprises comme lieux ; vos zones et leurs alertes ne changent pas. Ils ne sont visibles que de vous et disparaissent
-				avec le compte.
+				reprises comme lieux ; vos zones et leurs alertes ne changent pas. Votre maison, si vous l'indiquez, n'est
+				gardée qu'à environ un kilomètre près, jamais avec une adresse, et n'est montrée à personne. La position
+				de votre navigateur n'est demandée que lorsque vous appuyez sur « Me localiser », et ne sert qu'à choisir
+				le point que vous enregistrez. Ils ne sont visibles que de vous et disparaissent avec le compte.
 			</li>
 			<li>
 				<b>Vos appareils qui reçoivent les notifications</b> : pour un navigateur, l'adresse que son service de
@@ -150,8 +152,10 @@
 				<b>Your places and your page</b>: the places "My page" keeps for you (a name, a point rounded to about
 				a hundred metres, a radius and, if you choose one, a profile) and the page itself (its title and its
 				blocks: a card, a place, a size). The first time you open it, your circle zones are taken up as
-				places; your zones and their alerts do not change. They are visible to you only and go with the
-				account.
+				places; your zones and their alerts do not change. Your home, if you give it, is kept only to about a
+				kilometre, never with an address, and is shown to nobody. The position of your browser is asked for
+				only when you press "Locate me", and only serves to choose the point you save. They are visible to you
+				only and go with the account.
 			</li>
 			<li>
 				<b>Your devices that receive the notifications</b>: for a browser, the address its notification
