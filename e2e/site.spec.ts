@@ -197,7 +197,7 @@ test('every tab of the header is in sight, on a phone too, down to 320 px', asyn
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
 	}
 	await page.goto('/sources?lang=en');
-	for (const name of ['Surf', 'Sky', 'Travel'])
+	for (const name of ['Sea', 'Sky', 'Travel'])
 		await expect(page.getByRole('navigation', { name: 'Vigie' }).getByRole('link', { name })).toBeVisible();
 	// The map's tab keeps its whole name for screen readers when it shows a short one.
 	await expect(page.getByRole('link', { name: 'World map' })).toBeVisible();

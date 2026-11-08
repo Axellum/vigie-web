@@ -1,0 +1,168 @@
+// The words of the sea pages (`/sea`, `/sea/<activity>`), in French and English. The words of the verdicts, of the activities
+// and of the reasons are those of `activities.ts` (the same ones as on a spot's page); only what the sea pages add is here.
+import type { Lang } from '../i18n';
+
+const TEXT = {
+	fr: {
+		page: 'Mer',
+		title: 'Aller à l’eau ?',
+		intro:
+			'Un verdict par activité et par spot, d’après des règles écrites par Vigie : elles ne connaissent ni la plage, ni le fond, ni la personne qui y va. Pas pour la sécurité : regardez la mer, les drapeaux et les sauveteurs avant d’y aller.',
+		myActivity: 'Mon activité',
+		'meta.surf':
+			'Surf : les spots de la côte atlantique et de la Manche où aller aujourd’hui, avec la raison de chaque verdict. Règles de Vigie, pas pour la sécurité.',
+		'meta.kite':
+			'Kite, wing, windsurf : les spots où le vent est dans votre plage aujourd’hui, avec la raison de chaque verdict. Règles de Vigie, pas pour la sécurité.',
+		'meta.boat':
+			'Bateau : où le vent et la mer permettent de sortir aujourd’hui, avec la raison de chaque verdict. Règles de Vigie, pas pour la sécurité ni la navigation.',
+		'meta.shore_fishing':
+			'Pêche à pied : les spots où la basse mer et le coefficient estimé le permettent aujourd’hui, avec la raison de chaque verdict. Règles de Vigie, pas pour la sécurité.',
+		'answer.none': 'Aucun spot ne peut être jugé pour cette activité pour le moment.',
+		'answer.good.one': 'Bon à {name}{km}{slot}.',
+		'answer.good.many': 'Bon à {name}{km}{slot}, et {others} autres spots à moins de {radius} km.',
+		'answer.goodAll.many': 'Bon sur {count} spots, dont {name}{slot}.',
+		'answer.possible.one': 'Rien de bon, mais possible à {name}{km}{slot}.',
+		'answer.possible.many':
+			'Rien de bon, mais possible à {name}{km}{slot}, et {others} autres spots à moins de {radius} km.',
+		'answer.possibleAll.many': 'Rien de bon, mais possible sur {count} spots, dont {name}{slot}.',
+		'answer.poor': 'Pas aujourd’hui : même le meilleur spot, {name}{km}, est déconseillé.',
+		'answer.poorWhy': 'Pas aujourd’hui : même le meilleur spot, {name}{km}, est déconseillé. {why}.',
+		'answer.unknown': 'Pas de verdict pour le moment : il manque une donnée (le vent, le plus souvent).',
+		'answer.far': 'Aucun spot à moins de {radius} km. Le plus proche, {name}, est à {km} km : {verdict}.',
+		'answer.slot': ', créneau {slot}',
+		'answer.km': ' ({km} km)',
+		place: 'Autour de {place}',
+		myPosition: 'ma position',
+		nobody: 'Pas de lieu choisi : tous les spots, du meilleur verdict au moins bon.',
+		locate: 'Autour de ma position',
+		locating: 'Recherche de la position…',
+		locateFailed: 'La position n’a pas pu être lue : elle n’est demandée que sur un clic.',
+		locateNote:
+			'La position reste dans votre navigateur ; elle n’est envoyée à personne. Un lieu suivi dans « Autour de moi » est repris tout seul.',
+		stopLocate: 'Tous les spots',
+		spots: 'Les spots',
+		spotsFar: 'Plus loin ({count} spots)',
+		away: 'à {km} km',
+		now: 'Maintenant',
+		unavailable: 'Les verdicts ne répondent pas pour le moment.',
+		unavailableHint: 'Réessayez dans quelques minutes ; aucun verdict n’est inventé.',
+		stale: 'Un fournisseur n’a pas répondu : ce sont ses dernières données qui sont utilisées.',
+		warnRed: 'Vigilance côtière rouge',
+		warnOrange: 'Vigilance côtière orange',
+		warnUnknown: 'Vigilances non lues',
+		warnUnknownTitle:
+			'Les vigilances côtières n’ont pas pu être lues pour ce spot : aucun verdict n’est plafonné, et leur absence ne veut pas dire qu’il n’y en a pas.',
+		map: 'Voir la carte',
+		mapNote: 'Chaque point est un spot, de la couleur de son verdict pour cette activité.',
+		settings: 'Réglages',
+		settingsNote: 'Gardés dans ce navigateur seulement ; rien n’est envoyé.',
+		unit: 'Unité du vent',
+		windRange: 'Plage de vent du kite',
+		windFrom: 'de',
+		windTo: 'à',
+		windApply: 'Appliquer',
+		windReset: 'Remettre la plage par défaut',
+		windHelp: 'Entre {min} et {max} {unit} ; le verdict du kite en tient compte.',
+		windCurrent: 'Plage de vent du kite : {range}.',
+		windDenied:
+			'La plage demandée n’a pas pu être appliquée aujourd’hui : les verdicts sont ceux de la plage par défaut.',
+		windBad: 'Une plage commence au-dessus de 0 et finit au-dessus de son début, à {max} {unit} au plus.',
+		rules: 'Les règles de Vigie',
+		rulesNote:
+			'Ce que chaque verdict veut dire, les seuils et leurs limites sont au bas de la page d’un spot.',
+		firstSpot: 'La page d’un spot',
+		detail: 'Voir les heures et les critères',
+		surfPage: 'La prévision de surf, note par note',
+		allActivities: 'Les autres activités',
+		goodShort: 'Bon',
+		legend: 'Vert ✓ bon · jaune ~ possible · rouge ✕ déconseillé · tireté ? pas de verdict'
+	},
+	en: {
+		page: 'Sea',
+		title: 'Should you go?',
+		intro:
+			'One verdict per activity and per spot, from rules written by Vigie: they know neither the beach, the bottom nor the person who goes. Not for safety: look at the sea, the flags and the lifeguards before going in.',
+		myActivity: 'My activity',
+		'meta.surf':
+			'Surf: the spots of the Atlantic and Channel coasts to go to today, with the reason for each verdict. Rules of Vigie, not for safety.',
+		'meta.kite':
+			'Kite, wing, windsurf: the spots where the wind is in your range today, with the reason for each verdict. Rules of Vigie, not for safety.',
+		'meta.boat':
+			'Boat: where the wind and the sea let you go out today, with the reason for each verdict. Rules of Vigie, not for safety nor navigation.',
+		'meta.shore_fishing':
+			'Shore fishing: the spots where the low water and the estimated coefficient allow it today, with the reason for each verdict. Rules of Vigie, not for safety.',
+		'answer.none': 'No spot can be judged for this activity at the moment.',
+		'answer.good.one': 'Good at {name}{km}{slot}.',
+		'answer.good.many': 'Good at {name}{km}{slot}, and {others} other spots within {radius} km.',
+		'answer.goodAll.many': 'Good at {count} spots, including {name}{slot}.',
+		'answer.possible.one': 'Nothing good, but possible at {name}{km}{slot}.',
+		'answer.possible.many':
+			'Nothing good, but possible at {name}{km}{slot}, and {others} other spots within {radius} km.',
+		'answer.possibleAll.many': 'Nothing good, but possible at {count} spots, including {name}{slot}.',
+		'answer.poor': 'Not today: even the best spot, {name}{km}, is poor.',
+		'answer.poorWhy': 'Not today: even the best spot, {name}{km}, is poor. {why}.',
+		'answer.unknown': 'No verdict at the moment: some data is missing (the wind, most often).',
+		'answer.far': 'No spot within {radius} km. The nearest one, {name}, is {km} km away: {verdict}.',
+		'answer.slot': ', slot {slot}',
+		'answer.km': ' ({km} km)',
+		place: 'Around {place}',
+		myPosition: 'my position',
+		nobody: 'No place chosen: all the spots, from the best verdict to the worst.',
+		locate: 'Around my position',
+		locating: 'Finding the position…',
+		locateFailed: 'The position could not be read: it is only asked for on a click.',
+		locateNote:
+			'The position stays in your browser; it is sent to nobody. A place followed in “Near me” is taken up by itself.',
+		stopLocate: 'All the spots',
+		spots: 'The spots',
+		spotsFar: 'Farther ({count} spots)',
+		away: '{km} km away',
+		now: 'Now',
+		unavailable: 'The verdicts are not answering at the moment.',
+		unavailableHint: 'Try again in a few minutes; no verdict is made up.',
+		stale: 'A provider did not answer: its last data are used.',
+		warnRed: 'Red coastal warning',
+		warnOrange: 'Orange coastal warning',
+		warnUnknown: 'Warnings not read',
+		warnUnknownTitle:
+			'The coastal warnings could not be read for this spot: no verdict is capped, and no warning shown does not mean there is none.',
+		map: 'Show the map',
+		mapNote: 'Each point is a spot, in the colour of its verdict for this activity.',
+		settings: 'Settings',
+		settingsNote: 'Kept in this browser only; nothing is sent.',
+		unit: 'Unit of the wind',
+		windRange: 'Wind range of the kite',
+		windFrom: 'from',
+		windTo: 'to',
+		windApply: 'Apply',
+		windReset: 'Back to the default range',
+		windHelp: 'Between {min} and {max} {unit}; the kite verdict follows it.',
+		windCurrent: 'Wind range of the kite: {range}.',
+		windDenied:
+			'The range asked for could not be applied today: the verdicts are those of the default range.',
+		windBad: 'A range starts above 0 and ends above its start, at {max} {unit} at most.',
+		rules: 'The rules of Vigie',
+		rulesNote: 'What each verdict means, the thresholds and their limits are at the bottom of a spot’s page.',
+		firstSpot: 'A spot’s page',
+		detail: 'See the hours and the criteria',
+		surfPage: 'The surf forecast, rating by rating',
+		allActivities: 'The other activities',
+		goodShort: 'Good',
+		legend: 'Green ✓ good · yellow ~ possible · red ✕ poor · dashed ? no verdict'
+	}
+} as const;
+
+export type SeaKey = keyof (typeof TEXT)['fr'];
+/** The texts of the sea pages, so that a test can check that both languages have every one. */
+export const SEA_TEXT = TEXT;
+
+export function seaText(
+	lang: Lang,
+	key: SeaKey | string,
+	vars: Record<string, string | number> = {}
+): string {
+	const table = TEXT[lang] as Record<string, string>;
+	let text = table[key] ?? (TEXT.fr as Record<string, string>)[key] ?? key;
+	for (const [k, v] of Object.entries(vars)) text = text.replaceAll(`{${k}}`, String(v));
+	return text;
+}

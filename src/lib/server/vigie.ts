@@ -14,6 +14,7 @@ import {
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
+import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
 import {
 	surfForecastFromApi,
 	surfOverviewFromApi,
@@ -95,6 +96,8 @@ export const TTL_S = {
 	surfOverview: 600,
 	// The verdicts of a spot use the same swell and wind (no request of its own at the providers) and the warnings: kept 10 minutes.
 	activities: 600,
+	// The headline of the verdicts of every spot: the API works it out once an hour and per five minutes of warnings.
+	seaOverview: 600,
 	// The nearest buoy of every spot comes from a list bundled in the API: it changes with a new version of it only.
 	surfBuoys: 86_400
 } as const;
@@ -451,6 +454,35 @@ export async function getActivities(id: string): Promise<Cached<ActivitiesForeca
 		if (e instanceof ApiError && e.status === 404) return null;
 		throw e;
 	}
+}
+
+// A wind range of the kite other than the API's default is asked for by a visitor: a few of them at once are kept in their own
+// small cache, and the API is asked at most RANGE_ASKS_PER_DAY times a day for one, so that a made-up address cannot make it
+// work out the verdicts of 51 spots over and over. Past that, the page keeps the default range and says so.
+const RANGE_ASKS_PER_DAY = 120;
+const rangeCache = new TtlCache(Date.now, 15_000, 40);
+let rangeBudget: SlidingBudget | null = null;
+
+/**
+ * The headline of the four activities of every spot (surf, kite, boat, shore fishing), for the default wind range of the kite
+ * or, in whole knots, for the one asked for (`0 < min < max`, 60 at most: the caller has checked it).
+ */
+export function getActivitiesOverview(
+	range: { min: number; max: number } | null = null
+): Promise<Cached<SeaOverview>> {
+	const read = async (query: string) => {
+		const overview = seaOverviewFromApi(await getJson(`/v1/activities/overview${query}`, 30_000));
+		if (!overview) throw new ApiError('Vigie API gave no verdicts for the spots', null);
+		return overview;
+	};
+	if (!range) return cache.get('sea-overview', TTL_S.seaOverview * 1000, () => read(''));
+	const min = Math.round(range.min);
+	const max = Math.round(range.max);
+	return rangeCache.get(`sea-overview:${min}-${max}`, TTL_S.seaOverview * 1000, async () => {
+		rangeBudget ??= new SlidingBudget(RANGE_ASKS_PER_DAY);
+		if (!rangeBudget.take()) throw new BudgetError('The wind ranges asked for today are used up');
+		return read(`?wind_min_kn=${min}&wind_max_kn=${max}`);
+	});
 }
 
 /** The nearest CANDHIS wave buoy of every spot. */
