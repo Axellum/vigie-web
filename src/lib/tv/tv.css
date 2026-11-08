@@ -294,13 +294,15 @@
 .tv-panel.tv-on {
 	display: flex;
 }
-/* The dots say which panel shows: in the middle of the head, between the place and the clock, so that nothing of the foot is hidden. */
+/* The middle of the head, between the place and the clock: the rain of the hour, and under it the dots that say which panel shows (in
+   the flow, under the rain, so that nothing of the foot is hidden and the two never overlap). */
+.tv-mid {
+	flex: none;
+}
 .tv-dots {
-	position: absolute;
-	top: 6.4rem;
-	left: 50%;
 	display: flex;
-	transform: translateX(-50%);
+	justify-content: center;
+	margin-top: 1rem;
 }
 .tv-dot {
 	display: block;
@@ -677,6 +679,9 @@
 	padding: 0.8rem 1.2rem;
 	border-radius: 1rem;
 	line-height: 1.1;
+}
+.tv-water-on {
+	border: 0.2rem solid var(--tv-line);
 }
 .tv-sun {
 	flex: 1.2 1 0;

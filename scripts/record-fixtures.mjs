@@ -56,7 +56,40 @@ const targets = [
 	],
 	['surf-buoys', '/v1/surf/buoys'],
 	// The headline of the four activities of every spot at once (the sea pages), asked with the default wind range of the kite.
-	['activities-overview', '/v1/activities/overview']
+	['activities-overview', '/v1/activities/overview'],
+	// The catalogue of the coast (a file bundled in the API, ADR 0021 of the API). The mock keys these answers by the kinds, the
+	// words and whether a position is given, not by the position or the page (e2e/mock-api.mjs): the count of each kind, the dive
+	// sites, the words "malo", and the places around Saint-Malo for the kinds the page of a place asks for (rare, common) and for
+	// "around my position"; then four places by their address (a port, a bathing site, a slipway without a name, a dive site).
+	['sea-places-count', '/v1/sea/places?limit=1', '/v1/sea/places?'],
+	['sea-places-dive', '/v1/sea/places?type=dive&limit=24', '/v1/sea/places?type=dive'],
+	['sea-places-malo', '/v1/sea/places?q=malo&limit=24', '/v1/sea/places?q=malo'],
+	[
+		'sea-places-near',
+		'/v1/sea/places?near_lat=48.64&near_lon=-2.02&radius_km=25&limit=24',
+		'/v1/sea/places?near'
+	],
+	[
+		'sea-places-near-rare',
+		'/v1/sea/places?type=anchorage&type=dive&type=port&near_lat=48.64&near_lon=-2.02&radius_km=25&limit=13',
+		'/v1/sea/places?near&type=anchorage+dive+port'
+	],
+	[
+		'sea-places-near-common',
+		'/v1/sea/places?type=bathing&type=slipway&near_lat=48.64&near_lon=-2.02&radius_km=10&limit=13',
+		'/v1/sea/places?near&type=bathing+slipway'
+	],
+	['sea-place-port', '/v1/sea/places/port-port-de-saint-malo-f697'],
+	['sea-place-bathing', '/v1/sea/places/bathing-bon-secours-4142'],
+	['sea-place-slipway', '/v1/sea/places/slipway-saint-malo-eb59'],
+	['sea-place-dive', '/v1/sea/places/dive-pytheas-ffa1'],
+	// The weather of the cell of a spot of the Landes coast, asked with the sea as a television screen asks it (the temperature of the
+	// water). The mock gives it for that cell only; every other position gets `point`.
+	[
+		'tv-point-hossegor',
+		'/v1/point?lat=43.65&lon=-1.45&marine=true&device_type=web&max_hazards=1&radius_km=1',
+		'/v1/point?lat=43.65&lon=-1.45&marine=true'
+	]
 ];
 
 await mkdir(out, { recursive: true });

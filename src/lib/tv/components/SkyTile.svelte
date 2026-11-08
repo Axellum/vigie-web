@@ -24,10 +24,18 @@
 		</div>
 		<div class="tv-grow"></div>
 		<div class="tv-sky-foot">
-			<div class="tv-hatch tv-water">
-				{tvText(lang, 'water')} <b>–</b>
-				<div class="tv-mut tv-t22">{tvText(lang, 'waterMissing')}</div>
-			</div>
+			{#if sky.waterC != null}
+				<!-- A value of the ocean model for a cell of about 8 km, said as such under the figure. -->
+				<div class="tv-water tv-water-on">
+					{tvText(lang, 'water')} <b>{number(lang, sky.waterC, 0)}°</b>
+					<div class="tv-mut tv-t22">{tvText(lang, 'waterModel')}</div>
+				</div>
+			{:else}
+				<div class="tv-hatch tv-water">
+					{tvText(lang, 'water')} <b>–</b>
+					<div class="tv-mut tv-t22">{tvText(lang, 'waterMissing')}</div>
+				</div>
+			{/if}
 			{#if sky.rise && sky.set}
 				<div class="tv-sun tv-nowrap">
 					<svg class="tv-sun-ico" viewBox="0 0 24 24" aria-hidden="true"

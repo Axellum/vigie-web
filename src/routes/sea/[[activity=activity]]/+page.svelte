@@ -214,6 +214,7 @@
 		{/if}
 
 		<p class="muted small"><a href="/surf">{t('surfPage')}</a></p>
+		<p class="muted small"><a href="/sea/places">{t('placesPage')}</a></p>
 		<p class="muted small">
 			{t('updated', {
 				time: `${dayLabel(lang, overview.generated)}, ${hourLabel(lang, overview.generated)}`

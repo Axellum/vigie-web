@@ -28,7 +28,18 @@
   "activities-overview.json": 1794133867,
   "tv-surf-hossegor.json": 1794132392,
   "tv-activities-hossegor.json": 1794132391,
-  "tv-tides-hossegor.json": 1794132392
+  "tv-tides-hossegor.json": 1794132392,
+  "sea-places-count.json": 1794140771,
+  "sea-places-dive.json": 1794140771,
+  "sea-places-malo.json": 1794140771,
+  "sea-places-near.json": 1794140771,
+  "sea-places-near-rare.json": 1794140771,
+  "sea-places-near-common.json": 1794140771,
+  "sea-place-port.json": 1794140771,
+  "sea-place-bathing.json": 1794140771,
+  "sea-place-slipway.json": 1794140771,
+  "sea-place-dive.json": 1794140771,
+  "tv-point-hossegor.json": 1794141971
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -73,7 +84,18 @@
   "/v1/activities/overview": "activities-overview.json",
   "/v1/surf/spots/tv-hossegor": "tv-surf-hossegor.json",
   "/v1/activities/tv-hossegor": "tv-activities-hossegor.json",
-  "/v1/tides?lat=43.65&lon=-1.45": "tv-tides-hossegor.json"
+  "/v1/tides?lat=43.65&lon=-1.45": "tv-tides-hossegor.json",
+  "/v1/sea/places?": "sea-places-count.json",
+  "/v1/sea/places?type=dive": "sea-places-dive.json",
+  "/v1/sea/places?q=malo": "sea-places-malo.json",
+  "/v1/sea/places?near": "sea-places-near.json",
+  "/v1/sea/places?near&type=anchorage+dive+port": "sea-places-near-rare.json",
+  "/v1/sea/places?near&type=bathing+slipway": "sea-places-near-common.json",
+  "/v1/sea/places/port-port-de-saint-malo-f697": "sea-place-port.json",
+  "/v1/sea/places/bathing-bon-secours-4142": "sea-place-bathing.json",
+  "/v1/sea/places/slipway-saint-malo-eb59": "sea-place-slipway.json",
+  "/v1/sea/places/dive-pytheas-ffa1": "sea-place-dive.json",
+  "/v1/point?lat=43.65&lon=-1.45&marine=true": "tv-point-hossegor.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -86,6 +108,7 @@
   "tides.json, tides-coast.json": "Answers of vigie-api bdbaf8e (its pull request 32, which adds GET /v1/tides and /v1/tides/coast), run locally on 2026-10-28 with scripts/record-fixtures.mjs: the tide is computed by the API from the EOT20 model, with no provider; the public instance did not compute tides yet.",
   "surf-hossegor.json": "Answers of vigie-api's surf branch (the pull request that adds GET /v1/surf/spots and /v1/surf/spots/{id}), run locally on 2026-10-29 with scripts/record-fixtures.mjs: the spots are bundled in the API (OpenStreetMap), the forecast asked Open-Meteo (MFWAM swell, wind) and computed the tide; the public instance did not serve the surf yet.",
   "surf-spots.json, surf-overview.json": "Answers of vigie-api's branch that adds GET /v1/surf/overview and corrects the spot names OpenStreetMap misspells (Plage de la Marbella), run locally on 2026-10-29 with scripts/record-fixtures.mjs: the overview asked Open-Meteo once for the 51 spots (MFWAM swell, wind) and computed the tide; the public instance did not serve the overview yet.",
-  "activities-overview.json": "Answer of vigie-api's branch that adds GET /v1/activities/overview (the headline of the four activities of every surf spot), run locally on 2026-11-08 with scripts/record-fixtures.mjs: it read the two every-spot answers of the surf overview (Open-Meteo, once) and the cached coastal warnings; the public instance did not serve it yet. A calm day: the surf is poor everywhere (swell too small), the kite varies."
+  "activities-overview.json": "Answer of vigie-api's branch that adds GET /v1/activities/overview (the headline of the four activities of every surf spot), run locally on 2026-11-08 with scripts/record-fixtures.mjs: it read the two every-spot answers of the surf overview (Open-Meteo, once) and the cached coastal warnings; the public instance did not serve it yet. A calm day: the surf is poor everywhere (swell too small), the kite varies.",
+  "sea-place*.json": "Answers of vigie-api 41bfeff (its pull request 60, which adds GET /v1/sea/places and /v1/sea/places/{id}), run locally on 2026-11-08 with scripts/record-fixtures.mjs: the catalogue is a file bundled in the API (OpenStreetMap, the Sandre ports, the bathing results), built on 2026-11-08, so no provider is asked. The mock replies by the kinds, the words and whether a position is given, whatever the position or the page (e2e/mock-api.mjs): the places around Saint-Malo stand for the neighbours of every place."
  }
 }

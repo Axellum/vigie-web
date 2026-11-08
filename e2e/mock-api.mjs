@@ -36,15 +36,41 @@ function moved(value, shift) {
 	);
 }
 
+// The catalogue of the coast is asked in many ways (a kind, words, a position, a page): the mock answers by the kinds, the words and
+// whether a position is given, never by the position or the page. `/v1/sea/places?type=dive` for the dive sites, `?near&type=a+b` for
+// the places around a position of those kinds, `?` for no filter.
+function placesKey(url) {
+	const types = url.searchParams.getAll('type').sort().join('+');
+	const q = url.searchParams.get('q');
+	const parts = [
+		types && `type=${types}`,
+		url.searchParams.has('near_lat') && 'near',
+		q && `q=${q.toLowerCase()}`
+	].filter(Boolean);
+	// `near` first, as the index spells it.
+	parts.sort((a, b) => (a === 'near' ? -1 : b === 'near' ? 1 : 0));
+	return `/v1/sea/places?${parts.join('&')}`;
+}
+
 createServer((req, res) => {
 	const url = new URL(req.url, 'http://mock');
 	const key =
-		url.pathname +
-		(url.searchParams.has('country') ? `?country=${url.searchParams.get('country').toUpperCase()}` : '') +
-		(url.searchParams.has('source') ? `?source=${url.searchParams.get('source')}` : '') +
-		(url.pathname === '/v1/tides'
-			? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
-			: '');
+		url.pathname === '/v1/sea/places'
+			? placesKey(url)
+			: url.pathname +
+				(url.searchParams.has('country') ? `?country=${url.searchParams.get('country').toUpperCase()}` : '') +
+				(url.searchParams.has('source') ? `?source=${url.searchParams.get('source')}` : '') +
+				// The weather of the cell of the television spot, asked with the sea, has an answer of its own (the temperature of the
+				// water); every other position, with or without the sea, gets the one of `/v1/point`.
+				(url.pathname === '/v1/point' &&
+				url.searchParams.get('marine') === 'true' &&
+				url.searchParams.get('lat') === '43.65' &&
+				url.searchParams.get('lon') === '-1.45'
+					? '?lat=43.65&lon=-1.45&marine=true'
+					: '') +
+				(url.pathname === '/v1/tides'
+					? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
+					: '');
 	const file = index[key];
 	if (!file) {
 		res.writeHead(url.pathname.startsWith('/v1/vigilances') ? 503 : 404, {

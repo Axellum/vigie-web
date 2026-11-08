@@ -30,11 +30,15 @@ async function layoutProblems(page: Page): Promise<string[]> {
 		const corner = rect('.tv-panel.tv-on .tv-corner');
 		const place = rect('.tv-place');
 		const rain = rect('#tv-rain');
+		const dots = rect('#tv-dots');
 		const when = rect('.tv-when');
 		if (!place || !rain || !when) return ['the head lacks its place, its rain or its clock'];
 		if (rain.left < place.right)
 			problems.push(`the rain (${rain.left}) runs into the place (${place.right})`);
 		if (rain.right > when.left) problems.push(`the rain (${rain.right}) runs into the clock (${when.left})`);
+		// The dots of the panels are under the rain, not over its caption.
+		if (dots && dots.top < rain.bottom - 1)
+			problems.push(`the dots (${dots.top}) are over the rain (${rain.bottom})`);
 		if (!frame || !foot || !panels || !text) return ['the frame, the panels or the foot are missing'];
 		if (panels.bottom > foot.top + 1)
 			problems.push(`the panels (${panels.bottom}) run into the foot (${foot.top})`);
@@ -77,6 +81,11 @@ test('a screen shows the place, the clock, the figures, the credits and the warn
 	await expect(page.locator('#tv-rain')).toContainText('prévision');
 	await expect(page.locator('#tv-rain .tv-rain-word')).toHaveText('aucune');
 	await expect(page.locator('#tv-rain .tv-rain-bar')).toHaveCount(4);
+	// The temperature of the water, said to be a value of the model (the recorded answer gives 16.5, rounded on the screen).
+	await expect(page.locator('.tv-water-on')).toContainText('eau');
+	await expect(page.locator('.tv-water-on b')).toHaveText('17°');
+	await expect(page.locator('.tv-water-on')).toContainText('valeur du modèle');
+	await expect(page.locator('.tv-water.tv-hatch')).toHaveCount(0);
 	// The credits and the warning are always there: a television cannot follow a link to them.
 	await expect(page.locator('.tv-foot-text')).toContainText('Ne remplace pas les avis officiels');
 	await expect(page.locator('.tv-foot-text')).toContainText('Open-Meteo');
@@ -112,7 +121,8 @@ for (const [preset, heading] of [
 			[3840, 2160]
 		]) {
 			await page.setViewportSize({ width, height });
-			for (const panel of ['cadran', 'verdicts']) {
+			// The two together too: it is the only way the dots of the panels are there to be checked.
+			for (const panel of ['cadran', 'verdicts', 'cadran,verdicts']) {
 				await page.goto(`${SPOT}&preset=${preset}&panels=${panel}`);
 				await expect(page.locator('#tv-root')).toHaveAttribute('data-state', 'screen');
 				const frame = await page.locator('.tv-frame').boundingBox();

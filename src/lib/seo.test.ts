@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countryPaths, lowerCasePath, sitemapXml, STATIC_PATHS } from './seo';
+import { countryPaths, lowerCasePath, placePaths, sitemapXml, STATIC_PATHS } from './seo';
 
 const ORIGIN = 'https://vigie.example.org';
 
@@ -61,5 +61,21 @@ describe('sitemapXml', () => {
 		const odd = sitemapXml(ORIGIN, ['/a&b', '/a&b']);
 		expect(odd).toContain('<loc>https://vigie.example.org/a&amp;b</loc>');
 		expect(odd.match(/<url>/g)).toHaveLength(1);
+	});
+});
+
+describe('placePaths', () => {
+	it('lists one page per place that has an id the API could give, sorted and without duplicates', () => {
+		expect(
+			placePaths(['port-port-de-saint-malo-f697', 'bathing-bon-secours-4142', 'port-port-de-saint-malo-f697'])
+		).toEqual(['/sea/places/bathing-bon-secours-4142', '/sea/places/port-port-de-saint-malo-f697']);
+	});
+
+	it('ignores what cannot be an id, so that nothing made up reaches the sitemap', () => {
+		expect(placePaths(['', '../etc/passwd', 'port-X-f697', 'volcano-x-f697', '<script>'])).toEqual([]);
+	});
+
+	it('puts the catalogue in the fixed pages', () => {
+		expect(STATIC_PATHS).toContain('/sea/places');
 	});
 });

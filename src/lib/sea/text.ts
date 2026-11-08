@@ -70,6 +70,7 @@ const TEXT = {
 			'La plage demandée n’a pas pu être appliquée aujourd’hui : les verdicts sont ceux de la plage par défaut.',
 		windBad: 'Une plage commence au-dessus de 0 et finit au-dessus de son début, à {max} {unit} au plus.',
 		surfPage: 'La prévision de surf, note par note',
+		placesPage: 'Les lieux du littoral : ports, cales, mouillages, plongée, baignade',
 		updated: 'Verdicts calculés {time}.',
 		legend: 'Vert ✓ bon · jaune ~ possible · rouge ✕ déconseillé · tireté ? pas de verdict'
 	},
@@ -140,6 +141,7 @@ const TEXT = {
 			'The range asked for could not be applied today: the verdicts are those of the default range.',
 		windBad: 'A range starts above 0 and ends above its start, at {max} {unit} at most.',
 		surfPage: 'The surf forecast, rating by rating',
+		placesPage: 'The places of the coast: ports, slipways, anchorages, diving, bathing',
 		updated: 'Verdicts worked out {time}.',
 		legend: 'Green ✓ good · yellow ~ possible · red ✕ poor · dashed ? no verdict'
 	}

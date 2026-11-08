@@ -543,7 +543,13 @@ test('the units and the language are kept in the account, and the cards of the p
 		await expect(page.getByRole('link', { name: 'My page' })).toBeVisible();
 		await expect(page.getByText('Settings saved.')).toBeVisible();
 		await expect(page.getByText(/\d °F/).first()).toBeVisible({ timeout: 15_000 });
-		await expect(page.getByText(/\d kn\b/).first()).toBeVisible();
+		// The first knots in the page may be a current in the sea details of a place, folded away: the one that is shown is meant.
+		await expect(
+			page
+				.getByText(/\d kn\b/)
+				.filter({ visible: true })
+				.first()
+		).toBeVisible();
 		await expect(page.getByText(/\d °C/)).toHaveCount(0);
 		expect((await cookieNames(context)).includes('vigie-lang')).toBe(true);
 

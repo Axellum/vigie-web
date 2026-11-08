@@ -196,6 +196,15 @@ describe('pointFromApi', () => {
 		expect(point.marine).toBeNull();
 		expect(point.space?.kp).toBe(2);
 	});
+
+	it('reads the temperature of the sea of the marine block, and a missing or wrong one as none', () => {
+		const marine = (extra: Record<string, unknown>) =>
+			pointFromApi({ coordinates: { lat: 43.66, lon: -1.44 }, marine: { wave_height_m: 0.5, ...extra } })
+				.marine;
+		expect(marine({ sea_surface_temperature_c: 16.8 })?.seaTempC).toBe(16.8);
+		expect(marine({})?.seaTempC).toBeNull();
+		expect(marine({ sea_surface_temperature_c: 'warm' })?.seaTempC).toBeNull();
+	});
 });
 
 describe('forecastFromApi', () => {
