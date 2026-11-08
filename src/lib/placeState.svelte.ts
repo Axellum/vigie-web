@@ -26,6 +26,7 @@ import { warningRow } from './rows';
 import { placeSentence, type OfficialState } from './sentence';
 import { spotsAround, type SurfOverview } from './surf';
 import { TideAt } from './tideAt.svelte';
+import { DEFAULT_UNITS, type Units } from './units';
 import type { Hazard, Level, PointWeather as Weather, UncoveredCountry, WarningsData } from './types';
 
 /** What the state is made of: the place and its settings, and what every visitor loads with the page. */
@@ -34,6 +35,8 @@ export interface PlaceInput {
 	radiusKm: number;
 	profile: Profile | null;
 	lang: Lang;
+	/** The units the figures are written in; the default ones when the visitor chose none. */
+	units?: Units;
 	/** Seconds since the epoch, kept right on a long visit. */
 	now: number;
 	hazards: Hazard[];
@@ -147,7 +150,8 @@ export class PlaceState {
 					warnings: this.here.map((h) => h.warning),
 					hazards: this.near,
 					weather: this.w,
-					now: this.now
+					now: this.now,
+					units: this.units
 				})
 			: []
 	);
@@ -247,6 +251,9 @@ export class PlaceState {
 	}
 	get lang(): Lang {
 		return this.#input().lang;
+	}
+	get units(): Units {
+		return this.#input().units ?? DEFAULT_UNITS;
 	}
 	get now(): number {
 		return this.#input().now;

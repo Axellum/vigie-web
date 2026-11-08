@@ -5,7 +5,9 @@
 	import Time from '#lib/components/Time.svelte';
 	import { number } from '#lib/format.js';
 	import { translator, type Lang } from '#lib/i18n.js';
+	import { placeFormat } from '#lib/placeFormat.js';
 	import type { PointWeather } from '#lib/types.js';
+	import { DEFAULT_UNITS, type Units } from '#lib/units.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
 	type Part = 'now' | 'rain' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space';
@@ -15,8 +17,10 @@
 	let {
 		lang,
 		weather,
-		parts = ALL
-	}: { lang: Lang; weather: PointWeather & { stale?: boolean }; parts?: Part[] } = $props();
+		parts = ALL,
+		units = DEFAULT_UNITS
+	}: { lang: Lang; weather: PointWeather & { stale?: boolean }; parts?: Part[]; units?: Units } = $props();
+	const fmt = $derived(placeFormat(lang, units));
 	const show = (part: Part) => parts.includes(part);
 	const tr = $derived(translator(lang));
 	const LOCALE = { fr: 'fr-FR', en: 'en-GB' } as const;
@@ -40,21 +44,21 @@
 	{#if current && show('now')}
 		<div class="now card">
 			<div class="headline">
-				<span class="temp data">{unit(current.tempC, '°C')}</span>
+				<span class="temp data">{fmt.temp(current.tempC)}</span>
 				<span class="sky">
 					<span class="muted small">{tr('w.now')}</span>
 					<strong>{skyLabel(lang, current.code)}</strong>
 					{#if current.feelsLikeC != null}
-						<span class="muted">{tr('w.feels', { t: unit(current.feelsLikeC, '°C') })}</span>
+						<span class="muted">{tr('w.feels', { t: fmt.temp(current.feelsLikeC) })}</span>
 					{/if}
 				</span>
 			</div>
 			<dl class="facts">
 				<dt>{tr('w.wind')}</dt>
 				<dd class="data">
-					{unit(current.windKmh, 'km/h', 0)}
+					{fmt.wind(current.windKmh)}
 					{compass(lang, current.windDeg)}{#if current.gustKmh != null},
-						{tr('w.gust', { v: unit(current.gustKmh, 'km/h', 0) })}{/if}
+						{tr('w.gust', { v: fmt.wind(current.gustKmh) })}{/if}
 				</dd>
 				<dt>{tr('w.humidity')}</dt>
 				<dd class="data">{unit(current.humidityPct, '%', 0)}</dd>
@@ -111,11 +115,11 @@
 							<tr>
 								<th scope="row">{day(d.date)}</th>
 								<td>{skyLabel(lang, d.code)}</td>
-								<td class="num data">{unit(d.tminC, '°')}</td>
-								<td class="num data">{unit(d.tmaxC, '°')}</td>
+								<td class="num data">{d.tminC == null ? '–' : `${fmt.deg(d.tminC, 1)} °`}</td>
+								<td class="num data">{d.tmaxC == null ? '–' : `${fmt.deg(d.tmaxC, 1)} °`}</td>
 								<td class="num data">{unit(d.rainMm, 'mm')}</td>
 								<td class="num data">{unit(d.rainProbabilityPct, '%', 0)}</td>
-								<td class="num data">{unit(d.windMaxKmh, 'km/h', 0)}</td>
+								<td class="num data">{fmt.wind(d.windMaxKmh)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -197,19 +201,19 @@
 				<dl class="facts">
 					<dt>{tr('w.wave')}</dt>
 					<dd class="data">
-						{unit(weather.marine.waveM, 'm')}
+						{fmt.length(weather.marine.waveM)}
 						{compass(lang, weather.marine.waveDeg)}
 						{unit(weather.marine.wavePeriodS, 's', 0)}
 					</dd>
 					<dt>{tr('w.swell')}</dt>
 					<dd class="data">
-						{unit(weather.marine.swellM, 'm')}
+						{fmt.length(weather.marine.swellM)}
 						{compass(lang, weather.marine.swellDeg)}
 						{unit(weather.marine.swellPeriodS, 's', 0)}
 					</dd>
 					<dt>{tr('w.current')}</dt>
 					<dd class="data">
-						{unit(weather.marine.currentKmh, 'km/h')}
+						{fmt.wind(weather.marine.currentKmh, 1)}
 						{compass(lang, weather.marine.currentDeg)}
 					</dd>
 				</dl>

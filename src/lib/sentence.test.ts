@@ -154,4 +154,14 @@ describe('the place in one sentence', () => {
 			placeSentence(input({ lang: 'en', profile: 'allergy', weather: { ...weather, marine: null } }))
 		).toEqual(['No official warning here.', 'Air quality: European index 22.', 'Overcast, 13 °C.']);
 	});
+
+	it('writes the figures in the units chosen, the same sentence otherwise', () => {
+		const units = { temperature: 'f', wind: 'kn', height: 'ft' } as const;
+		expect(placeSentence(input({ profile: 'surf', weather, units }))).toEqual([
+			"Rien d'officiel ici.",
+			'Vagues de 8,6 ft, 13 s, de nord-ouest.',
+			'Couvert, 55 °F.',
+			"Vent 5 nœuds d'est."
+		]);
+	});
 });

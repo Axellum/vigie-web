@@ -424,6 +424,52 @@ test('my places: a home kept to about 1 km, a place found by name with its first
 	}
 });
 
+test('the units and the language are kept in the account, and the cards of the page follow them', async ({
+	page,
+	context
+}) => {
+	await authenticator(page);
+	const name = unique('Lou');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		await seedZones(sql, user.id);
+
+		// As the site always wrote it: °C and km/h.
+		await page.goto('/me');
+		await expect(page.getByText(/\d °C/).first()).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText(/\d km\/h/).first()).toBeVisible();
+		await expect(page.getByText(/d °F/)).toHaveCount(0);
+
+		// Settings: nothing changes until they are saved; then the cards, at once, and the site, in the language chosen.
+		await page.getByText('Réglages', { exact: true }).click();
+		await page.getByLabel('Température').selectOption('f');
+		await page.getByLabel('Vent').selectOption('kn');
+		await page.getByLabel('Langue').selectOption('en');
+		await expect(page.getByText(/d °F/)).toHaveCount(0);
+		await page.getByRole('button', { name: 'Enregistrer les réglages' }).click();
+		await expect(page.getByRole('link', { name: 'My page' })).toBeVisible();
+		await expect(page.getByText('Settings saved.')).toBeVisible();
+		await expect(page.getByText(/\d °F/).first()).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByText(/\d kn\b/).first()).toBeVisible();
+		await expect(page.getByText(/\d °C/)).toHaveCount(0);
+		expect((await cookieNames(context)).includes('vigie-lang')).toBe(true);
+
+		const [row] = await sql`select lang, prefs from users where id = ${user.id}`;
+		expect(row.lang).toBe('en');
+		expect(row.prefs).toEqual({ units: { temperature: 'f', wind: 'kn', height: 'm' } });
+
+		// Read again from the account: a new visit, with the cookie of the language gone, still in °F.
+		await page.reload();
+		await expect(page.getByText(/\d °F/).first()).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByLabel('Temperature')).toHaveValue('f');
+	} finally {
+		await sql.end();
+	}
+});
+
 test('a recovery invitation adds a passkey to an account; the last one cannot be removed', async ({
 	page,
 	browser

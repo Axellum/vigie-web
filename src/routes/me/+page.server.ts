@@ -1,11 +1,14 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { t } from '#lib/i18n.js';
+import { asLang, t } from '#lib/i18n.js';
 import { parseTitle } from '#lib/pageConfig.js';
 import { sessionUser } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
 import { ensureFirstPage, PageError, savePage } from '#lib/server/pages.js';
+import { setLangCookie } from '#lib/server/langCookie.js';
 import { placeContext } from '#lib/server/placeContext.js';
 import { listPlaces } from '#lib/server/savedPlaces.js';
+import { prefsFromForm, readPrefs, savePrefs } from '#lib/server/userPrefs.js';
+import { unitsOf } from '#lib/units.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // A private page: it is made for one account, so no shared cache and not the service worker's either.
@@ -25,6 +28,7 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 	return {
 		selected: places.some((p) => p.id === wanted) ? wanted : null,
 		user: { name: user.name },
+		units: unitsOf(await readPrefs(sql, user.id)),
 		page: { id: page.id, title: page.title, blocks: page.blocks },
 		places: places.map((p) => ({
 			id: p.id,
@@ -40,6 +44,21 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 };
 
 export const actions: Actions = {
+	/** The units of the figures, and the language of the site and of the alerts, for this account. */
+	prefs: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
+		const sql = await db();
+		const user = await sessionUser(sql, cookies, url.protocol === 'https:');
+		if (!user) redirect(303, '/login');
+		const form = await request.formData();
+		const sent = form.get('lang');
+		const lang = typeof sent === 'string' ? asLang(sent) : null;
+		await savePrefs(sql, user.id, prefsFromForm(form), lang);
+		// The site follows at once: the same cookie as the language link of the header.
+		if (lang) setLangCookie(cookies, lang, url.protocol === 'https:');
+		return { prefsSaved: true };
+	},
+
 	/** Saves the page as the person composed it: its title and its blocks, read again against their own places. */
 	save: async ({ cookies, url, request }) => {
 		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');

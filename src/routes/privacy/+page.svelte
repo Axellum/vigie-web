@@ -19,8 +19,8 @@
 		<h2>Ce qui est gardé</h2>
 		<ul>
 			<li>
-				<b>Votre compte</b> : le nom que vous avez choisi (pas forcément le vrai), la langue du site, la date de
-				création et la date de dernière utilisation.
+				<b>Votre compte</b> : le nom que vous avez choisi (pas forcément le vrai), la langue du site, les unités
+				choisies (température, vent, hauteurs), la date de création et la date de dernière utilisation.
 			</li>
 			<li>
 				<b>Vos passkeys</b> : pour chacune, son identifiant, sa clé publique, un compteur d'utilisation, si elle
@@ -131,7 +131,7 @@
 		<ul>
 			<li>
 				<b>Your account</b>: the name you chose (not necessarily your real one), the language of the site, the
-				date it was created and the date it was last used.
+				units you chose (temperature, wind, heights), the date it was created and the date it was last used.
 			</li>
 			<li>
 				<b>Your passkeys</b>: for each, its identifier, its public key, a use counter, whether it is synced

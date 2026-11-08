@@ -3,6 +3,7 @@
 	// page is private; the places and the blocks are read here and the weather, the warnings and the tide are
 	// loaded by the browser as on "near me".
 	import MyPageView from '#lib/components/MyPageView.svelte';
+	import MySettings from '#lib/components/MySettings.svelte';
 	import { translator } from '#lib/i18n.js';
 
 	let { data } = $props();
@@ -41,8 +42,11 @@
 			title={data.page.title}
 			now={data.now}
 			selected={data.selected}
+			units={data.units}
 		/>
 	{/key}
+
+	<MySettings {lang} units={data.units} />
 </div>
 
 <style>

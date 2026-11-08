@@ -20,6 +20,25 @@ describe('placeFormat', () => {
 		expect(plain(f.unit(12.4, 'km/h', 0))).toBe('12 km/h');
 	});
 
+	it('writes the figures the way the site always did while nothing is chosen, and in the units chosen otherwise', () => {
+		const same = placeFormat('fr');
+		expect(plain(same.temp(17.2))).toBe('17,2 °C');
+		expect(plain(same.wind(12.4))).toBe('12 km/h');
+		expect(plain(same.length(1.84))).toBe('1,8 m');
+		expect(same.temp(null)).toBe('–');
+		expect(same.wind(undefined)).toBe('–');
+		expect(same.length(null)).toBe('–');
+
+		const chosen = placeFormat('fr', { temperature: 'f', wind: 'kn', height: 'ft' });
+		expect(plain(chosen.temp(20))).toBe('68 °F');
+		expect(plain(chosen.deg(20))).toBe('68');
+		expect(plain(chosen.wind(18.52))).toBe('10 nœuds');
+		expect(plain(chosen.length(1))).toBe('3,3 ft');
+		expect(plain(chosen.signed(1))).toBe('+3,28 ft');
+		const en = placeFormat('en', { temperature: 'c', wind: 'mph', height: 'm' });
+		expect(plain(en.wind(16.09344))).toBe('10 mph');
+	});
+
 	it('signs a height, and gives kilometres a decimal below ten', () => {
 		const f = placeFormat('fr');
 		expect(plain(f.signed(1.234))).toBe('+1,23 m');
