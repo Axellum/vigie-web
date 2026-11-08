@@ -670,6 +670,84 @@ test('the surf page lists the spots, and a spot shows its best slot with its rat
 	expect(errors).toEqual([]);
 });
 
+test('a spot says whether to go for surf, kite, boat and shore fishing, hour by hour, with the reasons and the nearest buoy', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const verdicts = fixture('activities-hossegor');
+	const word: Record<string, string> = { good: 'Bon', possible: 'Possible', poor: 'Déconseillé' };
+	const name: Record<string, string> = {
+		surf: 'Surf',
+		kite: 'Kite, wing, windsurf',
+		boat: 'Bateau',
+		shore_fishing: 'Pêche à pied'
+	};
+	await page.goto('/surf/soorts-hossegor-plage-sud-point-d-or');
+	const section = page.locator('section.verdicts');
+	await expect(section.getByRole('heading', { level: 2, name: 'Aller à l’eau ?' })).toBeVisible();
+
+	// One card per activity, with the verdict the API gave, never a verdict of the site's own.
+	await expect(section.locator('article.act')).toHaveCount(verdicts.activities.length);
+	for (const a of verdicts.activities) {
+		const card = section.locator('article.act', {
+			has: page.getByRole('heading', { level: 3, name: name[a.id], exact: true })
+		});
+		await expect(card.locator('.chip')).toContainText(word[a.verdict]);
+	}
+	// A reason in words, not the API's code; the criteria of the hour open on their figures.
+	const surf = section.locator('article.act').first();
+	await expect(surf.getByText('Hauteur de la houle : trop petite')).toBeVisible();
+	await surf.locator('details.crit summary').click();
+	await expect(surf.locator('.criteria li')).toHaveCount(verdicts.activities[0].detail.criteria.length);
+	await expect(section.getByText(/swell_height|too_small|wind_force|low_water\./)).toHaveCount(0);
+
+	// The same hour by hour: a bar per daylight hour and activity, then the night ones on demand; each row says what it shows.
+	const daylight = verdicts.activities[0].hours.filter((h: Json) => h.daylight !== false).length;
+	await expect(section.locator('.cell')).toHaveCount(daylight * verdicts.activities.length);
+	await expect(section.locator('.bars[role="img"]').first()).toHaveAttribute(
+		'aria-label',
+		/^Surf, .+ : (bon|possible|déconseillé) de \d\d:\d\d à \d\d:\d\d/
+	);
+	await section.getByLabel('Montrer aussi les heures de nuit').check();
+	await expect(section.locator('.cell')).toHaveCount(
+		verdicts.activities[0].hours.length * verdicts.activities.length
+	);
+	// The tide of the day, with the coefficient called an estimate.
+	await expect(section.locator('.tide').first()).toContainText(/basse mer \d\d:\d\d \(−1,66 m\)/);
+	await expect(section.locator('.tide').first()).toContainText(/coefficient estimé \d+/);
+
+	// The warnings could be read and there were none: said as read, not as "nothing to fear".
+	await expect(
+		section.getByText('Aucune vigilance côtière officielle n’a été lue pour ce spot.')
+	).toBeVisible();
+	// The nearest buoy of the list, and that its measurements are not read.
+	const buoy = fixture('surf-buoys').spots.find(
+		(s: Json) => s.spot_id === 'soorts-hossegor-plage-sud-point-d-or'
+	);
+	// The distance is rounded like the other distances of the site (a station 14.9 km away is "15 km").
+	await expect(
+		section.getByText(`${buoy.buoy.name} (CANDHIS), à ${Math.round(buoy.distance_km)} km.`)
+	).toBeVisible();
+	await expect(section.getByText(/Vigie ne lit pas encore la mesure de cette bouée/)).toBeVisible();
+
+	// The rules of Vigie, in French while they are the words translated.
+	await section.getByText('Les règles de Vigie').click();
+	await expect(section.getByText(/^vent dans la plage voulue \(par défaut 12 à 25 nœuds\)/)).toBeVisible();
+
+	// The credits of the verdicts and of the buoys list are in the page.
+	await page.getByText('Sources de cette page').click();
+	await expect(page.getByText(/Candhis, Cerema/)).toBeVisible();
+	await expect(page.getByText(/Weather data by Open-Meteo\.com/).first()).toBeVisible();
+
+	// A phone: nothing wider than the screen.
+	await page.setViewportSize({ width: 375, height: 812 });
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors).toEqual([]);
+});
+
 test('the surf map colours each spot by its rating now, and near a place the nearest spots come first', async ({
 	page
 }) => {
