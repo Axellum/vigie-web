@@ -25,6 +25,27 @@ https://<the site>/tv?spot=soorts-hossegor-plage-sud-point-d-or&preset=port
 
 A value that makes no sense is replaced by its default, never by an error.
 
+## Setting a screen up with the mouse
+
+`/screens` ("TV screens" in the foot of every page) writes that address from choices: the place (from the list of
+`/v1/surf/spots`), who the screen is for, what takes turns and for how long, day and night, the language, and, in
+"Advanced settings", the reading and reload times. It saves nothing: the choices live in the address of the page itself
+(`/screens?spot=…&preset=club`), so a reload keeps them and a link sends them to someone. The address of the screen is
+shown with a button to copy it and a link to open it.
+
+- Only what differs from the defaults is written, except `lang`, which is always there: a television's browser does not
+  necessarily speak the language of the shop. On the page, `lang` sets the language of the page itself and `tvlang` the
+  one of the screen.
+- With one panel only, `d` is left out: it means nothing then.
+- The address is built by `src/lib/tv/address.ts` and read back by `parseTvParams`, the code of the screen itself;
+  `address.test.ts` checks that the two agree for every combination, so that what the page shows is what the screen
+  understands.
+- The page works without a script (a plain form that sends its choices in the address, with a button "Compose the
+  address"); with one, every change of a choice sends the form at once.
+- When the list of places does not answer, the page asks for the id of a place instead of a list.
+- There is no preview of the screen on the page: the site refuses to be framed (`frame-ancestors 'none'`), and the
+  address opens in a new tab.
+
 ## What it does by itself
 
 - **Clock**: the time and the date of the place come from the server, not from the television, whose own clock is often
@@ -70,5 +91,4 @@ lets through, however many screens show them.
 ## What is not here yet
 
 - The temperature of the water: the card says that it is not provided yet.
-- A page to build the address with the mouse.
 - It has been looked at in a desktop browser at 1280 × 720, 1920 × 1080 and 3840 × 2160; not yet on a television.

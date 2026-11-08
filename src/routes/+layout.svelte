@@ -82,7 +82,8 @@
 			<p>
 				{tr('site.personal')} <a href="/about">{tr('nav.about')}</a> ·
 				<a href="/sources">{tr('nav.sources')}</a> ·
-				<a href="/travel">{tr('nav.travel')}</a>
+				<a href="/travel">{tr('nav.travel')}</a> ·
+				<a href="/screens">{tr('nav.screens')}</a>
 				{#if data.accounts}· <a href="/privacy">{tr('nav.privacy')}</a>{/if}
 			</p>
 			<p class="credit">{tr('map.credit')}</p>

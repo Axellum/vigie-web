@@ -13,6 +13,7 @@ export const STATIC_PATHS = [
 	'/sea/boat',
 	'/sea/shore-fishing',
 	'/surf',
+	'/screens',
 	'/sources',
 	'/about',
 	'/privacy'
