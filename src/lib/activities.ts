@@ -5,6 +5,8 @@
 // left out, never guessed.
 import { number } from './format';
 import type { Lang } from './i18n';
+import type { WindUnit } from './sea/choice';
+import { windText } from './sea/units';
 import { dayKey, SURF_TIME_ZONE, type SurfSpot } from './surf';
 
 export type Verdict = 'good' | 'possible' | 'poor';
@@ -517,8 +519,8 @@ export function reasonText(lang: Lang, reason: string | null): string | null {
 	return state ? `${criterionName(lang, name)} : ${state}` : null;
 }
 
-/** The value of a criterion with its unit, the way the page says it. */
-export function criterionValueText(lang: Lang, c: ActivityCriterion): string | null {
+/** The value of a criterion with its unit, the way the page says it; a wind in knots goes into the unit the visitor chose. */
+export function criterionValueText(lang: Lang, c: ActivityCriterion, wind: WindUnit = 'kn'): string | null {
 	if (c.value == null) return null;
 	switch (c.unit) {
 		case 'deg':
@@ -526,7 +528,7 @@ export function criterionValueText(lang: Lang, c: ActivityCriterion): string | n
 		case 'Beaufort':
 			return `force ${number(lang, c.value, 0)}`;
 		case 'kn':
-			return `${number(lang, c.value, 0)} ${lang === 'fr' ? 'nœuds' : 'kn'}`;
+			return windText(lang, c.value, wind);
 		case 'min':
 			return lang === 'fr' ? `dans ${number(lang, c.value, 0)} min` : `in ${number(lang, c.value, 0)} min`;
 		case 'm':

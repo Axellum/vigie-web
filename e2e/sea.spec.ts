@@ -161,3 +161,52 @@ test('the sea pages are in the sitemap and the navigation says Mer on the surf p
 		page.getByRole('navigation', { name: 'Vigie' }).getByRole('link', { name: 'Mer' })
 	).toHaveAttribute('aria-current', 'page');
 });
+
+test('a spot page answers first for the activity chosen, switches with one tap, and says the wind in the unit chosen', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/surf/soorts-hossegor-plage-sud-point-d-or');
+	const top = page.locator('section.top');
+	await expect(top.getByRole('heading', { level: 2, name: 'Aller à l’eau ici ?' })).toBeVisible();
+	// On top of the page, before the surf card and the four verdicts.
+	expect(
+		await page.evaluate(() => {
+			const sections = [...document.querySelectorAll('.page > section')];
+			return sections.findIndex((s) => s.classList.contains('top'));
+		})
+	).toBe(0);
+
+	// Nothing chosen: the surf, with the verdict of the API, its slot and the one reason that holds it back.
+	await expect(top.getByRole('button', { name: /^Surf/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(top.locator('.chip')).toContainText('Possible');
+	await expect(top.getByText('Meilleur créneau')).toBeVisible();
+	await expect(top.getByText('Hauteur de la houle : trop petite')).toBeVisible();
+
+	// One tap on another activity: its verdict, kept in this browser, taken again after a reload.
+	await top.getByRole('button', { name: /^Bateau/ }).click();
+	await expect(top.getByRole('button', { name: /^Bateau/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(top.locator('.chip')).toContainText('Bon');
+	expect((await stored(page)).activity).toBe('boat');
+	await page.reload();
+	await expect(top.getByRole('button', { name: /^Bateau/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(top.getByRole('link', { name: 'Les autres spots pour cette activité' })).toHaveAttribute(
+		'href',
+		'/sea/boat'
+	);
+
+	// The wind of the criteria in the unit chosen: km/h until the visitor says knots.
+	const kite = page.locator('section.verdicts article.act', {
+		has: page.getByRole('heading', { level: 3, name: 'Kite, wing, windsurf', exact: true })
+	});
+	await kite.locator('details.crit summary').click();
+	await expect(kite.locator('.criteria .data').filter({ hasText: '17 km/h' })).toBeVisible();
+	await page.evaluate(() =>
+		localStorage.setItem('vigie-sea', JSON.stringify({ activity: 'kite', unit: 'kn', wind: null }))
+	);
+	await page.reload();
+	await kite.locator('details.crit summary').click();
+	await expect(kite.locator('.criteria .data').filter({ hasText: '9 nœuds' })).toBeVisible();
+	await expect(top.getByRole('button', { name: /^Kite/ })).toHaveAttribute('aria-pressed', 'true');
+	expect(errors).toEqual([]);
+});

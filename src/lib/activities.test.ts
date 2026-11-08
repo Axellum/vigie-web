@@ -153,6 +153,16 @@ describe('the words of the verdicts', () => {
 		expect(criterionValueText('fr', c(null, 'm'))).toBeNull();
 	});
 
+	it('writes a wind in knots in the unit the visitor chose, and leaves the other units alone', () => {
+		const c = (value: number, unit: string) =>
+			({ name: 'x', value, unit, state: null, verdict: null, points: null, max: null }) as const;
+		expect(criterionValueText('fr', c(18, 'kn'), 'kmh')).toBe('33 km/h');
+		expect(criterionValueText('en', c(18, 'kn'), 'kn')).toBe('18 kn');
+		expect(criterionValueText('fr', c(18, 'kn'))).toBe('18 nœuds');
+		expect(criterionValueText('fr', c(0.4, 'm'), 'kmh')).toBe('0,4 m');
+		expect(criterionValueText('fr', c(3, 'Beaufort'), 'kmh')).toBe('force 3');
+	});
+
 	it('has the same texts in French and in English', () => {
 		expect(Object.keys(ACTIVITY_TEXT.en).sort()).toEqual(Object.keys(ACTIVITY_TEXT.fr).sort());
 		expect(activityText('fr', 'run', { verdict: 'bon', from: '10:00', to: '12:00' })).toBe(
