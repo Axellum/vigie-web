@@ -1,9 +1,11 @@
 <script lang="ts">
 	// The forecast of one spot for the next three days, as the API worked it out: the best slot first, with its rating
 	// explained criterion by criterion, then every daylight hour (the night ones on demand), each one opening on its rating.
+	import ActivityVerdicts from '#lib/components/ActivityVerdicts.svelte';
 	import Credits from '#lib/components/Credits.svelte';
 	import Seo from '#lib/components/Seo.svelte';
 	import SurfChart from '#lib/components/SurfChart.svelte';
+	import { activityText } from '#lib/activities.js';
 	import {
 		compass,
 		criterionValue,
@@ -121,6 +123,12 @@
 			{/if}
 		</section>
 
+		{#if data.verdicts}
+			<ActivityVerdicts {lang} v={data.verdicts} buoy={data.buoy} buoyMaxKm={data.buoyMaxKm} bind:night />
+		{:else}
+			<p class="note">{activityText(lang, 'unavailable')}</p>
+		{/if}
+
 		{#if f.hours.length}
 			<section class="block">
 				<h2>{surfText(lang, 'chart')}</h2>
@@ -187,7 +195,10 @@
 		</section>
 	{/if}
 
-	<Credits {lang} credits={[f?.attribution]} />
+	<Credits
+		{lang}
+		credits={[f?.attribution, data.verdicts?.attribution, data.buoy ? data.buoyAttribution : null]}
+	/>
 </div>
 
 <style>

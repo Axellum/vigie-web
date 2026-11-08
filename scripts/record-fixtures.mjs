@@ -46,7 +46,15 @@ const targets = [
 		'surf-hossegor',
 		'/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or?days=3',
 		'/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or'
-	]
+	],
+	// The verdicts of the same spot for surf, kite, boat and shore fishing, hour by hour (rules of Vigie, ADR 0016 of the API),
+	// and the nearest CANDHIS wave buoy of every spot (a list bundled in the API).
+	[
+		'activities-hossegor',
+		'/v1/activities/soorts-hossegor-plage-sud-point-d-or?days=3',
+		'/v1/activities/soorts-hossegor-plage-sud-point-d-or'
+	],
+	['surf-buoys', '/v1/surf/buoys']
 ];
 
 await mkdir(out, { recursive: true });

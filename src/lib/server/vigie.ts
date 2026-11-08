@@ -13,6 +13,7 @@ import {
 } from '#lib/eclipse.js';
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
+import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import {
 	surfForecastFromApi,
 	surfOverviewFromApi,
@@ -91,7 +92,11 @@ export const TTL_S = {
 	surfSpots: 86_400,
 	surf: 600,
 	// Every spot at once: the API keeps the swell and the wind of the overview 3 hours, and works it out once an hour.
-	surfOverview: 600
+	surfOverview: 600,
+	// The verdicts of a spot use the same swell and wind (no request of its own at the providers) and the warnings: kept 10 minutes.
+	activities: 600,
+	// The nearest buoy of every spot comes from a list bundled in the API: it changes with a new version of it only.
+	surfBuoys: 86_400
 } as const;
 
 const cache = new TtlCache();
@@ -431,6 +436,28 @@ export async function getSurfForecast(id: string): Promise<Cached<SurfForecast> 
 		if (e instanceof ApiError && e.status === 404) return null;
 		throw e;
 	}
+}
+
+/** The verdicts of a spot (surf, kite, boat, shore fishing) for the next three days; null for a spot the API does not know. */
+export async function getActivities(id: string): Promise<Cached<ActivitiesForecast> | null> {
+	if (!/^[a-z0-9-]{1,80}$/.test(id)) return null;
+	try {
+		return await pointCache.get(`activities:${id}`, TTL_S.activities * 1000, async () => {
+			const verdicts = activitiesFromApi(await getJson(`/v1/activities/${id}?days=3`, 30_000));
+			if (!verdicts) throw new ApiError(`Vigie API gave no verdicts for ${id}`, null);
+			return verdicts;
+		});
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
+}
+
+/** The nearest CANDHIS wave buoy of every spot. */
+export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
+	return cache.get('surf-buoys', TTL_S.surfBuoys * 1000, async () =>
+		buoysFromApi(await getJson('/v1/surf/buoys', 15_000))
+	);
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */
