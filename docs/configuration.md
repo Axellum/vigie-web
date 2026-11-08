@@ -57,7 +57,8 @@ weather of the "near me" page. A spot costs at most 96 requests a day, whatever 
 
 ## Accounts
 
-Accounts are by invitation and sign in with passkeys (no password, no e-mail). They need `DATABASE_URL` and
+Accounts sign in with passkeys (no password, no e-mail). They are made by invitation, or by anyone when the site is
+open (see below). They need `DATABASE_URL` and
 an HTTPS address (a passkey belongs to a host name; browsers refuse them on plain HTTP and on IP addresses).
 The site creates its tables at start (`src/lib/server/migrations/`, forward only: a migration only adds) and
 removes what has expired every 6 hours. Before a migration reaches the public instance, take a dump
@@ -72,6 +73,27 @@ podman exec vigie-web node scripts/invite.mjs --recover <id> "new phone"  # one 
 
 Each prints a link, valid 7 days and once. What the database keeps, and for how long, is in
 [`records-of-processing.md`](records-of-processing.md) and on the `/privacy` page.
+
+### Open sign-up
+
+By default only an invitation opens an account. `VIGIE_SIGNUP=open` lets anyone create one at `/join`, with a name
+and a passkey, within three limits that ask nothing of the visitor (no puzzle, no third-party script):
+
+| Variable                | Default | Meaning                                                                                                             |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `VIGIE_SIGNUP`          | –       | `open` lets anyone make an account; anything else (or nothing) keeps the invitations.                               |
+| `VIGIE_MAX_ACCOUNTS`    | `1000`  | The accounts the site holds at most, all ways of making them counted; at the ceiling, open sign-up says it is full. |
+| `VIGIE_SIGNUPS_PER_DAY` | `50`    | The accounts made in the last 24 hours at most, all ways counted; the same answer when it is reached.               |
+
+Besides, one address may ask for 10 sign-ups an hour and make 3 accounts a day, and try 10 recovery codes an hour
+(kept in memory, forgotten with the window; behind the proxy the address is the one the proxy gives, see
+`ADDRESS_HEADER` of adapter-node). An invitation is the owner's own act: it is never held back by any of this, only
+counted. The site is not meant to hold more accounts than the ceiling: the zones of all accounts are compared with
+the alerts in force every `VIGIE_MATCH_INTERVAL_S` seconds, so raise it when you have measured the cost.
+
+A person who loses every passkey has no e-mail to fall back on: the account page offers a set of 8 recovery codes,
+shown once, kept as a fingerprint, each working once (`/recover` turns one into a 30-minute invitation that adds a
+passkey to its account). Open sign-up asks for the legal notice of the site to be written first (`/about`).
 
 ## Notifications
 

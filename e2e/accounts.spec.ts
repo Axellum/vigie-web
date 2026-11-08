@@ -677,14 +677,103 @@ test('a recovery invitation adds a passkey to an account; the last one cannot be
 	await other.close();
 });
 
+test('an open site lets anyone make an account with a passkey, and asks for recovery codes', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Noor');
+	await page.goto('/login');
+	await page.getByRole('link', { name: 'Créer un compte' }).click();
+	await expect(page).toHaveURL(/\/join$/);
+	await expect(page.getByRole('heading', { level: 1, name: 'Créer votre compte' })).toBeVisible();
+	await expect(page.getByText('Une fois le compte créé, faites vos codes de secours')).toBeVisible();
+	await page.getByLabel('Votre nom dans Vigie').fill(name);
+	await page.getByRole('button', { name: 'Créer le compte avec une passkey' }).click();
+	await expect(page).toHaveURL(/\/account(#recovery)?$/);
+	await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+	await expect(page.locator('.keys li')).toHaveCount(1);
+
+	// A new account has no recovery code, and the page says what that costs.
+	const recovery = page.locator('#recovery');
+	await expect(recovery.getByText('Vous n’avez aucun code de secours')).toBeVisible();
+	await recovery.getByRole('button', { name: 'Faire mes codes de secours' }).click();
+	await expect(recovery.getByText('ils ne seront plus affichés')).toBeVisible();
+	await expect(recovery.locator('.codes code')).toHaveCount(8);
+
+	// Shown once: after a reload only the count is left.
+	await page.reload();
+	await expect(recovery.locator('.codes code')).toHaveCount(0);
+	await expect(recovery.getByText('Codes de secours encore valables : 8 sur 8.')).toBeVisible();
+
+	// Someone signed in has no use for the form.
+	await page.goto('/join');
+	await expect(page).toHaveURL(/\/account$/);
+});
+
+test('a recovery code adds a passkey to an account once, and a wrong one tells nothing', async ({
+	page,
+	browser
+}) => {
+	await authenticator(page);
+	const name = unique('Jules');
+	await createAccount(page, name);
+	await page.getByRole('button', { name: 'Faire mes codes de secours' }).click();
+	await expect(page.locator('#recovery .codes code')).toHaveCount(8);
+	const codes = await page.locator('#recovery .codes code').allTextContents();
+	expect(codes).toHaveLength(8);
+	expect(codes[0]).toMatch(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}$/);
+
+	// Another device with no passkey and no session: the sign-in page leads to the recovery page.
+	const other = await browser.newContext();
+	await forwardedProto(other);
+	const phone = await other.newPage();
+	await authenticator(phone);
+	await phone.goto('/login');
+	await phone.getByRole('link', { name: 'Utiliser un code de secours' }).click();
+	await expect(phone).toHaveURL(/\/recover$/);
+
+	// A wrong code and a badly written one get the same answer.
+	await phone.getByLabel('Code de secours').fill('AAAAA-AAAAA-AAAAA-AAAAA');
+	await phone.getByRole('button', { name: 'Utiliser ce code' }).click();
+	await expect(phone.getByText('Ce code n’est pas valable : il est faux, ou il a déjà servi.')).toBeVisible();
+	await phone.getByLabel('Code de secours').fill('pas un code');
+	await phone.getByRole('button', { name: 'Utiliser ce code' }).click();
+	await expect(phone.getByText('Ce code n’est pas valable : il est faux, ou il a déjà servi.')).toBeVisible();
+
+	// A good one, typed the way a person writes it down (lower case, spaces), adds a passkey to the account.
+	await phone.getByLabel('Code de secours').fill(codes[3].toLowerCase().replaceAll('-', ' '));
+	await phone.getByRole('button', { name: 'Utiliser ce code' }).click();
+	await expect(phone).toHaveURL(/\/join\/[A-Za-z0-9_-]{16,64}$/);
+	await expect(phone.getByRole('heading', { level: 1 })).toHaveText(
+		`Ajouter une passkey au compte « ${name} »`
+	);
+	await phone.getByRole('button', { name: 'Ajouter une passkey sur cet appareil' }).click();
+	await expect(phone).toHaveURL(/\/account$/);
+	await expect(phone.locator('.keys li')).toHaveCount(2);
+	await expect(phone.getByText('Codes de secours encore valables : 7 sur 8.')).toBeVisible();
+
+	// The same code does not work twice.
+	const third = await browser.newContext();
+	await forwardedProto(third);
+	const again = await third.newPage();
+	await again.goto('/recover');
+	await again.getByLabel('Code de secours').fill(codes[3]);
+	await again.getByRole('button', { name: 'Utiliser ce code' }).click();
+	await expect(again.getByText('Ce code n’est pas valable : il est faux, ou il a déjà servi.')).toBeVisible();
+	await third.close();
+	await other.close();
+});
+
 test('without an account: sign-in page, invalid invitation, links, and no cross-site call', async ({
 	page,
 	request
 }) => {
 	await page.goto('/account');
 	await expect(page).toHaveURL(/\/login$/);
-	await expect(page.getByText('Les comptes sont ouverts sur invitation seulement.')).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Compte' })).toBeVisible();
+	// This server is open: the page offers to create an account, and a way back for a lost passkey.
+	await expect(page.getByRole('link', { name: 'Créer un compte' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Utiliser un code de secours' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Compte', exact: true })).toBeVisible();
 
 	await page.goto('/join/AAAAAAAAAAAAAAAAAAAAAAAA');
 	await expect(page.getByText('Cette invitation n’est plus valable')).toBeVisible();

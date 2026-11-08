@@ -114,6 +114,9 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 			note: 'The public key of the passkey is kept, never its secret.'
 		})),
 		sessions,
+		recovery_codes: await sql`
+			select created_at, used_at, 'The code itself is not kept, only a fingerprint: it was shown once.' as note
+			from recovery_codes where user_id = ${userId} order by created_at`,
 		zones: await listZones(sql, userId),
 		places: await listPlaces(sql, userId),
 		pages: await listPages(sql, userId),
@@ -139,5 +142,6 @@ export async function cleanUp(sql: Sql): Promise<void> {
 	await sql`delete from sessions where expires_at < now()`;
 	await sql`delete from challenges where expires_at < now()`;
 	await sql`delete from invitations where expires_at < now() - interval '30 days'`;
+	await sql`delete from recovery_codes where used_at < now() - interval '30 days'`;
 	await sql`delete from users where last_seen_at < now() - interval '2 years'`;
 }

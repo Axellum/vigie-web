@@ -34,7 +34,7 @@
 <div class="page narrow">
 	<h1>{tr('login.title')}</h1>
 	{#if data.deleted}<p class="note" role="status">{tr('login.deleted')}</p>{/if}
-	<p>{tr('login.invitationOnly')}</p>
+	{#if data.signup === 'invitation'}<p>{tr('login.invitationOnly')}</p>{/if}
 	<button
 		type="button"
 		class="btn"
@@ -45,4 +45,10 @@
 	</button>
 	{#if problem}<p class="error" role="alert">{tr(`pk.${problem}`)}</p>{/if}
 	<p class="muted small">{tr('pk.what')}</p>
+	{#if data.signup === 'open'}
+		<p>{tr('login.noAccount')} <a href="/join">{tr('login.createAccount')}</a></p>
+	{:else if data.signup === 'full'}
+		<p class="muted small">{tr('join.full')}</p>
+	{/if}
+	<p class="muted small">{tr('login.lost')} <a href="/recover">{tr('login.useRecovery')}</a></p>
 </div>

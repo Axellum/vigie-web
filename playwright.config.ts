@@ -84,7 +84,12 @@ export default defineConfig({
 				VIGIE_PUSH_EXTRA_HOSTS: `127.0.0.1:${PUSH_PORT}`,
 				VIGIE_FCM_SERVICE_ACCOUNT: FCM_ACCOUNT,
 				VIGIE_FCM_BASE_URL: `http://127.0.0.1:${PUSH_PORT}`,
-				VIGIE_MATCH_INTERVAL_S: '5'
+				VIGIE_MATCH_INTERVAL_S: '5',
+				// Sign-up is open here, with ceilings no test reaches: the limits are checked against a real schema in
+				// src/lib/server/signup.db.test.ts, not by making the end-to-end run wait for them.
+				VIGIE_SIGNUP: 'open',
+				VIGIE_MAX_ACCOUNTS: '100000',
+				VIGIE_SIGNUPS_PER_DAY: '100000'
 			},
 			reuseExistingServer: !process.env.CI
 		}

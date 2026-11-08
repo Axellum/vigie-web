@@ -8,6 +8,7 @@ import notifications from './migrations/003_notifications.sql?raw';
 import nativeDevices from './migrations/004_native_devices.sql?raw';
 import zoneProfile from './migrations/005_zone_profile.sql?raw';
 import personalPage from './migrations/006_personal_page.sql?raw';
+import recoveryCodes from './migrations/007_recovery_codes.sql?raw';
 
 const MIGRATIONS = [
 	{ id: '001_accounts', sql: accounts },
@@ -15,7 +16,8 @@ const MIGRATIONS = [
 	{ id: '003_notifications', sql: notifications },
 	{ id: '004_native_devices', sql: nativeDevices },
 	{ id: '005_zone_profile', sql: zoneProfile },
-	{ id: '006_personal_page', sql: personalPage }
+	{ id: '006_personal_page', sql: personalPage },
+	{ id: '007_recovery_codes', sql: recoveryCodes }
 ];
 
 export type Sql = postgres.Sql;

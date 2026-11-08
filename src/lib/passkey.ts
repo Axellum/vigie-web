@@ -17,6 +17,9 @@ export type PasskeyFailure =
 	| 'expired'
 	| 'unknown'
 	| 'refused'
+	| 'closed'
+	| 'full'
+	| 'slow'
 	| 'network';
 
 export class PasskeyProblem extends Error {
@@ -66,8 +69,15 @@ function browserFailure(e: unknown): never {
 	throw new PasskeyProblem('refused');
 }
 
-/** Creates a passkey: a new account (code and name), a recovered one (code), or one more for the account. */
-export async function createPasskey(request: { code?: string; name?: string }): Promise<void> {
+/**
+ * Creates a passkey: a new account (code and name), a recovered one (code), a new account on a site that is
+ * open (signup and name), or one more for the account.
+ */
+export async function createPasskey(request: {
+	code?: string;
+	name?: string;
+	signup?: boolean;
+}): Promise<void> {
 	const { id, options } = await post('register-options', request);
 	try {
 		const response = await startRegistration({ optionsJSON: options as never });

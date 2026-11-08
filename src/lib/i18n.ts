@@ -505,12 +505,19 @@ const fr = {
 	'pk.refused': 'La passkey n’a pas pu être vérifiée.',
 	'pk.network': 'Le site ne répond pas. Réessayez.',
 	'pk.last': 'C’est la dernière passkey du compte : elle ne peut pas être retirée.',
+	'pk.closed': 'Les comptes sont ouverts sur invitation seulement sur ce site.',
+	'pk.full': 'Les inscriptions sont complètes pour le moment. Réessayez plus tard.',
+	'pk.slow': 'Trop d’essais depuis cette adresse. Réessayez plus tard.',
 	'login.title': 'Se connecter',
 	'login.button': 'Se connecter avec une passkey',
 	'login.busy': 'Connexion…',
 	'login.invitationOnly':
 		'Les comptes sont ouverts sur invitation seulement. Sans compte, tout le reste du site est utilisable.',
 	'login.deleted': 'Votre compte a été supprimé, avec tout ce qui y était attaché.',
+	'login.noAccount': 'Pas encore de compte ?',
+	'login.createAccount': 'Créer un compte',
+	'login.lost': 'Passkey perdue ?',
+	'login.useRecovery': 'Utiliser un code de secours',
 	'join.title': 'Créer votre compte',
 	'join.recoverTitle': 'Ajouter une passkey au compte « {name} »',
 	'join.name': 'Votre nom dans Vigie',
@@ -521,6 +528,29 @@ const fr = {
 	'join.busy': 'En cours…',
 	'join.validUntil': 'Invitation valable jusqu’au',
 	'join.privacyLead': 'Ce que le site garde sur vous :',
+	'join.full':
+		'Les inscriptions sont complètes pour le moment. Sans compte, tout le reste du site est utilisable ; revenez plus tard.',
+	'join.recoveryLead':
+		'Une fois le compte créé, faites vos codes de secours et gardez-les : ils vous laissent retrouver le compte si vous perdez vos passkeys. Le site ne demande pas d’adresse e-mail.',
+	'recover.title': 'Retrouver votre compte',
+	'recover.help':
+		'Vous avez perdu toutes vos passkeys ? Entrez l’un de vos codes de secours : il vous laisse ajouter une passkey sur cet appareil. Chaque code ne sert qu’une fois.',
+	'recover.code': 'Code de secours',
+	'recover.codeHelp': 'Quatre groupes de cinq caractères, avec ou sans tirets.',
+	'recover.button': 'Utiliser ce code',
+	'recover.wrong': 'Ce code n’est pas valable : il est faux, ou il a déjà servi.',
+	'recover.slow': 'Trop d’essais depuis cette adresse. Réessayez plus tard.',
+	'recovery.title': 'Codes de secours',
+	'recovery.shownOnce': 'Voici vos codes de secours. Notez-les maintenant : ils ne seront plus affichés.',
+	'recovery.none':
+		'Vous n’avez aucun code de secours. Si vous perdez toutes vos passkeys, le compte sera perdu.',
+	'recovery.left': 'Codes de secours encore valables : {n} sur {total}.',
+	'recovery.help':
+		'Un code de secours ajoute une passkey à votre compte quand vous les avez toutes perdues. Chaque code ne sert qu’une fois. Gardez-les hors de votre téléphone (papier, gestionnaire de mots de passe) : celui qui en a un peut ouvrir votre compte.',
+	'recovery.make': 'Faire mes codes de secours',
+	'recovery.remake': 'Faire de nouveaux codes',
+	'recovery.remakeHelp':
+		'De nouveaux codes remplacent les anciens, qui ne marchent plus. Après une récupération, retirez plus haut la passkey de l’appareil perdu.',
 	'account.title': 'Votre compte',
 	'account.since': 'Compte créé le',
 	'account.passkeys': 'Vos passkeys',
@@ -533,7 +563,7 @@ const fr = {
 	'account.added': 'Passkey ajoutée.',
 	'account.removed': 'Passkey retirée.',
 	'account.lostHelp':
-		'Si vous perdez toutes vos passkeys, demandez une invitation de récupération à la personne qui vous a invité : elle ajoute une passkey à ce compte.',
+		'Si vous perdez toutes vos passkeys, un code de secours (plus bas) vous laisse en ajouter une. Sans code, demandez une invitation de récupération à la personne qui gère le site.',
 	'push.title': 'Notifications',
 	'push.intro':
 		'Quand une alerte touche une de vos zones, au niveau et pour les types choisis, Vigie l’envoie aux appareils où vous avez activé les notifications. Une alerte déjà en cours quand vous créez la zone n’est pas envoyée ; une alerte qui monte d’un niveau l’est de nouveau.',
@@ -1272,12 +1302,19 @@ const en: Record<Key, string> = {
 	'pk.refused': 'The passkey could not be checked.',
 	'pk.network': 'The site does not answer. Try again.',
 	'pk.last': 'This is the last passkey of the account: it cannot be removed.',
+	'pk.closed': 'Accounts are by invitation only on this site.',
+	'pk.full': 'Sign-ups are full for now. Try again later.',
+	'pk.slow': 'Too many tries from this address. Try again later.',
 	'login.title': 'Sign in',
 	'login.button': 'Sign in with a passkey',
 	'login.busy': 'Signing in…',
 	'login.invitationOnly':
 		'Accounts are by invitation only. Without an account, the rest of the site is usable.',
 	'login.deleted': 'Your account has been deleted, with everything attached to it.',
+	'login.noAccount': 'No account yet?',
+	'login.createAccount': 'Create an account',
+	'login.lost': 'Lost your passkey?',
+	'login.useRecovery': 'Use a recovery code',
 	'join.title': 'Create your account',
 	'join.recoverTitle': 'Add a passkey to the account “{name}”',
 	'join.name': 'Your name in Vigie',
@@ -1287,6 +1324,28 @@ const en: Record<Key, string> = {
 	'join.busy': 'Working…',
 	'join.validUntil': 'Invitation valid until',
 	'join.privacyLead': 'What the site keeps about you:',
+	'join.full':
+		'Sign-ups are full for now. Without an account, the rest of the site is usable; come back later.',
+	'join.recoveryLead':
+		'Once the account is made, make your recovery codes and keep them: they let you get the account back if you lose your passkeys. The site does not ask for an e-mail address.',
+	'recover.title': 'Get your account back',
+	'recover.help':
+		'Lost all your passkeys? Enter one of your recovery codes: it lets you add a passkey on this device. Each code works once.',
+	'recover.code': 'Recovery code',
+	'recover.codeHelp': 'Four groups of five characters, with or without hyphens.',
+	'recover.button': 'Use this code',
+	'recover.wrong': 'This code is not valid: it is wrong, or it was already used.',
+	'recover.slow': 'Too many tries from this address. Try again later.',
+	'recovery.title': 'Recovery codes',
+	'recovery.shownOnce': 'Here are your recovery codes. Write them down now: they will not be shown again.',
+	'recovery.none': 'You have no recovery code. If you lose all your passkeys, the account will be lost.',
+	'recovery.left': 'Recovery codes still valid: {n} of {total}.',
+	'recovery.help':
+		'A recovery code adds a passkey to your account when you have lost them all. Each code works once. Keep them away from your phone (paper, password manager): whoever has one can open your account.',
+	'recovery.make': 'Make my recovery codes',
+	'recovery.remake': 'Make new codes',
+	'recovery.remakeHelp':
+		'New codes replace the old ones, which stop working. After a recovery, remove the passkey of the lost device above.',
 	'account.title': 'Your account',
 	'account.since': 'Account created on',
 	'account.passkeys': 'Your passkeys',
@@ -1299,7 +1358,7 @@ const en: Record<Key, string> = {
 	'account.added': 'Passkey added.',
 	'account.removed': 'Passkey removed.',
 	'account.lostHelp':
-		'If you lose all your passkeys, ask the person who invited you for a recovery invitation: it adds a passkey to this account.',
+		'If you lose all your passkeys, a recovery code (below) lets you add one. Without a code, ask the person who runs the site for a recovery invitation.',
 	'push.title': 'Notifications',
 	'push.intro':
 		'When an alert falls in one of your zones, at the level and of the kinds you chose, Vigie sends it to the devices where you turned notifications on. An alert already in force when you make the zone is not sent; an alert that rises a level is sent again.',
