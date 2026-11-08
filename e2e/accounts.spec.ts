@@ -161,6 +161,66 @@ test('the data of an account can be downloaded, and deleting it leaves nothing',
 	await expect(page.getByText('Cette passkey n’est pas connue du site')).toBeVisible();
 });
 
+test('"My page" is made from the zones followed, one place at a time, and only its owner reads it', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Camille');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		for (const [zone, lat, lon, radius, profile] of [
+			['Plage', 43.66, -1.44, 50, 'surf'],
+			['Maison', 48.85, 2.35, 25, null]
+		] as const)
+			await sql`
+				insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
+				values (gen_random_uuid(), ${user.id}, ${zone}, 'circle', ${lat}, ${lon}, ${radius}, ${profile}, '{VIGILANCE}',
+					ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000.0})::geography(Polygon, 4326))`;
+
+		// The header leads to it; the page is private and made once from the zones.
+		await page.getByRole('link', { name: 'Ma page' }).click();
+		await expect(page).toHaveURL(/\/me$/);
+		await expect(page.getByRole('heading', { level: 1, name: 'Ma page' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.getByRole('button', { name: /^Plage/ })).toBeVisible();
+		await expect(page.getByRole('button', { name: /^Maison/ })).toBeVisible();
+		// Cards of both places, each titled with its place.
+		const weather = page.getByRole('region', { name: /^Météo · Maison/ });
+		await expect(weather).toBeVisible();
+		await expect(weather).toContainText('°C');
+		await expect(page.getByRole('region', { name: /^Surf · .* · Plage/ })).toBeVisible();
+		const made = await sql`select (select count(*) from places where user_id = ${user.id})::int as places,
+			(select count(*) from pages where user_id = ${user.id})::int as pages`;
+		expect(made[0]).toEqual({ places: 2, pages: 1 });
+
+		// One place alone: no place name in the titles, the address keeps the choice, the sentence appears.
+		await page.getByRole('button', { name: /^Maison/ }).click();
+		await expect(page).toHaveURL(/\/me\?place=[0-9a-f-]{36}$/);
+		await expect(page.getByRole('region', { name: 'Météo', exact: true })).toBeVisible();
+		await expect(page.getByRole('region', { name: /Plage/ })).toHaveCount(0);
+		await expect(page.locator('.sentence')).toContainText('17 °C');
+		await page.reload();
+		await expect(page.getByRole('button', { name: /^Maison/ })).toHaveAttribute('aria-pressed', 'true');
+
+		// Opening it again does not make it again.
+		const again = await sql`select (select count(*) from places where user_id = ${user.id})::int as places,
+			(select count(*) from pages where user_id = ${user.id})::int as pages`;
+		expect(again[0]).toEqual({ places: 2, pages: 1 });
+
+		// Private: never cached, and without a session it leads to the sign-in page.
+		const response = await page.request.get('/me');
+		expect(response.headers()['cache-control']).toBe('private, no-store');
+		await page.context().clearCookies();
+		await page.goto('/me');
+		await expect(page).toHaveURL(/\/login$/);
+	} finally {
+		await sql.end();
+	}
+});
+
 test('a recovery invitation adds a passkey to an account; the last one cannot be removed', async ({
 	page,
 	browser

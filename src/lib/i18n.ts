@@ -375,6 +375,17 @@ const fr = {
 	'fc.loading': 'Chargement de la prévision…',
 	'fc.failed': "La prévision n'a pas pu être chargée.",
 	'nav.account': 'Compte',
+	'nav.me': 'Ma page',
+	'me.description':
+		'Les lieux qui comptent pour vous, avec leurs vigilances, leur météo et leur marée, sur une seule page.',
+	'me.places': 'Vos lieux',
+	'me.all': 'Tous',
+	'me.noPlace':
+		'Votre page n’a encore aucun lieu. Choisissez un lieu dans « Autour de moi » ou ajoutez une zone à votre compte : il apparaîtra ici.',
+	'me.nearLink': 'Autour de moi',
+	'me.zonesLink': 'Gérer mes zones',
+	'me.noCard': 'Aucune carte sur cette page.',
+	'me.private': 'Cette page n’est visible que de vous.',
 	'nav.privacy': 'Confidentialité',
 	'pk.what':
 		'Une passkey remplace le mot de passe : votre téléphone ou votre ordinateur garde une clé, déverrouillée par votre empreinte, votre visage ou votre code. Le site n’en garde que la partie publique.',
@@ -1029,6 +1040,16 @@ const en: Record<Key, string> = {
 	'fc.loading': 'Loading the forecast…',
 	'fc.failed': 'The forecast could not be loaded.',
 	'nav.account': 'Account',
+	'nav.me': 'My page',
+	'me.description': 'The places that matter to you, with their warnings, weather and tide, on one page.',
+	'me.places': 'Your places',
+	'me.all': 'All',
+	'me.noPlace':
+		'Your page has no place yet. Choose a place in “Near me” or add a zone to your account: it will appear here.',
+	'me.nearLink': 'Near me',
+	'me.zonesLink': 'Manage my zones',
+	'me.noCard': 'There is no card on this page.',
+	'me.private': 'Only you can see this page.',
 	'nav.privacy': 'Privacy',
 	'pk.what':
 		'A passkey replaces the password: your phone or computer keeps a key, unlocked by your fingerprint, face or PIN. The site keeps only its public part.',

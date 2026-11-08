@@ -38,6 +38,13 @@
 				ce lieu sur « Autour de moi » quand vous êtes connecté, et disparaît avec la zone ou le compte.
 			</li>
 			<li>
+				<b>Vos lieux et votre page</b> : les lieux que « Ma page » garde pour vous (un nom, un point arrondi à une
+				centaine de mètres, un rayon et, si vous en choisissez un, un profil) et la page elle-même (son titre et
+				ses blocs : une carte, un lieu, une taille). La première fois que vous l'ouvrez, vos zones en cercle y sont
+				reprises comme lieux ; vos zones et leurs alertes ne changent pas. Ils ne sont visibles que de vous et disparaissent
+				avec le compte.
+			</li>
+			<li>
 				<b>Vos appareils qui reçoivent les notifications</b> : pour un navigateur, l'adresse que son service de
 				notification lui a donnée et les clés qui chiffrent les messages pour lui ; pour l'appli Android, son jeton
 				Firebase Cloud Messaging. Pour chacun, ses dates d'ajout et de dernier envoi, et le nombre d'envois échoués
@@ -104,8 +111,8 @@
 		<p>
 			Depuis <a href="/account">votre compte</a>, vous pouvez télécharger tout ce que le site garde sur vous
 			et supprimer le compte : la suppression efface tout de suite le compte, ses passkeys, ses sessions, ses
-			zones, ses appareils et ses alertes, et les sauvegardes l'oublient sous 7 jours. Vous pouvez aussi
-			saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			zones, ses lieux et ses pages, ses appareils et ses alertes, et les sauvegardes l'oublient sous 7 jours.
+			Vous pouvez aussi saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Où</h2>
 		<p>
@@ -138,6 +145,13 @@
 				country or an official area), their rules (level, kinds of alert) and, if you choose one, their
 				profile (the order of the cards of "Near me"). A point may be your home: it only serves your alerts
 				and shows this place on "Near me" when you are signed in, and goes with the zone or the account.
+			</li>
+			<li>
+				<b>Your places and your page</b>: the places "My page" keeps for you (a name, a point rounded to about
+				a hundred metres, a radius and, if you choose one, a profile) and the page itself (its title and its
+				blocks: a card, a place, a size). The first time you open it, your circle zones are taken up as
+				places; your zones and their alerts do not change. They are visible to you only and go with the
+				account.
 			</li>
 			<li>
 				<b>Your devices that receive the notifications</b>: for a browser, the address its notification
@@ -203,9 +217,9 @@
 		<h2>Your rights</h2>
 		<p>
 			From <a href="/account">your account</a>, you can download everything the site keeps about you and
-			delete the account: deleting erases the account, its passkeys, its sessions, its zones, its devices and
-			its alerts at once, and the backups forget it within 7 days. You can also complain to the French data
-			protection authority, the CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
+			delete the account: deleting erases the account, its passkeys, its sessions, its zones, its places and
+			pages, its devices and its alerts at once, and the backups forget it within 7 days. You can also
+			complain to the French data protection authority, the CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).
 		</p>
 		<h2>Where</h2>
 		<p>

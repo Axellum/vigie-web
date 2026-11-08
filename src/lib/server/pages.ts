@@ -1,7 +1,10 @@
 // The pages of an account ("My page"): a title and blocks. The blocks are validated against the places of the same
 // account (src/lib/pageConfig.ts), so that a page never shows a place that belongs to someone else.
 import { randomUUID } from 'node:crypto';
+import { MAX_PLACES } from '#lib/myPlaces.js';
 import { MAX_PAGES, parseBlocks, type Block, type BlocksError } from '#lib/pageConfig.js';
+import { starterBlocks } from '#lib/pageStarter.js';
+import type { Profile } from '#lib/profiles.js';
 import type { Sql } from './db';
 
 export interface Page {
@@ -81,6 +84,46 @@ export async function createPage(
 		]);
 	});
 	return id;
+}
+
+/** The first page of an account, made when it is first opened: an account that keeps no place yet gets the circle
+ *  zones it already follows, copied once as places (each linked to its zone, so that its alerts stay the zone's),
+ *  and a page that lays out their first cards. An account with no zone gets an empty page. */
+export async function ensureFirstPage(sql: Sql, userId: string, title: string): Promise<Page> {
+	const first = (await listPages(sql, userId))[0];
+	if (first) return first;
+	await sql.begin(async (tx) => {
+		await tx.unsafe('select pg_advisory_xact_lock(hashtextextended($1, 6))', [userId]);
+		const [{ pages, places }] = await tx.unsafe<{ pages: number; places: number }[]>(
+			`select (select count(*) from pages where user_id = $1)::int as pages,
+				(select count(*) from places where user_id = $1)::int as places`,
+			[userId]
+		);
+		if (pages > 0) return;
+		if (places === 0)
+			await tx.unsafe(
+				`insert into places (id, user_id, name, kind, lat, lon, radius_km, profile, zone_id, position)
+				select gen_random_uuid(), z.user_id, z.name, 'place', round(z.lat::numeric, 3)::float8,
+					round(z.lon::numeric, 3)::float8, z.radius_km, z.profile, z.id,
+					(row_number() over (order by z.created_at))::int
+				from zones z
+				where z.user_id = $1 and z.kind = 'circle' and z.lat is not null and z.lon is not null
+					and z.radius_km is not null
+				order by z.created_at limit $2`,
+				[userId, MAX_PLACES]
+			);
+		const rows = await tx.unsafe<{ id: string; profile: Profile | null }[]>(
+			"select id, profile from places where user_id = $1 and kind = 'place' order by position, created_at",
+			[userId]
+		);
+		await tx.unsafe('insert into pages (id, user_id, title, blocks) values ($1, $2, $3, $4::text::jsonb)', [
+			randomUUID(),
+			userId,
+			title,
+			JSON.stringify(starterBlocks(rows))
+		]);
+	});
+	return (await listPages(sql, userId))[0];
 }
 
 /** Replaces the title and the blocks of a page of this account. `blocks` is what a browser sent (a list or its
