@@ -38,8 +38,9 @@
 		</p>
 		{#if data.accounts}
 			<p>
-				Les comptes, ouverts sur invitation, ajoutent un cookie de connexion et gardent le peu décrit sur la
-				page <a href="/privacy">Confidentialité</a>.
+				Les comptes ajoutent un cookie de connexion et gardent le peu décrit sur la page <a href="/privacy"
+					>Confidentialité</a
+				>.
 			</p>
 		{/if}
 		<p>
@@ -84,7 +85,7 @@
 		</p>
 		{#if data.accounts}
 			<p>
-				Accounts, by invitation, add a sign-in cookie and keep the little described on the
+				Accounts add a sign-in cookie and keep the little described on the
 				<a href="/privacy">Privacy</a> page.
 			</p>
 		{/if}

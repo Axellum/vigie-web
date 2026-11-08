@@ -14,7 +14,8 @@
 	{#if lang === 'fr'}
 		<p>
 			Sans compte, Vigie ne garde rien sur vous : voir <a href="/about">À propos</a>. Cette page dit ce que le
-			site garde sur les personnes qui ont un compte. Les comptes sont ouverts sur invitation.
+			site garde sur les personnes qui ont un compte. Un compte se crée avec une passkey, sur invitation ou,
+			quand le site est ouvert, sans.
 		</p>
 		<h2>Ce qui est gardé</h2>
 		<ul>
@@ -60,6 +61,11 @@
 				<b>Votre invitation</b> : une empreinte du code, la note de la personne qui vous a invité (par exemple pour
 				qui elle était) et ses dates.
 			</li>
+			<li>
+				<b>Vos codes de secours</b> : si vous en faites, une empreinte (SHA-256) de chacun, la date où ils ont été
+				faits et celle où chacun a servi. Les codes eux-mêmes ne vous sont montrés qu'une fois ; le site ne peut
+				pas les relire.
+			</li>
 		</ul>
 		<p>
 			Pas d'adresse e-mail, pas de mot de passe, pas d'adresse IP dans la base. Aucune donnée n'est vendue, ni
@@ -91,6 +97,9 @@
 			<li>Le compte : jusqu'à ce que vous le supprimiez, ou deux ans sans aucune utilisation.</li>
 			<li>Une session : 30 jours après sa dernière utilisation.</li>
 			<li>Une invitation : 30 jours après sa date d'expiration.</li>
+			<li>
+				Un code de secours : jusqu'à ce que vous en fassiez d'autres, ou 30 jours après son utilisation.
+			</li>
 			<li>La vérification d'une passkey en cours : 5 minutes.</li>
 			<li>
 				Un appareil : jusqu'à ce que vous le retiriez, que son navigateur s'en désabonne, ou après 5 envois
@@ -126,7 +135,8 @@
 	{:else}
 		<p>
 			Without an account, Vigie keeps nothing about you: see <a href="/about">About</a>. This page says what
-			the site keeps about the people who have an account. Accounts are by invitation.
+			the site keeps about the people who have an account. An account is made with a passkey, by invitation
+			or, when the site is open, without.
 		</p>
 		<h2>What is kept</h2>
 		<ul>
@@ -172,6 +182,11 @@
 				<b>Your invitation</b>: a fingerprint of the code, the note of the person who invited you (for example
 				who it was for) and its dates.
 			</li>
+			<li>
+				<b>Your recovery codes</b>: if you make some, a fingerprint (SHA-256) of each, the date they were made
+				and the date each was used. The codes themselves are shown to you once; the site cannot read them
+				back.
+			</li>
 		</ul>
 		<p>
 			No e-mail address, no password, no IP address in the database. No data is sold, shared, or used for
@@ -202,6 +217,7 @@
 			<li>The account: until you delete it, or two years without any use.</li>
 			<li>A session: 30 days after it was last used.</li>
 			<li>An invitation: 30 days after it expired.</li>
+			<li>A recovery code: until you make new ones, or 30 days after it was used.</li>
 			<li>The check of a passkey in progress: 5 minutes.</li>
 			<li>
 				A device: until you remove it, its browser unsubscribes it, or after 5 failed sendings in a row.

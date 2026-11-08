@@ -15,15 +15,28 @@ import {
 import type { Lang } from '#lib/i18n.js';
 import { digest, readInvitation, type User } from './accounts';
 import type { Sql } from './db';
+import { claimSignup, signupStatus, type SignupConfig } from './signup';
 
 const CHALLENGE_MINUTES = 5;
 const RP_NAME = 'Vigie';
 
 /** Why a ceremony failed, as a code the page turns into words. */
 export class PasskeyError extends Error {
-	constructor(public code: 'invitation' | 'name' | 'expired' | 'unknown' | 'refused' | 'last') {
+	constructor(
+		public code:
+			'invitation' | 'name' | 'expired' | 'unknown' | 'refused' | 'last' | 'closed' | 'full' | 'slow'
+	) {
 		super(code);
 	}
+}
+
+/** An account made without an invitation: the settings of the site and the share of tries of this address. */
+export interface OpenSignup {
+	config: SignupConfig;
+	/** Counts one request for options for the address; false when its share is used up. */
+	tryAllowed: () => boolean;
+	/** Counts one account made by the address; false when its share is used up. */
+	makeAllowed: () => boolean;
 }
 
 function party(url: URL): { rpID: string; origin: string } {
@@ -77,12 +90,19 @@ async function takeChallenge(sql: Sql, id: unknown): Promise<Challenge> {
 
 /**
  * Options to create a passkey: for a new account (an invitation and a name), for an account an invitation
- * recovers (an invitation), or for the account signed in (no invitation).
+ * recovers (an invitation), for a new account of a site that is open (a name, no invitation), or for the account
+ * signed in (nothing).
  */
 export async function registrationOptions(
 	sql: Sql,
 	url: URL,
-	request: { code?: string; name?: string | null; lang: Lang; user: User | null }
+	request: {
+		code?: string;
+		name?: string | null;
+		lang: Lang;
+		user: User | null;
+		signup?: OpenSignup;
+	}
 ): Promise<{ id: string; options: PublicKeyCredentialCreationOptionsJSON }> {
 	let kind: 'register' | 'add';
 	let userId: string;
@@ -102,6 +122,14 @@ export async function registrationOptions(
 			userId = randomUUID();
 			userName = request.name;
 		}
+	} else if (request.signup) {
+		if (!request.signup.tryAllowed()) throw new PasskeyError('slow');
+		const status = await signupStatus(sql, request.signup.config);
+		if (status !== 'open') throw new PasskeyError(status === 'full' ? 'full' : 'closed');
+		if (!request.name) throw new PasskeyError('name');
+		kind = 'register';
+		userId = randomUUID();
+		userName = request.name;
 	} else if (request.user) {
 		kind = 'add';
 		userId = request.user.id;
@@ -144,12 +172,21 @@ export async function register(
 	url: URL,
 	id: unknown,
 	response: RegistrationResponseJSON,
-	signedIn: User | null
+	signedIn: User | null,
+	signup?: OpenSignup
 ): Promise<string> {
 	const c = await takeChallenge(sql, id);
 	if (c.kind === 'login') throw new PasskeyError('expired');
+	// A new account without an invitation exists only on a site that is open (the options said so, and the
+	// settings and the share of this address are checked again now, at the moment the account is made).
+	const open = c.kind === 'register' && !c.invitation_hash;
+	if (open) {
+		if (!signup) throw new PasskeyError('refused');
+		if (!signup.makeAllowed()) throw new PasskeyError('slow');
+	}
 	// A passkey added without an invitation goes to the account signed in, and only to it.
-	if (!c.invitation_hash && (!signedIn || signedIn.id !== c.user_id)) throw new PasskeyError('refused');
+	if (!open && !c.invitation_hash && (!signedIn || signedIn.id !== c.user_id))
+		throw new PasskeyError('refused');
 	const { rpID, origin } = party(url);
 	let verified;
 	try {
@@ -166,6 +203,10 @@ export async function register(
 	if (!verified.verified) throw new PasskeyError('refused');
 	const { credential, credentialBackedUp } = verified.registrationInfo;
 	return sql.begin(async (tx) => {
+		if (open) {
+			const status = await claimSignup(tx, signup!.config);
+			if (status !== 'open') throw new PasskeyError(status === 'full' ? 'full' : 'closed');
+		}
 		if (c.invitation_hash) {
 			const used = await tx.unsafe(
 				'update invitations set used_at = now() where code_hash = $1 and used_at is null and expires_at > now() returning code_hash',

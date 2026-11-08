@@ -4,6 +4,7 @@ import { accountsEnabled, db } from '#lib/server/db.js';
 import { listZoneAlerts } from '#lib/server/notify.js';
 import { PasskeyError, removePasskey } from '#lib/server/passkeys.js';
 import { listDevices, vapidPublicKey } from '#lib/server/push.js';
+import { makeRecoveryCodes, recoveryStatus, RECOVERY_CODES } from '#lib/server/recovery.js';
 import { servedCodes } from '#lib/server/vigie.js';
 import { listZones, removeZone, ZoneError } from '#lib/server/zones.js';
 import { MAX_ZONES } from '#lib/zones.js';
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders }) => {
 	return {
 		user: { name: user.name, createdAt: Math.floor(user.createdAt.getTime() / 1000) },
 		zones: await listZones(sql, user.id),
+		recovery: { ...(await recoveryStatus(sql, user.id)), size: RECOVERY_CODES },
 		served: await servedCodes(),
 		maxZones: MAX_ZONES,
 		passkeys: passkeys.map((p) => ({
@@ -77,6 +79,13 @@ export const actions: Actions = {
 			throw e;
 		}
 		return { removed: true };
+	},
+	// A new set of recovery codes, in place of the old one. The codes are in the answer and nowhere else.
+	recoveryCodes: async ({ cookies, url, setHeaders }) => {
+		if (!accountsEnabled()) error(404);
+		setHeaders(PRIVATE);
+		const { sql, user } = await signedIn(cookies, url);
+		return { recoveryCodes: await makeRecoveryCodes(sql, user.id) };
 	},
 	removeZone: async ({ cookies, url, request }) => {
 		if (!accountsEnabled()) error(404);

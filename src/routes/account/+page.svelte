@@ -12,6 +12,8 @@
 	let { data, form } = $props();
 	const lang = $derived(data.lang);
 	const tr = $derived(translator(lang));
+	// The codes of a set just made, shown once: they are in this answer and nowhere else.
+	const recoveryCodes = $derived((form as { recoveryCodes?: string[] } | null)?.recoveryCodes ?? null);
 
 	let busy = $state(false);
 	let added = $state(false);
@@ -265,6 +267,27 @@
 		<p class="muted small">{tr('account.lostHelp')}</p>
 	</section>
 
+	<section class="card stack" id="recovery">
+		<h2>{tr('recovery.title')}</h2>
+		{#if recoveryCodes}
+			<p class="note" role="status">{tr('recovery.shownOnce')}</p>
+			<ol class="codes">
+				{#each recoveryCodes as code (code)}<li><code>{code}</code></li>{/each}
+			</ol>
+		{:else if data.recovery.remaining === 0}
+			<p class="note" role="alert">{tr('recovery.none')}</p>
+		{:else}
+			<p>{tr('recovery.left', { n: String(data.recovery.remaining), total: String(data.recovery.size) })}</p>
+		{/if}
+		<p class="muted small">{tr('recovery.help')}</p>
+		<form method="POST" action="?/recoveryCodes" use:enhance>
+			<button type="submit" class="btn">
+				{data.recovery.total === 0 ? tr('recovery.make') : tr('recovery.remake')}
+			</button>
+		</form>
+		{#if data.recovery.total > 0 && !recoveryCodes}<p class="muted small">{tr('recovery.remakeHelp')}</p>{/if}
+	</section>
+
 	<section class="card stack">
 		<h2>{tr('account.data')}</h2>
 		<p>
@@ -347,6 +370,20 @@
 	.history li > div {
 		min-width: 0;
 		overflow-wrap: anywhere;
+	}
+	.codes {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+		gap: 6px 16px;
+	}
+	.codes code {
+		font-family: var(--font-data);
+		font-size: 1rem;
+		letter-spacing: 0.04em;
+		user-select: all;
 	}
 	.check {
 		display: flex;

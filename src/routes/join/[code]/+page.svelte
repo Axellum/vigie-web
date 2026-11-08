@@ -12,7 +12,12 @@
 	let name = $state('');
 	let busy = $state(false);
 	let problem = $state<PasskeyFailure | null>(null);
-	onMount(() => (problem = passkeysBlocked()));
+	// The button waits for the page's script: a form sent before it runs would be sent as a plain page request.
+	let ready = $state(false);
+	onMount(() => {
+		problem = passkeysBlocked();
+		ready = true;
+	});
 	const blocked = $derived(problem === 'insecure' || problem === 'unsupported');
 
 	async function submit(event: SubmitEvent) {
@@ -58,7 +63,7 @@
 					<span class="muted small">{tr('join.nameHelp')}</span>
 				</label>
 			{/if}
-			<button type="submit" class="btn" disabled={busy || blocked}>
+			<button type="submit" class="btn" disabled={busy || blocked || !ready}>
 				{busy ? tr('join.busy') : data.recoverName ? tr('join.add') : tr('join.create')}
 			</button>
 		</form>
