@@ -64,6 +64,20 @@ test.beforeEach(({ context }) => forwardedProto(context));
 
 const unique = (prefix: string) => `${prefix} ${randomBytes(3).toString('hex')}`;
 
+/** Two circle zones for an account, written with the simple query protocol: the test database serves one PostgreSQL
+ *  session to everybody, and a statement in several steps can be cut by the site's own queries ("portal does not exist"). */
+async function seedZones(sql: postgres.Sql, userId: string): Promise<void> {
+	for (const [zone, lat, lon, radius, profile] of [
+		['Plage', 43.66, -1.44, 50, 'surf'],
+		['Maison', 48.85, 2.35, 25, null]
+	] as const)
+		await sql.unsafe(`
+			insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
+			values (gen_random_uuid(), '${userId}', '${zone}', 'circle', ${lat}, ${lon}, ${radius},
+				${profile ? `'${profile}'` : 'null'}, '{VIGILANCE}',
+				ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000})::geography(Polygon, 4326))`);
+}
+
 async function cookieNames(context: BrowserContext): Promise<string[]> {
 	return (await context.cookies()).map((c) => c.name).sort();
 }
@@ -171,14 +185,7 @@ test('"My page" is made from the zones followed, one place at a time, and only i
 	const sql = postgres(DATABASE_URL, { max: 1 });
 	try {
 		const [user] = await sql`select id from users where name = ${name}`;
-		for (const [zone, lat, lon, radius, profile] of [
-			['Plage', 43.66, -1.44, 50, 'surf'],
-			['Maison', 48.85, 2.35, 25, null]
-		] as const)
-			await sql`
-				insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
-				values (gen_random_uuid(), ${user.id}, ${zone}, 'circle', ${lat}, ${lon}, ${radius}, ${profile}, '{VIGILANCE}',
-					ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000.0})::geography(Polygon, 4326))`;
+		await seedZones(sql, user.id);
 
 		// The header leads to it; the page is private and made once from the zones.
 		await page.getByRole('link', { name: 'Ma page' }).click();
@@ -216,6 +223,100 @@ test('"My page" is made from the zones followed, one place at a time, and only i
 		await page.context().clearCookies();
 		await page.goto('/me');
 		await expect(page).toHaveURL(/\/login$/);
+	} finally {
+		await sql.end();
+	}
+});
+
+test('the page is composed: add, move, resize and remove blocks, saved when done, dropped when cancelled', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Alix');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		await seedZones(sql, user.id);
+		const stored = async () => {
+			const [row] = await sql`select title, blocks from pages where user_id = ${user.id}`;
+			return row as { title: string; blocks: { id: string; type: string; place: string; size: string }[] };
+		};
+
+		await page.goto('/me');
+		await expect(page.getByRole('heading', { level: 1, name: 'Ma page' })).toBeVisible();
+		const first = await stored();
+		const count = first.blocks.length;
+		expect(count).toBeGreaterThanOrEqual(5);
+
+		// Composing shows every block with its tools; nothing is sent until "Terminer".
+		await page.getByRole('button', { name: 'Modifier' }).click();
+		await expect(page.getByRole('button', { name: 'Terminer' })).toBeVisible();
+		const names = page.locator('.tools .name');
+		await expect(names).toHaveCount(count);
+		const [one, two] = [await names.nth(0).innerText(), await names.nth(1).innerText()];
+		const last = await names.nth(count - 1).innerText();
+
+		await page.getByRole('button', { name: `Descendre : ${one}` }).click();
+		await expect(names.nth(0)).toHaveText(two);
+		await expect(names.nth(1)).toHaveText(one);
+		await expect(page.getByRole('status')).toContainText('position 2');
+		// The button used keeps the focus, so that the block can be moved again from the keyboard.
+		await expect(page.getByRole('button', { name: `Descendre : ${one}` })).toBeFocused();
+
+		await page.getByRole('group', { name: one, exact: true }).getByRole('button', { name: 'Grand' }).click();
+		await expect(page.locator('.block.size-l')).toHaveCount(1);
+		await page.getByRole('button', { name: `Retirer : ${last}` }).click();
+		await expect(names).toHaveCount(count - 1);
+
+		await page.getByRole('button', { name: '+ Ajouter un bloc' }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		await page.getByRole('radio', { name: 'Air' }).check();
+		await page.getByRole('radio', { name: 'Maison' }).check();
+		await page.getByRole('dialog').getByRole('button', { name: 'Ajouter' }).click();
+		await expect(names).toHaveCount(count);
+		await expect(names.nth(count - 1)).toHaveText('Air · Maison');
+		expect((await stored()).blocks).toEqual(first.blocks); // nothing saved yet
+
+		// A phone: the tools are touchable and nothing overflows.
+		await page.setViewportSize({ width: 375, height: 812 });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		const tool = await page.getByRole('button', { name: `Retirer : Air · Maison` }).boundingBox();
+		expect(tool?.width).toBeGreaterThanOrEqual(44);
+		expect(tool?.height).toBeGreaterThanOrEqual(44);
+		await page.setViewportSize({ width: 1280, height: 720 });
+
+		// Done: saved, in the order, the size and the cards chosen, and the page reads it again.
+		await page.getByLabel('Titre de la page').fill('Ma côte');
+		await page.getByRole('button', { name: 'Terminer' }).click();
+		await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
+		await expect(page.getByRole('heading', { level: 1, name: 'Ma côte' })).toBeVisible();
+		const saved = await stored();
+		expect(saved.title).toBe('Ma côte');
+		expect(saved.blocks).toHaveLength(count);
+		expect(saved.blocks[0].id).toBe(first.blocks[1].id);
+		expect(saved.blocks[1]).toMatchObject({ id: first.blocks[0].id, size: 'l' });
+		expect(saved.blocks.at(-1)).toMatchObject({ type: 'air', size: 'm' });
+		expect(saved.blocks.some((b) => b.id === first.blocks.at(-1)!.id)).toBe(false);
+		await page.reload();
+		await expect(page.getByRole('region', { name: /^Air · Maison/ })).toBeVisible();
+
+		// Cancel drops what was done.
+		await page.getByRole('button', { name: 'Modifier' }).click();
+		await page
+			.getByRole('button', { name: /^Retirer : / })
+			.first()
+			.click();
+		await expect(page.getByText('Modifications non enregistrées.')).toBeVisible();
+		await page.getByRole('button', { name: 'Annuler' }).click();
+		await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
+		expect((await stored()).blocks).toEqual(saved.blocks);
+
+		// A block whose place is gone is not shown.
+		await sql`delete from places where user_id = ${user.id} and name = 'Maison'`;
+		await page.reload();
+		await expect(page.getByRole('region', { name: /Maison/ })).toHaveCount(0);
 	} finally {
 		await sql.end();
 	}

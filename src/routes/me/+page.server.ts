@@ -1,11 +1,12 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { t } from '#lib/i18n.js';
+import { parseTitle } from '#lib/pageConfig.js';
 import { sessionUser } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
-import { ensureFirstPage } from '#lib/server/pages.js';
+import { ensureFirstPage, PageError, savePage } from '#lib/server/pages.js';
 import { placeContext } from '#lib/server/placeContext.js';
 import { listPlaces } from '#lib/server/savedPlaces.js';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 // A private page: it is made for one account, so no shared cache and not the service worker's either.
 const PRIVATE = { 'cache-control': 'private, no-store' };
@@ -36,4 +37,26 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 		})),
 		...(await placeContext())
 	};
+};
+
+export const actions: Actions = {
+	/** Saves the page as the person composed it: its title and its blocks, read again against their own places. */
+	save: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
+		const sql = await db();
+		const user = await sessionUser(sql, cookies, url.protocol === 'https:');
+		if (!user) redirect(303, '/login');
+		const form = await request.formData();
+		const id = form.get('page');
+		const title = parseTitle(form.get('title'));
+		if (typeof id !== 'string') return fail(400, { error: 'unknown' });
+		if (!title) return fail(400, { error: 'title' });
+		try {
+			await savePage(sql, user.id, id, title, form.get('blocks'));
+		} catch (e) {
+			if (e instanceof PageError) return fail(400, { error: e.code });
+			throw e;
+		}
+		return { saved: true };
+	}
 };
