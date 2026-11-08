@@ -18,6 +18,7 @@
 	import SeaSpotRow from '#lib/sea/SeaSpotRow.svelte';
 	import { seaText } from '#lib/sea/text.js';
 	import { windRangeText } from '#lib/sea/units.js';
+	import { dayLabel, hourLabel } from '#lib/surf.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -213,6 +214,11 @@
 		{/if}
 
 		<p class="muted small"><a href="/surf">{t('surfPage')}</a></p>
+		<p class="muted small">
+			{t('updated', {
+				time: `${dayLabel(lang, overview.generated)}, ${hourLabel(lang, overview.generated)}`
+			})}
+		</p>
 		{#if overview.limits}<p class="muted small" lang="en">{overview.limits}</p>{/if}
 		{#if overview.disclaimer}<p class="note small" lang="en">{overview.disclaimer}</p>{/if}
 	{:else}

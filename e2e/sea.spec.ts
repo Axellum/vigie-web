@@ -61,6 +61,8 @@ test('the sea page answers "should you go?" for an activity, with every spot, th
 		await expect(row.locator('a')).toHaveAttribute('href', /^\/surf\/[a-z0-9-]+$/);
 	}
 	await expect(page.getByText('Pas pour la sécurité', { exact: false }).first()).toBeVisible();
+	// When they were worked out, so a copy kept by the browser is not taken for the current answer.
+	await expect(page.getByText(/^Verdicts calculés .+, \d\d:\d\d\.$/)).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
 		await page.evaluate(() => window.innerWidth)
 	);
