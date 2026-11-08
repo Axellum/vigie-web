@@ -187,6 +187,20 @@ describe('the words of the verdicts', () => {
 		rules.kite = 'a new rule';
 		expect(ruleLines('fr', rules).find((r) => r.key === 'kite')!.text).toBe('a new rule');
 	});
+
+	// The API wrote the swell cap into its surf rule after the first recording of a spot was made (8 November: a page of
+	// a spot had one rule left in English). Two recordings made at different times hold the table to the API's words.
+	it('says every rule of both recorded answers of the API in French, the swell cap of the surf included', () => {
+		for (const name of ['activities-hossegor.json', 'activities-overview.json']) {
+			const rules = fixture(name).rules as Record<string, string>;
+			const lines = ruleLines('fr', rules as never);
+			expect(lines.length, name).toBe(7);
+			for (const r of lines) expect(r.text, `${name} ${r.key}`).not.toBe(rules[r.key]);
+		}
+		const surf = ruleLines('fr', v.rules).find((r) => r.key === 'surf')!.text;
+		expect(surf).toContain('sous 0,5 m, ou 4 m et plus');
+		expect(surf).toContain('déconseillé');
+	});
 });
 
 describe('the nearest wave buoy of a spot', () => {

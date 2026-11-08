@@ -45,6 +45,8 @@ describe('the English sentences of the API, said in French on a French page', ()
 		for (const sentence of API_SENTENCES) {
 			expect(apiSentence('fr', sentence.en)).toEqual({ text: sentence.fr, lang: 'fr' });
 			expect(sentence.fr).not.toBe(sentence.en);
+			// A French colon is followed by a space (one was missing in the limits shown on 8 November).
+			expect(sentence.fr).not.toMatch(/ [:;]\S/);
 			for (const figure of sentence.en.match(/\d+(?: km| m)?/g) ?? []) expect(sentence.fr).toContain(figure);
 		}
 		// The whitespace around the API's sentence does not matter.

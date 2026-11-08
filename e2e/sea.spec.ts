@@ -228,7 +228,7 @@ test('a spot page answers first for the activity chosen, switches with one tap, 
 	expect(errors).toEqual([]);
 });
 
-test('a spot page says the limits of the API in French, and as they come on the English page', async ({
+test('a spot page says the limits and the rules of the API in French, and as they come on the English page', async ({
 	page
 }) => {
 	const surf: Json = JSON.parse(
@@ -243,10 +243,18 @@ test('a spot page says the limits of the API in French, and as they come on the 
 	await expect(page.getByText('Les verdicts sont des règles de Vigie', { exact: false })).toHaveCount(1);
 	await expect(page.getByText('The swell is Météo-France', { exact: false })).toHaveCount(0);
 	await expect(page.getByText('The verdicts are rules of Vigie', { exact: false })).toHaveCount(0);
+	// The seven rules of the verdicts are said in French, the surf one with the swell cap the API added (8 November).
+	await expect(page.locator('details.rules dd[lang="en"]')).toHaveCount(0);
+	await expect(page.locator('details.rules dd[lang="fr"]')).toHaveCount(7);
+	await expect(page.locator('details.rules dd[lang="fr"]').nth(2)).toContainText(
+		'sous 0,5 m, ou 4 m et plus'
+	);
 
 	await page.goto(`${spot}?lang=en`);
 	await expect(page.getByText(surf.limits.slice(0, 60), { exact: false })).toHaveCount(1);
 	await expect(page.getByText(overview.limits.slice(0, 60), { exact: false })).toHaveCount(1);
 	await expect(page.getByText('La houle est celle du modèle', { exact: false })).toHaveCount(0);
 	await expect(page.getByText('Les verdicts sont des règles', { exact: false })).toHaveCount(0);
+	await expect(page.locator('details.rules dd[lang="fr"]')).toHaveCount(0);
+	await expect(page.locator('details.rules dd[lang="en"]').nth(2)).toContainText('makes it poor whatever');
 });
