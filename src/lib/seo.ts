@@ -1,5 +1,6 @@
 // What search engines are told about the site: the public pages worth indexing, as an XML sitemap.
 // Pure functions (no network), so that they are tested on their own.
+import { isPlaceId } from './sea/places';
 
 /** Public pages that do not depend on the data: the same for every visitor. */
 export const STATIC_PATHS = [
@@ -12,6 +13,7 @@ export const STATIC_PATHS = [
 	'/sea/kite',
 	'/sea/boat',
 	'/sea/shore-fishing',
+	'/sea/places',
 	'/surf',
 	'/screens',
 	'/sources',
@@ -23,6 +25,14 @@ export const STATIC_PATHS = [
 export function countryPaths(codes: string[]): string[] {
 	const unique = new Set<string>();
 	for (const code of codes) if (/^[A-Za-z]{2}$/.test(code)) unique.add(`/country/${code.toLowerCase()}`);
+	return [...unique].sort();
+}
+
+/** The page of each place of the coast that has a name (the others are worth a visit, not a search result); an id that cannot
+ *  be one is ignored. */
+export function placePaths(ids: string[]): string[] {
+	const unique = new Set<string>();
+	for (const id of ids) if (isPlaceId(id)) unique.add(`/sea/places/${id}`);
 	return [...unique].sort();
 }
 
