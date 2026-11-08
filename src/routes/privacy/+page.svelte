@@ -107,7 +107,8 @@
 			Deux cookies, tous deux nécessaires : <code>vigie-session</code> (votre connexion, 30 jours, illisible
 			par les scripts de la page) et <code>vigie-lang</code> (la langue choisie, un an). Le thème clair ou sombre
 			est gardé dans votre navigateur, pas sur le site, comme les lieux suivis sans compte sur la page « Autour
-			de moi » : ils ne sont pas envoyés au site, et effacer les données du site dans le navigateur les efface.
+			de moi » : ils ne sont pas envoyés au site (sauf si vous demandez, sur « Mes lieux », à les ajouter à votre
+			compte), et effacer les données du site dans le navigateur les efface.
 		</p>
 		<h2>Vos droits</h2>
 		<p>
@@ -216,7 +217,8 @@
 			Two cookies, both needed: <code>vigie-session</code> (your sign-in, 30 days, not readable by the page's
 			scripts) and <code>vigie-lang</code> (the language you chose, one year). The light or dark theme is kept in
 			your browser, not on the site, and so are the places you follow without an account on the "Near me" page:
-			they are not sent to the site, and clearing the site's data in the browser clears them.
+			they are not sent to the site (unless you ask, on "My places", to add them to your account), and clearing
+			the site's data in the browser clears them.
 		</p>
 		<h2>Your rights</h2>
 		<p>
