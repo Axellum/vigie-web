@@ -23,6 +23,7 @@
 	import { number } from '#lib/format.js';
 	import type { Lang } from '#lib/i18n.js';
 	import type { WindUnit } from '#lib/sea/choice.js';
+	import { apiSentence } from '#lib/sea/text.js';
 	import { dayLabel, hourLabel, slotLabel } from '#lib/surf.js';
 
 	let {
@@ -82,7 +83,10 @@
 				<h3>{t(`activity.${a.id}`)}</h3>
 				{#if !a.available}
 					<p class="muted small">{t('unavailableActivity')}</p>
-					{#if a.note}<p class="muted small" lang="en">{a.note}</p>{/if}
+					{#if a.note}
+						{@const said = apiSentence(lang, a.note)}
+						<p class="muted small" lang={said.lang}>{said.text}</p>
+					{/if}
 				{:else}
 					<p class="line">
 						<span class="chip v-{a.verdict ?? 'none'}"
@@ -228,7 +232,8 @@
 			{/each}
 		</dl>
 		{#if v.limits}
-			<p class="muted small" lang="en"><b>{t('limits')}</b> · {v.limits}</p>
+			{@const said = apiSentence(lang, v.limits)}
+			<p class="muted small" lang={said.lang}><b>{t('limits')}</b> · {said.text}</p>
 		{/if}
 	</details>
 </section>

@@ -163,10 +163,13 @@ export function seaText(
 }
 
 /**
- * Two sentences of the API come in English in every answer of the overview (`ACTIVITIES_LIMITS` and `ACTIVITIES_DISCLAIMER` of
- * vigie-api, `app/models/activities.py`). A French page says them in French, but only when the API's sentence is exactly the one the
- * French was written for: if the API rewords it, the page shows the API's sentence as it comes, in English and marked as such, rather
- * than a French one that no longer says the same. A test holds the English side to the recorded answer of the API.
+ * Sentences of the API that come in English, the same in every answer: the limits and the disclaimer of the overview
+ * (`ACTIVITIES_LIMITS`, `ACTIVITIES_DISCLAIMER` of vigie-api, `app/models/activities.py`), the limits of a spot's surf forecast
+ * (`SURF_LIMITS`, `app/models/surf.py`) and the note of an activity that cannot be judged for lack of a tide (`_NO_TIDE_NOTE`,
+ * `app/services/activities.py`). A French page says them in French, but only when the API's sentence is exactly the one the French
+ * was written for: if the API rewords it, the page shows the API's sentence as it comes, in English and marked as such, rather than
+ * a French one that no longer says the same. A test holds the English side to the recorded answers of the API (all but the tide
+ * note, which no recording has).
  */
 export const API_SENTENCES: readonly { en: string; fr: string }[] = [
 	{
@@ -189,6 +192,20 @@ export const API_SENTENCES: readonly { en: string; fr: string }[] = [
 		fr:
 			'Pas pour la sécurité ni pour la navigation : regardez la mer sur place, les drapeaux et les sauveteurs, lisez les annuaires de marées et ' +
 			'les vigilances officielles, et suivez les consignes des autorités.'
+	},
+	{
+		en:
+			"The swell is Météo-France's MFWAM wave model on its grid of about 8 km, computed every 3 hours (Open-Meteo gives it every hour): it does not see the sandbanks, the reefs, the jetties or the shelter of a beach, and the waves on the beach can be much smaller or larger. " +
+			'The wind is a forecast at 10 m. The tide is computed from a global model and can be an hour late or more inside a bay. The facing of a spot is worked out from the OpenStreetMap coastline. ' +
+			"The rating is Vigie's own rule: a few thresholds, given in `rules`; it knows neither the spot nor the surfer.",
+		fr:
+			'La houle est celle du modèle de vagues MFWAM de Météo-France, sur sa grille d’environ 8 km, calculée toutes les 3 heures (Open-Meteo la donne toutes les heures) : il ne voit ni les bancs de sable, ni les récifs, ni les jetées, ni l’abri d’une plage, et les vagues sur la plage peuvent être beaucoup plus petites ou plus grandes. ' +
+			'Le vent est une prévision à 10 m. La marée est calculée à partir d’un modèle global et peut avoir une heure de retard ou plus dans une baie. L’orientation d’un spot est calculée d’après le trait de côte d’OpenStreetMap. ' +
+			'La note est une règle propre à Vigie : quelques seuils, donnés dans le champ « rules » ; elle ne connaît ni le spot ni le surfeur.'
+	},
+	{
+		en: 'No tide model near this spot, or none for these dates: shore fishing cannot be judged here.',
+		fr: 'Pas de modèle de marée près de ce spot, ou aucun pour ces dates : la pêche à pied ne peut pas être jugée ici.'
 	}
 ];
 
