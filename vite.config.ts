@@ -19,7 +19,9 @@ export default defineConfig({
 				mode: 'auto',
 				directives: {
 					'default-src': ['self'],
-					'script-src': ['self'],
+					// The theme script of src/app.html, by its hash (src/lib/tv/csp.test.ts keeps them together): a page
+					// without client code, like the television screens, has no nonce to go with it.
+					'script-src': ['self', 'sha256-l7lKdgQ+r/ok3CYcqyIRowL/rCw9M6cG+MnbdkL+6Rg='],
 					// MapLibre and Svelte set inline styles on elements.
 					'style-src': ['self', 'unsafe-inline'],
 					'img-src': ['self', 'data:', 'blob:', MAP_HOST],

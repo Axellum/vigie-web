@@ -15,7 +15,14 @@ const {
 	recorded = {}
 } = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf-8'));
 const read = (file) => JSON.parse(readFileSync(join(dir, file), 'utf-8'));
-const today = new Set(['sky-aurora.json', 'sky-aurora-oval.json']);
+const today = new Set([
+	'sky-aurora.json',
+	'sky-aurora-oval.json',
+	// The television screen shows the hour it is looked at: these answers of a spot are moved by whole days too.
+	'tv-surf-hossegor.json',
+	'tv-activities-hossegor.json',
+	'tv-tides-hossegor.json'
+]);
 
 // Moves every `*_utc` time of an answer by `shift` seconds.
 function moved(value, shift) {

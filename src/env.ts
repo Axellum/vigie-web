@@ -17,5 +17,6 @@ export const variables = defineEnvVars({
 	VIGIE_VAPID_SUBJECT: { schema: (input) => input },
 	VIGIE_RATE_LIMIT_PER_MINUTE: { schema: (input) => input },
 	VIGIE_API_URL: { schema: (input) => input },
-	VIGIE_POINT_LOOKUPS_PER_DAY: { schema: (input) => input }
+	VIGIE_POINT_LOOKUPS_PER_DAY: { schema: (input) => input },
+	VIGIE_TV_POINT_LOOKUPS_PER_DAY: { schema: (input) => input }
 });
