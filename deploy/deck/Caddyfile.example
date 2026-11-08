@@ -13,6 +13,8 @@
 	# The weather requests carry a position (rounded to about 5 km), the searches a place name: not logged.
 	log_skip /data/point.json*
 	log_skip /data/places.json*
+	# The private link of a page holds a secret in its address: never in a log.
+	log_skip /tv/p/*
 	log {
 		output stdout
 		format console
