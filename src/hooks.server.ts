@@ -6,6 +6,7 @@ import { cleanUp } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
 import { matchAndNotify } from '#lib/server/notify.js';
 import { allow } from '#lib/server/ratelimit.js';
+import { applySecurityHeaders } from '#lib/server/securityHeaders.js';
 import { lowerCasePath } from '#lib/seo.js';
 
 const CLEAN_UP_MS = 6 * 60 * 60 * 1000;
@@ -80,18 +81,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		transformPageChunk: ({ html }) => html.replace('%vigie.lang%', lang)
 	});
 
-	response.headers.set('x-content-type-options', 'nosniff');
-	response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
-	response.headers.set(
-		'permissions-policy',
-		'camera=(), microphone=(), geolocation=(self), interest-cohort=()'
-	);
-	// Browsers ignore these two on plain HTTP (the home network address), so they are only sent on HTTPS.
-	if (event.url.protocol === 'https:') {
-		response.headers.set('cross-origin-opener-policy', 'same-origin');
-		response.headers.set('strict-transport-security', 'max-age=31536000');
-	}
-	// The page depends on the language: a shared cache must keep one copy per language.
-	if (!response.headers.has('vary')) response.headers.set('vary', 'Accept-Language, Cookie');
+	applySecurityHeaders(response.headers, event.url.protocol === 'https:', event.url.pathname);
 	return response;
 };

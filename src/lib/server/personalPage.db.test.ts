@@ -21,6 +21,15 @@ import {
 	removePage,
 	savePage
 } from './pages';
+import {
+	createLink,
+	forgetSharedPages,
+	LinkError,
+	listLinks,
+	MAX_LINKS,
+	readSharedPage,
+	revokeLink
+} from './pageLinks';
 import { addPlace, listPlaces, PlaceError, removePlace, setHome, updatePlace } from './savedPlaces';
 import { prefsFromForm, readPrefs, savePrefs } from './userPrefs';
 import { addZone, listZones } from './zones';
@@ -318,6 +327,152 @@ describe('the preferences of an account', () => {
 		await savePrefs(sql, u, prefsFromForm(new FormData()));
 		expect(await readPrefs(sql, u)).toEqual({ units: {} });
 		expect((await sql`select lang from users where id = ${u}`)[0].lang).toBe('en');
+	});
+});
+
+describe('the private links of a page', () => {
+	/** An account with a home, two places and a page that shows a card of each, the home's included. */
+	async function shared(name: string) {
+		const u = await user(name);
+		const home = await setHome(sql, u, { ...spot, name: 'Chez moi', lat: 48.85, lon: 2.35 });
+		const plage = await addPlace(sql, u, { ...spot, name: 'Plage', profile: 'surf' });
+		const port = await addPlace(sql, u, { ...spot, name: 'Port', lat: 48.1, lon: -4.3 });
+		const page = await createPage(sql, u, 'Mon écran');
+		await savePage(sql, u, page, 'Mon écran', [
+			{ id: 'aaaa', type: 'weather', place: home, size: 'm' },
+			{ id: 'bbbb', type: 'surf', place: plage, size: 'l' },
+			{ id: 'cccc', type: 'tide', place: port, size: 's' }
+		]);
+		return { u, home, plage, port, page };
+	}
+
+	it('shows the page to whoever holds the secret, as its owner laid it out, and keeps no secret', async () => {
+		forgetSharedPages();
+		const { u, page } = await shared('link-owner');
+		const token = await createLink(sql, u, page, 'Écran du salon');
+		expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/);
+		// What the database holds is the hash, and nothing from which the secret can be read back.
+		const rows =
+			await sql`select encode(token_hash, 'hex') as id, label from page_links where user_id = ${u}`;
+		expect(rows).toHaveLength(1);
+		expect(JSON.stringify(rows)).not.toContain(token);
+		const list = await listLinks(sql, u, page);
+		expect(list).toEqual([
+			expect.objectContaining({ id: rows[0].id, label: 'Écran du salon', revoked: false, lastOpenedAt: null })
+		]);
+		expect(JSON.stringify(list)).not.toContain(token);
+
+		const read = await readSharedPage(sql, token);
+		expect(read).toEqual({
+			title: 'Mon écran',
+			blocks: [
+				{
+					id: 'bbbb',
+					type: 'surf',
+					size: 'l',
+					place: { name: 'Plage', lat: 43.666, lon: -1.445, radiusKm: 25, profile: 'surf' }
+				},
+				{
+					id: 'cccc',
+					type: 'tide',
+					size: 's',
+					place: { name: 'Port', lat: 48.1, lon: -4.3, radiusKm: 25, profile: null }
+				}
+			],
+			units: { temperature: 'c', wind: 'kmh', height: 'm' },
+			lang: 'fr'
+		});
+		// A screen that opened the link leaves a trace of it.
+		expect((await listLinks(sql, u, page))[0].lastOpenedAt).not.toBeNull();
+	});
+
+	it('never shows the home, wherever the blocks say it is', async () => {
+		forgetSharedPages();
+		const { u, home, page } = await shared('link-home');
+		const read = await readSharedPage(sql, await createLink(sql, u, page, ''));
+		const text = JSON.stringify(read);
+		expect(text).not.toContain('Chez moi');
+		expect(text).not.toContain('48.85');
+		expect(text).not.toContain('2.35');
+		expect(read?.blocks.map((b) => b.id)).toEqual(['bbbb', 'cccc']);
+		// A page made of the home alone shows nothing: not an error, and not the home.
+		const only = await createPage(sql, u, 'Maison seule');
+		await savePage(sql, u, only, 'Maison seule', [{ id: 'dddd', type: 'weather', place: home, size: 'm' }]);
+		const lonely = await readSharedPage(sql, await createLink(sql, u, only, ''));
+		expect(lonely?.blocks).toEqual([]);
+	});
+
+	it('follows the units and the language of the account', async () => {
+		forgetSharedPages();
+		const { u, page } = await shared('link-units');
+		await sql`update users set lang = 'en', prefs = ${JSON.stringify({ units: { temperature: 'f', wind: 'kn' } })}::text::jsonb where id = ${u}`;
+		const read = await readSharedPage(sql, await createLink(sql, u, page, ''));
+		expect(read?.units).toEqual({ temperature: 'f', wind: 'kn', height: 'm' });
+		expect(read?.lang).toBe('en');
+	});
+
+	it('answers "not found" for a secret badly formed, unknown or revoked, and an error when the database fails', async () => {
+		forgetSharedPages();
+		const { u, page } = await shared('link-null');
+		// Badly formed: no query is made at all.
+		const never = (() => {
+			throw new Error('the database must not be asked');
+		}) as unknown as postgres.Sql;
+		expect(await readSharedPage(never, 'short')).toBeNull();
+		expect(await readSharedPage(never, 'x'.repeat(31) + '!')).toBeNull();
+		expect(await readSharedPage(sql, 'A'.repeat(32))).toBeNull();
+
+		const token = await createLink(sql, u, page, '');
+		expect(await readSharedPage(sql, token)).not.toBeNull();
+		// Revoked: at once for the server that revoked it, and for a new one.
+		await revokeLink(sql, u, (await listLinks(sql, u, page))[0].id);
+		expect(await readSharedPage(sql, token)).toBeNull();
+		forgetSharedPages();
+		expect(await readSharedPage(sql, token)).toBeNull();
+		expect((await listLinks(sql, u, page))[0].revoked).toBe(true);
+
+		// A database that does not answer is not "not found": a screen keeps its last value.
+		const down = (() => Promise.reject(new Error('database down'))) as unknown as postgres.Sql;
+		await expect(readSharedPage(down, 'B'.repeat(32))).rejects.toThrow('database down');
+	});
+
+	it('keeps a read for a minute, and reads again after that', async () => {
+		forgetSharedPages();
+		const { u, page } = await shared('link-cache');
+		const token = await createLink(sql, u, page, '');
+		const t0 = Date.now();
+		expect((await readSharedPage(sql, token, t0))?.title).toBe('Mon écran');
+		await sql`update pages set title = 'Autre titre' where id = ${page}`;
+		expect((await readSharedPage(sql, token, t0 + 59_000))?.title).toBe('Mon écran');
+		expect((await readSharedPage(sql, token, t0 + 61_000))?.title).toBe('Autre titre');
+	});
+
+	it('never lets an account list or revoke the links of another, and keeps at most MAX_LINKS', async () => {
+		forgetSharedPages();
+		const mine = await shared('link-mine');
+		const other = await shared('link-other');
+		await createLink(sql, mine.u, mine.page, 'à moi');
+		const id = (await listLinks(sql, mine.u, mine.page))[0].id;
+		expect(await listLinks(sql, other.u, mine.page)).toEqual([]);
+		await expect(revokeLink(sql, other.u, id)).rejects.toBeInstanceOf(LinkError);
+		await expect(createLink(sql, other.u, mine.page, 'vole')).rejects.toMatchObject({ code: 'unknown' });
+		await expect(revokeLink(sql, mine.u, 'not-a-hash')).rejects.toMatchObject({ code: 'unknown' });
+		for (let i = 1; i < MAX_LINKS; i++) await createLink(sql, mine.u, mine.page, `écran ${i}`);
+		await expect(createLink(sql, mine.u, mine.page, 'de trop')).rejects.toMatchObject({ code: 'full' });
+		// A revoked link frees its place.
+		await revokeLink(sql, mine.u, id);
+		await createLink(sql, mine.u, mine.page, 'de nouveau');
+	});
+
+	it('goes with the page', async () => {
+		forgetSharedPages();
+		const { u, page } = await shared('link-gone');
+		const token = await createLink(sql, u, page, '');
+		expect(await readSharedPage(sql, token)).not.toBeNull();
+		await removePage(sql, u, page);
+		forgetSharedPages();
+		expect(await readSharedPage(sql, token)).toBeNull();
+		expect(await sql`select 1 from page_links where user_id = ${u}`).toHaveLength(0);
 	});
 });
 
