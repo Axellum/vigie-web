@@ -1,0 +1,1 @@
+- The private links of "My page", made and revoked from the page itself (section "Screens (television, tablet)" of `/me`): a name to recognise the link, the address shown once, the cards a screen draws and the options that may follow the address, the list with the last time each link was opened, and "Revoke" after a question.

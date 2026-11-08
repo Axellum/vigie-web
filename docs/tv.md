@@ -111,6 +111,12 @@ panel for each block of the page, in the order the person set, and above it the 
   stylesheet reuses them; `e2e/tv-private.spec.ts` fails if any request of the page carries a `Referer`. A browser older than
   Chromium 56 does not know the header: its requests carry the address, to this site only, so the access log of the Deck
   should not keep `Referer` (the example skips the address itself).
+- **Where the links are made.** In "My page" (`/me`), the section "Screens (television, tablet)" (`MyLinks.svelte`): a name
+  to recognise the link, a button, and the address, shown once in the answer of the form that made it (not in the address of
+  the page, a cookie or a log; a reload forgets it). The list shows the name, the day it was made and the last time it was
+  opened (at most once an hour), with "Revoke" after a question. The section says which cards a screen draws (`TV_CARDS`) and
+  how many blocks of the page that is, and the options that may follow the address (`theme`, `d`, `r`, `reload`). At most
+  10 active links for an account (`MAX_LINKS`); a revoked one leaves the list.
 - **What it asks of the API.** Each place of a drawn block costs one reading of the weather (15 minutes, from the same
   share as the screens of the spots, `VIGIE_TV_POINT_LOOKUPS_PER_DAY`: at most 96 a day for each place, whatever the number of
   screens) and, for a tide card, one reading of the tide. Several blocks of one place share their readings. Past the share, the
@@ -148,4 +154,4 @@ per cell, about 340 for the 14 cells (weight 1.0 each), and nothing when the API
   and the sizes of the blocks: see "A personal page on a screen".
 - That screen has been looked at in a desktop browser at 1920 × 1080 and by the end-to-end tests; not yet on a television, and
   not at other ratios.
-- The page that makes and revokes the links (in "My page") is another piece of work.
+- The page that makes the links has been looked at in a desktop browser and by the end-to-end tests; not on a phone by eye.

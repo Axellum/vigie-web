@@ -3,10 +3,11 @@
 	// page is private; the places and the blocks are read here and the weather, the warnings and the tide are
 	// loaded by the browser as on "near me".
 	import MyPageView from '#lib/components/MyPageView.svelte';
+	import MyLinks from '#lib/components/MyLinks.svelte';
 	import MySettings from '#lib/components/MySettings.svelte';
 	import { translator } from '#lib/i18n.js';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const lang = $derived(data.lang);
 	const tr = $derived(translator(lang));
 	// A place added, moved or removed makes a new view, with a new state for each place.
@@ -45,6 +46,17 @@
 			units={data.units}
 		/>
 	{/key}
+
+	<MyLinks
+		{lang}
+		pageId={data.page.id}
+		blocks={data.page.blocks}
+		links={data.links}
+		maxLinks={data.maxLinks}
+		tvCards={data.tvCards}
+		made={form?.madeLink ?? null}
+		error={form?.linkError ?? null}
+	/>
 
 	<MySettings {lang} units={data.units} />
 </div>
