@@ -62,6 +62,11 @@ shown with a button to copy it and a link to open it.
   API already gives with the sky, not a radar, and the caption says "forecast". The words are ours, not an official scale:
   light under 2.5 mm/h, moderate under 7.6, heavy from there. A reading older than 30 minutes, or none from the API, shows
   "not read" rather than a rain that may be over.
+- **Temperature of the water**: in the card of the sky, "water 17°", with "model value" under it. It is the temperature of
+  an ocean model (Météo-France, Copernicus Marine) for a cell of about 8 km, rounded to the degree, **not a measurement at the
+  beach**: near a river mouth, in a lagoon or in the surf it can differ by degrees, which is why the card says what it is.
+  When the API gives none, the card shows a dash and "not available". The credit of that answer joins the ones at the foot of
+  the screen while the temperature is shown. (Needs a Vigie API that gives `marine.sea_surface_temperature_c`.)
 - **Old data** older than 30 minutes are said on the screen ("data of hh:mm").
 - **Credits and warning** are always at the foot of the screen: a television cannot follow a link. The QR code in a
   corner opens the full page of the place on a phone.
@@ -86,9 +91,11 @@ Neighbouring places share a cell of the API's grid (0.05°, about 5 km): the bea
 the list (20 of the 51) fall in 14 cells. The API refreshes the current conditions and the rain of a cell every 15 minutes
 and the daily forecast every hour, which weighs about 130 calls a day of the source's free quota per cell kept up to date
 (by the weights `vigie-api` counts, `app/collectors/weights.py`): 14 cells make about 1,800 a day of the 9,000 the API
-lets through, however many screens show them.
+lets through, however many screens show them. The weather is asked with the sea (for the temperature of the water): the API
+keeps the sea of a cell an hour and reads it in the same request as the waves, so that costs at most 24 more calls a day
+per cell, about 340 for the 14 cells (weight 1.0 each), and nothing when the API does not give the temperature.
 
 ## What is not here yet
 
-- The temperature of the water: the card says that it is not provided yet.
+- The temperature of the water of the beach itself: the card gives a model value, not a measurement; a nearer source is not chosen.
 - It has been looked at in a desktop browser at 1280 × 720, 1920 × 1080 and 3840 × 2160; not yet on a television.

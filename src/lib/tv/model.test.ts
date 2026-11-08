@@ -30,7 +30,9 @@ const NOW = 1794132393;
 const activities = activitiesFromApi(fixture('tv-activities-hossegor.json'))!;
 const forecast = surfForecastFromApi(fixture('tv-surf-hossegor.json'))!;
 const tide = tidesFromApi(fixture('tv-tides-hossegor.json'));
-const sky = pointFromApi(fixture('point.json'));
+// What a screen asks for: the weather of the spot with the sea, and, for the part that does without, a position with none.
+const sky = pointFromApi(fixture('tv-point-hossegor.json'));
+const skyWithoutSea = pointFromApi(fixture('point.json'));
 const fresh = <T>(value: T, at = NOW * 1000): Fresh<T> => ({ value, stale: false, fetchedAt: at });
 
 const input = (over: Partial<TvInput> = {}): TvInput => ({
@@ -208,13 +210,28 @@ describe('the screen of a spot', () => {
 		expect(s.credit).toContain('E.U. Copernicus Marine Service Information');
 	});
 
+	it('gives the temperature of the water, with the credit of the sea answer only while it is shown', () => {
+		expect(s.sky!.waterC).toBe(16.5);
+		expect(s.credit).toContain('ICON Wave');
+		// No temperature (a sea that gave none, or no sea at all): nothing is said of the water, and the waves' credit is not carried for nothing.
+		for (const point of [
+			{ ...sky, marine: { ...sky.marine!, seaTempC: null } },
+			{ ...sky, marine: null },
+			skyWithoutSea
+		]) {
+			const dry = buildScreen(input({ sky: fresh(point) }));
+			expect(dry.sky!.waterC).toBeNull();
+			expect(dry.credit).not.toContain('ICON Wave');
+		}
+	});
+
 	it('shows nothing it does not know: a part that did not answer is null, and the screen says it is partial', () => {
 		const none = buildScreen(input({ forecast: null, tide: null, sky: null }));
 		expect(none.wind).toBeNull();
 		expect(none.swell).toBeNull();
 		expect(none.tide).toBeNull();
 		expect(none.partial).toBe(true);
-		expect(none.sky).toMatchObject({ tempC: null, label: '–' });
+		expect(none.sky).toMatchObject({ tempC: null, label: '–', waterC: null });
 		expect(none.activities).toHaveLength(4);
 	});
 

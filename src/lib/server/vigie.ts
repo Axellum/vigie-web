@@ -547,7 +547,8 @@ export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
  * by default: 96 a day for each of the 51 spots, 4,896), so that a screen left on for days cannot use up the weather of the rest of
  * the site. An answer is kept 15 minutes, as long as the API keeps the current conditions and the rain of the hour, which is worth
  * nothing older: one spot costs at most 96 requests a day however many screens show it, and the API does not ask its source more
- * often than it already did.
+ * often than it already did, except for the sea: its conditions (the temperature of the water) are kept an hour by the API, one
+ * more request of weight 1.0 a cell an hour at most, 24 a day.
  */
 const TV_POINT_TTL_S = 900;
 let tvPointBudget: SlidingBudget | null = null;
@@ -563,7 +564,8 @@ export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeathe
 		const query = new URLSearchParams({
 			lat: String(cell.lat),
 			lon: String(cell.lon),
-			marine: 'false',
+			// With the sea: the temperature of the water is in the same answer, which the API keeps an hour.
+			marine: 'true',
 			device_type: 'web',
 			max_hazards: '1',
 			radius_km: '1'

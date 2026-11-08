@@ -60,6 +60,14 @@ createServer((req, res) => {
 			: url.pathname +
 				(url.searchParams.has('country') ? `?country=${url.searchParams.get('country').toUpperCase()}` : '') +
 				(url.searchParams.has('source') ? `?source=${url.searchParams.get('source')}` : '') +
+				// The weather of the cell of the television spot, asked with the sea, has an answer of its own (the temperature of the
+				// water); every other position, with or without the sea, gets the one of `/v1/point`.
+				(url.pathname === '/v1/point' &&
+				url.searchParams.get('marine') === 'true' &&
+				url.searchParams.get('lat') === '43.65' &&
+				url.searchParams.get('lon') === '-1.45'
+					? '?lat=43.65&lon=-1.45&marine=true'
+					: '') +
 				(url.pathname === '/v1/tides'
 					? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
 					: '');

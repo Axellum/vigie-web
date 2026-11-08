@@ -82,7 +82,14 @@ const targets = [
 	['sea-place-port', '/v1/sea/places/port-port-de-saint-malo-f697'],
 	['sea-place-bathing', '/v1/sea/places/bathing-bon-secours-4142'],
 	['sea-place-slipway', '/v1/sea/places/slipway-saint-malo-eb59'],
-	['sea-place-dive', '/v1/sea/places/dive-pytheas-ffa1']
+	['sea-place-dive', '/v1/sea/places/dive-pytheas-ffa1'],
+	// The weather of the cell of a spot of the Landes coast, asked with the sea as a television screen asks it (the temperature of the
+	// water). The mock gives it for that cell only; every other position gets `point`.
+	[
+		'tv-point-hossegor',
+		'/v1/point?lat=43.65&lon=-1.45&marine=true&device_type=web&max_hazards=1&radius_km=1',
+		'/v1/point?lat=43.65&lon=-1.45&marine=true'
+	]
 ];
 
 await mkdir(out, { recursive: true });
