@@ -41,6 +41,9 @@
 							{kind === 'unknown' ? tvText(lang, 'unknownSpot') : tvText(lang, 'chooseTitle')}
 						</div>
 						<div class="tv-mut tv-t38 tv-mt24">{tvText(lang, 'chooseHelp')}</div>
+						<div class="tv-mut tv-t38 tv-mt24">
+							<a class="tv-link" href="/screens">{tvText(lang, 'setupLink')}</a>
+						</div>
 						{#if spots.length}
 							<ul class="tv-spots">
 								{#each spots as spot (spot.id)}
