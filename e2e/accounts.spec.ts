@@ -64,6 +64,20 @@ test.beforeEach(({ context }) => forwardedProto(context));
 
 const unique = (prefix: string) => `${prefix} ${randomBytes(3).toString('hex')}`;
 
+/** Two circle zones for an account, written with the simple query protocol: the test database serves one PostgreSQL
+ *  session to everybody, and a statement in several steps can be cut by the site's own queries ("portal does not exist"). */
+async function seedZones(sql: postgres.Sql, userId: string): Promise<void> {
+	for (const [zone, lat, lon, radius, profile] of [
+		['Plage', 43.66, -1.44, 50, 'surf'],
+		['Maison', 48.85, 2.35, 25, null]
+	] as const)
+		await sql.unsafe(`
+			insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
+			values (gen_random_uuid(), '${userId}', '${zone}', 'circle', ${lat}, ${lon}, ${radius},
+				${profile ? `'${profile}'` : 'null'}, '{VIGILANCE}',
+				ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000})::geography(Polygon, 4326))`);
+}
+
 async function cookieNames(context: BrowserContext): Promise<string[]> {
 	return (await context.cookies()).map((c) => c.name).sort();
 }
@@ -171,14 +185,7 @@ test('"My page" is made from the zones followed, one place at a time, and only i
 	const sql = postgres(DATABASE_URL, { max: 1 });
 	try {
 		const [user] = await sql`select id from users where name = ${name}`;
-		for (const [zone, lat, lon, radius, profile] of [
-			['Plage', 43.66, -1.44, 50, 'surf'],
-			['Maison', 48.85, 2.35, 25, null]
-		] as const)
-			await sql`
-				insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
-				values (gen_random_uuid(), ${user.id}, ${zone}, 'circle', ${lat}, ${lon}, ${radius}, ${profile}, '{VIGILANCE}',
-					ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000.0})::geography(Polygon, 4326))`;
+		await seedZones(sql, user.id);
 
 		// The header leads to it; the page is private and made once from the zones.
 		await page.getByRole('link', { name: 'Ma page' }).click();
@@ -231,14 +238,7 @@ test('the page is composed: add, move, resize and remove blocks, saved when done
 	const sql = postgres(DATABASE_URL, { max: 1 });
 	try {
 		const [user] = await sql`select id from users where name = ${name}`;
-		for (const [zone, lat, lon, radius, profile] of [
-			['Plage', 43.66, -1.44, 50, 'surf'],
-			['Maison', 48.85, 2.35, 25, null]
-		] as const)
-			await sql`
-				insert into zones (id, user_id, name, kind, lat, lon, radius_km, profile, kinds, geom)
-				values (gen_random_uuid(), ${user.id}, ${zone}, 'circle', ${lat}, ${lon}, ${radius}, ${profile}, '{VIGILANCE}',
-					ST_Buffer(ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)::geography, ${radius * 1000.0})::geography(Polygon, 4326))`;
+		await seedZones(sql, user.id);
 		const stored = async () => {
 			const [row] = await sql`select title, blocks from pages where user_id = ${user.id}`;
 			return row as { title: string; blocks: { id: string; type: string; place: string; size: string }[] };
@@ -272,8 +272,8 @@ test('the page is composed: add, move, resize and remove blocks, saved when done
 
 		await page.getByRole('button', { name: '+ Ajouter un bloc' }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
-		await page.getByRole('dialog').getByText('Air', { exact: true }).click();
-		await page.getByRole('dialog').getByText('Maison', { exact: true }).click();
+		await page.getByRole('radio', { name: 'Air' }).check();
+		await page.getByRole('radio', { name: 'Maison' }).check();
 		await page.getByRole('dialog').getByRole('button', { name: 'Ajouter' }).click();
 		await expect(names).toHaveCount(count);
 		await expect(names.nth(count - 1)).toHaveText('Air · Maison');
