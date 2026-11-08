@@ -11,8 +11,9 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MAX_PLACES } from '../myPlaces';
 import { MAX_PAGES } from '../pageConfig';
-import { createPage, getPage, listPages, PageError, removePage, savePage } from './pages';
+import { createPage, ensureFirstPage, getPage, listPages, PageError, removePage, savePage } from './pages';
 import { addPlace, listPlaces, PlaceError, removePlace, setHome, updatePlace } from './savedPlaces';
+import { addZone, listZones } from './zones';
 
 const MIGRATIONS = join(import.meta.dirname, 'migrations');
 const files = readdirSync(MIGRATIONS)
@@ -212,6 +213,56 @@ describe('the places and pages of an account', () => {
 		for (let i = 0; i < MAX_PAGES; i++) await createPage(sql, u, `Page ${i}`);
 		await expect(createPage(sql, u, 'One too many')).rejects.toMatchObject({ code: 'full' });
 		expect(await listPages(sql, u)).toHaveLength(MAX_PAGES);
+	});
+});
+
+describe('the first page of an account', () => {
+	const rules = { minLevel: 'YELLOW' as const, kinds: ['VIGILANCE' as const] };
+	const circle = (name: string, lat: number, profile: 'surf' | null = null) => ({
+		kind: 'circle' as const,
+		name,
+		lat,
+		lon: 1.23456,
+		radiusKm: 25,
+		profile,
+		...rules
+	});
+
+	it('offers the circle zones already followed, once, and lays out their first cards', async () => {
+		const u = await user('starter');
+		const surf = await addZone(sql, u, circle('Plage', 43.66612, 'surf'));
+		await addZone(sql, u, circle('Port', 48.1));
+		await addZone(sql, u, { kind: 'country', name: 'France', country: 'FR', ...rules, profile: null });
+		const page = await ensureFirstPage(sql, u, 'Ma page');
+		const places = await listPlaces(sql, u);
+		expect(places.map((p) => [p.name, p.lat, p.lon, p.radiusKm, p.profile, p.kind])).toEqual([
+			['Plage', 43.666, 1.235, 25, 'surf', 'place'],
+			['Port', 48.1, 1.235, 25, null, 'place']
+		]);
+		expect(places[0].zoneId).toBe(surf);
+		expect(page.title).toBe('Ma page');
+		expect(page.blocks).toHaveLength(6);
+		expect(new Set(page.blocks.map((b) => b.place))).toEqual(new Set(places.map((p) => p.id)));
+		// A second opening changes nothing: the same page, the same places, the zones untouched.
+		const again = await ensureFirstPage(sql, u, 'Autre titre');
+		expect(again.id).toBe(page.id);
+		expect(await listPlaces(sql, u)).toHaveLength(2);
+		expect(await listPages(sql, u)).toHaveLength(1);
+		expect(await listZones(sql, u)).toHaveLength(3);
+	});
+
+	it('gives an account with nothing an empty page, and does not copy zones over places it already keeps', async () => {
+		const empty = await user('starter-empty');
+		const page = await ensureFirstPage(sql, empty, 'My page');
+		expect(page.blocks).toEqual([]);
+		expect(await listPlaces(sql, empty)).toEqual([]);
+
+		const keeps = await user('starter-keeps');
+		await addPlace(sql, keeps, spot);
+		await addZone(sql, keeps, circle('Zone', 10));
+		const kept = await ensureFirstPage(sql, keeps, 'My page');
+		expect((await listPlaces(sql, keeps)).map((p) => p.name)).toEqual(['Plage']);
+		expect(kept.blocks).toHaveLength(3);
 	});
 });
 

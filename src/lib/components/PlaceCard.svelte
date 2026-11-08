@@ -14,12 +14,20 @@
 	import { countryName, tOr, translator, type Key } from '#lib/i18n.js';
 	import { placeFormat } from '#lib/placeFormat.js';
 	import type { PlaceState } from '#lib/placeState.svelte.js';
+	import type { BlockSize } from '#lib/pageConfig.js';
 	import type { Card } from '#lib/profiles.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
 	import { nearSurfSpots, surfText } from '#lib/surf.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
-	let { state: s, name }: { state: PlaceState; name: Card } = $props();
+	// `placeName` says which place the card is of when a page shows several; `size` is the block's size on "my page":
+	// small is the summary alone, medium is the card as "near me" shows it, large has its detail open.
+	let {
+		state: s,
+		name,
+		placeName,
+		size = 'm'
+	}: { state: PlaceState; name: Card; placeName?: string; size?: BlockSize } = $props();
 	const lang = $derived(s.lang);
 	const tr = $derived(translator(lang));
 	const fmt = $derived(placeFormat(lang));
@@ -335,11 +343,14 @@
 	}}
 	<NearCard
 		title={tr(CARD_TITLE[name], { km: s.radiusKm })}
+		context={placeName}
 		badge={name === 'official' ? officialBadge : undefined}
 		summary={summaries[name]}
-		details={details[name]}
+		details={size === 's' ? undefined : details[name]}
 		detailsLabel={tr('card.details')}
-		open={(name === 'official' && s.here.length > 0) || (name === 'hazards' && s.near.length > 0)}
+		open={size === 'l' ||
+			(name === 'official' && s.here.length > 0) ||
+			(name === 'hazards' && s.near.length > 0)}
 	/>
 {/snippet}
 {@render card()}

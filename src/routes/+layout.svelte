@@ -59,6 +59,9 @@
 				>{tr('lang.switch')}</a
 			>
 			{#if data.accounts}
+				<a class="account" href="/me" aria-current={path.startsWith('/me') ? 'page' : undefined}
+					>{tr('nav.me')}</a
+				>
 				<a class="account" href="/account" aria-current={path.startsWith('/account') ? 'page' : undefined}
 					>{tr('nav.account')}</a
 				>

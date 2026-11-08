@@ -4,6 +4,7 @@
 
 	let {
 		title,
+		context,
 		badge,
 		summary,
 		details,
@@ -11,6 +12,8 @@
 		open = false
 	}: {
 		title: string;
+		/** Where the card is when the page shows several places: "Weather · Beach". */
+		context?: string;
 		badge?: Snippet;
 		summary: Snippet;
 		details?: Snippet;
@@ -19,9 +22,11 @@
 	} = $props();
 </script>
 
-<section class="card near-card" aria-label={title}>
+<section class="card near-card" aria-label={context ? `${title} · ${context}` : title}>
 	<header>
-		<h3>{title}</h3>
+		<h3>
+			{title}{#if context}<span class="where">&nbsp;· {context}</span>{/if}
+		</h3>
 		{#if badge}{@render badge()}{/if}
 	</header>
 	{@render summary()}
@@ -48,6 +53,10 @@
 	}
 	h3 {
 		font-size: 18px;
+	}
+	.where {
+		font-weight: 400;
+		color: var(--muted);
 	}
 	details {
 		border-top: 1px solid var(--line);
