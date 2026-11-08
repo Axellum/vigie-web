@@ -700,8 +700,8 @@ const RULES_FR: Record<string, [string, string]> = {
 		'le meilleur verdict parmi les heures de jour des 24 prochaines heures ; meilleur créneau : la plus longue suite d’heures de jour consécutives à ce verdict, la première en cas d’égalité, et aucun quand ce verdict est « déconseillé »'
 	],
 	surf: [
-		'the rating of GET /v1/surf/spots/{id} (its rules are there), by its share of points: 75 % and over good, 50 % and over possible, less poor; with fewer than three criteria known, null',
-		'la note de la page Surf (ses règles y sont), selon sa part de points : 75 % et plus, bon ; 50 % et plus, possible ; moins, déconseillé ; avec moins de trois critères connus, pas de verdict'
+		'the rating of GET /v1/surf/spots/{id} (its rules are there), by its share of points: 75 % and over good, 50 % and over possible, less poor; with fewer than three criteria known, null. A primary swell worth 0 points (under 0.5 m, or 4 m and over) makes it poor whatever the other criteria give',
+		'la note de la page Surf (ses règles y sont), selon sa part de points : 75 % et plus, bon ; 50 % et plus, possible ; moins, déconseillé ; avec moins de trois critères connus, pas de verdict. Une houle principale qui vaut 0 point (sous 0,5 m, ou 4 m et plus) rend le verdict « déconseillé », quelles que soient les autres notes'
 	],
 	kite: [
 		'wind within the range asked for (default 12 to 25 knots): good; within 3 knots of it: possible; else poor. Gusts above the mean wind by 5 knots or less: good; 6 to 8: possible; more: poor. Wind from the land side (offshore): possible at best',
