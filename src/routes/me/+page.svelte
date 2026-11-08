@@ -37,6 +37,8 @@
 			hazardsAttribution={data.hazardsAttribution}
 			served={data.served}
 			uncovered={data.uncovered}
+			pageId={data.page.id}
+			title={data.page.title}
 			now={data.now}
 			selected={data.selected}
 		/>
