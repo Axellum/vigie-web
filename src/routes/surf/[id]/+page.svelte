@@ -1,11 +1,14 @@
 <script lang="ts">
 	// The forecast of one spot for the next three days, as the API worked it out: the best slot first, with its rating
 	// explained criterion by criterion, then every daylight hour (the night ones on demand), each one opening on its rating.
+	import { onMount } from 'svelte';
 	import ActivityVerdicts from '#lib/components/ActivityVerdicts.svelte';
 	import Credits from '#lib/components/Credits.svelte';
 	import Seo from '#lib/components/Seo.svelte';
 	import SurfChart from '#lib/components/SurfChart.svelte';
-	import { activityText } from '#lib/activities.js';
+	import { activityText, type ActivityId } from '#lib/activities.js';
+	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
+	import PlaceAnswer from '#lib/sea/PlaceAnswer.svelte';
 	import {
 		compass,
 		criterionValue,
@@ -25,6 +28,14 @@
 	const lang = $derived(data.lang);
 	const f = $derived(data.forecast);
 	let night = $state(false);
+	// The activity and the wind unit the visitor chose on the sea pages, kept in this browser only: read once the page is up.
+	let choice = $state<SeaChoice>(DEFAULT_CHOICE);
+	onMount(() => {
+		choice = readChoice();
+	});
+	const pick = (id: ActivityId) => {
+		choice = updateChoice({ activity: id });
+	};
 	const days = $derived(f ? hoursByDay(f.hours, night) : []);
 	const fmt = (v: number, digits = 1) =>
 		v.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: digits });
@@ -89,6 +100,10 @@
 	{#if !f}
 		<p class="note">{surfText(lang, 'unavailable')}</p>
 	{:else}
+		{#if data.verdicts}
+			<PlaceAnswer {lang} v={data.verdicts} active={choice.activity} onpick={pick} />
+		{/if}
+
 		<section class="card best">
 			<h2>{surfText(lang, 'best')}</h2>
 			{#if f.best}
@@ -124,7 +139,14 @@
 		</section>
 
 		{#if data.verdicts}
-			<ActivityVerdicts {lang} v={data.verdicts} buoy={data.buoy} buoyMaxKm={data.buoyMaxKm} bind:night />
+			<ActivityVerdicts
+				{lang}
+				v={data.verdicts}
+				buoy={data.buoy}
+				buoyMaxKm={data.buoyMaxKm}
+				windUnit={choice.unit}
+				bind:night
+			/>
 		{:else}
 			<p class="note">{activityText(lang, 'unavailable')}</p>
 		{/if}

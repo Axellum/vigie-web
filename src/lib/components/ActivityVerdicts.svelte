@@ -22,6 +22,7 @@
 	} from '#lib/activities.js';
 	import { number } from '#lib/format.js';
 	import type { Lang } from '#lib/i18n.js';
+	import type { WindUnit } from '#lib/sea/choice.js';
 	import { dayLabel, hourLabel, slotLabel } from '#lib/surf.js';
 
 	let {
@@ -29,13 +30,16 @@
 		v,
 		buoy = null,
 		buoyMaxKm = null,
-		night = $bindable(false)
+		night = $bindable(false),
+		windUnit = 'kn'
 	}: {
 		lang: Lang;
 		v: ActivitiesForecast;
 		buoy?: SpotBuoy | null;
 		buoyMaxKm?: number | null;
 		night?: boolean;
+		/** The unit a wind in knots is shown in (the visitor's choice, kept in this browser). */
+		windUnit?: WindUnit;
 	} = $props();
 
 	const t = (key: string, vars: Record<string, string | number> = {}) => activityText(lang, key, vars);
@@ -107,7 +111,7 @@
 										>
 										<span class="what">
 											<span class="name">{criterionName(lang, c.name)}</span>
-											<span class="data">{criterionValueText(lang, c) ?? t('unknownValue')}</span>
+											<span class="data">{criterionValueText(lang, c, windUnit) ?? t('unknownValue')}</span>
 											{#if stateText(lang, c.name, c.state)}
 												<span class="muted small">{stateText(lang, c.name, c.state)}</span>
 											{/if}
