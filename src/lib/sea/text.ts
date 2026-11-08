@@ -179,7 +179,7 @@ export const API_SENTENCES: readonly { en: string; fr: string }[] = [
 			"(the wind range of the kite is the one asked for). The swell is Météo-France's MFWAM model on a grid of about 8 km; the wind is a forecast " +
 			'at 10 m; the tide is computed from a global model and can be an hour late or more inside a bay. Hours are whole hours.',
 		fr:
-			'Les verdicts sont des règles de Vigie, écrites en clair dans l’API (champ « rules ») :quelques seuils sur la houle, le vent, la marée et les ' +
+			'Les verdicts sont des règles de Vigie, écrites en clair dans l’API (champ « rules ») : quelques seuils sur la houle, le vent, la marée et les ' +
 			'vigilances officielles du littoral. Elles ne connaissent ni la plage, ni le fond, ni l’abri d’une baie, ni la personne qui y va : un ' +
 			'débutant et un expert n’ont pas les mêmes limites (la plage de vent du kite est celle qui a été demandée). La houle est celle du modèle ' +
 			'MFWAM de Météo-France, sur une grille d’environ 8 km ; le vent est une prévision à 10 m ; la marée est calculée à partir d’un modèle ' +
