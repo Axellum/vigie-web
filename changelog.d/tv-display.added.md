@@ -4,5 +4,5 @@
   place, and keeps itself up to date: when the site does not answer it keeps the last screen and says "offline, last
   update hh:mm". It is drawn by the server and runs a small ES5 script, for the browsers of televisions of 2018 and
   later; the credits, the warning "does not replace the official warnings" and a QR code to the full page are always
-  on screen. The weather of the sky has its own budget, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (100 a day by default).
+  on screen. The weather of the sky has its own budget, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (5,000 a day by default).
   See [`docs/tv.md`](docs/tv.md).

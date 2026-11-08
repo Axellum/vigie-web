@@ -493,18 +493,20 @@ export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
 }
 
 /**
- * The weather of a spot for a television screen (`/tv`). Screens have a share of their own (`VIGIE_TV_POINT_LOOKUPS_PER_DAY`, 100
- * by default), so that a screen left on for days cannot use up the weather of the rest of the site, and an answer is kept 30
- * minutes: one spot costs at most 48 requests a day, however many screens show it.
+ * The weather of a spot for a television screen (`/tv`). Screens have a share of their own (`VIGIE_TV_POINT_LOOKUPS_PER_DAY`, 5,000
+ * by default: 96 a day for each of the 51 spots, 4,896), so that a screen left on for days cannot use up the weather of the rest of
+ * the site. An answer is kept 15 minutes, as long as the API keeps the current conditions and the rain of the hour, which is worth
+ * nothing older: one spot costs at most 96 requests a day however many screens show it, and the API does not ask its source more
+ * often than it already did.
  */
-const TV_POINT_TTL_S = 1800;
+const TV_POINT_TTL_S = 900;
 let tvPointBudget: SlidingBudget | null = null;
 export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeather>> {
 	const cell = snapToGrid({ lat, lon });
 	return pointCache.get(`tvpoint:${cell.lat},${cell.lon}`, TV_POINT_TTL_S * 1000, async () => {
 		if (!tvPointBudget) {
-			const value = Number(VIGIE_TV_POINT_LOOKUPS_PER_DAY || 100);
-			tvPointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100);
+			const value = Number(VIGIE_TV_POINT_LOOKUPS_PER_DAY || 5000);
+			tvPointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 5000);
 		}
 		if (!tvPointBudget.take())
 			throw new BudgetError('The weather requests of the television screens of the day are used up');

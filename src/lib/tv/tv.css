@@ -228,6 +228,54 @@
 	margin-top: 0.4rem;
 }
 
+/* The rain of the hour, between the place and the clock: a bar per step of the forecast, then a word. */
+.tv-rain {
+	flex: none;
+	padding-top: 0.6rem;
+}
+.tv-rain-row {
+	display: flex;
+	align-items: flex-end;
+	margin-top: 1.2rem;
+}
+.tv-rain-bars {
+	display: flex;
+	align-items: flex-end;
+	flex: none;
+	width: 15rem;
+	height: 8rem;
+}
+.tv-rain-bar {
+	display: block;
+	flex: 1 1 0;
+	margin-right: 0.8rem;
+	background: var(--tv-line);
+	border-radius: 0.4rem;
+}
+.tv-rain-bar:last-child {
+	margin-right: 0;
+}
+.tv-rain-bar.tv-rain-wet {
+	background: var(--tv-accent);
+}
+.tv-rain-text {
+	margin-left: 2.4rem;
+}
+.tv-rain-word {
+	font-size: 5.2rem;
+	line-height: 1;
+}
+.tv-rain-unknown .tv-rain-word,
+.tv-rain-none .tv-rain-word {
+	color: var(--tv-muted);
+}
+.tv-rain-moderate .tv-rain-word {
+	color: var(--tv-poss);
+}
+.tv-rain-heavy .tv-rain-word {
+	color: var(--tv-poor);
+}
+
 /* The panels take turns; the first one shows when the script does not run. */
 .tv-panels {
 	position: relative;

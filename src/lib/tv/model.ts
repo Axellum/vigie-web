@@ -209,6 +209,18 @@ export interface TvSky {
 	set: string | null;
 }
 
+/**
+ * The rain of the next hour, from the 15-minute steps the API gives (a forecast of the weather model, not a radar). `unknown` is
+ * the API giving none, or the reading being too old to say anything of the hour to come; the screen then shows "not read".
+ */
+export interface TvRain {
+	status: 'none' | 'some' | 'unknown';
+	level: 'light' | 'moderate' | 'heavy' | null;
+	/** The strongest step as an hourly rate, in mm/h. */
+	maxMmH: number | null;
+	bars: { pct: number; wet: boolean }[];
+}
+
 export interface TvScreen {
 	spot: { id: string; name: string; place: string | null };
 	now: number;
@@ -228,6 +240,7 @@ export interface TvScreen {
 	tide: TvTide | null;
 	activities: TvActivity[];
 	sky: TvSky | null;
+	rain: TvRain;
 	credit: string;
 }
 
@@ -487,6 +500,50 @@ function skyView(
 	};
 }
 
+// --- the rain of the hour --------------------------------------------------------------------------------------------------------
+
+/** A step wetter than this is rain (the API's own threshold for `rain_expected_60m`, in mm per step). */
+const WET_STEP_MM = 0.05;
+/** The words are ours, not an official scale: light under 2.5 mm/h, moderate under 7.6, heavy from there (docs/tv.md). */
+const LIGHT_BELOW_MM_H = 2.5;
+const MODERATE_BELOW_MM_H = 7.6;
+/** A bar is full at this rate. */
+const FULL_BAR_MM_H = 10;
+/** A rain forecast of the hour to come is worth nothing once the reading is older than this. */
+export const RAIN_MAX_AGE_S = 30 * 60;
+
+export function rainView(sky: Fresh<PointWeather> | null, now: number): TvRain {
+	const unknown: TvRain = { status: 'unknown', level: null, maxMmH: null, bars: [] };
+	const rain = sky?.value.rain ?? null;
+	if (!sky || !rain || !rain.mmPerStep || rain.mmPerStep.length === 0) return unknown;
+	// The API names the provider "… (stale cache)" when it serves an expired entry (it has no flag for it).
+	if (sky.stale || /\(stale/i.test(sky.value.provider ?? '') || now - sky.fetchedAt / 1000 > RAIN_MAX_AGE_S)
+		return unknown;
+	const perHour = 60 / (rain.stepMinutes ?? 15);
+	const rates = rain.mmPerStep.map((mm) => mm * perHour);
+	const maxMmH = Math.max(...rates);
+	const wet = rain.mmPerStep.some((mm) => mm > WET_STEP_MM);
+	return {
+		status: wet ? 'some' : 'none',
+		level: !wet
+			? null
+			: maxMmH < LIGHT_BELOW_MM_H
+				? 'light'
+				: maxMmH < MODERATE_BELOW_MM_H
+					? 'moderate'
+					: 'heavy',
+		maxMmH: wet ? maxMmH : 0,
+		bars: rain.mmPerStep.map((mm, i) => {
+			const isWet = mm > WET_STEP_MM;
+			// A drop of rain must show: at least a stub, never more than a full bar.
+			return {
+				pct: isWet ? Math.min(100, Math.max(14, Math.round((rates[i] / FULL_BAR_MM_H) * 100))) : 6,
+				wet: isWet
+			};
+		})
+	};
+}
+
 // --- the credits ---------------------------------------------------------------------------------------------------------------
 
 /**
@@ -555,11 +612,13 @@ export function buildScreen(input: TvInput): TvScreen {
 		tide,
 		activities,
 		sky: skyView(input.sky?.value ?? null, sun, now, lang),
+		rain: rainView(input.sky, now),
 		credit: creditOf([
 			act?.attribution,
 			forecast?.attribution,
 			input.tide?.value.attribution,
-			input.sky?.value.attribution
+			input.sky?.value.attribution,
+			input.sky?.value.rain?.attribution
 		])
 	};
 }

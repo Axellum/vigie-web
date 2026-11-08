@@ -13,6 +13,8 @@ import {
 	hourIndex,
 	isDay,
 	knots,
+	rainView,
+	RAIN_MAX_AGE_S,
 	zoneOffsetS,
 	type Fresh,
 	type TvInput
@@ -260,6 +262,82 @@ describe('day and night', () => {
 		expect(isDay(w, [{ t: 0, daylight: false }], 500)).toBe(false);
 		expect(isDay([], [{ t: 0, daylight: false }], 10)).toBe(false);
 		expect(isDay([], [], 10)).toBe(true);
+	});
+});
+
+describe('the rain of the hour', () => {
+	const wet = (steps: number[], over: Partial<Fresh<ReturnType<typeof pointFromApi>>> = {}) => ({
+		...fresh({
+			...sky,
+			rain: {
+				stepMinutes: 15,
+				mmPerStep: steps,
+				expected60: steps.some((s) => s > 0.05),
+				maxMmH: Math.max(...steps) * 4,
+				attribution: 'Rain credit'
+			}
+		}),
+		...over
+	});
+
+	it('says none for the recorded dry hour, with a flat low bar per step', () => {
+		const r = rainView(fresh(sky), NOW);
+		expect(r).toMatchObject({ status: 'none', level: null, maxMmH: 0 });
+		expect(r.bars).toHaveLength(4);
+		expect(r.bars.every((b) => !b.wet && b.pct < 10)).toBe(true);
+	});
+
+	it('names light, moderate and heavy rain by the strongest step as an hourly rate, with our thresholds', () => {
+		// 0.1 mm in a step of 15 minutes is 0.4 mm/h; 0.5 is 2 mm/h; 0.7 is 2.8; 1.8 is 7.2; 1.9 is 7.6.
+		expect(rainView(wet([0, 0.1, 0, 0]), NOW)).toMatchObject({ status: 'some', level: 'light', maxMmH: 0.4 });
+		expect(rainView(wet([0, 0.5, 0, 0]), NOW).level).toBe('light');
+		expect(rainView(wet([0, 0.7, 0, 0]), NOW).level).toBe('moderate');
+		expect(rainView(wet([0, 1.8, 0, 0]), NOW).level).toBe('moderate');
+		expect(rainView(wet([0, 1.9, 0, 0]), NOW)).toMatchObject({ level: 'heavy', maxMmH: 7.6 });
+	});
+
+	it('is dry when no step passes the 0.05 mm of the API, and shows a drop of rain as a stub at least', () => {
+		expect(rainView(wet([0.05, 0, 0.02, 0]), NOW).status).toBe('none');
+		const r = rainView(wet([0, 0.06, 5, 0]), NOW);
+		expect(r.status).toBe('some');
+		expect(r.bars.map((b) => b.wet)).toEqual([false, true, true, false]);
+		expect(r.bars[1].pct).toBeGreaterThanOrEqual(14);
+		expect(r.bars[2].pct).toBe(100);
+	});
+
+	it('follows the step length the API gives', () => {
+		const point = {
+			...sky,
+			rain: {
+				...sky.rain!,
+				stepMinutes: 5,
+				mmPerStep: [0, 0.5, 0, 0],
+				expected60: true,
+				maxMmH: 6,
+				attribution: null
+			}
+		};
+		expect(rainView(fresh(point), NOW).maxMmH).toBe(6);
+	});
+
+	it('does not know the rain when the API gave none, or the reading is stale or too old', () => {
+		expect(rainView(null, NOW).status).toBe('unknown');
+		expect(rainView(fresh({ ...sky, rain: null }), NOW).status).toBe('unknown');
+		expect(rainView(fresh({ ...sky, rain: { ...sky.rain!, mmPerStep: null } }), NOW).status).toBe('unknown');
+		expect(rainView(wet([0, 1, 0, 0], { stale: true }), NOW).status).toBe('unknown');
+		expect(
+			rainView(fresh({ ...wet([0, 1, 0, 0]).value, provider: 'Open-Meteo (stale cache)' }), NOW).status
+		).toBe('unknown');
+		const old = (age: number) => wet([0, 1, 0, 0], { fetchedAt: (NOW - age) * 1000 });
+		expect(rainView(old(RAIN_MAX_AGE_S), NOW).status).toBe('some');
+		expect(rainView(old(RAIN_MAX_AGE_S + 1), NOW).status).toBe('unknown');
+	});
+
+	it('is part of the screen, and its credit is in the credits', () => {
+		const s = buildScreen(input({ sky: wet([0, 1, 0, 0]) }));
+		expect(s.rain.status).toBe('some');
+		expect(s.credit).toContain('Rain credit');
+		expect(buildScreen(input({ sky: null })).rain.status).toBe('unknown');
 	});
 });
 

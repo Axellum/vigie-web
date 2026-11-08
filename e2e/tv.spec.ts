@@ -28,6 +28,13 @@ async function layoutProblems(page: Page): Promise<string[]> {
 		const panels = rect('#tv-panels');
 		const text = rect('.tv-foot-text');
 		const corner = rect('.tv-panel.tv-on .tv-corner');
+		const place = rect('.tv-place');
+		const rain = rect('#tv-rain');
+		const when = rect('.tv-when');
+		if (!place || !rain || !when) return ['the head lacks its place, its rain or its clock'];
+		if (rain.left < place.right)
+			problems.push(`the rain (${rain.left}) runs into the place (${place.right})`);
+		if (rain.right > when.left) problems.push(`the rain (${rain.right}) runs into the clock (${when.left})`);
 		if (!frame || !foot || !panels || !text) return ['the frame, the panels or the foot are missing'];
 		if (panels.bottom > foot.top + 1)
 			problems.push(`the panels (${panels.bottom}) run into the foot (${foot.top})`);
@@ -65,6 +72,11 @@ test('a screen shows the place, the clock, the figures, the credits and the warn
 	await expect(page.locator('.tv-place')).toHaveText('Soorts-Hossegor');
 	await expect(page.locator('#tv-clock')).toHaveText(/^\d\d:\d\d$/);
 	await expect(page.getByText('nœuds', { exact: true }).first()).toBeVisible();
+	// The rain of the hour is in the head, whatever the panel: the recorded hour is dry, and it says it is a forecast.
+	await expect(page.locator('#tv-rain')).toContainText('Pluie dans l’heure');
+	await expect(page.locator('#tv-rain')).toContainText('prévision');
+	await expect(page.locator('#tv-rain .tv-rain-word')).toHaveText('aucune');
+	await expect(page.locator('#tv-rain .tv-rain-bar')).toHaveCount(4);
 	// The credits and the warning are always there: a television cannot follow a link to them.
 	await expect(page.locator('.tv-foot-text')).toContainText('Ne remplace pas les avis officiels');
 	await expect(page.locator('.tv-foot-text')).toContainText('Open-Meteo');
@@ -196,6 +208,8 @@ test('the screen speaks English when asked', async ({ page }) => {
 	await page.goto(`${SPOT}&lang=en`);
 	await expect(page.locator('#tv-root')).toHaveAttribute('data-lang', 'en');
 	await expect(page.getByText('knots', { exact: true }).first()).toBeVisible();
+	await expect(page.locator('#tv-rain')).toContainText('Rain in the hour');
+	await expect(page.locator('#tv-rain .tv-rain-word')).toHaveText('none');
 	await expect(page.locator('.tv-foot-text')).toContainText('Does not replace official warnings');
 });
 
