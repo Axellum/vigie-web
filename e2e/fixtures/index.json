@@ -25,7 +25,10 @@
   "warnings-HR.json": 1793265175,
   "activities-hossegor.json": 1794131585,
   "surf-buoys.json": 1794131585,
-  "activities-overview.json": 1794133867
+  "activities-overview.json": 1794133867,
+  "tv-surf-hossegor.json": 1794132392,
+  "tv-activities-hossegor.json": 1794132391,
+  "tv-tides-hossegor.json": 1794132392
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -67,7 +70,10 @@
   "/v1/vigilances.geojson?country=HR": "warnings-HR.json",
   "/v1/activities/soorts-hossegor-plage-sud-point-d-or": "activities-hossegor.json",
   "/v1/surf/buoys": "surf-buoys.json",
-  "/v1/activities/overview": "activities-overview.json"
+  "/v1/activities/overview": "activities-overview.json",
+  "/v1/surf/spots/tv-hossegor": "tv-surf-hossegor.json",
+  "/v1/activities/tv-hossegor": "tv-activities-hossegor.json",
+  "/v1/tides?lat=43.65&lon=-1.45": "tv-tides-hossegor.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -75,6 +81,7 @@
   ]
  },
  "notes": {
+  "tv-*.json": "Answers of the public Vigie API (vigie-api f757654) read on 2026-11-08 for the spot of Hossegor, kept under the id tv-hossegor: the television screen (/tv) reads the answers of a spot at the hour it is shown, so the mock replays them moved by whole days (as the aurora), to look recorded today.",
   "hazards-storms.json, forecast-*.json, vigilances-tsunami.json": "Answers of vigie-api a87136f to its own recordings of the NHC (Hurricane Isaias, advisory 13A, 2026-10-09) and of tsunami.gov (Panama, 2026-10-09 18:55 UTC), made with its test setup (tests/test_storm_api.py), because no storm and no tsunami were active on 2026-10-20.",
   "tides.json, tides-coast.json": "Answers of vigie-api bdbaf8e (its pull request 32, which adds GET /v1/tides and /v1/tides/coast), run locally on 2026-10-28 with scripts/record-fixtures.mjs: the tide is computed by the API from the EOT20 model, with no provider; the public instance did not compute tides yet.",
   "surf-hossegor.json": "Answers of vigie-api's surf branch (the pull request that adds GET /v1/surf/spots and /v1/surf/spots/{id}), run locally on 2026-10-29 with scripts/record-fixtures.mjs: the spots are bundled in the API (OpenStreetMap), the forecast asked Open-Meteo (MFWAM swell, wind) and computed the tide; the public instance did not serve the surf yet.",

@@ -1,6 +1,6 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
-import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
+import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY, VIGIE_TV_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
 import { snapToGrid } from '#lib/near.js';
@@ -490,6 +490,34 @@ export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
 	return cache.get('surf-buoys', TTL_S.surfBuoys * 1000, async () =>
 		buoysFromApi(await getJson('/v1/surf/buoys', 15_000))
 	);
+}
+
+/**
+ * The weather of a spot for a television screen (`/tv`). Screens have a share of their own (`VIGIE_TV_POINT_LOOKUPS_PER_DAY`, 100
+ * by default), so that a screen left on for days cannot use up the weather of the rest of the site, and an answer is kept 30
+ * minutes: one spot costs at most 48 requests a day, however many screens show it.
+ */
+const TV_POINT_TTL_S = 1800;
+let tvPointBudget: SlidingBudget | null = null;
+export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeather>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`tvpoint:${cell.lat},${cell.lon}`, TV_POINT_TTL_S * 1000, async () => {
+		if (!tvPointBudget) {
+			const value = Number(VIGIE_TV_POINT_LOOKUPS_PER_DAY || 100);
+			tvPointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100);
+		}
+		if (!tvPointBudget.take())
+			throw new BudgetError('The weather requests of the television screens of the day are used up');
+		const query = new URLSearchParams({
+			lat: String(cell.lat),
+			lon: String(cell.lon),
+			marine: 'false',
+			device_type: 'web',
+			max_hazards: '1',
+			radius_km: '1'
+		});
+		return pointFromApi(await getJson(`/v1/point?${query}`, 30_000));
+	});
 }
 
 /** Cache-Control for an answer built from data kept `ttl` seconds: browsers keep it half as long. */

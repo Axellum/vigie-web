@@ -81,6 +81,8 @@ export interface ActivitiesForecast {
 		note: string | null;
 	} | null;
 	vigilance: { status: 'ok' | 'unknown'; alerts: CoastalAlert[] };
+	/** Sunrise and sunset of each day of the forecast, UTC epoch seconds. */
+	sun: { rise: number; set: number }[];
 	rules: Record<string, string>;
 	limits: string | null;
 	disclaimer: string | null;
@@ -223,6 +225,12 @@ export function activitiesFromApi(raw: unknown): ActivitiesForecast | null {
 				return id && source ? [{ id, source, level: str(x.level), attribution: str(x.attribution) }] : [];
 			})
 		},
+		sun: list(r.sun).flatMap((d): { rise: number; set: number }[] => {
+			const x = obj(d);
+			const rise = num(x.sunrise_utc);
+			const set = num(x.sunset_utc);
+			return rise != null && set != null && set > rise ? [{ rise, set }] : [];
+		}),
 		rules,
 		limits: str(r.limits),
 		disclaimer: str(r.disclaimer),

@@ -47,6 +47,14 @@ cache reach the API in 24 hours (200 by default, at most 1,500 weighted calls, a
 Beyond it, the page says that the weather by place is paused; the warnings and hazards are not affected. The
 count is in memory: a restart starts it again.
 
+## Television screens
+
+The screens for televisions (`/tv`, see [`tv.md`](tv.md)) ask the API for the same things as the surf pages, which the site
+keeps, and for the weather of the sky of the spot, which is kept 30 minutes. That weather has a budget of its own,
+`VIGIE_TV_POINT_LOOKUPS_PER_DAY` (100 by default; `0` leaves the sky card empty), apart from `VIGIE_POINT_LOOKUPS_PER_DAY`:
+a screen left on for weeks cannot use up the weather of the "near me" page. A spot costs at most 48 requests a day,
+whatever the number of screens that show it.
+
 ## Accounts
 
 Accounts are by invitation and sign in with passkeys (no password, no e-mail). They need `DATABASE_URL` and
