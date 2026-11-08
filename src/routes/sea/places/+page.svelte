@@ -197,8 +197,6 @@
 		{:else if !me}
 			<p class="muted">{t('start', { count: number(lang, total, 0) })}</p>
 		{/if}
-
-		{#if list.note}<p class="muted small" lang="en">{list.note}</p>{/if}
 	{/if}
 
 	<Credits {lang} credits={[list?.attribution]} />

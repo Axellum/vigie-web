@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLACE_TYPES, QUALITIES, USES } from './places';
-import { dateLabel, PLACES_TEXT, placesText, placeTitle, placeWhere } from './places-text';
+import { dateLabel, licenceText, PLACES_TEXT, placesText, placeTitle, placeWhere } from './places-text';
 
 describe('the words of the pages of the places', () => {
 	it('has every text in both languages, with the same placeholders', () => {
@@ -76,6 +76,26 @@ describe('the title of a place', () => {
 		);
 		expect(placeWhere({ name: 'Port', near: 'Bas-Sablons', commune: null })).toBe('Bas-Sablons');
 		expect(placeWhere({ name: null, near: 'Saint-Malo', commune: null })).toBeNull();
+	});
+});
+
+describe('the licence line of the API', () => {
+	const api = 'ODbL-1.0 (OpenStreetMap), Licence Ouverte (Sandre), Licence Ouverte 2.0 (bathing quality)';
+
+	it('keeps the names of the licences and says in French what the known ones cover', () => {
+		expect(licenceText('fr', api)).toBe(
+			'ODbL-1.0 (OpenStreetMap), Licence Ouverte (Sandre), Licence Ouverte 2.0 (qualité des baignades)'
+		);
+	});
+
+	it('is the API’s own line in English', () => {
+		expect(licenceText('en', api)).toBe(api);
+	});
+
+	it('leaves as it is what it does not know: a new source, an empty line, a line with no brackets', () => {
+		expect(licenceText('fr', 'CC BY 4.0 (tide model)')).toBe('CC BY 4.0 (tide model)');
+		expect(licenceText('fr', '')).toBe('');
+		expect(licenceText('fr', 'ODbL-1.0')).toBe('ODbL-1.0');
 	});
 });
 
