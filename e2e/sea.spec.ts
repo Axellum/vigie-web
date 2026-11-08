@@ -61,12 +61,27 @@ test('the sea page answers "should you go?" for an activity, with every spot, th
 		await expect(row.locator('a')).toHaveAttribute('href', /^\/surf\/[a-z0-9-]+$/);
 	}
 	await expect(page.getByText('Pas pour la sécurité', { exact: false }).first()).toBeVisible();
+	// The two sentences the API gives in English are said in French here, and the English ones are not on the page (a unit test holds the
+	// English side to this recording, so a reworded sentence of the API is shown as it comes, not in a French that no longer matches).
+	await expect(page.getByText('Les verdicts sont des règles de Vigie', { exact: false })).toBeVisible();
+	await expect(page.getByText('Pas pour la sécurité ni pour la navigation', { exact: false })).toBeVisible();
+	await expect(page.getByText('The verdicts are rules of Vigie', { exact: false })).toHaveCount(0);
+	await expect(page.getByText('Not for safety and not for navigation', { exact: false })).toHaveCount(0);
 	// When they were worked out, so a copy kept by the browser is not taken for the current answer.
 	await expect(page.getByText(/^Verdicts calculés .+, \d\d:\d\d\.$/)).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
 		await page.evaluate(() => window.innerWidth)
 	);
 	expect(errors).toEqual([]);
+});
+
+test('the English sea page shows the sentences of the API as they come, and no French one', async ({
+	page
+}) => {
+	await page.goto('/sea?lang=en');
+	await expect(page.getByText(overview.limits, { exact: true })).toBeVisible();
+	await expect(page.getByText(overview.disclaimer, { exact: true })).toBeVisible();
+	await expect(page.getByText('Les verdicts sont des règles', { exact: false })).toHaveCount(0);
 });
 
 test('an activity has its own address, is remembered in this browser only, and the kite keeps its range', async ({

@@ -161,3 +161,42 @@ export function seaText(
 	for (const [k, v] of Object.entries(vars)) text = text.replaceAll(`{${k}}`, String(v));
 	return text;
 }
+
+/**
+ * Two sentences of the API come in English in every answer of the overview (`ACTIVITIES_LIMITS` and `ACTIVITIES_DISCLAIMER` of
+ * vigie-api, `app/models/activities.py`). A French page says them in French, but only when the API's sentence is exactly the one the
+ * French was written for: if the API rewords it, the page shows the API's sentence as it comes, in English and marked as such, rather
+ * than a French one that no longer says the same. A test holds the English side to the recorded answer of the API.
+ */
+export const API_SENTENCES: readonly { en: string; fr: string }[] = [
+	{
+		en:
+			'The verdicts are rules of Vigie, written in `rules`: a few thresholds on the swell, the wind, the tide and the official coastal warnings. ' +
+			'They do not know the beach, the bottom, the shelter of a bay or the person who goes: a beginner and an expert do not have the same limits ' +
+			"(the wind range of the kite is the one asked for). The swell is Météo-France's MFWAM model on a grid of about 8 km; the wind is a forecast " +
+			'at 10 m; the tide is computed from a global model and can be an hour late or more inside a bay. Hours are whole hours.',
+		fr:
+			'Les verdicts sont des règles de Vigie, écrites en clair dans l’API (champ « rules ») :quelques seuils sur la houle, le vent, la marée et les ' +
+			'vigilances officielles du littoral. Elles ne connaissent ni la plage, ni le fond, ni l’abri d’une baie, ni la personne qui y va : un ' +
+			'débutant et un expert n’ont pas les mêmes limites (la plage de vent du kite est celle qui a été demandée). La houle est celle du modèle ' +
+			'MFWAM de Météo-France, sur une grille d’environ 8 km ; le vent est une prévision à 10 m ; la marée est calculée à partir d’un modèle ' +
+			'global et peut avoir une heure de retard ou plus dans une baie. Les heures sont des heures pleines.'
+	},
+	{
+		en:
+			'Not for safety and not for navigation: look at the sea on the spot, the flags and the lifeguards, read the tide tables and the official ' +
+			'warnings, and follow the instructions of the authorities.',
+		fr:
+			'Pas pour la sécurité ni pour la navigation : regardez la mer sur place, les drapeaux et les sauveteurs, lisez les annuaires de marées et ' +
+			'les vigilances officielles, et suivez les consignes des autorités.'
+	}
+];
+
+/** A sentence of the API in the language of the page when we know it, else as the API gives it (English): the words and their language. */
+export function apiSentence(lang: Lang, text: string): { text: string; lang: Lang } {
+	if (lang === 'fr') {
+		const known = API_SENTENCES.find((s) => s.en === text.trim());
+		if (known) return { text: known.fr, lang: 'fr' };
+	}
+	return { text, lang: 'en' };
+}
