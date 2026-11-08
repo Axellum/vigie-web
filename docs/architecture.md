@@ -22,7 +22,9 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   the place is in comes from simplified borders (`src/lib/data/borders.json`, every country of the API's
   world borders, 300 kB compressed, loaded with the first place). Only the weather needs the server: the page sends the position rounded to the API's
   weather grid (0.05°, about 5 km), and the server caches each grid point and bounds the requests that reach
-  the API (`docs/configuration.md`, "Weather by place").
+  the API (`docs/configuration.md`, "Weather by place"). What the browser knows about one place lives in
+  `src/lib/placeState.svelte.ts` (the warnings, hazards, weather, tide and surf spots it loads as the place changes) and each card
+  is `src/lib/components/PlaceCard.svelte`, so that another page can show the same cards of a place without copying them.
 - **Search by name** (`/data/places.json?q=`). The server keeps the GeoNames places of at least 500 people
   (236,415, with the other names of the cities of 100,000 or more, so that "Genève" or "Londres" are found)
   in memory, read from `data/places.tsv.gz` on the first search. The browser asks after 250 ms without
