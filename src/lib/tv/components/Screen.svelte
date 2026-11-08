@@ -72,7 +72,15 @@
 						<div class="tv-display tv-place">{title}</div>
 						<div class="tv-mut tv-t30 tv-spot">{subtitle}</div>
 					</div>
-					<Rain rain={screen.rain} {lang} />
+					<div class="tv-mid">
+						<Rain rain={screen.rain} {lang} />
+						{#if params.panels.length > 1}
+							<div class="tv-dots" id="tv-dots" aria-hidden="true">
+								{#each params.panels as panel, i (panel)}<span class="tv-dot{i === 0 ? ' tv-dot-on' : ''}"
+									></span>{/each}
+							</div>
+						{/if}
+					</div>
 					<div class="tv-when">
 						<div class="tv-mono tv-clock" id="tv-clock">{clock}</div>
 						<div class="tv-mut tv-t30" id="tv-date">{dateLabel(lang, screen.now)}</div>
@@ -96,12 +104,6 @@
 					</div>
 				</footer>
 			</div>
-			{#if params.panels.length > 1}
-				<div class="tv-dots" id="tv-dots" aria-hidden="true">
-					{#each params.panels as panel, i (panel)}<span class="tv-dot{i === 0 ? ' tv-dot-on' : ''}"
-						></span>{/each}
-				</div>
-			{/if}
 		</div>
 		<div
 			class="tv-banner{screen.stale ? ' tv-banner-on' : ''}"
