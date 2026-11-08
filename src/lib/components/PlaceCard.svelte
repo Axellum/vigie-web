@@ -30,8 +30,9 @@
 	}: { state: PlaceState; name: Card; placeName?: string; size?: BlockSize } = $props();
 	const lang = $derived(s.lang);
 	const tr = $derived(translator(lang));
-	const fmt = $derived(placeFormat(lang));
-	const { coord, km, unit, signed, hour, day } = $derived(fmt);
+	const fmt = $derived(placeFormat(lang, s.units));
+	const { coord, km, unit, signed, hour, day, temp, deg, wind, length } = $derived(fmt);
+	const units = $derived(s.units);
 
 	const CARD_TITLE: Record<Card, Key> = {
 		official: 'card.official',
@@ -147,7 +148,7 @@
 			{/each}
 		</div>
 	{/if}
-	{#if s.w}<PointWeather {lang} weather={s.w} parts={['fires']} />{/if}
+	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['fires']} />{/if}
 {/snippet}
 
 <!-- Weather ----------------------------------------------------------------------------------------------- -->
@@ -157,15 +158,15 @@
 		{@const c = s.w.current}
 		<div class="figs">
 			<div>
-				<p class="fig">{unit(c.tempC, '°C')}</p>
+				<p class="fig">{temp(c.tempC)}</p>
 				<span>{skyLabel(lang, c.code)}</span>
 			</div>
 			<div>
-				<p class="fig">{unit(c.feelsLikeC, '°C')}</p>
+				<p class="fig">{temp(c.feelsLikeC)}</p>
 				<span>{tr('fig.feels')}</span>
 			</div>
 			<div>
-				<p class="fig">{unit(c.windKmh, 'km/h', 0)} {compass(lang, c.windDeg)}</p>
+				<p class="fig">{wind(c.windKmh)} {compass(lang, c.windDeg)}</p>
 				<span>{tr('fig.wind')}</span>
 			</div>
 			{#if w.rain?.expected60 != null}
@@ -180,7 +181,7 @@
 				{#each w.daily.slice(1, 4) as d (d.date)}
 					<li>
 						<span class="muted">{day(d.date)}</span>
-						<span class="data">{number(lang, d.tminC, 0)}° / {number(lang, d.tmaxC, 0)}°</span>
+						<span class="data">{deg(d.tminC)}° / {deg(d.tmaxC)}°</span>
 					</li>
 				{/each}
 			</ul>
@@ -201,7 +202,7 @@
 			})}
 		</p>
 	{/if}
-	{#if s.w}<PointWeather {lang} weather={s.w} parts={['now', 'rain', 'days', 'river']} />{/if}
+	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['now', 'rain', 'days', 'river']} />{/if}
 {/snippet}
 
 <!-- Sea --------------------------------------------------------------------------------------------------- -->
@@ -212,7 +213,7 @@
 		{@const m = s.w.marine}
 		<div class="figs">
 			<div>
-				<p class="fig">{unit(m.waveM, 'm')}</p>
+				<p class="fig">{length(m.waveM)}</p>
 				<span>{tr('fig.waves')}</span>
 			</div>
 			<div>
@@ -231,7 +232,7 @@
 	{/if}
 {/snippet}
 {#snippet seaDetails()}
-	{#if s.w}<PointWeather {lang} weather={s.w} parts={['marine']} />{/if}
+	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['marine']} />{/if}
 {/snippet}
 
 <!-- Tide -------------------------------------------------------------------------------------------------- -->
@@ -261,7 +262,7 @@
 	{/if}
 {/snippet}
 {#snippet tideDetails()}
-	{#if s.tide.value}<TideCurve {lang} curve={s.tide.value} now={s.tide.loadedAt} />{/if}
+	{#if s.tide.value}<TideCurve {lang} {units} curve={s.tide.value} now={s.tide.loadedAt} />{/if}
 	{#if nearSurfSpots(s.cell)}<p class="small"><a href="/surf">{surfText(lang, 'tideLink')}</a></p>{/if}
 {/snippet}
 
@@ -317,7 +318,7 @@
 	{/if}
 {/snippet}
 {#snippet airDetails()}
-	{#if s.w}<PointWeather {lang} weather={s.w} parts={['air']} />{/if}
+	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['air']} />{/if}
 {/snippet}
 
 {#snippet card()}

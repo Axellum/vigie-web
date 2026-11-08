@@ -18,6 +18,7 @@
 	import { BLOCK_SIZES, MAX_BLOCKS, type Block, type BlockSize } from '#lib/pageConfig.js';
 	import { addBlock, moveBlock, removeBlock, resizeBlock, sameBlocks } from '#lib/pageEdit.js';
 	import { PlaceState } from '#lib/placeState.svelte.js';
+	import { DEFAULT_UNITS, type Units } from '#lib/units.js';
 	import { CARDS, type Card, type Profile } from '#lib/profiles.js';
 	import type { Hazard, UncoveredCountry } from '#lib/types.js';
 
@@ -41,7 +42,8 @@
 		served,
 		uncovered,
 		now,
-		selected
+		selected,
+		units = DEFAULT_UNITS
 	}: {
 		lang: Lang;
 		places: MyPlace[];
@@ -55,6 +57,8 @@
 		now: number;
 		/** The place looked at alone when the page was asked for, known to the server so that it draws the same. */
 		selected: string | null;
+		/** The units of the figures; the default ones when the person chose none. */
+		units?: Units;
 	} = $props();
 	const tr = $derived(translator(lang));
 
@@ -69,6 +73,7 @@
 						radiusKm: current.radiusKm,
 						profile: current.profile,
 						lang,
+						units,
 						now,
 						hazards,
 						hazardsAttribution,

@@ -12,8 +12,14 @@
 		showsFrenchCoefficient,
 		type TideCurve
 	} from '#lib/tides.js';
+	import { DEFAULT_UNITS, height, heightLabel, type Units } from '#lib/units.js';
 
-	let { lang, curve, now }: { lang: Lang; curve: TideCurve; now: number } = $props();
+	let {
+		lang,
+		curve,
+		now,
+		units = DEFAULT_UNITS
+	}: { lang: Lang; curve: TideCurve; now: number; units?: Units } = $props();
 	const tr = $derived(translator(lang));
 	const LOCALE = { fr: 'fr-FR', en: 'en-GB' } as const;
 	const W = 640;
@@ -37,8 +43,11 @@
 		}).format(new Date(t * 1000));
 	const weekday = (t: number) =>
 		new Intl.DateTimeFormat(LOCALE[lang], { weekday: 'long', timeZone }).format(new Date(t * 1000));
-	const metres = (h: number | null, digits = 2) => (h == null ? '–' : `${number(lang, h, digits)} m`);
-	const signed = (h: number) => `${h > 0 ? '+' : ''}${number(lang, h, 2)} m`;
+	// The heights come in metres; they are written in the unit the person chose.
+	const metres = (h: number | null, digits = 2) =>
+		h == null ? '–' : `${number(lang, height(h, units.height), digits)} ${heightLabel(units.height)}`;
+	const signed = (h: number) =>
+		`${h > 0 ? '+' : ''}${number(lang, height(h, units.height), 2)} ${heightLabel(units.height)}`;
 
 	const geometry = $derived(curveGeometry(curve, W, H));
 	const shown = $derived(extremesShown(curve));

@@ -6,6 +6,8 @@ import { t, tOr, type Key, type Lang } from './i18n';
 import { rank } from './levels';
 import type { Profile } from './profiles';
 import type { Hazard, PointWeather, WarningSummary } from './types';
+import { DEFAULT_UNITS, type Units } from './units';
+import { placeFormat } from './placeFormat';
 import { skyLabel } from './weather';
 
 /**
@@ -26,6 +28,8 @@ export interface SentenceInput {
 	now: number;
 	/** The reader's time zone (the browser's when not given). */
 	timeZone?: string;
+	/** The units of the figures; the default ones when not given. */
+	units?: Units;
 }
 
 const FROM: Record<Lang, string[]> = {
@@ -135,7 +139,7 @@ function seaPart(input: SentenceInput): string | null {
 	const { lang } = input;
 	const sea = input.weather?.marine;
 	if (!sea || sea.waveM == null) return null;
-	const parts = [`${number(lang, sea.waveM)} m`];
+	const parts = [placeFormat(lang, input.units ?? DEFAULT_UNITS).length(sea.waveM)];
 	if (sea.wavePeriodS != null) parts.push(`${number(lang, sea.wavePeriodS, 0)} s`);
 	const from = fromDirection(lang, sea.waveDeg);
 	if (from) parts.push(from);
@@ -146,7 +150,7 @@ function windPart(input: SentenceInput): string | null {
 	const { lang } = input;
 	const now = input.weather?.current;
 	if (!now || now.windKmh == null) return null;
-	const v = `${number(lang, now.windKmh, 0)} km/h`;
+	const v = placeFormat(lang, input.units ?? DEFAULT_UNITS).wind(now.windKmh);
 	const from = fromDirection(lang, now.windDeg);
 	return from ? t(lang, 'sentence.wind', { v, from }) : t(lang, 'sentence.windNoDir', { v });
 }
@@ -155,7 +159,7 @@ function weatherPart(input: SentenceInput): string | null {
 	const { lang } = input;
 	const now = input.weather?.current;
 	if (!now) return null;
-	const temp = now.tempC != null ? `${number(lang, now.tempC, 0)} °C` : null;
+	const temp = now.tempC != null ? placeFormat(lang, input.units ?? DEFAULT_UNITS).temp(now.tempC, 0) : null;
 	const sky = now.code != null ? skyLabel(lang, now.code) : null;
 	if (!temp && !sky) return null;
 	return `${[sky, temp].filter(Boolean).join(', ')}.`;

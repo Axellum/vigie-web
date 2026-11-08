@@ -1,5 +1,6 @@
 import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { asLang, langFromHeader, type Lang } from '#lib/i18n.js';
+import { LANG_COOKIE, setLangCookie } from '#lib/server/langCookie.js';
 import { VIGIE_MATCH_INTERVAL_S } from '$app/env/private';
 import { cleanUp } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
@@ -45,19 +46,11 @@ export const init: ServerInit = async () => {
 	setTimeout(match, 5_000).unref();
 };
 
-const LANG_COOKIE = 'vigie-lang';
-
 function chooseLang(event: Parameters<Handle>[0]['event']): Lang {
 	// ?lang=xx sets the choice (and the cookie); then the cookie; then the browser's languages.
 	const fromQuery = asLang(event.url.searchParams.get('lang'));
 	if (fromQuery) {
-		event.cookies.set(LANG_COOKIE, fromQuery, {
-			path: '/',
-			maxAge: 60 * 60 * 24 * 365,
-			httpOnly: false,
-			sameSite: 'lax',
-			secure: event.url.protocol === 'https:'
-		});
+		setLangCookie(event.cookies, fromQuery, event.url.protocol === 'https:');
 		return fromQuery;
 	}
 

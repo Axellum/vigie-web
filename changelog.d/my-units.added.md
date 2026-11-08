@@ -1,0 +1,1 @@
+- "My page" has settings: the units of the weather, sea and tide figures (°C or °F, km/h, m/s, knots or mph, metres or feet) and the language of the site and of the alerts, kept in the account so that every device reads them the same. The cards and the sentence that sums up each place follow them; the surf spot rows still write km/h and metres.

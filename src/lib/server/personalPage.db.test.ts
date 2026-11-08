@@ -22,6 +22,7 @@ import {
 	savePage
 } from './pages';
 import { addPlace, listPlaces, PlaceError, removePlace, setHome, updatePlace } from './savedPlaces';
+import { prefsFromForm, readPrefs, savePrefs } from './userPrefs';
 import { addZone, listZones } from './zones';
 
 const MIGRATIONS = join(import.meta.dirname, 'migrations');
@@ -296,6 +297,27 @@ describe('the first page of an account', () => {
 		const kept = await ensureFirstPage(sql, keeps, 'My page');
 		expect((await listPlaces(sql, keeps)).map((p) => p.name)).toEqual(['Plage']);
 		expect(kept.blocks).toHaveLength(3);
+	});
+});
+
+describe('the preferences of an account', () => {
+	it('keep the units the site offers and the language, and nothing else', async () => {
+		const u = await user('prefs');
+		expect(await readPrefs(sql, u)).toEqual({ units: {} });
+		const form = new FormData();
+		form.set('temperature', 'f');
+		form.set('wind', 'kn');
+		form.set('height', 'cubit');
+		form.set('theme', 'dark');
+		await savePrefs(sql, u, prefsFromForm(form), 'en');
+		expect(await readPrefs(sql, u)).toEqual({ units: { temperature: 'f', wind: 'kn' } });
+		const [row] = await sql`select lang, prefs from users where id = ${u}`;
+		expect(row.lang).toBe('en');
+		expect(row.prefs).toEqual({ units: { temperature: 'f', wind: 'kn' } });
+		// Without a language the language stays; a unit left out is a unit nobody chose.
+		await savePrefs(sql, u, prefsFromForm(new FormData()));
+		expect(await readPrefs(sql, u)).toEqual({ units: {} });
+		expect((await sql`select lang from users where id = ${u}`)[0].lang).toBe('en');
 	});
 });
 
