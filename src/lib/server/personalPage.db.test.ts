@@ -10,8 +10,17 @@ import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MAX_PLACES } from '../myPlaces';
-import { MAX_PAGES } from '../pageConfig';
-import { createPage, ensureFirstPage, getPage, listPages, PageError, removePage, savePage } from './pages';
+import { MAX_BLOCKS, MAX_PAGES } from '../pageConfig';
+import {
+	appendStarterBlocks,
+	createPage,
+	ensureFirstPage,
+	getPage,
+	listPages,
+	PageError,
+	removePage,
+	savePage
+} from './pages';
 import { addPlace, listPlaces, PlaceError, removePlace, setHome, updatePlace } from './savedPlaces';
 import { addZone, listZones } from './zones';
 
@@ -249,6 +258,30 @@ describe('the first page of an account', () => {
 		expect(await listPlaces(sql, u)).toHaveLength(2);
 		expect(await listPages(sql, u)).toHaveLength(1);
 		expect(await listZones(sql, u)).toHaveLength(3);
+	});
+
+	it('lays out the first cards of a new place on the first page, once, within the limit of the page', async () => {
+		const u = await user('starter-append');
+		const page = await ensureFirstPage(sql, u, 'My page');
+		const first = await addPlace(sql, u, { ...spot, profile: 'surf' });
+		expect(await appendStarterBlocks(sql, u, first)).toBe(3);
+		expect((await getPage(sql, u, page.id))?.blocks.map((b) => [b.place, b.size])).toEqual([
+			[first, 'm'],
+			[first, 'm'],
+			[first, 'm']
+		]);
+		// A place that already has a card on the page, one of another account, or one that does not exist: nothing.
+		expect(await appendStarterBlocks(sql, u, first)).toBe(0);
+		expect(await appendStarterBlocks(sql, await user('starter-other'), first)).toBe(0);
+		expect(await appendStarterBlocks(sql, u, 'not-an-id')).toBe(0);
+		// Only as many cards as the page holds: the page fills up, and the next place gets none.
+		for (let i = 0; i < 7; i++) {
+			await appendStarterBlocks(sql, u, await addPlace(sql, u, { ...spot, name: `Lieu ${i}` }));
+		}
+		expect((await getPage(sql, u, page.id))?.blocks).toHaveLength(MAX_BLOCKS);
+		const late = await addPlace(sql, u, { ...spot, name: 'Trop tard' });
+		expect(await appendStarterBlocks(sql, u, late)).toBe(0);
+		expect((await getPage(sql, u, page.id))?.blocks).toHaveLength(MAX_BLOCKS);
 	});
 
 	it('gives an account with nothing an empty page, and does not copy zones over places it already keeps', async () => {

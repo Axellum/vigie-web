@@ -1,0 +1,1 @@
+- **My places** (`/me/places`): the places of "My page" can be added (searched by name, taken from the position of the browser when asked, or clicked on the map), edited and deleted, with the radius and the profile that order their cards. The home is kept to about 1 km, never public, and a place offers its first cards to the page when it is added.

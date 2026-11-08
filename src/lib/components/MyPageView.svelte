@@ -194,7 +194,8 @@
 	<div class="card stack empty">
 		<p>{tr('me.noPlace')}</p>
 		<p class="btn-row">
-			<a class="btn" href="/near">{tr('me.nearLink')}</a>
+			<a class="btn" href="/me/places">{tr('places.add')}</a>
+			<a class="btn quiet" href="/near">{tr('me.nearLink')}</a>
 			<a class="btn" href="/account#zones">{tr('me.zonesLink')}</a>
 		</p>
 	</div>
@@ -256,7 +257,10 @@
 					</button>
 				{/each}
 			</nav>
-			<button type="button" class="btn quiet" onclick={startEditing}>{tr('me.edit')}</button>
+			<div class="btn-row">
+				<a class="btn quiet" href="/me/places">{tr('me.manage')}</a>
+				<button type="button" class="btn quiet" onclick={startEditing}>{tr('me.edit')}</button>
+			</div>
 		</div>
 
 		{#if said.length}

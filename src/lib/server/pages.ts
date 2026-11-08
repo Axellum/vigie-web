@@ -2,7 +2,7 @@
 // account (src/lib/pageConfig.ts), so that a page never shows a place that belongs to someone else.
 import { randomUUID } from 'node:crypto';
 import { MAX_PLACES } from '#lib/myPlaces.js';
-import { MAX_PAGES, parseBlocks, type Block, type BlocksError } from '#lib/pageConfig.js';
+import { MAX_BLOCKS, MAX_PAGES, parseBlocks, type Block, type BlocksError } from '#lib/pageConfig.js';
 import { starterBlocks } from '#lib/pageStarter.js';
 import type { Profile } from '#lib/profiles.js';
 import type { Sql } from './db';
@@ -124,6 +124,33 @@ export async function ensureFirstPage(sql: Sql, userId: string, title: string): 
 		]);
 	});
 	return (await listPages(sql, userId))[0];
+}
+
+/** Lays out the first cards of a place at the end of the first page of the account, as many as the page holds.
+ *  The number of cards added: none when the place is not the account's, when it already has a card on the page,
+ *  or when the page is full. */
+export async function appendStarterBlocks(sql: Sql, userId: string, placeId: string): Promise<number> {
+	if (!UUID.test(placeId)) return 0;
+	return sql.begin(async (tx) => {
+		await tx.unsafe('select pg_advisory_xact_lock(hashtextextended($1, 6))', [userId]);
+		const [place] = await tx.unsafe<{ id: string; profile: Profile | null }[]>(
+			'select id, profile from places where id = $1 and user_id = $2',
+			[placeId, userId]
+		);
+		const [page] = await tx.unsafe<{ id: string; blocks: Block[] }[]>(
+			'select id, blocks from pages where user_id = $1 order by created_at limit 1',
+			[userId]
+		);
+		if (!place || !page || page.blocks.some((b) => b.place === placeId)) return 0;
+		const room = MAX_BLOCKS - page.blocks.length;
+		const added = starterBlocks([place]).slice(0, Math.max(room, 0));
+		if (added.length === 0) return 0;
+		await tx.unsafe('update pages set blocks = $2::text::jsonb, updated_at = now() where id = $1', [
+			page.id,
+			JSON.stringify([...page.blocks, ...added])
+		]);
+		return added.length;
+	});
 }
 
 /** Replaces the title and the blocks of a page of this account. `blocks` is what a browser sent (a list or its

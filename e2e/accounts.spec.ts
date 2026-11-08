@@ -322,6 +322,108 @@ test('the page is composed: add, move, resize and remove blocks, saved when done
 	}
 });
 
+test('my places: a home kept to about 1 km, a place found by name with its first cards, edited, deleted', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Noa');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		const places = async () =>
+			(await sql`select id, name, kind, lat, lon, radius_km, public from places where user_id = ${user.id} order by kind desc, position`) as unknown as {
+				id: string;
+				name: string;
+				kind: string;
+				lat: number;
+				lon: number;
+				radius_km: number;
+				public: boolean;
+			}[];
+		const blocks = async () =>
+			((await sql`select blocks from pages where user_id = ${user.id}`)[0]?.blocks ?? []) as {
+				place: string;
+			}[];
+
+		// An account with no place: the page says where to start.
+		await page.goto('/me');
+		await page.getByRole('link', { name: 'Ajouter un lieu' }).click();
+		await expect(page).toHaveURL(/\/me\/places$/);
+		await expect(page.getByRole('heading', { level: 1, name: 'Mes lieux' })).toBeVisible();
+		await expect(page.getByText('Aucun autre lieu pour l’instant.')).toBeVisible();
+
+		// The home: the point is shown as it is kept, to about 1 km, and stored so; nothing is sent before "Enregistrer".
+		await page.getByRole('button', { name: 'Indiquer ma maison' }).click();
+		await expect(page.getByLabel('Nom du lieu')).toHaveValue('Maison');
+		await page.getByLabel('Chercher un lieu').fill('Corte');
+		await page
+			.getByRole('button', { name: /^Corte/ })
+			.first()
+			.click();
+		await expect(page.locator('#picked')).toContainText(/à environ 1 km près : 42\.3\d, 9\.1\d$/);
+		expect(await places()).toHaveLength(0);
+		await page.getByRole('button', { name: 'Enregistrer' }).click();
+		await expect(page.locator('.status')).toHaveText('Votre maison est enregistrée.');
+		const [home] = await places();
+		expect(home).toMatchObject({ name: 'Maison', kind: 'home', radius_km: 25, public: false });
+		expect(Math.round(home.lat * 100) / 100).toBe(home.lat);
+		expect(Math.round(home.lon * 100) / 100).toBe(home.lon);
+		expect((await blocks()).filter((b) => b.place === home.id)).toHaveLength(3);
+
+		// A place found by name, its radius chosen, its first cards put on the page.
+		await page.getByRole('button', { name: '+ Ajouter un lieu' }).click();
+		await page.getByLabel('Chercher un lieu').fill('Corte');
+		await page
+			.getByRole('button', { name: /^Corte/ })
+			.first()
+			.click();
+		await expect(page.getByLabel('Nom du lieu')).toHaveValue(/^Corte, /);
+		await page.getByLabel('Rayon regardé').selectOption('10');
+		await page.getByRole('button', { name: 'Enregistrer' }).click();
+		await expect(page.locator('.status')).toHaveText('Le lieu est ajouté.');
+		const added = (await places()).find((p) => p.kind === 'place')!;
+		expect(added).toMatchObject({ radius_km: 10, public: false });
+		expect(Math.round(added.lat * 1000) / 1000).toBe(added.lat);
+		expect((await blocks()).filter((b) => b.place === added.id)).toHaveLength(3);
+
+		// Edited: the name changes, the point stays.
+		await page.getByRole('button', { name: `Modifier ${added.name}` }).click();
+		await page.getByLabel('Nom du lieu').fill('Mon coin');
+		await page.getByRole('button', { name: 'Enregistrer' }).click();
+		await expect(page.locator('.status')).toHaveText('Le lieu est modifié.');
+		const edited = (await places()).find((p) => p.id === added.id)!;
+		expect(edited).toMatchObject({ name: 'Mon coin', lat: added.lat, lon: added.lon, radius_km: 10 });
+
+		// A phone: the editor fits, and what is asked before a deletion is not a pop-up.
+		await page.getByRole('button', { name: 'Modifier Mon coin' }).click();
+		await page.setViewportSize({ width: 375, height: 812 });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		await page.setViewportSize({ width: 1280, height: 720 });
+		await page.getByRole('button', { name: 'Annuler' }).click();
+
+		// Deleted only once confirmed, and its cards leave the page with it.
+		await page.getByRole('button', { name: 'Supprimer Mon coin' }).click();
+		await expect(page.getByText('Supprimer « Mon coin » ?')).toBeVisible();
+		await page.getByRole('button', { name: 'Non, garder' }).click();
+		expect(await places()).toHaveLength(2);
+		await page.getByRole('button', { name: 'Supprimer Mon coin' }).click();
+		await page.getByRole('button', { name: 'Oui, supprimer' }).click();
+		await expect(page.locator('.status')).toHaveText('Le lieu est supprimé.');
+		expect((await places()).map((p) => p.kind)).toEqual(['home']);
+		expect((await blocks()).every((b) => b.place === home.id)).toBe(true);
+
+		// The page itself reads the places again, and the home is a place like the others there.
+		await page.getByRole('link', { name: 'Ma page' }).first().click();
+		await expect(
+			page.getByRole('navigation', { name: 'Vos lieux' }).getByRole('button', { name: 'Maison' })
+		).toBeVisible();
+	} finally {
+		await sql.end();
+	}
+});
+
 test('a recovery invitation adds a passkey to an account; the last one cannot be removed', async ({
 	page,
 	browser
