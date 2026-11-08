@@ -21,7 +21,7 @@
 	const nav = [
 		{ href: '/', key: 'nav.map', short: 'nav.mapShort' },
 		{ href: '/near', key: 'nav.near' },
-		{ href: '/surf', key: 'nav.surf' },
+		{ href: '/sea', key: 'nav.sea' },
 		{ href: '/sky', key: 'nav.sky' },
 		{ href: '/travel', key: 'nav.travel' },
 		{ href: '/countries', key: 'nav.countries' },
@@ -32,7 +32,9 @@
 	function current(href: string): boolean {
 		return href === '/'
 			? path === '/'
-			: path.startsWith(href) || (href === '/countries' && path.startsWith('/country'));
+			: path.startsWith(href) ||
+					(href === '/countries' && path.startsWith('/country')) ||
+					(href === '/sea' && path.startsWith('/surf'));
 	}
 </script>
 

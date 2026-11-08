@@ -54,7 +54,9 @@ const targets = [
 		'/v1/activities/soorts-hossegor-plage-sud-point-d-or?days=3',
 		'/v1/activities/soorts-hossegor-plage-sud-point-d-or'
 	],
-	['surf-buoys', '/v1/surf/buoys']
+	['surf-buoys', '/v1/surf/buoys'],
+	// The headline of the four activities of every spot at once (the sea pages), asked with the default wind range of the kite.
+	['activities-overview', '/v1/activities/overview']
 ];
 
 await mkdir(out, { recursive: true });
