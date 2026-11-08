@@ -16,6 +16,16 @@ import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
 import {
+	collectNamedIds,
+	isPlaceId,
+	placeAnswerFromApi,
+	placeListFromApi,
+	placesQueryString,
+	type PlacesQuery,
+	type SeaPlaceAnswer,
+	type SeaPlaceList
+} from '#lib/sea/places.js';
+import {
 	surfForecastFromApi,
 	surfOverviewFromApi,
 	surfSpotsFromApi,
@@ -99,7 +109,11 @@ export const TTL_S = {
 	// The headline of the verdicts of every spot: the API works it out once an hour and per five minutes of warnings.
 	seaOverview: 600,
 	// The nearest buoy of every spot comes from a list bundled in the API: it changes with a new version of it only.
-	surfBuoys: 86_400
+	surfBuoys: 86_400,
+	// The places of the coast are a file bundled in the API (built once, ADR 0021 of the API): no provider is asked, and the
+	// answer is the same all day. The ids of the named places (the sitemap) are read through a few pages: kept longer.
+	seaPlaces: 3600,
+	seaPlaceIds: 21_600
 } as const;
 
 const cache = new TtlCache();
@@ -483,6 +497,42 @@ export function getActivitiesOverview(
 		if (!rangeBudget.take()) throw new BudgetError('The wind ranges asked for today are used up');
 		return read(`?wind_min_kn=${min}&wind_max_kn=${max}`);
 	});
+}
+
+// The catalogue of the coast reads a file of the API, whatever is asked: its own small cache keeps a visitor's search words from
+// pushing the shared answers out, and what it holds is bounded.
+const placesCache = new TtlCache(Date.now, 15_000, 400);
+
+/** The places of the coast that answer a question (kind, distance from a point, words), as the API gives them. */
+export function getSeaPlaces(query: PlacesQuery): Promise<Cached<SeaPlaceList>> {
+	const qs = placesQueryString(query);
+	return placesCache.get(`sea-places:${qs}`, TTL_S.seaPlaces * 1000, async () => {
+		const list = placeListFromApi(await getJson(`/v1/sea/places?${qs}`, 15_000));
+		if (!list) throw new ApiError('Vigie API gave no list of places', null);
+		return list;
+	});
+}
+
+/** One place of the coast by its id; null for an id the API does not know (or one that cannot be an id). */
+export async function getSeaPlace(id: string): Promise<Cached<SeaPlaceAnswer> | null> {
+	if (!isPlaceId(id)) return null;
+	try {
+		return await placesCache.get(`sea-place:${id}`, TTL_S.seaPlaces * 1000, async () => {
+			const answer = placeAnswerFromApi(await getJson(`/v1/sea/places/${encodeURIComponent(id)}`, 15_000));
+			if (!answer) throw new ApiError(`Vigie API gave no place for ${id}`, null);
+			return answer;
+		});
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
+}
+
+/** The ids of the places that have a name (the sitemap): every kind, page by page, or an error if one page cannot be read. */
+export function getNamedPlaceIds(): Promise<Cached<string[]>> {
+	return cache.get('sea-place-ids', TTL_S.seaPlaceIds * 1000, () =>
+		collectNamedIds(async (type, offset) => (await getSeaPlaces({ types: [type], limit: 500, offset })).value)
+	);
 }
 
 /** The nearest CANDHIS wave buoy of every spot. */
