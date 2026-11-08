@@ -27,7 +27,7 @@
 		</div>
 		<div class="tv-sub tv-mut">{[wind.word, wind.from, wind.relative].filter(Boolean).join(' · ')}</div>
 		<!-- The compact tile (beside a large card) keeps the figures: the hours are on the dial. -->
-		{#if !compact}
+		{#if !compact && wind.bars.length}
 			<div class="tv-grow tv-bars-box"><Bars bars={wind.bars} /></div>
 		{/if}
 	{:else}

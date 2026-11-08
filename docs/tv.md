@@ -71,6 +71,51 @@ shown with a button to copy it and a link to open it.
 - **Credits and warning** are always at the foot of the screen: a television cannot follow a link. The QR code in a
   corner opens the full page of the place on a phone.
 
+## A personal page on a screen
+
+`/tv/p/<secret>` shows the page of an account ("My page", behind a sign-in) on a screen that has no keyboard to sign in with:
+a television, a tablet on a wall. Whoever holds the address sees that page, and nothing else of the account. The secret is
+made when the person makes a link, shown once, and only its SHA-256 is kept; the rules of the link (what it shows, that it
+can be revoked, the headers) are written in ADR 0020 of vigie-api, and `src/lib/server/pageLinks.ts` keeps them.
+
+It is the same screen as above (the clock, the day and the night, the turns, the new readings, the "offline" line), with one
+panel for each block of the page, in the order the person set, and above it the place and the card:
+
+| Card      | What the panel shows                                                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `weather` | The sky (temperature, feels-like, UV, the sun of the place), the wind now, the rain of the next hour.                |
+| `sea`     | The swell (the waves when the API gives no swell), the temperature of the sea (a model value), the wind now.         |
+| `tide`    | The curve of the tide for 24 hours, the next two high and low waters, the range, the coefficient where it is French. |
+| `air`     | The European index as the API gives it (no word is added to it) and the fine particles.                              |
+
+- **What it leaves out.** The official warnings, the hazards, the surf spots and the sky cards are not drawn yet: the screen
+  skips them, and says "nothing to show here" for a page that has none of the four above (the home alone, for one) instead
+  of an error. The size of a block means nothing on a television. The units of the account are not applied yet: the screen
+  speaks in °C, knots and metres. A page of more than 12 such blocks shows the first 12 (`MAX_PANELS`).
+- **The clock.** It is the clock of the first place whose weather answered (the API gives the offset of the time zone of
+  each point). Without one the clock stays empty, and the times of the tides are dashes: the screen does not write the hour
+  of another zone. The day and the night follow the sun of that first place, worked out by `src/lib/tv/sun.ts` (the
+  sunrise equation, within two minutes of the sun the API gives for a spot, checked against a recorded answer).
+- **The address.** `d`, `theme`, `r` and `reload` mean the same as above. The language is the account's, not the browser's.
+- **The answers.** 200 with the screen; 200 with a message for a page with nothing to draw; 404, with the words of any other
+  404, for a link that is unknown, revoked or badly formed (one cannot be told from the other); 503 when the database does
+  not answer, and then a screen that was showing keeps its last value and says it is offline. A screen whose link is revoked
+  reads the 404 at its next reading and reloads, so it shows the 404 too, within about 5 minutes of the revocation (the
+  site keeps a read for a minute).
+- **The secret stays in the address.** It is not in the title of the page (always `Vigie · TV`), in an attribute, in a log, in
+  an error. The headers of the address (`Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`,
+  `X-Robots-Tag: noindex, nofollow`) are the site's (`securityHeaders.ts`), not the route's. The page has no link at all, and
+  loads nothing from another site. One thing needed a fix of its own: the stylesheets of the site are inlined in the page, and
+  Chromium then sent the address of the page as `Referer` for each font file (the same site, but an access log keeps it)
+  whatever the header said. The page therefore preloads its five font files with `referrerpolicy="no-referrer"`, and the
+  stylesheet reuses them; `e2e/tv-private.spec.ts` fails if any request of the page carries a `Referer`. A browser older than
+  Chromium 56 does not know the header: its requests carry the address, to this site only, so the access log of the Deck
+  should not keep `Referer` (the example skips the address itself).
+- **What it asks of the API.** Each place of a drawn block costs one reading of the weather (15 minutes, from the same
+  share as the screens of the spots, `VIGIE_TV_POINT_LOOKUPS_PER_DAY`: at most 96 a day for each place, whatever the number of
+  screens) and, for a tide card, one reading of the tide. Several blocks of one place share their readings. Past the share, the
+  panels say "no data".
+
 ## What it needs
 
 A browser of 2018 or later (Chromium 53 and newer: the browsers of most smart televisions of 2018 to 2021). The page
@@ -99,3 +144,8 @@ per cell, about 340 for the 14 cells (weight 1.0 each), and nothing when the API
 
 - The temperature of the water of the beach itself: the card gives a model value, not a measurement; a nearer source is not chosen.
 - It has been looked at in a desktop browser at 1280 × 720, 1920 × 1080 and 3840 × 2160; not yet on a television.
+- The cards a screen of a personal page does not draw (official warnings, hazards, surf spots, sky), the units of the account
+  and the sizes of the blocks: see "A personal page on a screen".
+- That screen has been looked at in a desktop browser at 1920 × 1080 and by the end-to-end tests; not yet on a television, and
+  not at other ratios.
+- The page that makes and revokes the links (in "My page") is another piece of work.

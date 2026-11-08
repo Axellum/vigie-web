@@ -909,3 +909,44 @@
 .tv-link {
 	color: var(--tv-accent);
 }
+
+/* The screen of a personal page (docs/tv.md): the title of the page where /tv has the place, and above the tiles of each panel a line
+   that says which place and which card. Margins, not `gap`: the oldest televisions' browsers do not know it on flex boxes. */
+.tv-head-title {
+	flex: 1 1 0;
+	min-width: 0;
+	padding-right: 4rem;
+}
+.tv-place-page {
+	font-size: 7rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.tv-shared-head {
+	flex: none;
+	display: flex;
+	align-items: baseline;
+	margin-bottom: 2.2rem;
+}
+.tv-shared-place {
+	min-width: 0;
+	margin-right: 3rem;
+	font-size: 6.4rem;
+	line-height: 1.1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.tv-rain-tile .tv-rain-word-big {
+	margin-top: 1.2rem;
+	font-size: 9rem;
+}
+.tv-rain-bars.tv-rain-bars-big {
+	flex: none;
+	width: auto;
+	height: 26rem;
+}
+.tv-rain-bars-big .tv-rain-bar {
+	margin-right: 1.2rem;
+}

@@ -5,6 +5,7 @@
    - the clock runs on the clock of the server (a television's own is often wrong) and on the time zone of the place;
    - the panels take turns; with one panel, or without this script, the first one stays;
    - the day and the night follow the sun (`data-windows`) unless the address fixed a theme;
+   - a clock without a time zone stays empty (the screen of a personal page whose places did not give theirs);
    - every few minutes it reads the page again and puts the new screen in place of the old one; when the site does not answer it keeps
      the last screen and says "offline, last update hh:mm" instead of an empty screen or an error;
    - it reloads the whole page every few hours, and as soon as the site has a new version, against a memory that grows over days;
@@ -76,6 +77,10 @@
 
 	function showClock() {
 		if (attr('data-state', '') !== 'screen') return;
+		/* A screen that does not know the time zone of its place (the weather of the page did not say) leaves the clock empty
+		   rather than showing the hour of another zone. */
+		var root = byId('tv-root');
+		if (!root || root.getAttribute('data-offset') === null) return;
 		var d = placeTime();
 		setText('tv-clock', pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()));
 		try {
@@ -207,6 +212,12 @@
 		xhr.timeout = 30000;
 		xhr.onload = function () {
 			var ok = false;
+			/* The address is not known any more (the link of a personal page was revoked): the page itself says so, with the same
+			   answer as for any address that does not exist. A reading that failed some other way is only "offline". */
+			if (xhr.status === 404) {
+				window.location.reload();
+				return;
+			}
 			if (xhr.status === 200) {
 				try {
 					ok = swap(xhr.responseText);
