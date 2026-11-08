@@ -10,9 +10,12 @@ import {
 	listPlaces,
 	PlaceError,
 	removePlace,
+	setAlerts,
 	setHome,
 	updatePlace
 } from '#lib/server/savedPlaces.js';
+import { ZoneError } from '#lib/server/zones.js';
+import { MAX_ZONES } from '#lib/zones.js';
 import type { Actions, PageServerLoad } from './$types';
 
 // Private, like the page it belongs to: no shared cache and not the service worker's either.
@@ -29,6 +32,7 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 	const places = await listPlaces(sql, user.id);
 	return {
 		max: MAX_PLACES,
+		maxZones: MAX_ZONES,
 		places: places.map((p) => ({
 			id: p.id,
 			name: p.name,
@@ -36,7 +40,9 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 			lat: p.lat,
 			lon: p.lon,
 			radiusKm: p.radiusKm,
-			profile: p.profile
+			profile: p.profile,
+			/** Whether a zone sends this place's alerts. */
+			alerts: p.zoneId !== null
 		}))
 	};
 };
@@ -53,6 +59,8 @@ async function signedIn(event: Parameters<Actions[string]>[0]) {
 
 function refused(e: unknown) {
 	if (e instanceof PlaceError) return fail(400, { error: e.code });
+	// The account already holds the most zones: the alerts of a place are a zone.
+	if (e instanceof ZoneError && e.code === 'full') return fail(400, { error: 'zones' });
 	throw e;
 }
 
@@ -131,6 +139,21 @@ export const actions: Actions = {
 			}
 		}
 		return count > 0 ? { done: 'imported' as const, count } : fail(400, { error: 'shape' });
+	},
+
+	/** The alerts of a place, on or off (`on` is "1" or "0"): a zone of the place's own point and radius. */
+	alerts: async (event) => {
+		const { sql, user } = await signedIn(event);
+		const form = await event.request.formData();
+		const id = form.get('id');
+		const on = form.get('on');
+		if (typeof id !== 'string' || (on !== '1' && on !== '0')) return fail(400, { error: 'unknown' });
+		try {
+			await setAlerts(sql, user.id, id, on === '1');
+			return { done: on === '1' ? ('alertsOn' as const) : ('alertsOff' as const) };
+		} catch (e) {
+			return refused(e);
+		}
 	},
 
 	/** A place goes, and so do its cards on every page of the account. */

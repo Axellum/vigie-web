@@ -11,6 +11,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MAX_PLACES } from '../myPlaces';
 import { MAX_BLOCKS, MAX_PAGES } from '../pageConfig';
+import { MAX_ZONES } from '../zones';
 import {
 	appendStarterBlocks,
 	createPage,
@@ -30,9 +31,17 @@ import {
 	readSharedPage,
 	revokeLink
 } from './pageLinks';
-import { addPlace, listPlaces, PlaceError, removePlace, setHome, updatePlace } from './savedPlaces';
+import {
+	addPlace,
+	listPlaces,
+	PlaceError,
+	removePlace,
+	setAlerts,
+	setHome,
+	updatePlace
+} from './savedPlaces';
 import { prefsFromForm, readPrefs, savePrefs } from './userPrefs';
-import { addZone, listZones } from './zones';
+import { addZone, listZones, ZoneError } from './zones';
 
 const MIGRATIONS = join(import.meta.dirname, 'migrations');
 const files = readdirSync(MIGRATIONS)
@@ -473,6 +482,152 @@ describe('the private links of a page', () => {
 		forgetSharedPages();
 		expect(await readSharedPage(sql, token)).toBeNull();
 		expect(await sql`select 1 from page_links where user_id = ${u}`).toHaveLength(0);
+	});
+});
+
+describe('the alerts of a place', () => {
+	const zoneOf = async (placeId: string) =>
+		(await sql`select zone_id from places where id = ${placeId}`)[0].zone_id as string | null;
+	const baseline = async (zoneId: string) =>
+		(await sql`select baseline_done from zones where id = ${zoneId}`)[0].baseline_done as boolean;
+
+	it('are a circle zone of the place, with the levels and kinds a new zone starts from', async () => {
+		const u = await user('alerts-on');
+		const place = await addPlace(sql, u, {
+			...spot,
+			name: 'Plage des Basques',
+			radiusKm: 50,
+			profile: 'surf'
+		});
+		expect(await zoneOf(place)).toBeNull();
+		await setAlerts(sql, u, place, true);
+		const [zone] = await listZones(sql, u);
+		expect(zone).toMatchObject({
+			name: 'Plage des Basques',
+			kind: 'circle',
+			lat: 43.666,
+			lon: -1.445,
+			radiusKm: 50,
+			profile: 'surf',
+			minLevel: 'YELLOW'
+		});
+		expect(zone.kinds).toContain('VIGILANCE');
+		expect(zone.kinds).not.toContain('SOLAR_STORM');
+		expect(await zoneOf(place)).toBe(zone.id);
+		// The surface exists, so that the matching finds the zone.
+		const [{ n }] = await sql<
+			{ n: number }[]
+		>`select count(*)::int as n from zones where id = ${zone.id} and geom is not null`;
+		expect(n).toBe(1);
+		// On again: the same zone, not a second one.
+		await setAlerts(sql, u, place, true);
+		expect(await listZones(sql, u)).toHaveLength(1);
+	});
+
+	it('go away with their zone when turned off, and turning off twice is fine', async () => {
+		const u = await user('alerts-off');
+		const place = await addPlace(sql, u, spot);
+		const other = await addZone(sql, u, {
+			kind: 'country',
+			country: 'FR',
+			name: 'France',
+			minLevel: 'RED',
+			kinds: ['VIGILANCE'],
+			profile: null
+		});
+		await setAlerts(sql, u, place, true);
+		expect(await listZones(sql, u)).toHaveLength(2);
+		await setAlerts(sql, u, place, false);
+		await setAlerts(sql, u, place, false);
+		expect(await zoneOf(place)).toBeNull();
+		// A zone the account holds besides the place's is not touched.
+		expect((await listZones(sql, u)).map((z) => z.id)).toEqual([other]);
+	});
+
+	it('follow the place: its name, point, radius and profile move the zone, and a zone that moved is compared again silently', async () => {
+		const u = await user('alerts-follow');
+		const place = await addPlace(sql, u, spot);
+		await setAlerts(sql, u, place, true);
+		const zone = (await zoneOf(place))!;
+		await sql`update zones set baseline_done = true where id = ${zone}`;
+		// Renamed only: still the same baseline.
+		await updatePlace(sql, u, place, { ...spot, name: 'Autre nom' });
+		expect(await baseline(zone)).toBe(true);
+		expect((await listZones(sql, u))[0].name).toBe('Autre nom');
+		// Moved and resized: the zone is where the place is, and is baselined again.
+		await updatePlace(sql, u, place, {
+			name: 'Autre nom',
+			lat: 48.1,
+			lon: -4.3,
+			radiusKm: 100,
+			profile: 'sea'
+		});
+		expect(await baseline(zone)).toBe(false);
+		expect((await listZones(sql, u))[0]).toMatchObject({
+			name: 'Autre nom',
+			lat: 48.1,
+			lon: -4.3,
+			radiusKm: 100,
+			profile: 'sea'
+		});
+		// The surface moved with it: the point is inside, the old one is not.
+		const [inside] = await sql<{ near: boolean; far: boolean }[]>`
+			select ST_Covers(geom, ST_SetSRID(ST_MakePoint(-4.3, 48.1), 4326)::geography) as near,
+				ST_Covers(geom, ST_SetSRID(ST_MakePoint(-1.445, 43.666), 4326)::geography) as far
+			from zones where id = ${zone}`;
+		expect(inside).toEqual({ near: true, far: false });
+	});
+
+	it('work for the home too, at the point it is kept (about 1 km), and follow it when it moves', async () => {
+		const u = await user('alerts-home');
+		const home = await setHome(sql, u, { ...spot, name: 'Maison', lat: 43.66612, lon: -1.44478 });
+		await setAlerts(sql, u, home, true);
+		expect((await listZones(sql, u))[0]).toMatchObject({ name: 'Maison', lat: 43.67, lon: -1.44 });
+		await setHome(sql, u, { ...spot, name: 'Maison', lat: 48.8566, lon: 2.3522 });
+		expect((await listZones(sql, u))[0]).toMatchObject({ lat: 48.86, lon: 2.35 });
+		expect(await zoneOf(home)).not.toBeNull();
+	});
+
+	it('leave a zone that is not a circle as it is, and stay when the place goes (the zone is the person’s)', async () => {
+		const u = await user('alerts-kept');
+		const country = await addZone(sql, u, {
+			kind: 'country',
+			country: 'FR',
+			name: 'France',
+			minLevel: 'RED',
+			kinds: ['VIGILANCE'],
+			profile: null
+		});
+		const place = await addPlace(sql, u, spot);
+		await sql`update places set zone_id = ${country} where id = ${place}`;
+		await updatePlace(sql, u, place, { ...spot, name: 'Renommé', lat: 1, lon: 1 });
+		expect((await listZones(sql, u))[0]).toMatchObject({ name: 'France', kind: 'country', lat: null });
+		await removePlace(sql, u, place);
+		expect(await listZones(sql, u)).toHaveLength(1);
+	});
+
+	it('stop at MAX_ZONES zones without half doing it, and never touch the place of another account', async () => {
+		const u = await user('alerts-full');
+		for (let i = 0; i < MAX_ZONES; i++)
+			await addZone(sql, u, {
+				kind: 'circle',
+				lat: 40 + i,
+				lon: 2,
+				radiusKm: 25,
+				name: `Z${i}`,
+				minLevel: 'YELLOW',
+				kinds: ['VIGILANCE'],
+				profile: null
+			});
+		const place = await addPlace(sql, u, spot);
+		await expect(setAlerts(sql, u, place, true)).rejects.toBeInstanceOf(ZoneError);
+		expect(await zoneOf(place)).toBeNull();
+		expect(await listZones(sql, u)).toHaveLength(MAX_ZONES);
+
+		const mine = await user('alerts-mine');
+		await expect(setAlerts(sql, mine, place, true)).rejects.toBeInstanceOf(PlaceError);
+		await expect(setAlerts(sql, mine, 'not-an-id', true)).rejects.toBeInstanceOf(PlaceError);
+		expect(await listZones(sql, mine)).toEqual([]);
 	});
 });
 

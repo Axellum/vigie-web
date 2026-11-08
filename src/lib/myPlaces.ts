@@ -3,11 +3,19 @@
 // form sends; the database (src/lib/server/savedPlaces.ts) enforces the same limits.
 import { cleanName } from './names';
 import { asProfile, type Profile } from './profiles';
-import { ZONE_RADII_KM } from './zones';
+import type { Level } from './types';
+import { ALERT_KINDS, ZONE_RADII_KM, type AlertKind } from './zones';
 
 /** The places a person can keep besides their home. */
 export const MAX_PLACES = 20;
 export const DEFAULT_RADIUS_KM = 25;
+
+/** What the alerts of a place are until the person says otherwise on their account: the lowest level and the kinds the
+ *  form for a new zone starts from (every kind but the solar storms). */
+export const ALERT_DEFAULTS: { minLevel: Level; kinds: AlertKind[] } = {
+	minLevel: 'YELLOW',
+	kinds: ALERT_KINDS.filter((k) => k !== 'SOLAR_STORM')
+};
 
 export type PlaceKind = 'place' | 'home';
 

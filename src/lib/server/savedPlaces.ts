@@ -1,9 +1,10 @@
 // The places an account keeps for "My page", in the database. (src/lib/server/places.ts is the search by name.)
 // The home is a place of kind 'home': at most one, stored to about 1 km, and never public.
 import { randomUUID } from 'node:crypto';
-import { MAX_PLACES, type PlaceKind, type SavedPlaceInput } from '#lib/myPlaces.js';
+import { ALERT_DEFAULTS, MAX_PLACES, type PlaceKind, type SavedPlaceInput } from '#lib/myPlaces.js';
 import type { Profile } from '#lib/profiles.js';
 import type { Query, Sql } from './db';
+import { addZone, removeZone } from './zones';
 
 export interface SavedPlace {
 	id: string;
@@ -94,12 +95,66 @@ export async function updatePlace(
 	place: SavedPlaceInput
 ): Promise<void> {
 	if (!UUID.test(placeId)) throw new PlaceError('unknown');
-	const updated = await sql`
-		update places set name = ${place.name}, radius_km = ${place.radiusKm}, profile = ${place.profile},
-			lat = round(${place.lat}::numeric, case kind when 'home' then 2 else 3 end)::float8,
-			lon = round(${place.lon}::numeric, case kind when 'home' then 2 else 3 end)::float8
-		where id = ${placeId} and user_id = ${userId} returning id`;
-	if (updated.length === 0) throw new PlaceError('unknown');
+	await sql.begin(async (tx) => {
+		const updated = await tx.unsafe(
+			`update places set name = $3, radius_km = $4, profile = $5,
+				lat = round($6::numeric, case kind when 'home' then 2 else 3 end)::float8,
+				lon = round($7::numeric, case kind when 'home' then 2 else 3 end)::float8
+			where id = $1 and user_id = $2 returning id`,
+			[placeId, userId, place.name, place.radiusKm, place.profile, place.lat, place.lon]
+		);
+		if (updated.length === 0) throw new PlaceError('unknown');
+		await followPlace(tx, userId, placeId);
+	});
+}
+
+/**
+ * Makes the zone that sends a place's alerts say what the place now says (its name, point, radius, profile), when
+ * the place has one and it is a circle: the two are one thing for the person. A zone that moved or changed size is
+ * compared again without notifying (`baseline_done`), as a new zone is: what is in force at its new place is not news.
+ */
+async function followPlace(q: Query, userId: string, placeId: string): Promise<void> {
+	await q.unsafe(
+		`update zones z set name = p.name, lat = p.lat, lon = p.lon, radius_km = p.radius_km, profile = p.profile,
+			geom = ST_Buffer(ST_SetSRID(ST_MakePoint(p.lon, p.lat), 4326)::geography, p.radius_km * 1000.0)::geography(Polygon, 4326),
+			baseline_done = z.baseline_done and z.lat = p.lat and z.lon = p.lon and z.radius_km = p.radius_km
+		from places p
+		where p.id = $1 and p.user_id = $2 and z.id = p.zone_id and z.user_id = $2 and z.kind = 'circle'`,
+		[placeId, userId]
+	);
+}
+
+/**
+ * Turns the alerts of a place on or off. On: a circle zone of the place's own point and radius is made, with the
+ * levels and kinds a new zone starts from, and linked to the place (the person refines them on their account). Off:
+ * that zone is removed, and with it what was recorded for it. Already on or off: nothing changes. A zone the
+ * account holds besides this one is not touched. At most `MAX_ZONES` zones: a `ZoneError('full')` otherwise.
+ */
+export async function setAlerts(sql: Sql, userId: string, placeId: string, on: boolean): Promise<void> {
+	if (!UUID.test(placeId)) throw new PlaceError('unknown');
+	const [place] = await sql<Row[]>`
+		select id, name, kind, lat, lon, radius_km, profile, public, zone_id, created_at
+		from places where id = ${placeId} and user_id = ${userId}`;
+	if (!place) throw new PlaceError('unknown');
+	if (!on) {
+		if (place.zone_id) await removeZone(sql, userId, place.zone_id);
+		return;
+	}
+	if (place.zone_id) return;
+	const zoneId = await addZone(sql, userId, {
+		kind: 'circle',
+		name: place.name,
+		lat: place.lat,
+		lon: place.lon,
+		radiusKm: place.radius_km,
+		profile: place.profile,
+		...ALERT_DEFAULTS
+	});
+	// Two requests that both found no zone: the later one gives its zone back.
+	const linked = await sql`
+		update places set zone_id = ${zoneId} where id = ${placeId} and user_id = ${userId} and zone_id is null
+		returning id`;
+	if (linked.length === 0) await removeZone(sql, userId, zoneId).catch(() => {});
 }
 
 /** Sets the home: the first time it makes one, then it moves the same one (its blocks stay on the pages). The point
@@ -113,6 +168,7 @@ export async function setHome(sql: Sql, userId: string, place: SavedPlaceInput):
 		do update set name = excluded.name, lat = excluded.lat, lon = excluded.lon,
 			radius_km = excluded.radius_km, profile = excluded.profile
 		returning id`;
+	await followPlace(sql, userId, row.id);
 	return row.id;
 }
 

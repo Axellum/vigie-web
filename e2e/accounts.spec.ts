@@ -424,6 +424,96 @@ test('my places: a home kept to about 1 km, a place found by name with its first
 	}
 });
 
+test('the alerts of a place are a zone: turned on, followed when the place changes, turned off, limited', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Alix');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		// Simple protocol, like the other helpers that read while the site writes: the test database serves one
+		// PostgreSQL session to everybody, and a statement in several steps can be cut by the site's own queries.
+		const [user] = await sql.unsafe(`select id from users where name = '${name}'`);
+		await sql.unsafe(
+			`insert into places (id, user_id, name, lat, lon, radius_km) values (gen_random_uuid(), '${user.id}', 'Plage', 43.666, -1.445, 25)`
+		);
+		const zones = async () =>
+			(await sql.unsafe(
+				`select id, name, kind, lat, lon, radius_km, min_level, kinds from zones where user_id = '${user.id}' order by created_at`
+			)) as unknown as {
+				id: string;
+				name: string;
+				kind: string;
+				lat: number;
+				lon: number;
+				radius_km: number;
+				min_level: string;
+				kinds: string[];
+			}[];
+		const linked = async () =>
+			(await sql.unsafe(`select zone_id from places where user_id = '${user.id}' and name = 'Plage'`))[0]
+				.zone_id as string | null;
+
+		await page.goto('/me/places');
+		await expect(page.getByRole('button', { name: /^Alertes : non/ })).toBeVisible();
+		expect(await zones()).toHaveLength(0);
+
+		// On: a zone of the place's own point and radius, linked to it, with the levels a new zone starts from.
+		await page.getByRole('button', { name: 'Alertes : non · Plage' }).click();
+		await expect(page.locator('.status')).toHaveText('Les alertes de ce lieu sont activées.');
+		await expect(page.getByRole('button', { name: 'Alertes : oui · Plage' })).toBeVisible();
+		const [zone] = await zones();
+		expect(zone).toMatchObject({
+			name: 'Plage',
+			kind: 'circle',
+			lat: 43.666,
+			lon: -1.445,
+			radius_km: 25,
+			min_level: 'YELLOW'
+		});
+		expect(zone.kinds).toContain('VIGILANCE');
+		expect(await linked()).toBe(zone.id);
+		// The account page lists it like any zone.
+		await page.goto('/account');
+		await expect(page.getByText('Plage').first()).toBeVisible();
+
+		// Changing the radius of the place changes its zone; the question before a deletion says the alerts go on.
+		await page.goto('/me/places');
+		await page.setViewportSize({ width: 375, height: 812 });
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		await page.setViewportSize({ width: 1280, height: 720 });
+		await page.getByRole('button', { name: 'Modifier Plage' }).click();
+		await page.getByLabel('Rayon regardé').selectOption('50');
+		await page.getByRole('button', { name: 'Enregistrer' }).click();
+		await expect(page.locator('.status')).toHaveText('Le lieu est modifié.');
+		expect((await zones())[0]).toMatchObject({ id: zone.id, radius_km: 50 });
+		await page.getByRole('button', { name: 'Supprimer Plage' }).click();
+		await expect(page.getByText('ses alertes continuent')).toBeVisible();
+		await page.getByRole('button', { name: 'Non, garder' }).click();
+
+		// Off: the zone goes, the place stays.
+		await page.getByRole('button', { name: 'Alertes : oui · Plage' }).click();
+		await expect(page.locator('.status')).toHaveText('Les alertes de ce lieu sont coupées.');
+		expect(await zones()).toHaveLength(0);
+		expect(await linked()).toBeNull();
+
+		// An account that already follows the most zones is told so, and nothing is half done.
+		for (let i = 0; i < 10; i++)
+			await sql.unsafe(`
+				insert into zones (id, user_id, name, kind, lat, lon, radius_km, kinds, geom)
+				values (gen_random_uuid(), '${user.id}', 'Z${i}', 'circle', ${40 + i}, 2, 25, '{VIGILANCE}',
+					ST_Buffer(ST_SetSRID(ST_MakePoint(2, ${40 + i}), 4326)::geography, 25000)::geography(Polygon, 4326))`);
+		await page.getByRole('button', { name: 'Alertes : non · Plage' }).click();
+		await expect(page.getByRole('alert')).toContainText('suit déjà 10 zones');
+		expect(await zones()).toHaveLength(10);
+		expect(await linked()).toBeNull();
+	} finally {
+		await sql.end();
+	}
+});
+
 test('the units and the language are kept in the account, and the cards of the page follow them', async ({
 	page,
 	context
