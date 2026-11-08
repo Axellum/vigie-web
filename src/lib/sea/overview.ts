@@ -116,17 +116,8 @@ export function seaOverviewFromApi(raw: unknown): SeaOverview | null {
 
 // --- the activities in the address -------------------------------------------------------------------------------------------
 
-/** The address of each activity: `/sea/<slug>`. The API's `shore_fishing` has a hyphen in the address. */
-export const SLUGS: Record<ActivityId, string> = {
-	surf: 'surf',
-	kite: 'kite',
-	boat: 'boat',
-	shore_fishing: 'shore-fishing'
-};
-
-export function activityOfSlug(slug: string): ActivityId | null {
-	return ACTIVITY_IDS.find((id) => SLUGS[id] === slug) ?? null;
-}
+// The address of each activity lives in `slugs.ts` (loaded by Node at build time); it is re-exported here with the rest.
+export { activityOfSlug, SLUGS } from './slugs';
 
 // --- putting the spots in order ----------------------------------------------------------------------------------------------
 

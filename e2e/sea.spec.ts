@@ -26,8 +26,7 @@ function collectErrors(page: Page): string[] {
 	return errors;
 }
 
-const stored = (page: Page) =>
-	page.evaluate(() => JSON.parse(localStorage.getItem('vigie-sea') ?? 'null'));
+const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('vigie-sea') ?? 'null'));
 
 test('the sea page answers "should you go?" for an activity, with every spot, the verdict as a word and a sign', async ({
 	page
@@ -80,7 +79,8 @@ test('an activity has its own address, is remembered in this browser only, and t
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/sea\/kite$/);
 	const pills = page.getByRole('navigation', { name: 'Mon activité' });
 	await expect(pills.getByRole('link', { name: /^Kite/ })).toHaveAttribute('aria-current', 'page');
-	await expect(page.getByText('Plage de vent du kite : 12 à 25 nœuds.')).toBeVisible();
+	// The default range of the API (12 to 25 knots), said in the default unit, km/h.
+	await expect(page.getByText('Plage de vent du kite : 22 à 46 km/h.')).toBeVisible();
 	expect(await stored(page)).toBeNull(); // looking is not choosing
 
 	// Choosing the boat: its address, and the choice kept; the bare address then shows it.
@@ -111,9 +111,7 @@ test('an activity has its own address, is remembered in this browser only, and t
 	expect(errors).toEqual([]);
 });
 
-test('around a followed place the nearest spots come first, and the others are folded', async ({
-	page
-}) => {
+test('around a followed place the nearest spots come first, and the others are folded', async ({ page }) => {
 	await page.addInitScript(() =>
 		localStorage.setItem(
 			'vigie-places',

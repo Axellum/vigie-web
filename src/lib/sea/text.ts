@@ -38,7 +38,7 @@ const TEXT = {
 		locating: 'Recherche de la position…',
 		locateFailed: 'La position n’a pas pu être lue : elle n’est demandée que sur un clic.',
 		locateNote:
-			'La position reste dans votre navigateur ; elle n’est envoyée à personne. Un lieu suivi dans « Près de moi » est repris tout seul.',
+			'La position reste dans votre navigateur ; elle n’est envoyée à personne. Un lieu suivi dans « Autour de moi » est repris tout seul.',
 		stopLocate: 'Tous les spots',
 		spots: 'Les spots',
 		spotsFar: 'Plus loin ({count} spots)',

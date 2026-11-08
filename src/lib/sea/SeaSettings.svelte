@@ -24,7 +24,8 @@
 	} = $props();
 
 	const t = (key: string, vars: Record<string, string | number> = {}) => seaText(lang, key, vars);
-	const shown = (kn: number) => String(Math.round(fromKn(kn, choice.unit) * 10) / 10);
+	// Whole numbers: the API takes whole knots, so a tenth of a km/h would promise a precision it does not keep.
+	const shown = (kn: number) => String(Math.round(fromKn(kn, choice.unit)));
 
 	// The fields follow the range in force (the one chosen, else the API's) and the unit.
 	let from = $state('');
@@ -104,7 +105,11 @@
 				<span>{unitLabel(lang, choice.unit)}</span>
 			</div>
 			<p id="wind-help" class="muted small">
-				{t('windHelp', { min: number(lang, 1, 0), max: maxShown, unit: unitLabel(lang, choice.unit) })}
+				{t('windHelp', {
+					min: number(lang, fromKn(1, choice.unit), 0),
+					max: maxShown,
+					unit: unitLabel(lang, choice.unit)
+				})}
 			</p>
 			{#if bad}<p class="error small" role="alert">
 					{t('windBad', { max: maxShown, unit: unitLabel(lang, choice.unit) })}
