@@ -1203,3 +1203,58 @@ test('the Android app: a device by its token, a test through FCM, forgotten when
 	await page.goto('/account');
 	await expect(page.getByText('Aucun appareil pour l’instant.')).toBeVisible();
 });
+
+test('"My page" on a screen: a private link is made and shown once, opens the page without a sign-in, and is revoked', async ({
+	page,
+	browser
+}) => {
+	await authenticator(page);
+	const name = unique('Lou');
+	await createAccount(page, name);
+	await page.goto('/me');
+
+	// Made from the section of the page; the address is shown once, with this site's origin.
+	await page.locator('#links summary').click();
+	await page.getByLabel('Nom du lien, pour le reconnaître').fill('Salon');
+	await page.getByRole('button', { name: 'Faire un lien' }).click();
+	const field = page.getByLabel('Adresse de l’écran');
+	await expect(field).toBeVisible();
+	const address = await field.inputValue();
+	expect(address).toMatch(new RegExp(`^${SITE}/tv/p/[A-Za-z0-9_-]{32}$`));
+	await expect(page.getByText('Il ne sera plus affiché')).toBeVisible();
+	const secret = address.split('/').pop()!;
+
+	// Gone with the next load: the list names the link, never the address.
+	await page.reload();
+	await page.locator('#links summary').click();
+	await expect(field).toHaveCount(0);
+	await expect(page.locator('#links li strong')).toHaveText('Salon');
+	await expect(page.locator('#links li')).toContainText('Jamais ouvert');
+	expect(await page.content()).not.toContain(secret);
+
+	// Whoever holds the address sees the page with no account and no cookie, and not the name of the account.
+	const anonymous = await browser.newContext();
+	try {
+		const open = await anonymous.request.get(address);
+		expect(open.status()).toBe(200);
+		expect(await open.text()).not.toContain(name);
+	} finally {
+		await anonymous.close();
+	}
+	await page.reload();
+	await page.locator('#links summary').click();
+	await expect(page.locator('#links li')).toContainText('Dernière ouverture');
+	await expect(page.locator('#links li')).not.toContainText('Jamais ouvert');
+
+	// Revoked after a question; the same address then answers like any other 404.
+	await page.getByRole('button', { name: 'Révoquer Salon' }).click();
+	await expect(page.getByText('Révoquer « Salon » ?')).toBeVisible();
+	await page.getByRole('button', { name: 'Non, garder' }).click();
+	await expect(page.locator('#links li strong')).toHaveText('Salon');
+	await page.getByRole('button', { name: 'Révoquer Salon' }).click();
+	await page.getByRole('button', { name: 'Oui, révoquer' }).click();
+	await expect(page.getByText('Aucun lien actif.')).toBeVisible();
+	await expect(page.getByText('Lien révoqué.')).toBeVisible();
+	const gone = await page.request.get(address);
+	expect(gone.status()).toBe(404);
+});

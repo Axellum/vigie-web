@@ -3,11 +3,13 @@ import { asLang, t } from '#lib/i18n.js';
 import { parseTitle } from '#lib/pageConfig.js';
 import { sessionUser } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
+import { createLink, LinkError, listLinks, MAX_LINKS, revokeLink } from '#lib/server/pageLinks.js';
 import { ensureFirstPage, PageError, savePage } from '#lib/server/pages.js';
 import { setLangCookie } from '#lib/server/langCookie.js';
 import { placeContext } from '#lib/server/placeContext.js';
 import { listPlaces } from '#lib/server/savedPlaces.js';
 import { prefsFromForm, readPrefs, savePrefs } from '#lib/server/userPrefs.js';
+import { TV_CARDS } from '#lib/tv/shared.js';
 import { unitsOf } from '#lib/units.js';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -30,6 +32,11 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 		user: { name: user.name },
 		units: unitsOf(await readPrefs(sql, user.id)),
 		page: { id: page.id, title: page.title, blocks: page.blocks },
+		// The private links of the page (never a secret: only the name, the dates and the hash that names it), and what a
+		// screen can draw of the page (the cards of `TV_CARDS`, the others are left out of its turns).
+		links: (await listLinks(sql, user.id, page.id)).filter((l) => !l.revoked),
+		maxLinks: MAX_LINKS,
+		tvCards: [...TV_CARDS] as string[],
 		places: places.map((p) => ({
 			id: p.id,
 			name: p.name,
@@ -77,5 +84,44 @@ export const actions: Actions = {
 			throw e;
 		}
 		return { saved: true };
+	},
+
+	/**
+	 * Makes a private link for the page. The address is returned once, in the answer of this form, and kept nowhere: not in
+	 * the address of this page, not in a cookie, not in a log. Only its SHA-256 is stored (`pageLinks.ts`).
+	 */
+	linkMake: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
+		const sql = await db();
+		const user = await sessionUser(sql, cookies, url.protocol === 'https:');
+		if (!user) redirect(303, '/login');
+		const form = await request.formData();
+		const page = form.get('page');
+		const label = form.get('label');
+		if (typeof page !== 'string') return fail(400, { linkError: 'unknown' });
+		try {
+			const token = await createLink(sql, user.id, page, typeof label === 'string' ? label.trim() : '');
+			return { madeLink: `/tv/p/${token}` };
+		} catch (e) {
+			if (e instanceof LinkError) return fail(400, { linkError: e.code });
+			throw e;
+		}
+	},
+
+	/** Revokes a link of this account; the screen that uses it reads a 404 at its next reading. */
+	linkRevoke: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
+		const sql = await db();
+		const user = await sessionUser(sql, cookies, url.protocol === 'https:');
+		if (!user) redirect(303, '/login');
+		const id = (await request.formData()).get('id');
+		if (typeof id !== 'string') return fail(400, { linkError: 'unknown' });
+		try {
+			await revokeLink(sql, user.id, id);
+		} catch (e) {
+			if (e instanceof LinkError) return fail(400, { linkError: e.code });
+			throw e;
+		}
+		return { revokedLink: true };
 	}
 };
