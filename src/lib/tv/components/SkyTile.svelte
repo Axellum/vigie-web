@@ -4,7 +4,12 @@
 	import type { TvSky } from '../model.js';
 	import { tvText } from '../text.js';
 
-	let { sky, lang, compact = false }: { sky: TvSky | null; lang: Lang; compact?: boolean } = $props();
+	let {
+		sky,
+		lang,
+		compact = false,
+		water = true
+	}: { sky: TvSky | null; lang: Lang; compact?: boolean; water?: boolean } = $props();
 </script>
 
 <div class="tv-card tv-tile">
@@ -24,7 +29,9 @@
 		</div>
 		<div class="tv-grow"></div>
 		<div class="tv-sky-foot">
-			{#if sky.waterC != null}
+			{#if !water}
+				<div class="tv-grow"></div>
+			{:else if sky.waterC != null}
 				<!-- A value of the ocean model for a cell of about 8 km, said as such under the figure. -->
 				<div class="tv-water tv-water-on">
 					{tvText(lang, 'water')} <b>{number(lang, sky.waterC, 0)}°</b>

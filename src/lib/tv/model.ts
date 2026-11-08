@@ -48,7 +48,7 @@ const BEAUFORT_FROM_KN = [1, 4, 7, 11, 17, 22, 28, 34, 41, 48, 56, 64];
 /** The Beaufort force of a wind in knots (the API's rules round the knots first). */
 export const beaufort = (kn: number): number => BEAUFORT_FROM_KN.filter((b) => Math.round(kn) >= b).length;
 
-const BEAUFORT_WORD = {
+export const BEAUFORT_WORD = {
 	fr: [
 		'calme',
 		'très légère brise',
@@ -327,12 +327,14 @@ export function heightAt(heights: [number, number][], t: number): number | null 
 
 const CURVE = { w: 1000, h: 300, side: 18, pad: 16 };
 
-function tideView(
+export function tideView(
 	curve: TideCurve | null,
 	now: number,
 	lang: Lang,
-	spot: SurfSpot,
-	hoursAhead = 24
+	spot: Pick<SurfSpot, 'lat' | 'lon'>,
+	hoursAhead = 24,
+	/** The time of day of a moment: the spots' time zone unless the screen is for another place. */
+	label: (lang: Lang, t: number) => string = hourLabel
 ): TvTide | null {
 	if (!curve) return null;
 	const t0 = curve.start;
@@ -377,7 +379,7 @@ function tideView(
 		: null;
 	return {
 		trend,
-		next: upcoming.slice(0, 2).map((e) => ({ kind: e.kind, time: hourLabel(lang, e.t) })),
+		next: upcoming.slice(0, 2).map((e) => ({ kind: e.kind, time: label(lang, e.t) })),
 		coefficient,
 		range: upcoming[0]?.range ?? null,
 		curve: drawn

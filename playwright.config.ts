@@ -41,11 +41,11 @@ export default defineConfig({
 		timezoneId: 'Europe/Paris'
 	},
 	projects: [
-		{ name: 'desktop', use: { ...devices['Desktop Chrome'] }, testIgnore: /accounts\.spec/ },
-		{ name: 'mobile', use: { ...devices['Pixel 7'] }, testIgnore: /accounts\.spec/ },
-		// The test database runs one PostgreSQL session for all its connections: the account tests, the only
-		// ones that write to it, run one at a time, in one browser.
-		{ name: 'accounts', use: { ...devices['Desktop Chrome'] }, testMatch: /accounts\.spec/ }
+		{ name: 'desktop', use: { ...devices['Desktop Chrome'] }, testIgnore: /(accounts|tv-private)\.spec/ },
+		{ name: 'mobile', use: { ...devices['Pixel 7'] }, testIgnore: /(accounts|tv-private)\.spec/ },
+		// The test database runs one PostgreSQL session for all its connections: the specs that write to it (the
+		// accounts, and the private link of a page, which seeds its own accounts), run one at a time, in one browser.
+		{ name: 'accounts', use: { ...devices['Desktop Chrome'] }, testMatch: /(accounts|tv-private)\.spec/ }
 	],
 	webServer: [
 		{
