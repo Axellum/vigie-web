@@ -227,3 +227,26 @@ test('a spot page answers first for the activity chosen, switches with one tap, 
 	await expect(top.getByRole('button', { name: /^Kite/ })).toHaveAttribute('aria-pressed', 'true');
 	expect(errors).toEqual([]);
 });
+
+test('a spot page says the limits of the API in French, and as they come on the English page', async ({
+	page
+}) => {
+	const surf: Json = JSON.parse(
+		readFileSync(join(import.meta.dirname, 'fixtures', 'surf-hossegor.json'), 'utf-8')
+	);
+	const spot = '/surf/soorts-hossegor-plage-sud-point-d-or';
+	// Both limits are in a folded part of the page: they are looked for in the page, not on the screen.
+	await page.goto(spot);
+	await expect(page.getByText('La houle est celle du modèle de vagues MFWAM', { exact: false })).toHaveCount(
+		1
+	);
+	await expect(page.getByText('Les verdicts sont des règles de Vigie', { exact: false })).toHaveCount(1);
+	await expect(page.getByText('The swell is Météo-France', { exact: false })).toHaveCount(0);
+	await expect(page.getByText('The verdicts are rules of Vigie', { exact: false })).toHaveCount(0);
+
+	await page.goto(`${spot}?lang=en`);
+	await expect(page.getByText(surf.limits.slice(0, 60), { exact: false })).toHaveCount(1);
+	await expect(page.getByText(overview.limits.slice(0, 60), { exact: false })).toHaveCount(1);
+	await expect(page.getByText('La houle est celle du modèle', { exact: false })).toHaveCount(0);
+	await expect(page.getByText('Les verdicts sont des règles', { exact: false })).toHaveCount(0);
+});

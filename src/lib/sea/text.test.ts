@@ -22,13 +22,23 @@ describe('the words of the sea pages', () => {
 	});
 });
 
-describe('the two English sentences of the API, said in French on a French page', () => {
-	const recorded = JSON.parse(
-		readFileSync(new URL('../../../e2e/fixtures/activities-overview.json', import.meta.url), 'utf-8')
-	) as { limits: string; disclaimer: string };
+describe('the English sentences of the API, said in French on a French page', () => {
+	const fixture = (name: string) =>
+		JSON.parse(readFileSync(new URL(`../../../e2e/fixtures/${name}`, import.meta.url), 'utf-8')) as {
+			limits: string;
+			disclaimer: string;
+		};
+	const overview = fixture('activities-overview.json');
+	const surf = fixture('surf-hossegor.json');
+	const recorded = [overview.limits, overview.disclaimer, surf.limits];
+	// The API's source says it (`_NO_TIDE_NOTE`, app/services/activities.py); no recording has an activity that cannot be judged.
+	const NO_TIDE =
+		'No tide model near this spot, or none for these dates: shore fishing cannot be judged here.';
 
-	it('are the very ones the API gives: the English side is held to the recorded answer', () => {
-		expect(API_SENTENCES.map((s) => s.en)).toEqual([recorded.limits, recorded.disclaimer]);
+	it('are the very ones the API gives: the English side is held to the recorded answers', () => {
+		const english = API_SENTENCES.map((s) => s.en);
+		for (const sentence of recorded) expect(english).toContain(sentence);
+		expect(english.filter((en) => !recorded.includes(en))).toEqual([NO_TIDE]);
 	});
 
 	it('are said in French, with the same figures, on a French page', () => {

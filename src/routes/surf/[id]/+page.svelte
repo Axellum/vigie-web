@@ -8,6 +8,7 @@
 	import SurfChart from '#lib/components/SurfChart.svelte';
 	import { activityText, type ActivityId } from '#lib/activities.js';
 	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
+	import { apiSentence } from '#lib/sea/text.js';
 	import PlaceAnswer from '#lib/sea/PlaceAnswer.svelte';
 	import {
 		compass,
@@ -209,9 +210,10 @@
 				})}
 			</p>
 			{#if f.limits}
+				{@const said = apiSentence(lang, f.limits)}
 				<details class="limits">
 					<summary class="small">{surfText(lang, 'limits')}</summary>
-					<p class="small" lang="en">{f.limits}</p>
+					<p class="small" lang={said.lang}>{said.text}</p>
 				</details>
 			{/if}
 		</section>
