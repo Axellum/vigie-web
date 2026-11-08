@@ -52,6 +52,11 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   circle is stored as its buffer), so that the alerts can be matched to them in one query. The end-to-end tests run the
   real schema on PGlite (PostgreSQL in WebAssembly) and make passkeys with Chromium's virtual
   authenticator.
+- **My page** (account data, no page yet). An account keeps places (a point, a radius, a profile; the home is one of
+  them, stored to about 1 km and never public), pages (a title and blocks, each block a card of a place) and private
+  links to a page (only the hash of the secret is kept). `src/lib/pageConfig.ts` and `src/lib/myPlaces.ts` validate what
+  a browser sends; the database repeats the limits, so that a bug cannot store a home to the street or a page the site
+  cannot show. The visitor's position is not in this data unless the person saves it as a place.
 - **Identifiers.** A hazard keeps the API's feature id. A warning's id is the identifier of the official
   message plus its area's first code: one CAP message often covers several areas, which the API returns as
   one warning each.
@@ -75,6 +80,7 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 | `src/lib/places.ts`, `src/lib/server/places.ts` | The search by name, and the places kept in memory (`data/places.tsv.gz`, built by `scripts/build-places.mjs`).                                                       |
 | `src/lib/server/db.ts`, `migrations/`           | The accounts database and its schema, migrated at start.                                                                                                             |
 | `src/lib/server/accounts.ts`, `passkeys.ts`     | Sessions, invitations, export and deletion; the passkey ceremonies.                                                                                                  |
+| `src/lib/server/savedPlaces.ts`, `pages.ts`     | The places and pages of an account (limits, one home, the blocks of a removed place taken off the pages).                                                            |
 | `scripts/invite.mjs`                            | The invitations (and `--list`, `--recover`), run by the person who runs the site.                                                                                    |
 | `src/lib/server/budget.ts`                      | The daily bound on the weather requests that reach the API.                                                                                                          |
 | `src/lib/components/PointWeather.svelte`        | The weather of a place (`/v1/point`), with the credit of each block.                                                                                                 |

@@ -5,6 +5,8 @@ import type { Cookies } from '@sveltejs/kit';
 import type { Lang } from '#lib/i18n.js';
 export { cleanName } from '#lib/names.js';
 import type { Sql } from './db';
+import { listPages } from './pages';
+import { listPlaces } from './savedPlaces';
 import { listZones } from './zones';
 
 export const SESSION_COOKIE = 'vigie-session';
@@ -92,7 +94,8 @@ export async function readInvitation(sql: Sql, code: string): Promise<Invitation
 
 /** What the database keeps about a person, as they can download it. */
 export async function exportUser(sql: Sql, userId: string): Promise<Record<string, unknown>> {
-	const [user] = await sql`select name, lang, created_at, last_seen_at from users where id = ${userId}`;
+	const [user] =
+		await sql`select name, lang, prefs, created_at, last_seen_at from users where id = ${userId}`;
 	const passkeys = await sql`
 		select id, backed_up, created_at, last_used_at from passkeys where user_id = ${userId} order by created_at`;
 	const sessions = await sql`
@@ -112,6 +115,12 @@ export async function exportUser(sql: Sql, userId: string): Promise<Record<strin
 		})),
 		sessions,
 		zones: await listZones(sql, userId),
+		places: await listPlaces(sql, userId),
+		pages: await listPages(sql, userId),
+		page_links: await sql`
+			select label, created_at, last_opened_at, revoked_at,
+				'The link itself is not kept, only a fingerprint: it was shown once, when it was made.' as note
+			from page_links where user_id = ${userId} order by created_at`,
 		notification_devices: devices.map((d) => ({
 			...d,
 			note: 'A browser: the address of its push service (the keys that encrypt the messages are not exported). The Android app: its Firebase Cloud Messaging token.'

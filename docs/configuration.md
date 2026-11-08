@@ -51,8 +51,10 @@ count is in memory: a restart starts it again.
 
 Accounts are by invitation and sign in with passkeys (no password, no e-mail). They need `DATABASE_URL` and
 an HTTPS address (a passkey belongs to a host name; browsers refuse them on plain HTTP and on IP addresses).
-The site creates its tables at start (`src/lib/server/migrations/`) and removes what has expired every 6
-hours. Invitations are made by the person who runs the site, in the site's container:
+The site creates its tables at start (`src/lib/server/migrations/`, forward only: a migration only adds) and
+removes what has expired every 6 hours. Before a migration reaches the public instance, take a dump
+(`deploy/vps/backup.sh`) and keep it; the way back of the latest one is a script outside the loader
+(`src/lib/server/migrations/down/`), run by hand, because it deletes what people kept in the tables it drops. Invitations are made by the person who runs the site, in the site's container:
 
 ```
 podman exec vigie-web node scripts/invite.mjs "for Camille"            # a new account

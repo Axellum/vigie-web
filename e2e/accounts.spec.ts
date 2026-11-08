@@ -110,15 +110,31 @@ test('the data of an account can be downloaded, and deleting it leaves nothing',
 	const name = unique('Dominique');
 	await createAccount(page, name);
 
-	const exported = await (await page.request.get('/account/export.json')).json();
-	expect(exported.account.name).toBe(name);
-	expect(exported.passkeys).toHaveLength(1);
-	expect(JSON.stringify(exported)).not.toContain('public_key');
-
 	const sql = postgres(DATABASE_URL, { max: 1 });
 	try {
 		const [user] = await sql`select id from users where name = ${name}`;
 		expect(user).toBeTruthy();
+
+		// What the person keeps for "My page": a place, a page, and a private link to it.
+		const [pageRow] = await sql`
+			insert into pages (id, user_id, title) values (gen_random_uuid(), ${user.id}, 'Ma page') returning id`;
+		await sql`
+			insert into places (id, user_id, name, lat, lon) values (gen_random_uuid(), ${user.id}, 'Plage', 43.666, -1.445)`;
+		await sql`
+			insert into page_links (token_hash, page_id, user_id, label)
+			values (decode('0a0b0c', 'hex'), ${pageRow.id}, ${user.id}, 'Cuisine')`;
+
+		const exported = await (await page.request.get('/account/export.json')).json();
+		expect(exported.account.name).toBe(name);
+		expect(exported.passkeys).toHaveLength(1);
+		expect(JSON.stringify(exported)).not.toContain('public_key');
+		expect(exported.places).toMatchObject([{ name: 'Plage', kind: 'place', lat: 43.666, lon: -1.445 }]);
+		expect(exported.pages).toMatchObject([{ title: 'Ma page', blocks: [] }]);
+		expect(exported.page_links).toMatchObject([{ label: 'Cuisine', revoked_at: null }]);
+		expect(exported.account.prefs).toEqual({});
+		// The secret of a link is never exported, not even its fingerprint.
+		expect(JSON.stringify(exported)).not.toContain('token_hash');
+		expect(JSON.stringify(exported)).not.toContain('0a0b0c');
 
 		// The box must be ticked.
 		await page.getByRole('button', { name: 'Supprimer le compte' }).click();
@@ -131,8 +147,11 @@ test('the data of an account can be downloaded, and deleting it leaves nothing',
 		const left = await sql`
 			select (select count(*) from users where id = ${user.id})::int as users,
 				(select count(*) from passkeys where user_id = ${user.id})::int as passkeys,
-				(select count(*) from sessions where user_id = ${user.id})::int as sessions`;
-		expect(left[0]).toEqual({ users: 0, passkeys: 0, sessions: 0 });
+				(select count(*) from sessions where user_id = ${user.id})::int as sessions,
+				(select count(*) from places where user_id = ${user.id})::int as places,
+				(select count(*) from pages where user_id = ${user.id})::int as pages,
+				(select count(*) from page_links where user_id = ${user.id})::int as page_links`;
+		expect(left[0]).toEqual({ users: 0, passkeys: 0, sessions: 0, places: 0, pages: 0, page_links: 0 });
 	} finally {
 		await sql.end();
 	}
