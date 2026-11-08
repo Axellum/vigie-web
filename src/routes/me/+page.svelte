@@ -38,6 +38,7 @@
 			served={data.served}
 			uncovered={data.uncovered}
 			now={data.now}
+			selected={data.selected}
 		/>
 	{/key}
 </div>

@@ -19,7 +19,10 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals })
 	// The first time, the page is made from the zones already followed; the title is in the language of the visit.
 	const page = await ensureFirstPage(sql, user.id, t(locals.lang, 'nav.me'));
 	const places = await listPlaces(sql, user.id);
+	// The place looked at alone, asked for in the address: the page draws it on the server too.
+	const wanted = url.searchParams.get('place');
 	return {
+		selected: places.some((p) => p.id === wanted) ? wanted : null,
 		user: { name: user.name },
 		page: { id: page.id, title: page.title, blocks: page.blocks },
 		places: places.map((p) => ({

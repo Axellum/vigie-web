@@ -6,6 +6,8 @@
 	// The states are made when the component is, from the places it was given then: the page holding it wraps it in
 	// `{#key}` on the list of places, so that a place added or removed makes a new view.
 	import { untrack } from 'svelte';
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import Credits from '#lib/components/Credits.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import PlaceCard from '#lib/components/PlaceCard.svelte';
@@ -32,7 +34,8 @@
 		hazardsAttribution,
 		served,
 		uncovered,
-		now
+		now,
+		selected
 	}: {
 		lang: Lang;
 		places: MyPlace[];
@@ -42,6 +45,8 @@
 		served: string[];
 		uncovered: UncoveredCountry[];
 		now: number;
+		/** The place looked at alone when the page was asked for, known to the server so that it draws the same. */
+		selected: string | null;
 	} = $props();
 	const tr = $derived(translator(lang));
 
@@ -69,19 +74,13 @@
 	const byId = $derived(new Map(places.map((p) => [p.id, p])));
 
 	/** The place looked at alone, or null for all of them; kept in the address so that it can be shared with oneself. */
-	let only = $state<string | null>(
-		untrack(() => {
-			const wanted =
-				typeof location === 'undefined' ? null : new URL(location.href).searchParams.get('place');
-			return places.some((p) => p.id === wanted) ? wanted : null;
-		})
-	);
+	let only = $state<string | null>(untrack(() => (places.some((p) => p.id === selected) ? selected : null)));
 	function choose(id: string | null) {
 		only = id;
-		const url = new URL(location.href);
+		const url = new URL(page.url.href);
 		if (id) url.searchParams.set('place', id);
 		else url.searchParams.delete('place');
-		history.replaceState(history.state, '', url);
+		replaceState(url, page.state);
 	}
 
 	// A card only appears where the place has it: the tide where the model has a point, the surf spots for the sea
