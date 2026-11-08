@@ -16,7 +16,7 @@
 	import { answerOf, NEAR_KM, rankSpots, SLUGS } from '#lib/sea/overview.js';
 	import SeaSettings from '#lib/sea/SeaSettings.svelte';
 	import SeaSpotRow from '#lib/sea/SeaSpotRow.svelte';
-	import { seaText } from '#lib/sea/text.js';
+	import { apiSentence, seaText } from '#lib/sea/text.js';
 	import { windRangeText } from '#lib/sea/units.js';
 	import { dayLabel, hourLabel } from '#lib/surf.js';
 
@@ -220,8 +220,14 @@
 				time: `${dayLabel(lang, overview.generated)}, ${hourLabel(lang, overview.generated)}`
 			})}
 		</p>
-		{#if overview.limits}<p class="muted small" lang="en">{overview.limits}</p>{/if}
-		{#if overview.disclaimer}<p class="note small" lang="en">{overview.disclaimer}</p>{/if}
+		{#if overview.limits}
+			{@const said = apiSentence(lang, overview.limits)}
+			<p class="muted small" lang={said.lang}>{said.text}</p>
+		{/if}
+		{#if overview.disclaimer}
+			{@const said = apiSentence(lang, overview.disclaimer)}
+			<p class="note small" lang={said.lang}>{said.text}</p>
+		{/if}
 	{:else}
 		<p class="note">{t('unavailable')} {t('unavailableHint')}</p>
 	{/if}
