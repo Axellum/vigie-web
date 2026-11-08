@@ -36,6 +36,11 @@ A value that makes no sense is replaced by its default, never by an error.
   not answer, the last screen stays and a band says "offline, last update hh:mm"; it asks again every minute.
 - **Reload**: the whole page is reloaded every `reload` hours, and at once when the site has a new version.
 - **Burn-in**: the screen moves by a few pixels every two minutes.
+- **Rain of the hour**: in the middle of the head, on every preset and panel, one bar per 15-minute step of the next hour
+  and a word (none, light, moderate, heavy, with the strongest rate in mm/h). It is a forecast of the weather model that the
+  API already gives with the sky, not a radar, and the caption says "forecast". The words are ours, not an official scale:
+  light under 2.5 mm/h, moderate under 7.6, heavy from there. A reading older than 30 minutes, or none from the API, shows
+  "not read" rather than a rain that may be over.
 - **Old data** older than 30 minutes are said on the screen ("data of hh:mm").
 - **Credits and warning** are always at the foot of the screen: a television cannot follow a link. The QR code in a
   corner opens the full page of the place on a phone.
@@ -51,9 +56,16 @@ browsers do not know.
 ## What it asks of the API
 
 One screen or a hundred cost the API the same: the site keeps what it reads (the verdicts, the forecast and the tide of
-a spot 10 minutes, the weather of the sky 30 minutes) and every screen reads the site. The weather by
-place has a share of its own, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (100 by default, so that a spot costs at most 48 requests
-a day): beyond it the sky card shows a dash and the rest of the screen is not affected.
+a spot 10 minutes, the weather of the sky and the rain of the hour 15 minutes) and every screen reads the site. A spot
+costs at most 96 requests a day to the API, whatever the number of screens. The weather by place has a share of its own,
+`VIGIE_TV_POINT_LOOKUPS_PER_DAY` (5,000 by default, 96 a day for each of the 51 spots): beyond it the sky card shows a dash,
+the rain says "not read" and the rest of the screen is not affected.
+
+Neighbouring places share a cell of the API's grid (0.05°, about 5 km): the beaches of the Landes and the Basque coast in
+the list (20 of the 51) fall in 14 cells. The API refreshes the current conditions and the rain of a cell every 15 minutes
+and the daily forecast every hour, which weighs about 130 calls a day of the source's free quota per cell kept up to date
+(by the weights `vigie-api` counts, `app/collectors/weights.py`): 14 cells make about 1,800 a day of the 9,000 the API
+lets through, however many screens show them.
 
 ## What is not here yet
 

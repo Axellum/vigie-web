@@ -50,10 +50,10 @@ count is in memory: a restart starts it again.
 ## Television screens
 
 The screens for televisions (`/tv`, see [`tv.md`](tv.md)) ask the API for the same things as the surf pages, which the site
-keeps, and for the weather of the sky of the spot, which is kept 30 minutes. That weather has a budget of its own,
-`VIGIE_TV_POINT_LOOKUPS_PER_DAY` (100 by default; `0` leaves the sky card empty), apart from `VIGIE_POINT_LOOKUPS_PER_DAY`:
-a screen left on for weeks cannot use up the weather of the "near me" page. A spot costs at most 48 requests a day,
-whatever the number of screens that show it.
+keeps, and for the weather of the sky and the rain of the hour of the spot, which is kept 15 minutes. That weather has a
+budget of its own, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (5,000 by default, 96 a day for each of the 51 spots; `0` leaves the sky
+card empty and the rain "not read"), apart from `VIGIE_POINT_LOOKUPS_PER_DAY`: a screen left on for weeks cannot use up the
+weather of the "near me" page. A spot costs at most 96 requests a day, whatever the number of screens that show it.
 
 ## Accounts
 

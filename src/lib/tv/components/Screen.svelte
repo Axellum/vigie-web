@@ -5,6 +5,7 @@
 	import type { Qr } from '../qr.js';
 	import { tvText } from '../text.js';
 	import Cadran from './Cadran.svelte';
+	import Rain from './Rain.svelte';
 	import Verdicts from './Verdicts.svelte';
 
 	// The whole screen: the place and the clock above, the panels that take turns in the middle, the credits under. The root carries
@@ -71,6 +72,7 @@
 						<div class="tv-display tv-place">{title}</div>
 						<div class="tv-mut tv-t30 tv-spot">{subtitle}</div>
 					</div>
+					<Rain rain={screen.rain} {lang} />
 					<div class="tv-when">
 						<div class="tv-mono tv-clock" id="tv-clock">{clock}</div>
 						<div class="tv-mut tv-t30" id="tv-date">{dateLabel(lang, screen.now)}</div>
