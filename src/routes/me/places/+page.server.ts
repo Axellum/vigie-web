@@ -1,4 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { MAX_FOLLOWED } from '#lib/followed.js';
 import { t } from '#lib/i18n.js';
 import { MAX_PLACES, parseSavedPlace } from '#lib/myPlaces.js';
 import { sessionUser } from '#lib/server/accounts.js';
@@ -100,6 +101,36 @@ export const actions: Actions = {
 		const id = await setHome(sql, user.id, parsed.place);
 		if (!had && form.get('cards') === 'on') await appendStarterBlocks(sql, user.id, id);
 		return { done: 'home' as const, place: id };
+	},
+
+	/** The places followed in this browser, sent once the person asked for them to be added (they were never sent
+	 *  before). The ones that do not read are left out, and the list stops where the account is full. */
+	import: async (event) => {
+		const { sql, user } = await signedIn(event);
+		const form = await event.request.formData();
+		let list: unknown;
+		try {
+			list = JSON.parse(String(form.get('places') ?? ''));
+		} catch {
+			return fail(400, { error: 'shape' });
+		}
+		if (!Array.isArray(list) || list.length === 0 || list.length > MAX_FOLLOWED)
+			return fail(400, { error: 'shape' });
+		let count = 0;
+		for (const item of list) {
+			if (!item || typeof item !== 'object') continue;
+			const parsed = parseSavedPlace({ get: (key) => (item as Record<string, unknown>)[key] }, 'place');
+			if (!parsed.ok) continue;
+			try {
+				const id = await addPlace(sql, user.id, parsed.place);
+				count++;
+				if (form.get('cards') === 'on') await appendStarterBlocks(sql, user.id, id);
+			} catch (e) {
+				if (e instanceof PlaceError && e.code === 'full') break;
+				return refused(e);
+			}
+		}
+		return count > 0 ? { done: 'imported' as const, count } : fail(400, { error: 'shape' });
 	},
 
 	/** A place goes, and so do its cards on every page of the account. */

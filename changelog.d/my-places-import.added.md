@@ -1,0 +1,1 @@
+- The places followed in a browser without an account can be added to the account from "My places", only when the person asks and ticks them (they were never sent before), and "Near me" offers "Add to my page" for the place it shows (a link that opens the form with its point and radius).

@@ -470,6 +470,86 @@ test('the units and the language are kept in the account, and the cards of the p
 	}
 });
 
+test('the places of this browser are added to the account only when asked, and "Near me" offers a place to the page', async ({
+	page
+}) => {
+	await authenticator(page);
+	const name = unique('Eli');
+	await createAccount(page, name);
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [user] = await sql`select id from users where name = ${name}`;
+		const stored = async () =>
+			(await sql`select name, lat, lon, radius_km from places where user_id = ${user.id} order by position`) as unknown as {
+				name: string;
+				lat: number;
+				lon: number;
+				radius_km: number;
+			}[];
+
+		// Places followed without an account sit in the browser; the site has seen none of them.
+		// (set once: the script runs on every page, and must not put back what the page did not touch)
+		await page.addInitScript(() => {
+			if (localStorage.getItem('vigie-places') !== null) return;
+			localStorage.setItem(
+				'vigie-places',
+				JSON.stringify([
+					{ lat: 43.66, lon: -1.44, radiusKm: 50, name: 'Hossegor', profile: 'surf' },
+					{ lat: 48.85, lon: 2.35, radiusKm: 25, name: null, profile: null },
+					{ lat: 42.306, lon: 9.15, radiusKm: 10, name: 'Corte', profile: null }
+				])
+			);
+		});
+		let sent = 0;
+		page.on('request', (r) => {
+			if (r.method() === 'POST' && r.url().includes('/me/places')) sent++;
+		});
+		await page.goto('/me/places');
+		await expect(
+			page.getByRole('heading', { level: 2, name: 'Lieux suivis dans ce navigateur' })
+		).toBeVisible();
+		expect(sent).toBe(0);
+		expect(await stored()).toHaveLength(0);
+
+		// The person leaves one out and adds the others, with their first cards.
+		await page.getByRole('checkbox', { name: /Corte/ }).uncheck();
+		await page.getByRole('button', { name: 'Ajouter les lieux cochés (2)' }).click();
+		await expect(page.locator('.status')).toHaveText('Lieux ajoutés à votre compte : 2.');
+		expect((await stored()).map((p) => [p.name, p.lat, p.lon, p.radius_km])).toEqual([
+			['Hossegor', 43.66, -1.44, 50],
+			['48.850, 2.350', 48.85, 2.35, 25]
+		]);
+		const [{ blocks }] = await sql`select blocks from pages where user_id = ${user.id}`;
+		expect(blocks).toHaveLength(6);
+		// What was added is no longer offered; the one left out still is, and stays in the browser.
+		await expect(page.getByRole('checkbox', { name: /Hossegor/ })).toHaveCount(0);
+		await expect(page.getByRole('checkbox', { name: /Corte/ })).toBeVisible();
+		expect(await page.evaluate(() => JSON.parse(localStorage.getItem('vigie-places') ?? '[]').length)).toBe(
+			3
+		);
+
+		// "Near me" offers the place it shows to the page: the form opens with its point and radius.
+		await page.goto('/near#42.306,9.15,10');
+		await page.getByRole('link', { name: 'Ajouter à ma page' }).click();
+		await expect(page).toHaveURL(/\/me\/places#42\.306,9\.15,10$/);
+		await expect(page.getByRole('heading', { level: 2, name: 'Nouveau lieu' })).toBeVisible();
+		await expect(page.locator('#picked')).toContainText('42.306, 9.150');
+		await expect(page.getByLabel('Rayon regardé')).toHaveValue('10');
+		await page.getByLabel('Nom du lieu').fill('Mon village');
+		await page.getByRole('button', { name: 'Enregistrer' }).click();
+		await expect(page.locator('.status')).toHaveText('Le lieu est ajouté.');
+		expect((await stored()).at(-1)).toMatchObject({
+			name: 'Mon village',
+			lat: 42.306,
+			lon: 9.15,
+			radius_km: 10
+		});
+	} finally {
+		await sql.end();
+	}
+});
+
 test('a recovery invitation adds a passkey to an account; the last one cannot be removed', async ({
 	page,
 	browser

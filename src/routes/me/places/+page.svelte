@@ -2,13 +2,14 @@
 	// "My places": the places of "My page", kept in the account. A place is searched by name, taken from the
 	// position of the browser (only when asked) or clicked on the map; it stays in the browser until "Save". The
 	// home is one of them, kept to about 1 km and shown to nobody.
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { enhance, type SubmitFunction } from '$app/forms';
 	import MapView from '#lib/components/MapView.svelte';
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
+	import { readFollowed, sameSpot, type FollowedPlace } from '#lib/followed.js';
 	import { translator, type Key } from '#lib/i18n.js';
 	import { DEFAULT_RADIUS_KM, roundCoordinate, type PlaceKind } from '#lib/myPlaces.js';
-	import { circleBox, type Place } from '#lib/near.js';
+	import { circleBox, parsePlace, type Place } from '#lib/near.js';
 	import { asProfile, PROFILES } from '#lib/profiles.js';
 	import { ZONE_RADII_KM } from '#lib/zones.js';
 
@@ -29,9 +30,31 @@
 	let asking = $state<string | null>(null);
 	let said = $state('');
 
+	/** The places followed in this browser, read once the page is shown; they were never sent to the site. */
+	let inBrowser = $state<FollowedPlace[]>([]);
+	/** The ones of them the person leaves out of the import. */
+	let skipped = $state<string[]>([]);
+	const spotKey = (p: { lat: number; lon: number }) => `${p.lat},${p.lon}`;
+
 	const home = $derived(data.places.find((p) => p.kind === 'home') ?? null);
 	const others = $derived(data.places.filter((p) => p.kind === 'place'));
 	const full = $derived(others.length >= data.max);
+	/** The places of this browser that the account does not keep yet. */
+	const importable = $derived(inBrowser.filter((p) => !others.some((o) => sameSpot(o, p))));
+	const chosen = $derived(importable.filter((p) => !skipped.includes(spotKey(p))));
+	const label = (p: FollowedPlace) => p.name ?? `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}`;
+	const toSend = $derived(
+		JSON.stringify(
+			chosen.map((p) => ({
+				name: label(p),
+				lat: p.lat,
+				lon: p.lon,
+				radiusKm: p.radiusKm,
+				profile: p.profile
+			}))
+		)
+	);
+
 	/** What the form keeps of the kind it edits: the home to about 1 km, a place to about 100 m. */
 	const kind = $derived<PlaceKind>(
 		editing?.kind === 'home' || (editing?.kind === 'edit' && editing.id === home?.id) ? 'home' : 'place'
@@ -87,13 +110,28 @@
 		);
 	}
 
+	onMount(() => {
+		inBrowser = readFollowed();
+		// A place sent from another page ("near me": `#lat,lon,radius,profile`) opens the form with its point.
+		const read = parsePlace(location.hash);
+		if (read && !full) {
+			void open({ kind: 'add' }).then(() => {
+				const at = { lat: roundCoordinate(read.lat, 'place'), lon: roundCoordinate(read.lon, 'place') };
+				point = at;
+				name = `${at.lat.toFixed(3)}, ${at.lon.toFixed(3)}`;
+				if (read.radiusKm && ZONE_RADII_KM.includes(read.radiusKm)) radiusKm = read.radiusKm;
+				profile = asProfile(read.profile) ?? '';
+			});
+		}
+	});
+
 	const submit: SubmitFunction =
 		() =>
 		async ({ result, update }) => {
 			await update({ reset: false });
 			if (result.type === 'success') {
-				const done = (result.data as { done?: string } | undefined)?.done;
-				said = done ? tr(`places.done.${done}` as Key) : '';
+				const sent = result.data as { done?: string; count?: number } | undefined;
+				said = sent?.done ? tr(`places.done.${sent.done}` as Key, { n: sent.count ?? 0 }) : '';
 				editing = null;
 				asking = null;
 			}
@@ -192,6 +230,46 @@
 			</p>
 		{/if}
 	</section>
+
+	{#if importable.length && !editing}
+		<section class="card stack" aria-labelledby="import-title">
+			<h2 id="import-title">{tr('places.browser')}</h2>
+			<p class="muted small">{tr('places.browserHelp')}</p>
+			<form method="POST" action="?/import" class="form" use:enhance={submit}>
+				<ul class="items">
+					{#each importable as p (spotKey(p))}
+						<li>
+							<label class="check">
+								<input
+									type="checkbox"
+									checked={!skipped.includes(spotKey(p))}
+									onchange={(e) =>
+										(skipped = e.currentTarget.checked
+											? skipped.filter((k) => k !== spotKey(p))
+											: [...skipped, spotKey(p)])}
+								/>
+								<span class="what">
+									<strong>{label(p)}</strong>
+									<span class="muted small">{p.radiusKm} km</span>
+								</span>
+							</label>
+						</li>
+					{/each}
+				</ul>
+				<input type="hidden" name="places" value={toSend} />
+				<label class="check">
+					<input type="checkbox" name="cards" checked />
+					{tr('places.cards')}
+				</label>
+				<p class="btn-row">
+					<button type="submit" class="btn" disabled={chosen.length === 0 || full}
+						>{tr('places.import', { n: chosen.length })}</button
+					>
+				</p>
+				{#if error}<p class="error" role="alert">{tr(error, { n: data.max })}</p>{/if}
+			</form>
+		</section>
+	{/if}
 
 	{#if editing}
 		<section class="card editor" aria-labelledby="editor-title">

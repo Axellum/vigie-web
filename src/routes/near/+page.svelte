@@ -325,6 +325,9 @@
 							>{tr('zones.watchHere', { km: radiusKm })}</a
 						>
 					</p>
+					<p class="small">
+						<a href="/me/places{placeHash(place, radiusKm, profile)}" rel="nofollow">{tr('me.addHere')}</a>
+					</p>
 				{/if}
 			{/if}
 		</aside>
