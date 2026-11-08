@@ -68,10 +68,11 @@
 	);
 	/** Cards are offered for a place that is new to the page: a new place, or a home that is set for the first time. */
 	const offersCards = $derived(editing?.kind === 'add' || (editing?.kind === 'home' && !home));
-	const error = $derived.by((): Key | null => {
-		const code = (form as { error?: string } | null)?.error;
-		return code ? (`places.err.${code}` as Key) : null;
-	});
+	const formError = $derived((form as { error?: string } | null)?.error ?? null);
+	/** The error of the form being filled; the one of the alerts switches is shown beside them. */
+	const error = $derived.by((): Key | null =>
+		formError && formError !== 'zones' ? (`places.err.${formError}` as Key) : null
+	);
 
 	async function open(next: Editing, from?: (typeof data.places)[number]) {
 		editing = next;
@@ -154,6 +155,20 @@
 
 	<p class="status" role="status">{said}</p>
 
+	<!-- The alerts of a place, on or off: a zone of the place's own point and radius. -->
+	{#snippet alertSwitch(p: (typeof data.places)[number])}
+		<form method="POST" action="?/alerts" use:enhance={submit}>
+			<input type="hidden" name="id" value={p.id} />
+			<input type="hidden" name="on" value={p.alerts ? '0' : '1'} />
+			<button
+				type="submit"
+				class="btn quiet"
+				aria-label={`${tr(p.alerts ? 'places.alertsOn' : 'places.alertsOff')} · ${p.name}`}
+				>{tr(p.alerts ? 'places.alertsOn' : 'places.alertsOff')}</button
+			>
+		</form>
+	{/snippet}
+
 	<section class="card stack" aria-labelledby="home-title">
 		<h2 id="home-title">{tr('places.home')}</h2>
 		{#if home}
@@ -164,14 +179,15 @@
 			<p class="muted">{tr('places.homeNone')}</p>
 		{/if}
 		<p class="muted small">{tr('places.homeNote')}</p>
-		<p class="btn-row">
+		<div class="btn-row">
 			<button
 				type="button"
 				class="btn quiet"
 				onclick={() => (home ? open({ kind: 'edit', id: home.id }, home) : open({ kind: 'home' }))}
 				>{home ? tr('places.homeChange') : tr('places.homeSet')}</button
 			>
-		</p>
+			{#if home}{@render alertSwitch(home)}{/if}
+		</div>
 	</section>
 
 	<section class="card stack" aria-labelledby="list-title">
@@ -192,7 +208,9 @@
 						{#if asking === p.id}
 							<form method="POST" action="?/remove" class="ask" use:enhance={submit}>
 								<input type="hidden" name="id" value={p.id} />
-								<span id={`ask-${p.id}`}>{tr('places.removeAsk', { name: p.name })}</span>
+								<span id={`ask-${p.id}`}
+									>{tr(p.alerts ? 'places.removeAskAlerts' : 'places.removeAsk', { name: p.name })}</span
+								>
 								<button type="submit" class="btn danger" aria-describedby={`ask-${p.id}`}
 									>{tr('places.removeYes')}</button
 								>
@@ -201,7 +219,7 @@
 								>
 							</form>
 						{:else}
-							<span class="btn-row">
+							<div class="btn-row">
 								<button
 									type="button"
 									class="btn quiet"
@@ -214,11 +232,18 @@
 									aria-label={`${tr('places.remove')} ${p.name}`}
 									onclick={() => (asking = p.id)}>{tr('places.remove')}</button
 								>
-							</span>
+								{@render alertSwitch(p)}
+							</div>
 						{/if}
 					</li>
 				{/each}
 			</ul>
+		{/if}
+		<p class="muted small">
+			{tr('places.alertsHelp')} <a href="/account">{tr('nav.account')}</a>
+		</p>
+		{#if formError === 'zones'}
+			<p class="error" role="alert">{tr('places.err.zones', { m: data.maxZones })}</p>
 		{/if}
 		{#if full}
 			<p class="note">{tr('places.full', { n: data.max })}</p>

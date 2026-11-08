@@ -406,10 +406,16 @@ const fr = {
 	'places.edit': 'Modifier',
 	'places.remove': 'Supprimer',
 	'places.removeAsk': 'Supprimer « {name} » ? Ses cartes quittent aussi votre page.',
+	'places.removeAskAlerts':
+		'Supprimer « {name} » ? Ses cartes quittent aussi votre page ; ses alertes continuent tant que vous ne supprimez pas sa zone sur la page Compte.',
 	'places.removeYes': 'Oui, supprimer',
 	'places.removeNo': 'Non, garder',
 	'places.full': 'Vous gardez déjà {n} lieux, le maximum : supprimez-en un pour en ajouter.',
 	'places.name': 'Nom du lieu',
+	'places.alertsOn': 'Alertes : oui',
+	'places.alertsOff': 'Alertes : non',
+	'places.alertsHelp':
+		'Alertes : les avertissements officiels et les risques d’un lieu arrivent sur vos appareils, comme pour une zone de votre compte ; si vous déplacez le lieu, ses alertes le suivent. Le niveau, les types, les appareils et les heures calmes se règlent sur la page',
 	'places.radius': 'Rayon regardé',
 	'places.profile': 'Profil, pour l’ordre des cartes',
 	'places.cards': 'Ajouter ses premières cartes à ma page',
@@ -423,6 +429,8 @@ const fr = {
 	'places.done.updated': 'Le lieu est modifié.',
 	'places.done.home': 'Votre maison est enregistrée.',
 	'places.done.removed': 'Le lieu est supprimé.',
+	'places.done.alertsOn': 'Les alertes de ce lieu sont activées.',
+	'places.done.alertsOff': 'Les alertes de ce lieu sont coupées.',
 	'places.browser': 'Lieux suivis dans ce navigateur',
 	'places.browserHelp':
 		'Ces lieux ne sont gardés que dans ce navigateur : rien n’a été envoyé au site. Cochez ceux que vous voulez garder dans votre compte, puis ajoutez-les.',
@@ -433,6 +441,8 @@ const fr = {
 	'places.err.shape': 'Choisissez d’abord un endroit : il manque le point ou le rayon est inconnu.',
 	'places.err.full': 'Vous gardez déjà le nombre maximum de lieux.',
 	'places.err.unknown': 'Ce lieu n’existe plus.',
+	'places.err.zones':
+		'Votre compte suit déjà {m} zones, le maximum : supprimez-en une sur la page Compte pour activer ces alertes.',
 	'me.settings': 'Réglages',
 	'me.settingsHelp':
 		'Les unités des chiffres de la météo, de la mer et de la marée, et la langue du site et des alertes. Le résumé de chaque lieu les suit aussi.',
@@ -1163,10 +1173,16 @@ const en: Record<Key, string> = {
 	'places.edit': 'Edit',
 	'places.remove': 'Delete',
 	'places.removeAsk': 'Delete "{name}"? Its cards leave your page too.',
+	'places.removeAskAlerts':
+		'Delete "{name}"? Its cards leave your page too; its alerts go on until you delete its zone on the Account page.',
 	'places.removeYes': 'Yes, delete',
 	'places.removeNo': 'No, keep it',
 	'places.full': 'You already keep {n} places, the most allowed: delete one to add another.',
 	'places.name': 'Name of the place',
+	'places.alertsOn': 'Alerts: on',
+	'places.alertsOff': 'Alerts: off',
+	'places.alertsHelp':
+		'Alerts: the official warnings and hazards of a place reach your devices, like a zone of your account; if you move the place, its alerts follow. The level, the kinds, the devices and the quiet hours are set on the',
 	'places.radius': 'Radius looked at',
 	'places.profile': 'Profile, for the order of the cards',
 	'places.cards': 'Add its first cards to my page',
@@ -1180,6 +1196,8 @@ const en: Record<Key, string> = {
 	'places.done.updated': 'The place is changed.',
 	'places.done.home': 'Your home is saved.',
 	'places.done.removed': 'The place is deleted.',
+	'places.done.alertsOn': 'The alerts of this place are on.',
+	'places.done.alertsOff': 'The alerts of this place are off.',
 	'places.browser': 'Places followed in this browser',
 	'places.browserHelp':
 		'These places are kept in this browser only: nothing was sent to the site. Tick the ones you want to keep in your account, then add them.',
@@ -1190,6 +1208,8 @@ const en: Record<Key, string> = {
 	'places.err.shape': 'Choose a spot first: the point is missing or the radius is unknown.',
 	'places.err.full': 'You already keep the most places allowed.',
 	'places.err.unknown': 'This place no longer exists.',
+	'places.err.zones':
+		'Your account already follows {m} zones, the most allowed: delete one on the Account page to turn these alerts on.',
 	'me.settings': 'Settings',
 	'me.settingsHelp':
 		'The units of the weather, sea and tide figures, and the language of the site and of the alerts. The summary of each place follows them too.',
