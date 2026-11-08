@@ -346,6 +346,7 @@ export function pointFromApi(body: unknown): PointWeather {
 			swellPeriodS: num(marine.swell_wave_period_s),
 			currentKmh: num(marine.ocean_current_velocity_kmh),
 			currentDeg: num(marine.ocean_current_direction_deg),
+			seaTempC: num(marine.sea_surface_temperature_c),
 			stale: bool(marine.stale) ?? false,
 			attribution: str(marine.attribution)
 		},

@@ -81,6 +81,11 @@ test('a screen shows the place, the clock, the figures, the credits and the warn
 	await expect(page.locator('#tv-rain')).toContainText('prévision');
 	await expect(page.locator('#tv-rain .tv-rain-word')).toHaveText('aucune');
 	await expect(page.locator('#tv-rain .tv-rain-bar')).toHaveCount(4);
+	// The temperature of the water, said to be a value of the model (the recorded answer gives 16.5, rounded on the screen).
+	await expect(page.locator('.tv-water-on')).toContainText('eau');
+	await expect(page.locator('.tv-water-on b')).toHaveText('17°');
+	await expect(page.locator('.tv-water-on')).toContainText('valeur du modèle');
+	await expect(page.locator('.tv-water.tv-hatch')).toHaveCount(0);
 	// The credits and the warning are always there: a television cannot follow a link to them.
 	await expect(page.locator('.tv-foot-text')).toContainText('Ne remplace pas les avis officiels');
 	await expect(page.locator('.tv-foot-text')).toContainText('Open-Meteo');

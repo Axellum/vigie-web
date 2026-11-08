@@ -38,7 +38,8 @@
   "sea-place-port.json": 1794140771,
   "sea-place-bathing.json": 1794140771,
   "sea-place-slipway.json": 1794140771,
-  "sea-place-dive.json": 1794140771
+  "sea-place-dive.json": 1794140771,
+  "tv-point-hossegor.json": 1794141971
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -93,7 +94,8 @@
   "/v1/sea/places/port-port-de-saint-malo-f697": "sea-place-port.json",
   "/v1/sea/places/bathing-bon-secours-4142": "sea-place-bathing.json",
   "/v1/sea/places/slipway-saint-malo-eb59": "sea-place-slipway.json",
-  "/v1/sea/places/dive-pytheas-ffa1": "sea-place-dive.json"
+  "/v1/sea/places/dive-pytheas-ffa1": "sea-place-dive.json",
+  "/v1/point?lat=43.65&lon=-1.45&marine=true": "tv-point-hossegor.json"
  },
  "added": {
   "/v1/geojson/hazards": [

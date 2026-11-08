@@ -215,6 +215,8 @@ export interface PointWeather {
 		swellPeriodS: number | null;
 		currentKmh: number | null;
 		currentDeg: number | null;
+		/** The temperature of the sea at the point, °C: a value of an ocean model for a cell of about 8 km, not a measurement at the beach. */
+		seaTempC: number | null;
 		stale: boolean;
 		attribution: string | null;
 	} | null;

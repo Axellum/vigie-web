@@ -680,6 +680,9 @@
 	border-radius: 1rem;
 	line-height: 1.1;
 }
+.tv-water-on {
+	border: 0.2rem solid var(--tv-line);
+}
 .tv-sun {
 	flex: 1.2 1 0;
 	display: flex;

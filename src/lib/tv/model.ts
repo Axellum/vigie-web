@@ -205,6 +205,8 @@ export interface TvSky {
 	feelsC: number | null;
 	label: string;
 	uv: number | null;
+	/** The temperature of the sea, °C: a value of an ocean model for a cell of about 8 km, not a measurement at the beach. */
+	waterC: number | null;
 	rise: string | null;
 	set: string | null;
 }
@@ -495,6 +497,7 @@ function skyView(
 		feelsC: current?.feelsLikeC ?? null,
 		label: current ? skyLabel(lang, current.code) : '–',
 		uv: current?.uv ?? null,
+		waterC: point?.marine?.seaTempC ?? null,
 		rise: today ? hourLabel(lang, today.rise) : null,
 		set: today ? hourLabel(lang, today.set) : null
 	};
@@ -618,7 +621,9 @@ export function buildScreen(input: TvInput): TvScreen {
 			forecast?.attribution,
 			input.tide?.value.attribution,
 			input.sky?.value.attribution,
-			input.sky?.value.rain?.attribution
+			input.sky?.value.rain?.attribution,
+			// The credit of the sea comes with the temperature it is for: the waves of the same answer are not on the screen.
+			input.sky?.value.marine?.seaTempC != null ? input.sky.value.marine.attribution : null
 		])
 	};
 }
