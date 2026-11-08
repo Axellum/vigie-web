@@ -93,7 +93,7 @@ the alerts in force every `VIGIE_MATCH_INTERVAL_S` seconds, so raise it when you
 
 A person who loses every passkey has no e-mail to fall back on: the account page offers a set of 8 recovery codes,
 shown once, kept as a fingerprint, each working once (`/recover` turns one into a 30-minute invitation that adds a
-passkey to its account). Open sign-up asks for the legal notice of the site to be written first (`/about`).
+passkey to its account). Before opening sign-up to the public, read the legal notice of `/about` again (publisher, contact, host).
 
 ## Notifications
 
