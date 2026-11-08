@@ -70,7 +70,6 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		id: params.id,
 		place: answer.place,
 		built: answer.built,
-		note: answer.note,
 		licence: answer.licence,
 		attribution: answer.attribution,
 		overview: seaOverview,

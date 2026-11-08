@@ -37,6 +37,8 @@ test('the catalogue says what it is before anything else, and counts each kind w
 	await expect(page).toHaveTitle(/Lieux du littoral/);
 	await expect(page.getByRole('heading', { level: 1, name: 'Les lieux du littoral' })).toBeVisible();
 	await expect(page.getByText('Un catalogue, pas une prévision', { exact: false }).first()).toBeVisible();
+	// The English sentence of the API (its caveats) is not shown on the French page: the page says it in French.
+	await expect(page.getByText('not a forecast', { exact: false })).toHaveCount(0);
 
 	// One chip per kind, each with its count from the API; "All" holds the total.
 	const kinds = page.getByRole('navigation', { name: 'Genre de lieu' });
@@ -167,11 +169,17 @@ test('a port says what it is, what Vigie does not know, and answers from the sur
 	await expect(around.locator('a[href^="/sea/places/"]').first()).toContainText(/à \d/);
 	await expect(around.getByText(/^\+ \d+ autres$/).first()).toBeVisible();
 
-	// When the catalogue was built, its caveats and its credits are in the page.
+	// When the catalogue was built, its licences and its credits are in the page, in French: the English sentence of the API (its
+	// caveats) is not, the page says the same at the top and in each section in its own words, and a licence says in French what it covers.
 	await expect(page.getByText('Catalogue construit le 8 novembre 2026.')).toBeVisible();
 	await expect(
-		page.getByText('not a forecast and not a statement that a place can be used', { exact: false })
+		page.getByText(
+			'Données et licences: ODbL-1.0 (OpenStreetMap), Licence Ouverte (Sandre), Licence Ouverte 2.0 (qualité des baignades)',
+			{ exact: true }
+		)
 	).toBeVisible();
+	await expect(page.getByText('not a forecast', { exact: false })).toHaveCount(0);
+	await expect(page.getByText('bathing quality', { exact: false })).toHaveCount(0);
 	await page.getByText('Sources de cette page').click();
 	await expect(page.getByText('Sandre', { exact: false }).first()).toBeVisible();
 	expect(await fits(page)).toBe(true);
@@ -247,6 +255,12 @@ test('the English page says the same, and a place is added to the page of the ac
 	await expect(page.getByRole('heading', { level: 2, name: 'Go there today?' })).toBeVisible();
 	await expect(page.getByText('Uses: fishing, pleasure boats, passengers, trade.')).toBeVisible();
 	await expect(page.getByText('Catalogue built on 8 November 2026.')).toBeVisible();
+	await expect(
+		page.getByText(
+			'Data and licences: ODbL-1.0 (OpenStreetMap), Licence Ouverte (Sandre), Licence Ouverte 2.0 (bathing quality)',
+			{ exact: true }
+		)
+	).toBeVisible();
 	// Without accounts on this server the link is not offered (the e2e site runs with them: it is a plain link, no script).
 	const add = page.getByRole('link', { name: 'Add to my page' });
 	if (await add.count()) {

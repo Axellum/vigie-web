@@ -100,6 +100,7 @@ const TEXT = {
 		nearbyNone: 'Rien d’autre dans le catalogue à moins de {radius} km.',
 		nearbyMore: '+ {count} autres',
 		updated: 'Catalogue construit le {date}.',
+		'licenceRole.bathing quality': 'qualité des baignades',
 		licenceTitle: 'Données et licences'
 	},
 	en: {
@@ -197,6 +198,7 @@ const TEXT = {
 		nearbyNone: 'Nothing else in the catalogue within {radius} km.',
 		nearbyMore: '+ {count} more',
 		updated: 'Catalogue built on {date}.',
+		'licenceRole.bathing quality': 'bathing quality',
 		licenceTitle: 'Data and licences'
 	}
 } as const;
@@ -214,6 +216,19 @@ export function placesText(
 	let text = table[key] ?? (TEXT.fr as Record<string, string>)[key] ?? key;
 	for (const [k, v] of Object.entries(vars)) text = text.replaceAll(`{${k}}`, String(v));
 	return text;
+}
+
+/**
+ * The licence line of the API (`ODbL-1.0 (OpenStreetMap), Licence Ouverte (Sandre), Licence Ouverte 2.0 (bathing quality)`) is the
+ * names of licences, which are proper names and stay as they are, and in brackets the part of the catalogue each one covers, which is
+ * English prose. The parts we know (`licenceRole.*`) are said in the language of the page; any other stays as the API gives it.
+ */
+export function licenceText(lang: Lang, licence: string): string {
+	const table = TEXT[lang] as Record<string, string>;
+	return licence.replace(/\(([^()]+)\)/g, (whole, role: string) => {
+		const said = table[`licenceRole.${role}`];
+		return said ? `(${said})` : whole;
+	});
 }
 
 /** The name of a place as a title: its own name, else its kind and the nearest locality, else its kind and position. */

@@ -15,7 +15,7 @@
 	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
 	import { answerOf, rankSpots, SLUGS } from '#lib/sea/overview.js';
 	import { NEARBY_KM, osmLink, PLACE_KM, spotsAround } from '#lib/sea/places.js';
-	import { dateLabel, placesText, placeTitle, placeWhere } from '#lib/sea/places-text.js';
+	import { dateLabel, licenceText, placesText, placeTitle, placeWhere } from '#lib/sea/places-text.js';
 	import SeaPlaceRow from '#lib/sea/SeaPlaceRow.svelte';
 	import { seaText } from '#lib/sea/text.js';
 
@@ -166,8 +166,7 @@
 
 	<footer class="foot">
 		{#if data.built}<p class="muted small">{t('updated', { date: dateLabel(lang, data.built) })}</p>{/if}
-		{#if data.note}<p class="muted small" lang="en">{data.note}</p>{/if}
-		{#if data.licence}<p class="muted small" lang="en">{t('licenceTitle')}: {data.licence}</p>{/if}
+		{#if data.licence}<p class="muted small">{t('licenceTitle')}: {licenceText(lang, data.licence)}</p>{/if}
 		<Credits {lang} credits={[data.attribution, ...data.nearbyAttribution]} />
 	</footer>
 </div>
