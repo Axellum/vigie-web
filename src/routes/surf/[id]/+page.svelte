@@ -90,7 +90,10 @@
 				{/if}{surfText(lang, 'facing', {
 					dir: compass(lang, f.spot.facing),
 					deg: f.spot.facing
-				})}
+				})}{#if f.spot.openWaterWidth != null}
+					· {surfText(lang, 'openWater', { deg: Math.round(f.spot.openWaterWidth) })}{/if}{#if f.spot.bottom}
+					· {surfText(lang, `bottom.${f.spot.bottom}`)}{/if}{#if f.spot.lifeguarded === true}
+					· {surfText(lang, 'lifeguarded')}{/if}
 			</p>
 		{:else}
 			<h1>{surfText(lang, 'page')}</h1>
@@ -182,6 +185,7 @@
 							</summary>
 							<div class="more">
 								<p class="figs">
+									{#if h.sheltered === true}<span class="muted">{surfText(lang, 'sheltered')}</span>{/if}
 									{#if swellText(lang, h.secondary)}<span
 											><b>{surfText(lang, 'secondary')}</b> {swellText(lang, h.secondary)}</span
 										>{/if}

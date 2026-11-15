@@ -7,6 +7,8 @@ import { distanceKm } from './near';
 export type Criterion = 'swell_height' | 'swell_period' | 'swell_direction' | 'wind' | 'tide';
 const CRITERIA: Criterion[] = ['swell_height', 'swell_period', 'swell_direction', 'wind', 'tide'];
 
+export type SurfBottom = 'sand' | 'rock' | 'gravel' | 'mixed' | 'mud';
+
 export interface SurfSpot {
 	id: string;
 	name: string;
@@ -15,6 +17,14 @@ export interface SurfSpot {
 	lon: number;
 	/** Direction from the beach to the open sea, degrees from north (the API's, from the coastline). */
 	facing: number;
+	/** Seabed class mapped from SHOM 1/50 000 bathymetry, or null when unmapped. */
+	bottom: SurfBottom | null;
+	/** True when marked as lifeguarded in GIP Littoral, null when not reported. */
+	lifeguarded: boolean | null;
+	/** Unobstructed azimuth sectors `[start, end]` in degrees, when provided by the API. */
+	openWaterSectors: [number, number][] | null;
+	/** Total angular width of open-water exposure (0..360°), or null when unavailable. */
+	openWaterWidth: number | null;
 }
 
 export interface SurfSpots {
@@ -52,6 +62,8 @@ export interface SurfHour {
 	secondary: Swell;
 	power: number | null;
 	angle: number | null;
+	/** True when the primary swell arrives outside `open_water_sectors`, null when unknown. */
+	sheltered: boolean | null;
 	wind: {
 		speed: number | null;
 		gust: number | null;
@@ -79,7 +91,28 @@ const obj = (v: unknown): Record<string, unknown> =>
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
 
-function spotFromApi(raw: unknown): SurfSpot | null {
+const BOTTOMS = new Set<SurfBottom>(['sand', 'rock', 'gravel', 'mixed', 'mud']);
+
+function bottomFromApi(v: unknown): SurfBottom | null {
+	const raw = str(v);
+	return raw && BOTTOMS.has(raw as SurfBottom) ? (raw as SurfBottom) : null;
+}
+
+function sectorsFromApi(v: unknown): [number, number][] | null {
+	if (!Array.isArray(v)) return null;
+	const out: [number, number][] = [];
+	for (const item of v) {
+		if (!Array.isArray(item) || item.length !== 2) continue;
+		const a = num(item[0]);
+		const b = num(item[1]);
+		if (a == null || b == null) continue;
+		out.push([a, b]);
+	}
+	return out;
+}
+
+/** Parse one spot payload from the API, returning null when coordinates or facing are missing. */
+export function spotFromApi(raw: unknown): SurfSpot | null {
 	const s = obj(raw);
 	const id = str(s.id);
 	const name = str(s.name);
@@ -87,7 +120,18 @@ function spotFromApi(raw: unknown): SurfSpot | null {
 	const lon = num(s.lon);
 	const facing = num(s.facing_deg);
 	if (!id || !name || lat == null || lon == null || facing == null) return null;
-	return { id, name, place: str(s.place), lat, lon, facing };
+	return {
+		id,
+		name,
+		place: str(s.place),
+		lat,
+		lon,
+		facing,
+		bottom: bottomFromApi(s.bottom),
+		lifeguarded: typeof s.lifeguarded === 'boolean' ? s.lifeguarded : null,
+		openWaterSectors: sectorsFromApi(s.open_water_sectors),
+		openWaterWidth: num(s.open_water_width_deg)
+	};
 }
 
 /** The spots, north to south (the coast from the Channel down to the Basque Country). */
@@ -139,6 +183,7 @@ function hourFromApi(raw: unknown): SurfHour | null {
 		secondary: swellFromApi(h.secondary_swell),
 		power: num(h.swell_power_kw_m),
 		angle: num(h.swell_angle_deg),
+		sheltered: typeof h.swell_sheltered === 'boolean' ? h.swell_sheltered : null,
 		wind: {
 			speed: num(wind.speed_kmh),
 			gust: num(wind.gust_kmh),
@@ -421,14 +466,22 @@ const TEXT = {
 	fr: {
 		page: 'Surf',
 		pageIntro:
-			'La houle, le vent et la marée heure par heure sur une cinquantaine de spots de l’Atlantique et de la Manche, et une note à nous, expliquée critère par critère.',
+			'La houle, le vent et la marée heure par heure sur les spots de la côte basque, de l’Atlantique et de la Manche, et une note à nous, expliquée critère par critère.',
 		safety:
 			'Pas pour la sécurité ni pour la navigation : regarder la mer sur place, les drapeaux et les sauveteurs avant d’y aller.',
 		spots: 'Les spots, du nord au sud',
 		spotsNote:
-			'Les spots viennent d’OpenStreetMap ; la direction vers laquelle chaque plage regarde est calculée par Vigie à partir du trait de côte. Le fond, la marée et la houle qui conviennent à chaque spot ne sont pas connus : rien n’est deviné.',
+			'Les spots viennent d’OpenStreetMap et du GIP Littoral (plages surveillées) ; la direction vers laquelle chaque plage regarde et son ouverture au large sont calculées par Vigie à partir du trait de côte, et le fond provient des données SHOM là où il est cartographié. La marée et la houle qui conviennent à chaque spot ne sont pas connues : rien n’est deviné.',
 		unavailable: 'La prévision de surf ne répond pas pour le moment.',
 		facing: 'Plage tournée vers {dir} ({deg}°)',
+		openWater: 'ouverture au large {deg}°',
+		lifeguarded: 'plage surveillée (GIP Littoral)',
+		'bottom.sand': 'fond sable',
+		'bottom.rock': 'fond roche',
+		'bottom.gravel': 'fond gravier',
+		'bottom.mixed': 'fond mixte',
+		'bottom.mud': 'fond vase',
+		sheltered: 'Houle masquée par la côte (à 20 km)',
 		back: 'Tous les spots',
 		best: 'Le meilleur créneau des 3 prochains jours',
 		bestNone: 'Aucune heure de jour des 3 prochains jours n’a pu être notée.',
@@ -502,14 +555,22 @@ const TEXT = {
 	en: {
 		page: 'Surf',
 		pageIntro:
-			'The swell, the wind and the tide hour by hour at some fifty spots of the Atlantic and the Channel, and a rating of ours, explained criterion by criterion.',
+			'The swell, the wind and the tide hour by hour at spots on the Atlantic, Basque coast and the Channel, and a rating of ours, explained criterion by criterion.',
 		safety:
 			'Not for safety and not for navigation: look at the sea on the spot, the flags and the lifeguards before going in.',
 		spots: 'The spots, north to south',
 		spotsNote:
-			'The spots come from OpenStreetMap; the direction each beach faces is worked out by Vigie from the coastline. The bottom, and the tide and swell each spot works best with, are not known: nothing is guessed.',
+			'The spots come from OpenStreetMap and GIP Littoral (lifeguarded beaches); the direction each beach faces and its open-water angle are worked out by Vigie from the coastline, and the seabed comes from SHOM data where mapped. The tide and swell each spot works best with are not known: nothing is guessed.',
 		unavailable: 'The surf forecast does not answer at the moment.',
 		facing: 'Beach facing {dir} ({deg}°)',
+		openWater: 'open water {deg}°',
+		lifeguarded: 'lifeguarded beach (GIP Littoral)',
+		'bottom.sand': 'sand bottom',
+		'bottom.rock': 'rock bottom',
+		'bottom.gravel': 'gravel bottom',
+		'bottom.mixed': 'mixed bottom',
+		'bottom.mud': 'mud bottom',
+		sheltered: 'Swell sheltered by the coast (within 20 km)',
 		back: 'All the spots',
 		best: 'The best slot of the next 3 days',
 		bestNone: 'No daylight hour of the next 3 days could be rated.',

@@ -38,7 +38,42 @@ describe('the surf spots', () => {
 		});
 		expect(read.spots.map((s) => s.id)).toEqual(['a']);
 		expect(read.spots[0].place).toBeNull();
+		expect(read.spots[0].bottom).toBeNull();
+		expect(read.spots[0].lifeguarded).toBeNull();
+		expect(read.spots[0].openWaterSectors).toBeNull();
+		expect(read.spots[0].openWaterWidth).toBeNull();
 		expect(read.attribution).toBeNull();
+	});
+
+	it('reads expanded spot metadata (bottom, lifeguarded, open-water sectors) when provided', () => {
+		const read = surfSpotsFromApi({
+			spots: [
+				{
+					id: 'capbreton-santocha',
+					name: 'Santocha',
+					lat: 43.65,
+					lon: -1.44,
+					facing_deg: 280,
+					place: 'Capbreton',
+					bottom: 'sand',
+					lifeguarded: true,
+					open_water_sectors: [
+						[210, 340],
+						[350, 10]
+					],
+					open_water_width_deg: 150
+				}
+			]
+		});
+		expect(read.spots[0]).toMatchObject({
+			bottom: 'sand',
+			lifeguarded: true,
+			openWaterSectors: [
+				[210, 340],
+				[350, 10]
+			],
+			openWaterWidth: 150
+		});
 	});
 });
 
@@ -73,8 +108,18 @@ describe('the forecast of a spot', () => {
 		expect(h.tide).toBeNull();
 		expect(h.rating).toBeNull();
 		expect(h.daylight).toBeNull();
+		expect(h.sheltered).toBeNull();
 		expect(one.best).toBeNull();
 		expect(swellText('fr', h.swell)).toBeNull();
+	});
+
+	it('reads swell_sheltered on an hour when the API reports it', () => {
+		const one = surfForecastFromApi({
+			generated_utc: 1,
+			spot: { id: 'a', name: 'A', lat: 44, lon: -1.2, facing_deg: 280 },
+			hours: [{ time_utc: 3600, swell: {}, wind: {}, secondary_swell: {}, swell_sheltered: true }]
+		})!;
+		expect(one.hours[0].sheltered).toBe(true);
 	});
 
 	it('shows the daylight hours by day, and the night ones on demand', () => {
