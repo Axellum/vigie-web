@@ -196,6 +196,7 @@
 		now,
 		hazards: data.hazards,
 		hazardsAttribution: data.hazardsAttribution,
+		hazardsDisclaimer: data.hazardsDisclaimer,
 		served: data.served,
 		uncovered: data.uncovered
 	}));

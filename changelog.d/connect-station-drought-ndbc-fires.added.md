@@ -1,0 +1,1 @@
+- Météo-France 6-minute coastal station observations, VigiEau drought restrictions, NOAA NDBC wave buoy attribution, and NASA FIRMS active fires near hazards.

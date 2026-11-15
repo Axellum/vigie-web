@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "disclaimer": "The information presented through LANCE, GIBS, Worldview, and FIRMS are provided “as is” and users bear all responsibility and liability for their use of data. Due to the spatial resolution and other characteristics of these data, their use for tactical decision-making or informing about conditions at a local scale are not advised."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "gdacs_wf_fiji_2026",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [179.0, -16.6]
+      },
+      "properties": {
+        "category": "WILDFIRE",
+        "severity": "ORANGE",
+        "title": "Forest fire - Vanua Levu",
+        "source": "GDACS",
+        "sources": ["GDACS"],
+        "timestamp_utc": 1791580000,
+        "value_primary": 1200,
+        "value_unit": "ha",
+        "depth_km": null,
+        "tsunami_warning": null,
+        "has_forecast": false,
+        "near_places": [
+          {
+            "name": "Active fire",
+            "kind": "fire",
+            "distance_km": 6.4,
+            "sources": ["VIIRS_NOAA20_NRT"]
+          }
+        ],
+        "attribution": "Source: Global Disaster Alert and Coordination System (GDACS), JRC / UN OCHA, https://www.gdacs.org | We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (https://earthdata.nasa.gov/firms), part of NASA's Land, Atmosphere Near real-time Capability for Earth observations (LANCE) (https://earthdata.nasa.gov/lance) and NASA's Earth Science Data and Information System (ESDIS)."
+      }
+    }
+  ]
+}

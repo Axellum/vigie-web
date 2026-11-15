@@ -18,6 +18,8 @@ import {
 } from '#lib/eclipse.js';
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
+import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
+import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
 import {
@@ -115,6 +117,10 @@ export const TTL_S = {
 	seaOverview: 600,
 	// The nearest buoy of every spot comes from a list bundled in the API: it changes with a new version of it only.
 	surfBuoys: 86_400,
+	// Coastal Météo-France 6-minute station observation with wind forecast comparison (API caches 6-min obs).
+	surfStation: 360,
+	// VigiEau French drought restrictions are snapped on the API grid and updated hourly.
+	drought: 3600,
 	// The places of the coast are a file bundled in the API (built once, ADR 0021 of the API): no provider is asked, and the
 	// answer is the same all day. The ids of the named places (the sitemap) are read through a few pages: kept longer.
 	seaPlaces: 3600,
@@ -590,11 +596,33 @@ export function getNamedPlaceIds(): Promise<Cached<string[]>> {
 	);
 }
 
-/** The nearest CANDHIS wave buoy of every spot. */
+/** The nearest wave buoy of every spot (CANDHIS / NDBC). */
 export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
 	return cache.get('surf-buoys', TTL_S.surfBuoys * 1000, async () =>
 		buoysFromApi(await getJson('/v1/surf/buoys', 15_000))
 	);
+}
+
+/** Latest 6-minute Météo-France coastal station reading for one surf spot, compared with the wind forecast. */
+export async function getSpotStation(id: string): Promise<Cached<SpotStationReading | null> | null> {
+	if (!/^[a-z0-9-]{1,80}$/.test(id)) return null;
+	try {
+		return await pointCache.get(`surf-station:${id}`, TTL_S.surfStation * 1000, async () =>
+			spotStationFromApi(await getJson(`/v1/surf/spots/${id}/station?compare=true`, 12_000))
+		);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) return null;
+		throw e;
+	}
+}
+
+/** Detailed VigiEau drought restriction zones, decrees and usages around one snapped position (FR/DROM only). */
+export async function getDrought(lat: number, lon: number): Promise<Cached<DroughtResponse | null>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`drought:${cell.lat},${cell.lon}`, TTL_S.drought * 1000, async () => {
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return droughtFromApi(await getJson(`/v1/drought?${query}`, 15_000));
+	});
 }
 
 /**

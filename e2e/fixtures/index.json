@@ -76,7 +76,9 @@
   "/v1/travel/health": "travel-health.json",
   "/v1/surf/spots": "surf-spots.json",
   "/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or": "surf-hossegor.json",
+  "/v1/surf/spots/soorts-hossegor-plage-sud-point-d-or/station": "surf-station-hossegor.json",
   "/v1/surf/overview": "surf-overview.json",
+  "/v1/drought?fr": "drought-fr.json",
   "/v1/vigilances.geojson?country=GR": "warnings-GR.json",
   "/v1/vigilances.geojson?country=HR": "warnings-HR.json",
   "/v1/activities/soorts-hossegor-plage-sud-point-d-or": "activities-hossegor.json",
@@ -99,7 +101,8 @@
  },
  "added": {
   "/v1/geojson/hazards": [
-   "hazards-storms.json"
+   "hazards-storms.json",
+   "hazards-wildfire.json"
   ]
  },
  "notes": {

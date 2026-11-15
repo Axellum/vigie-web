@@ -11,7 +11,7 @@ export function creditLines(credits: (string | null | undefined)[]): string[] {
 	return [...new Set(lines.filter(Boolean))];
 }
 
-/** The credits of the weather of a point, block by block, and the disclaimer NASA asks for its fires. */
+/** The credits of the weather of a point, block by block, drought and fires disclaimers. */
 export function pointCredits(weather: PointWeather): (string | null)[] {
 	return [
 		weather.attribution,
@@ -21,7 +21,9 @@ export function pointCredits(weather: PointWeather): (string | null)[] {
 		weather.fires?.attribution ?? null,
 		weather.marine?.attribution ?? null,
 		weather.space?.attribution ?? null,
-		weather.fires?.disclaimer ?? null
+		weather.drought?.attribution ?? null,
+		weather.fires?.disclaimer ?? null,
+		weather.disclaimer ?? null
 	];
 }
 

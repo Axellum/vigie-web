@@ -21,6 +21,7 @@ import {
 	type Place
 } from './near';
 import { pointCredits } from './credits';
+import { isCoveredDroughtCountry, type DroughtResponse } from './drought';
 import { cardOrder, wantsSea, type Profile } from './profiles';
 import { warningRow } from './rows';
 import { placeSentence, type OfficialState } from './sentence';
@@ -41,6 +42,7 @@ export interface PlaceInput {
 	now: number;
 	hazards: Hazard[];
 	hazardsAttribution: string | null;
+	hazardsDisclaimer?: string | null;
 	/** The countries that have official warnings. */
 	served: string[];
 	uncovered: UncoveredCountry[];
@@ -128,6 +130,24 @@ export class PlaceState {
 	readonly withSea = $derived(this.marine || wantsSea(this.profile));
 	readonly w = $derived(this.weather?.status === 'ok' ? (this.weather.value ?? null) : null);
 
+	// --- VigiEau drought restrictions (FR/DROM only, omitted outside covered zones) ------------------------
+	droughtState = $state<{
+		key: string;
+		status: 'loading' | 'ok' | 'error';
+		value?: DroughtResponse | null;
+	} | null>(null);
+	readonly droughtCovered = $derived(isCoveredDroughtCountry(this.country) || this.w?.drought != null);
+	readonly drought = $derived(
+		this.droughtCovered &&
+			this.droughtState?.status === 'ok' &&
+			this.droughtState.value &&
+			this.droughtState.value.status !== 'outside_coverage' &&
+			this.droughtState.value.status !== 'invalid_query'
+			? this.droughtState.value
+			: null
+	);
+	readonly hasDrought = $derived(this.drought != null || (this.droughtCovered && this.w?.drought != null));
+
 	/** The tide of the same rounded position, computed by the API; no card where the model has no point near. */
 	readonly tide = new TideAt();
 
@@ -187,10 +207,13 @@ export class PlaceState {
 
 	/** The credits of what is shown for the place: the warnings found here, the hazards around, the weather, the sky,
 	 *  the tide and the surf spots. */
+	readonly hasFireNear = $derived(this.near.some((n) => n.hazard.nearPlaces?.some((p) => p.kind === 'fire')));
 	readonly credits = $derived([
 		...this.officialCredits,
 		this.near.length ? this.hazardsAttribution : null,
+		this.hasFireNear ? this.hazardsDisclaimer : null,
 		...(this.w ? pointCredits(this.w) : []),
+		this.drought?.attribution ?? null,
 		this.skyCredit,
 		this.tide.value?.attribution ?? null,
 		this.withSurf && this.surfNear.length ? (this.surfAll?.value?.attribution ?? null) : null
@@ -219,6 +242,19 @@ export class PlaceState {
 			const key = `${at.lat},${at.lon},${sea}`;
 			untrack(() => {
 				if (this.weather?.key !== key) void this.#loadWeather(key, at, sea);
+			});
+		});
+
+		$effect(() => {
+			const at = this.cell;
+			const covered = this.droughtCovered;
+			if (!at || !covered) {
+				if (this.droughtState) this.droughtState = null;
+				return;
+			}
+			const key = `${at.lat},${at.lon}`;
+			untrack(() => {
+				if (this.droughtState?.key !== key) void this.#loadDrought(key, at);
 			});
 		});
 
@@ -264,6 +300,9 @@ export class PlaceState {
 	get hazardsAttribution(): string | null {
 		return this.#input().hazardsAttribution;
 	}
+	get hazardsDisclaimer(): string | null {
+		return this.#input().hazardsDisclaimer ?? null;
+	}
 	get served(): string[] {
 		return this.#input().served;
 	}
@@ -300,6 +339,18 @@ export class PlaceState {
 			if (this.weather?.key === key) this.weather = { key, status: 'ok', value };
 		} catch {
 			if (this.weather?.key === key) this.weather = { key, status: 'error' };
+		}
+	}
+
+	async #loadDrought(key: string, at: Place) {
+		this.droughtState = { key, status: 'loading' };
+		try {
+			const response = await fetch(`/data/drought.json?lat=${at.lat}&lon=${at.lon}`);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = (await response.json()) as DroughtResponse;
+			if (this.droughtState?.key === key) this.droughtState = { key, status: 'ok', value };
+		} catch {
+			if (this.droughtState?.key === key) this.droughtState = { key, status: 'error' };
 		}
 	}
 }

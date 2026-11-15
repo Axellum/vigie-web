@@ -1,0 +1,50 @@
+{
+  "spot_id": "soorts-hossegor-plage-sud-point-d-or",
+  "spot_name": "Plage Sud / Point d'Or",
+  "status": "ok",
+  "station": {
+    "id": "64024001",
+    "name": "BIARRITZ-PAYS-BASQUE",
+    "commune": "ANGLET",
+    "lat": 43.468333,
+    "lon": -1.531667,
+    "alt_m": 71.0,
+    "kind": "coastal"
+  },
+  "distance_km": 24.4,
+  "comparable": true,
+  "measure": {
+    "measured_utc": 1794742560,
+    "measured_at": "2026-11-15T11:36:00Z",
+    "age_minutes": 6,
+    "wind_speed_kmh": 18.0,
+    "wind_gust_kmh": 28.8,
+    "wind_from_deg": 100,
+    "wind_relative": "offshore",
+    "air_temp_c": 16.0,
+    "humidity_pct": 68,
+    "pressure_hpa": 1018.5,
+    "precip_6m_mm": 0.0
+  },
+  "comparison": {
+    "status": "ok",
+    "wind_model": "open_meteo_arome_france",
+    "forecast_time_utc": 1794744000,
+    "model_wind_speed_kmh": 14.0,
+    "speed_diff_kmh": 4.0,
+    "model_wind_gust_kmh": 22.0,
+    "gust_diff_kmh": 6.8,
+    "model_wind_from_deg": 90,
+    "model_wind_relative": "offshore",
+    "direction_diff_deg": 10,
+    "regime_match": true,
+    "stale": false
+  },
+  "stale": false,
+  "max_age_hours": 1.0,
+  "max_comparable_km": 25.0,
+  "note": "Observations are measured at station altitude and terrain rather than on the water. Compare against the spot forecast wind model.",
+  "derived": ["station", "distance_km", "comparable", "wind_relative", "comparison"],
+  "licence": "Licence Ouverte 2.0",
+  "attribution": "Source: Météo-France, observations infrahoraires 6 min (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, Licence Ouverte 2.0), dated as in the answer (measured_at, UTC); the choice of the station, its distance, its age and the relative wind are calculated by Vigie | Weather data by Open-Meteo.com (https://open-meteo.com/)"
+}

@@ -2,6 +2,7 @@
 	// The weather of one grid point (`/v1/point`): now, the next hour, the next days, air, river, fires seen by
 	// satellite, sea, space.
 	// Every value comes from the API as it is; an unknown one shows "–", a block the API did not give is left out.
+	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
 	import Time from '#lib/components/Time.svelte';
 	import { number } from '#lib/format.js';
 	import { translator, type Lang } from '#lib/i18n.js';
@@ -10,8 +11,8 @@
 	import { DEFAULT_UNITS, type Units } from '#lib/units.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
-	type Part = 'now' | 'rain' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space';
-	const ALL: Part[] = ['now', 'rain', 'days', 'air', 'river', 'fires', 'marine', 'space'];
+	type Part = 'now' | 'rain' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space' | 'drought';
+	const ALL: Part[] = ['now', 'rain', 'days', 'air', 'river', 'fires', 'marine', 'space', 'drought'];
 
 	// `parts`: the blocks to show, so that the cards of a place can each hold their own.
 	let {
@@ -232,6 +233,10 @@
 			</section>
 		{/if}
 	</div>
+
+	{#if weather.drought && show('drought')}
+		<DroughtPanel {lang} status={weather.drought} />
+	{/if}
 
 	{#if show('now') || show('days')}<p class="muted small">{tr('w.skyNote')}</p>{/if}
 </div>

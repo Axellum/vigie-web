@@ -3,6 +3,7 @@
 import type { Feature, FeatureCollection, Geometry, Position } from 'geojson';
 import { geometryBox } from './geo';
 import { asLevel } from './levels';
+import { droughtStatusFromApi } from './drought';
 import type {
 	Coverage,
 	Hazard,
@@ -84,7 +85,13 @@ function nearPlacesFromApi(value: unknown): NearPlace[] | null {
 	for (const item of value) {
 		const p = obj(item);
 		const name = str(p.name);
-		if (name) places.push({ name, kind: str(p.kind) ?? '', distanceKm: num(p.distance_km) });
+		if (!name) continue;
+		const sources = Array.isArray(p.sources)
+			? p.sources.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+			: [];
+		const entry: NearPlace = { name, kind: str(p.kind) ?? '', distanceKm: num(p.distance_km) };
+		if (sources.length) entry.sources = sources;
+		places.push(entry);
 	}
 	return places;
 }
@@ -122,7 +129,12 @@ export function hazardsFromApi(body: unknown): HazardsData {
 			nearPlaces: nearPlacesFromApi(p.near_places)
 		});
 	}
-	return { generated: num(meta.generated_utc), attribution: str(meta.attribution), items };
+	return {
+		generated: num(meta.generated_utc),
+		attribution: str(meta.attribution),
+		disclaimer: str(meta.disclaimer),
+		items
+	};
 }
 
 function textsFromApi(value: unknown): WarningText[] {
@@ -365,7 +377,9 @@ export function pointFromApi(body: unknown): PointWeather {
 			stale: bool(fires.stale) ?? false,
 			attribution: str(fires.attribution),
 			disclaimer: str(fires.disclaimer)
-		}
+		},
+		drought: droughtStatusFromApi(p.drought),
+		disclaimer: str(p.disclaimer)
 	};
 }
 

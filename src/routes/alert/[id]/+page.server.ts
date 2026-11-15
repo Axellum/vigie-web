@@ -5,8 +5,11 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, setHeaders }) => {
 	let items;
+	let hazardsDisclaimer: string | null = null;
 	try {
-		items = (await getHazards()).value.items;
+		const res = (await getHazards()).value;
+		items = res.items;
+		hazardsDisclaimer = res.disclaimer;
 	} catch (e) {
 		if (e instanceof ApiError) error(502, 'The Vigie API does not answer for now');
 		throw e;
@@ -32,5 +35,5 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 		}
 	}
 	setHeaders({ 'cache-control': 'public, max-age=30, s-maxage=60' });
-	return { hazard, forecast, messages, now: Math.floor(Date.now() / 1000) };
+	return { hazard, hazardsDisclaimer, forecast, messages, now: Math.floor(Date.now() / 1000) };
 };

@@ -385,13 +385,19 @@ describe('places near a hazard', () => {
 		const { items } = hazardsFromApi(raw);
 		const near = raw.features.find((f: any) => f.properties.near_places?.length);
 		expect(items.find((h) => h.id === near.id)?.nearPlaces).toEqual(
-			near.properties.near_places.map((p: any) => ({ name: p.name, kind: p.kind, distanceKm: p.distance_km }))
+			near.properties.near_places.map((p: any) => ({
+				name: p.name,
+				kind: p.kind,
+				distanceKm: p.distance_km,
+				...(Array.isArray(p.sources) && p.sources.length ? { sources: p.sources } : {})
+			}))
 		);
 	});
 
-	it('tells nothing near ([]) from not compared (null), and leaves out a place without a name', () => {
-		const hazard = (nearPlaces: unknown) =>
+	it('tells nothing near ([]) from not compared (null), leaves out unnamed places, and keeps active fires and disclaimer', () => {
+		const parsed = (nearPlaces: unknown, metadata?: Record<string, unknown>) =>
 			hazardsFromApi({
+				metadata,
 				features: [
 					{
 						type: 'Feature',
@@ -400,15 +406,55 @@ describe('places near a hazard', () => {
 						properties: { title: 'M 7.7', category: 'EARTHQUAKE', near_places: nearPlaces }
 					}
 				]
-			}).items[0].nearPlaces;
+			});
+		const hazard = (nearPlaces: unknown) => parsed(nearPlaces).items[0].nearPlaces;
 		expect(hazard(undefined)).toBeNull();
 		expect(hazard(null)).toBeNull();
 		expect(hazard([])).toEqual([]);
 		expect(
 			hazard([
 				{ name: 'Azuero Fault Zone', kind: 'fault', distance_km: 4.3, sources: ['GEM'] },
-				{ name: null, kind: 'fault', distance_km: 6 }
+				{ name: null, kind: 'fault', distance_km: 6 },
+				{
+					name: '2 active fires within 25 km (FRP 42 MW)',
+					kind: 'fire',
+					distance_km: 12.4,
+					sources: ['NASA FIRMS (VIIRS)']
+				}
 			])
-		).toEqual([{ name: 'Azuero Fault Zone', kind: 'fault', distanceKm: 4.3 }]);
+		).toEqual([
+			{ name: 'Azuero Fault Zone', kind: 'fault', distanceKm: 4.3, sources: ['GEM'] },
+			{
+				name: '2 active fires within 25 km (FRP 42 MW)',
+				kind: 'fire',
+				distanceKm: 12.4,
+				sources: ['NASA FIRMS (VIIRS)']
+			}
+		]);
+		expect(parsed([], { disclaimer: 'NASA FIRMS disclaimer' }).disclaimer).toBe('NASA FIRMS disclaimer');
+	});
+});
+
+describe('point drought and disclaimer metadata', () => {
+	it('parses point.drought and top-level disclaimer when present', () => {
+		const raw = fixture('point') as Record<string, any>;
+		const droughtRaw = fixture('drought-fr') as Record<string, any>;
+		const parsed = pointFromApi({
+			...raw,
+			disclaimer: 'Satellite fire pixels are thermal anomalies.',
+			drought: {
+				status: 'available',
+				max_level: droughtRaw.max_level,
+				restrictions_in_force: droughtRaw.restrictions_in_force,
+				department: droughtRaw.department,
+				zones: droughtRaw.zones,
+				availability: droughtRaw.availability,
+				as_of: droughtRaw.as_of,
+				attribution: droughtRaw.attribution
+			}
+		});
+		expect(parsed.disclaimer).toBe('Satellite fire pixels are thermal anomalies.');
+		expect(parsed.drought?.status).toBe('available');
+		expect(parsed.drought?.zones).toHaveLength(2);
 	});
 });

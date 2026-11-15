@@ -1,8 +1,8 @@
 // The verdicts of the API for one surf spot (vigie-api `GET /v1/activities/{spot_id}`, ADR 0016 of the API): for surf, kite
 // (wing, windsurf), boat and shore fishing, a verdict hour by hour (good, possible or poor), the best slot of the next 24
 // hours, the criteria behind it, the tide and the coastal warnings. Every verdict is a rule of Vigie, written in `rules`. And
-// the nearest CANDHIS wave buoy of every spot (`GET /v1/surf/buoys`). Every figure is the API's; what it did not give is
-// left out, never guessed.
+// the nearest wave buoy of every spot (`GET /v1/surf/buoys`, CANDHIS / NOAA NDBC). Every figure is the API's; what it did not
+// give is left out, never guessed.
 import { number } from './format';
 import type { Lang } from './i18n';
 import type { WindUnit } from './sea/choice';
@@ -233,7 +233,9 @@ export function activitiesFromApi(raw: unknown): ActivitiesForecast | null {
 export interface Buoy {
 	id: string;
 	name: string;
-	/** True only for a station that CANDHIS marked real time when its list was read; null for the others (unknown). */
+	/** Network reported by the API (`candhis`, `ndbc`, …), or null when omitted. */
+	source: string | null;
+	/** True only for a station marked real time by its network when its list was read; null for the others (unknown). */
 	realTime: boolean | null;
 }
 
@@ -259,7 +261,27 @@ function buoyFromApi(raw: unknown): Buoy | null {
 	const id = str(b.id);
 	const name = str(b.name);
 	if (!id || !name) return null;
-	return { id, name, realTime: typeof b.real_time === 'boolean' ? b.real_time : null };
+	return {
+		id,
+		name,
+		source: str(b.source),
+		realTime: typeof b.real_time === 'boolean' ? b.real_time : null
+	};
+}
+
+/** Label the buoy's network dynamically from its `source` field or the API's attribution string, never hardcoding one network. */
+export function buoySourceLabel(buoy: Buoy | null, attribution: string | null): string | null {
+	if (!buoy) return null;
+	const src = buoy.source?.toLowerCase() ?? null;
+	if (src === 'candhis') return 'CANDHIS';
+	if (src === 'ndbc') return 'NOAA NDBC';
+	if (buoy.source) return buoy.source;
+	if (!attribution) return null;
+	const hasCandhis = /candhis/i.test(attribution);
+	const hasNdbc = /ndbc/i.test(attribution);
+	if (hasCandhis && !hasNdbc) return 'CANDHIS';
+	if (hasNdbc && !hasCandhis) return 'NOAA NDBC';
+	return null;
 }
 
 export function buoysFromApi(raw: unknown): SurfBuoys {
@@ -583,8 +605,10 @@ const TEXT = {
 		level: 'niveau {level}',
 		stale: 'Un fournisseur n’a pas répondu : ce sont ses dernières données qui sont utilisées.',
 		buoy: 'Bouée de houle la plus proche',
-		buoyAt: '{name} (CANDHIS), à {km} km.',
+		buoyAt: '{name}, à {km} km.',
+		buoyAtSource: '{name} ({source}), à {km} km.',
 		buoyRealTime: 'La plus proche marquée « temps réel » : {name}, à {km} km.',
+		buoyRealTimeSource: 'La plus proche marquée « temps réel » : {name} ({source}), à {km} km.',
 		buoyFar: 'Trop loin ({max} km au plus) pour que sa houle dise quelque chose de ce spot.',
 		buoyNear: 'Assez proche pour comparer sa houle à celle du spot, sans savoir si la plage est abritée.',
 		buoyNotRead:
@@ -643,8 +667,10 @@ const TEXT = {
 		level: 'level {level}',
 		stale: 'A provider did not answer: its last data are used.',
 		buoy: 'Nearest wave buoy',
-		buoyAt: '{name} (CANDHIS), {km} km away.',
+		buoyAt: '{name}, {km} km away.',
+		buoyAtSource: '{name} ({source}), {km} km away.',
 		buoyRealTime: 'Nearest one marked "real time": {name}, {km} km away.',
+		buoyRealTimeSource: 'Nearest one marked "real time": {name} ({source}), {km} km away.',
 		buoyFar: 'Too far ({max} km at most) for its waves to say anything of this spot.',
 		buoyNear:
 			'Close enough to compare its waves with the spot’s, without knowing whether the beach is sheltered.',

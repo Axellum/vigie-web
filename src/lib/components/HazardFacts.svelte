@@ -4,9 +4,15 @@
 	import type { Hazard } from '#lib/types.js';
 	import Time from './Time.svelte';
 
-	let { lang, hazard }: { lang: Lang; hazard: Hazard } = $props();
+	let {
+		lang,
+		hazard,
+		disclaimer = null
+	}: { lang: Lang; hazard: Hazard; disclaimer?: string | null } = $props();
 	const tr = $derived(translator(lang));
 	const quake = $derived(hazard.category === 'EARTHQUAKE');
+	const wildfire = $derived(hazard.category === 'WILDFIRE');
+	const hasFireNear = $derived(hazard.nearPlaces?.some((p) => p.kind === 'fire') ?? false);
 	const gdacs = $derived(hazard.sources.includes('GDACS'));
 </script>
 
@@ -38,17 +44,18 @@
 						<li>
 							{place.name}
 							<span class="muted"
-								>({tOr(lang, `near.kind.${place.kind}`, place.kind)}{#if place.distanceKm != null}, <span
-										class="data">{number(lang, place.distanceKm)} km</span
+								>({tOr(lang, `near.kind.${place.kind}`, place.kind)}{#if place.sources?.length}
+									· {place.sources.join(', ')}{/if}{#if place.distanceKm != null}, <span class="data"
+										>{number(lang, place.distanceKm)} km</span
 									>{/if})</span
 							>
 						</li>
 					{/each}
 				</ul>
 			{:else}
-				{tr('detail.nearNone')}
+				{tr(wildfire ? 'detail.nearNoneFire' : 'detail.nearNone')}
 			{/if}
-			<span class="muted small">· {tr('detail.nearDerived')}</span>
+			<span class="muted small">· {tr(wildfire ? 'detail.nearDerivedFire' : 'detail.nearDerived')}</span>
 		</dd>
 	{/if}
 	<dt>{tr('detail.sources')}</dt>
@@ -59,6 +66,9 @@
 {/if}
 {#if hazard.attribution}
 	<p class="credit">{hazard.attribution}</p>
+{/if}
+{#if hasFireNear && disclaimer}
+	<p class="credit">{disclaimer}</p>
 {/if}
 
 <style>

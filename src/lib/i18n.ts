@@ -182,10 +182,14 @@ const fr = {
 	'detail.severityOther': "Ramenée à l'échelle de Vigie",
 	'detail.near': 'À proximité',
 	'detail.nearNone': 'Aucune faille active nommée ni aucun volcan signalé à proximité',
+	'detail.nearNoneFire': 'Aucune détection satellite de feu récente (< 24 h) à proximité',
 	'detail.nearDerived':
 		'calculé par Vigie, d’après le tracé cartographié des failles et les volcans que signalent les sources ; cela ne dit pas que l’événement en vient',
+	'detail.nearDerivedFire':
+		'calculé par Vigie, d’après les détections satellites NASA FIRMS ; une détection n’est pas une alerte',
 	'near.kind.fault': 'faille active',
 	'near.kind.volcano': 'volcan',
+	'near.kind.fire': 'feu actif (satellite)',
 	'detail.sources': 'Sources',
 	'detail.gdacs': 'Les alertes GDACS sont automatiques et ne remplacent pas les alertes officielles.',
 	'detail.issuer': 'Émise par',
@@ -1025,10 +1029,14 @@ const en: Record<Key, string> = {
 	'detail.severityOther': "Brought to Vigie's scale",
 	'detail.near': 'Nearby',
 	'detail.nearNone': 'No named active fault and no reported volcano nearby',
+	'detail.nearNoneFire': 'No recent (< 24 h) satellite fire detection nearby',
 	'detail.nearDerived':
 		'calculated by Vigie from the mapped traces of faults and the volcanoes the sources report; it does not say the event came from them',
+	'detail.nearDerivedFire':
+		'calculated by Vigie from NASA FIRMS satellite detections; a detection is not an alert',
 	'near.kind.fault': 'active fault',
 	'near.kind.volcano': 'volcano',
+	'near.kind.fire': 'active fire (satellite)',
 	'detail.sources': 'Sources',
 	'detail.gdacs': 'GDACS alerts are automatic and do not replace official warnings.',
 	'detail.issuer': 'Issued by',
