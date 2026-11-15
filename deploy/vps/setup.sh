@@ -3,7 +3,8 @@
 #   - the user "vigie" (no sudo) runs the containers, with the admin account's SSH keys;
 #   - Podman (rootless); ports 80 and 443 allowed to unprivileged users; the user's units start at boot;
 #   - firewall: only SSH, HTTP and HTTPS come in (nftables.conf);
-#   - SSH by key only, security updates installed automatically, the journal kept 14 days at most.
+#   - SSH by key only, fail2ban on SSH, security updates installed automatically (with a reboot at 04:45 UTC when one
+#     needs it), the journal kept 14 days at most.
 # Running it again changes nothing that is already in place.
 set -euo pipefail
 
@@ -17,7 +18,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd
+apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd fail2ban
 
 # The account that runs the containers, reachable with the same keys as the admin account.
 if ! id vigie >/dev/null 2>&1; then
@@ -52,6 +53,34 @@ cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
+
+# An installed kernel fix only protects after a reboot: reboot when an update needs it, at 04:45 UTC, after the dump of
+# the database (vigie-backup.timer, 03:30 UTC plus up to 15 minutes). The containers start again by themselves (linger).
+cat >/etc/apt/apt.conf.d/52automatic-reboot <<'EOF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:45";
+EOF
+
+# SSH is open to the whole Internet: ban an address after 5 failures in 10 minutes, 1 hour, longer each time it comes
+# back (up to a week). Debian 13 (OpenSSH 10) logs the failures as sshd-session, which defaults-debian.conf does not
+# read. To never ban an address of yours, add it to ignoreip in /etc/fail2ban/jail.local.
+cat >/etc/fail2ban/jail.local <<'EOF'
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1
+bantime = 1h
+bantime.increment = true
+bantime.maxtime = 1w
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+backend = systemd
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd + _COMM=sshd-session
+mode = aggressive
+EOF
+systemctl enable -q fail2ban
+systemctl restart fail2ban
 
 # The journal holds the logs of the containers too: 14 days at most (13 days, plus one file of one day).
 mkdir -p /etc/systemd/journald.conf.d
