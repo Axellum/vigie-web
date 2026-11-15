@@ -2,7 +2,7 @@
 # Installs and updates Vigie on a rented server (Debian 13, Podman rootless quadlets). See README.md.
 #
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh setup           # once: system, user "vigie", firewall (admin account, sudo)
-#   VIGIE_HOST=<address> deploy/vps/deploy.sh files           # quadlets, Caddyfile, backup timer, health scripts
+#   VIGIE_HOST=<address> deploy/vps/deploy.sh files           # quadlets, Caddyfile, backup timer and scripts, health scripts
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh secrets         # once: the database password, made on the server
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh firms-key   # the NASA FIRMS key, read on stdin
 #   <token> | VIGIE_HOST=<address> deploy/vps/deploy.sh admin-token  # the API's admin token, read on stdin
@@ -40,11 +40,11 @@ install_files() {
 	copy "$shared/vigie.network" "$here/vigie-db.container" "$here/vigie-api.container" "$here/vigie-web.container" \
 		"$here/caddy.container" "$server:.config/containers/systemd/"
 	copy "$here/vigie-backup.service" "$here/vigie-backup.timer" "$server:.config/systemd/user/"
-	copy "$shared/api-healthcheck.py" "$shared/web-healthcheck.mjs" "$here/backup.sh" "$here/Caddyfile" \
-		"$here/public.caddy.example" "$here/web.env.example" "$here/api.env.example" \
+	copy "$shared/api-healthcheck.py" "$shared/web-healthcheck.mjs" "$here/backup.sh" "$here/export-oracle.sh" \
+		"$here/Caddyfile" "$here/public.caddy.example" "$here/web.env.example" "$here/api.env.example" \
 		"$here/caddy.env.example" "$server:vigie/"
 	# Machine-specific files (web.env, api.env, caddy.env, sites/public.caddy) are created once and then left alone.
-	remote 'cd ~/vigie && chmod 644 api-healthcheck.py web-healthcheck.mjs Caddyfile && chmod 755 backup.sh \
+	remote 'cd ~/vigie && chmod 644 api-healthcheck.py web-healthcheck.mjs Caddyfile && chmod 755 backup.sh export-oracle.sh \
 		&& { [ -f web.env ] || cp web.env.example web.env; } \
 		&& { [ -f api.env ] || cp api.env.example api.env; } \
 		&& { [ -f caddy.env ] || cp caddy.env.example caddy.env; } \

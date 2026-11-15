@@ -17,7 +17,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades
+apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd
 
 # The account that runs the containers, reachable with the same keys as the admin account.
 if ! id vigie >/dev/null 2>&1; then

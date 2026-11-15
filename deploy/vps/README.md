@@ -102,3 +102,33 @@ podman exec -i vigie-db pg_restore -U vigie -d vigie --clean --if-exists < ~/vig
 ```
 
 The dumps are on the server's own disk: they protect against a mistake, not against the loss of the server.
+
+### Off-site copy of the API's database
+
+The API's database (`/data/vigie.db` in the volume `vigie-api-data`: the archive of the warnings, the forecasts kept
+to measure them, the sources' history) took weeks to gather and holds no account and no visitor's data. A second
+server, at another provider, pulls a copy of it every night with its own SSH key, limited to one command by a line
+of `/home/vigie/.ssh/authorized_keys`:
+
+```
+restrict,command="/home/vigie/vigie/export-oracle.sh" ssh-ed25519 AAAA... oracle-sauvegardes
+```
+
+`export-oracle.sh` writes to its output a consistent copy of the database (SQLite's backup API, safe while the API
+writes), compressed with zstd. Whatever the key asks for, only this runs, and `restrict` turns off forwarding and the
+terminal. The second server checks each copy (`zstd -t`, `PRAGMA integrity_check`, an archive that is not empty)
+and keeps them 14 days.
+
+- The accounts' database is not copied there: its dumps stay on this server, so that a deleted account is still
+  gone from every copy within 7 days.
+- `setup.sh` writes the admin account's keys over `authorized_keys` of `vigie`: after running it again, add this
+  line back.
+- To restore a copy (not tried yet): `zstd -d vigie-api-<date>.db.zst -o vigie.db`, put `vigie.db` on this server,
+  then
+
+```
+systemctl --user stop vigie-api
+podman run --rm -i -v vigie-api-data:/data --entrypoint sh localhost/vigie-api:current -c \
+  'cat >/data/vigie.db.new && rm -f /data/vigie.db-wal /data/vigie.db-shm && mv /data/vigie.db.new /data/vigie.db' <vigie.db
+systemctl --user start vigie-api
+```
