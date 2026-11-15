@@ -13,8 +13,10 @@ database is not reachable from outside, and of the API only its reads are, throu
 | `caddy.container`     | the one door, host network (real visitor addresses)        | `80`, `443` (TCP and UDP); `127.0.0.1:8090` |
 | `vigie-backup.timer`  | a dump of the database every day, kept 5 days              | –                                           |
 
-`setup.sh` also sets the firewall (`nftables.conf`: SSH, HTTP and HTTPS only), SSH by key only, automatic
-security updates, a journal kept 14 days at most, and 2 GB of swap for the image builds.
+`setup.sh` also sets the firewall (`nftables.conf`: SSH, HTTP and HTTPS only), SSH by key only with fail2ban
+(an address that fails 5 times in 10 minutes is banned an hour, longer each time it comes back), automatic security
+updates with a reboot at 04:45 UTC when one needs it (a kernel fix only protects after a reboot; the site is down
+about a minute), a journal kept 14 days at most, and 2 GB of swap for the image builds.
 
 What is kept, and for how long, must match the privacy page: no access log (Caddy writes none), dumps of the
 database 5 days, plus the host's own backup of the whole server (24 hours at its Standard level): a deleted
