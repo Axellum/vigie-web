@@ -7,7 +7,7 @@ import { number } from './format';
 import type { Lang } from './i18n';
 import type { WindUnit } from './sea/choice';
 import { windText } from './sea/units';
-import { dayKey, SURF_TIME_ZONE, type SurfSpot } from './surf';
+import { dayKey, spotFromApi, SURF_TIME_ZONE, type SurfSpot } from './surf';
 
 export type Verdict = 'good' | 'possible' | 'poor';
 export type ActivityId = 'surf' | 'kite' | 'boat' | 'shore_fishing';
@@ -158,17 +158,6 @@ function activityFromApi(raw: unknown): Activity | null {
 				: null,
 		note: str(a.note)
 	};
-}
-
-function spotFromApi(raw: unknown): SurfSpot | null {
-	const s = obj(raw);
-	const id = str(s.id);
-	const name = str(s.name);
-	const lat = num(s.lat);
-	const lon = num(s.lon);
-	const facing = num(s.facing_deg);
-	if (!id || !name || lat == null || lon == null || facing == null) return null;
-	return { id, name, place: str(s.place), lat, lon, facing };
 }
 
 export function activitiesFromApi(raw: unknown): ActivitiesForecast | null {

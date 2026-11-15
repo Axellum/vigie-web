@@ -1,0 +1,1 @@
+- Surf pages now parse and show expanded spot metadata (`bottom`, `lifeguarded`, `open_water_width_deg`) and per-hour `swell_sheltered` shelter indicator from the API, and update the surf intro/source notes beyond the legacy 51 spots.
