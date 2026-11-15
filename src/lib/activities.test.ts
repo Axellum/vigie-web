@@ -8,6 +8,7 @@ import {
 	activityText,
 	axisHour,
 	buoyOf,
+	buoySourceLabel,
 	buoysFromApi,
 	criterionValueText,
 	reasonText,
@@ -228,5 +229,25 @@ describe('the nearest wave buoy of a spot', () => {
 		expect(buoyOf(bare, 'a')).toBeNull();
 		expect(buoyOf(bare, 'b')!.comparable).toBe(false);
 		expect(buoysFromApi(null).spots).toEqual([]);
+	});
+
+	it('resolves buoy source dynamically for CANDHIS, NOAA NDBC and unknown attributions', () => {
+		const mixed = buoysFromApi({
+			attribution: 'CEREMA CANDHIS / NOAA NDBC',
+			spots: [
+				{ spot_id: 'hossegor', buoy: { id: '04002', name: 'Bayonne', source: 'candhis' }, distance_km: 14.9 },
+				{ spot_id: 'waimea', buoy: { id: '51201', name: 'Waimea Bay', source: 'ndbc' }, distance_km: 2.1 },
+				{ spot_id: 'legacy', buoy: { id: '999', name: 'Legacy' }, distance_km: 5 }
+			]
+		});
+		const h = buoyOf(mixed, 'hossegor')!.buoy;
+		const w = buoyOf(mixed, 'waimea')!.buoy;
+		const l = buoyOf(mixed, 'legacy')!.buoy;
+		expect(buoySourceLabel(h, mixed.attribution)).toBe('CANDHIS');
+		expect(buoySourceLabel(w, mixed.attribution)).toBe('NOAA NDBC');
+		// Mixed attribution with no per-buoy source avoids guessing a single provider.
+		expect(buoySourceLabel(l, mixed.attribution)).toBeNull();
+		expect(buoySourceLabel(l, 'Données houlographe Candhis (CEREMA)')).toBe('CANDHIS');
+		expect(buoySourceLabel(l, 'NOAA National Data Buoy Center (NDBC)')).toBe('NOAA NDBC');
 	});
 });

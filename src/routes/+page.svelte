@@ -69,6 +69,7 @@
 	// Writable deriveds: they follow a new page load, and the browser refreshes them in between.
 	let hazards = $derived<Hazard[]>(data.hazards?.items ?? []);
 	let hazardsAttribution = $derived<string | null>(data.hazards?.attribution ?? null);
+	let hazardsDisclaimer = $derived<string | null>(data.hazards?.disclaimer ?? null);
 	let now = $derived(data.now);
 
 	// --- the point: the API's events, the strongest first, of the area the map shows ---------------------------
@@ -530,9 +531,15 @@
 		for (const e of [...pointRows, ...(unfold ? weak : [])]) if (e.attribution) set.add(e.attribution);
 		return [...set];
 	});
+	const selectedHasFireNear = $derived(selectedHazard?.nearPlaces?.some((p) => p.kind === 'fire') ?? false);
+	const anyHazardHasFireNear = $derived(hazards.some((h) => h.nearPlaces?.some((p) => p.kind === 'fire')));
 	const disclaimers = $derived([
 		...new Set(
-			[...shownCountries.map((cc) => countries.get(cc)?.data?.disclaimer), world?.disclaimer].filter(Boolean)
+			[
+				...shownCountries.map((cc) => countries.get(cc)?.data?.disclaimer),
+				world?.disclaimer,
+				anyHazardHasFireNear ? hazardsDisclaimer : null
+			].filter(Boolean)
 		)
 	] as string[]);
 
@@ -547,6 +554,7 @@
 				const value = await r.json();
 				hazards = value.items;
 				hazardsAttribution = value.attribution;
+				hazardsDisclaimer = value.disclaimer ?? null;
 			} catch {
 				// Keep the list we have; the next refresh tries again.
 			}
@@ -642,7 +650,11 @@
 						<h2>{selectedHazard.title}</h2>
 						<p class="muted">{tOr(lang, `cat1.${selectedHazard.category}`, selectedHazard.category)}</p>
 					</div>
-					<HazardFacts {lang} hazard={selectedHazard} />
+					<HazardFacts
+						{lang}
+						hazard={selectedHazard}
+						disclaimer={selectedHasFireNear ? hazardsDisclaimer : null}
+					/>
 					{#if selectedHazard.hasForecast}
 						{#if forecast?.status === 'ok' && forecast.value}
 							<ForecastDetails {lang} forecast={forecast.value} credited={selectedHazard.attribution} />
@@ -933,7 +945,9 @@
 			{#each disclaimers as d (d)}<p class="credit">{d}</p>{/each}
 			{#if showFires && fireFirst}
 				{#if fireFirst.attribution}<p class="credit">{fireFirst.attribution}</p>{/if}
-				{#if fireFirst.disclaimer}<p class="credit">{fireFirst.disclaimer}</p>{/if}
+				{#if fireFirst.disclaimer && !disclaimers.includes(fireFirst.disclaimer)}
+					<p class="credit">{fireFirst.disclaimer}</p>
+				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>

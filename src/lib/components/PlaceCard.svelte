@@ -4,6 +4,7 @@
 	// (`placeState.svelte.ts`) and holds nothing of its own.
 	import type { Snippet } from 'svelte';
 	import AlertRow from '#lib/components/AlertRow.svelte';
+	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import NearCard from '#lib/components/NearCard.svelte';
 	import NearSky from '#lib/components/NearSky.svelte';
@@ -18,6 +19,7 @@
 	import type { Card } from '#lib/profiles.js';
 	import { hazardRow, warningRow } from '#lib/rows.js';
 	import { nearSurfSpots, surfText } from '#lib/surf.js';
+	import { droughtLevelLabel, droughtText } from '#lib/drought.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
 	// `placeName` says which place the card is of when a page shows several; `size` is the block's size on "my page":
@@ -106,21 +108,41 @@
 				<a href="/country/{u.cc.toLowerCase()}">{countryName(lang, u.cc)}</a>
 			</p>
 		{/each}
+		{#if s.hasDrought}
+			{@const dStatus = s.drought?.status ?? s.w?.drought?.status}
+			{@const dLevel = s.drought?.maxLevel ?? s.w?.drought?.maxLevel}
+			<p class="small">
+				{#if dLevel === 'vigilance'}
+					{droughtText(lang, 'summaryVigilance')}
+				{:else if dLevel}
+					{droughtText(lang, 'summaryActive', { level: droughtLevelLabel(lang, dLevel) })}
+				{:else if dStatus === 'confirmed_none'}
+					<span class="muted">{droughtText(lang, 'summaryNone')}</span>
+				{:else if dStatus === 'unavailable'}
+					<span class="muted">{droughtText(lang, 'summaryUnavailable')}</span>
+				{/if}
+			</p>
+		{/if}
 	{/if}
 {/snippet}
 {#snippet officialDetails()}
-	<div class="list">
-		{#each s.here as h (h.warning.cc + h.warning.id)}
-			<div class="item">
-				<AlertRow {lang} row={warningRow(h.warning)} now={s.now} />
-				{#if h.distanceKm != null}
-					<p class="muted small distance">
-						{tr(h.river ? 'near.riverDistance' : 'near.areaMargin', { km: km(h.distanceKm) })}
-					</p>
-				{/if}
-			</div>
-		{/each}
-	</div>
+	{#if s.here.length}
+		<div class="list">
+			{#each s.here as h (h.warning.cc + h.warning.id)}
+				<div class="item">
+					<AlertRow {lang} row={warningRow(h.warning)} now={s.now} />
+					{#if h.distanceKm != null}
+						<p class="muted small distance">
+							{tr(h.river ? 'near.riverDistance' : 'near.areaMargin', { km: km(h.distanceKm) })}
+						</p>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
+	{#if s.hasDrought}
+		<DroughtPanel {lang} status={s.w?.drought ?? null} detail={s.drought} />
+	{/if}
 {/snippet}
 
 <!-- Hazards around ---------------------------------------------------------------------------------------- -->
@@ -323,7 +345,7 @@
 
 {#snippet card()}
 	{@const details: Record<Card, Snippet | undefined> = {
-		official: s.here.length ? officialDetails : undefined,
+		official: s.here.length || s.hasDrought ? officialDetails : undefined,
 		hazards: s.near.length || s.w?.fires ? hazardsDetails : undefined,
 		weather: s.w ? weatherDetails : undefined,
 		sea: s.w?.marine ? seaDetails : undefined,

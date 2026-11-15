@@ -15,11 +15,31 @@ describe('credits', () => {
 
 	it('keeps every credit of the weather of a point, and the disclaimer of the fires', () => {
 		const raw = fixture('point') as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-		const lines = creditLines(pointCredits(pointFromApi(raw)));
+		const droughtRaw = fixture('drought-fr') as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+		const lines = creditLines(
+			pointCredits(
+				pointFromApi({
+					...raw,
+					disclaimer: 'Point global disclaimer',
+					drought: {
+						status: 'available',
+						max_level: droughtRaw.max_level,
+						restrictions_in_force: droughtRaw.restrictions_in_force,
+						department: droughtRaw.department,
+						zones: droughtRaw.zones,
+						availability: droughtRaw.availability,
+						as_of: droughtRaw.as_of,
+						attribution: droughtRaw.attribution
+					}
+				})
+			)
+		);
 		expect(lines).toContain('Weather data by Open-Meteo.com (https://open-meteo.com/)');
 		expect(lines).toContain(raw.fires_nearby.attribution);
 		expect(lines).toContain(raw.fires_nearby.disclaimer);
 		expect(lines).toContain(raw.space_weather.attribution);
+		expect(lines).toContain(droughtRaw.attribution);
+		expect(lines).toContain('Point global disclaimer');
 		// Open-Meteo credits every block: it is said once.
 		expect(lines.filter((l) => l.includes('Open-Meteo')).length).toBe(1);
 	});

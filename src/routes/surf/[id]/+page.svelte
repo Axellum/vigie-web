@@ -3,6 +3,7 @@
 	// explained criterion by criterion, then every daylight hour (the night ones on demand), each one opening on its rating.
 	import { onMount } from 'svelte';
 	import ActivityVerdicts from '#lib/components/ActivityVerdicts.svelte';
+	import CoastalStation from '#lib/components/CoastalStation.svelte';
 	import Credits from '#lib/components/Credits.svelte';
 	import Seo from '#lib/components/Seo.svelte';
 	import SurfChart from '#lib/components/SurfChart.svelte';
@@ -147,6 +148,7 @@
 				{lang}
 				v={data.verdicts}
 				buoy={data.buoy}
+				buoyAttribution={data.buoyAttribution}
 				buoyMaxKm={data.buoyMaxKm}
 				windUnit={choice.unit}
 				bind:night
@@ -154,6 +156,8 @@
 		{:else}
 			<p class="note">{activityText(lang, 'unavailable')}</p>
 		{/if}
+
+		<CoastalStation {lang} station={data.station} windUnit={choice.unit} />
 
 		{#if f.hours.length}
 			<section class="block">
@@ -225,7 +229,12 @@
 
 	<Credits
 		{lang}
-		credits={[f?.attribution, data.verdicts?.attribution, data.buoy ? data.buoyAttribution : null]}
+		credits={[
+			f?.attribution,
+			data.verdicts?.attribution,
+			data.buoy ? data.buoyAttribution : null,
+			data.station?.attribution
+		]}
 	/>
 </div>
 

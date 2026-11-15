@@ -7,6 +7,7 @@
 		activityText,
 		axisHour,
 		BAR_HEIGHT,
+		buoySourceLabel,
 		criterionName,
 		criterionValueText,
 		reasonText,
@@ -30,6 +31,7 @@
 		lang,
 		v,
 		buoy = null,
+		buoyAttribution = null,
 		buoyMaxKm = null,
 		night = $bindable(false),
 		windUnit = 'kn'
@@ -37,6 +39,7 @@
 		lang: Lang;
 		v: ActivitiesForecast;
 		buoy?: SpotBuoy | null;
+		buoyAttribution?: string | null;
 		buoyMaxKm?: number | null;
 		night?: boolean;
 		/** The unit a wind in knots is shown in (the visitor's choice, kept in this browser). */
@@ -203,12 +206,24 @@
 	</div>
 
 	{#if buoy && buoy.buoy}
+		{@const source = buoySourceLabel(buoy.buoy, buoyAttribution)}
+		{@const rtSource = buoySourceLabel(buoy.realTimeBuoy, buoyAttribution)}
 		<div class="block buoy">
 			<h3>{t('buoy')}</h3>
 			<p class="small">
-				{#if buoy.km != null}{t('buoyAt', { name: buoy.buoy.name, km: km(buoy.km) })}{/if}
+				{#if buoy.km != null}
+					{source
+						? t('buoyAtSource', { name: buoy.buoy.name, source, km: km(buoy.km) })
+						: t('buoyAt', { name: buoy.buoy.name, km: km(buoy.km) })}
+				{/if}
 				{#if buoy.realTimeBuoy && buoy.realTimeBuoy.id !== buoy.buoy.id && buoy.realTimeKm != null}
-					{t('buoyRealTime', { name: buoy.realTimeBuoy.name, km: km(buoy.realTimeKm) })}
+					{rtSource && rtSource !== source
+						? t('buoyRealTimeSource', {
+								name: buoy.realTimeBuoy.name,
+								source: rtSource,
+								km: km(buoy.realTimeKm)
+							})
+						: t('buoyRealTime', { name: buoy.realTimeBuoy.name, km: km(buoy.realTimeKm) })}
 				{/if}
 				{buoy.comparable
 					? t('buoyNear')

@@ -1,6 +1,8 @@
 // The site's own view of the Vigie API data. Every field the API did not give stays null.
 import type { FeatureCollection, Geometry } from 'geojson';
 
+import type { DroughtStatus } from './drought';
+
 export type Level = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN';
 
 export interface Hazard {
@@ -27,9 +29,10 @@ export interface Hazard {
 
 export interface NearPlace {
 	name: string;
-	/** `fault` or `volcano`; another value is shown as the API gave it. */
+	/** `fault`, `volcano` or `fire`; another value is shown as the API gave it. */
 	kind: string;
 	distanceKm: number | null;
+	sources?: string[];
 }
 
 /**
@@ -57,6 +60,7 @@ export interface HazardForecast {
 export interface HazardsData {
 	generated: number | null;
 	attribution: string | null;
+	disclaimer: string | null;
 	items: Hazard[];
 }
 
@@ -239,6 +243,10 @@ export interface PointWeather {
 		attribution: string | null;
 		disclaimer: string | null;
 	} | null;
+	/** French VigiEau drought summary around the point, null outside coverage or when unavailable. */
+	drought: DroughtStatus | null;
+	/** Optional disclaimer attached to the point response (for example NASA FIRMS on nearby fires). */
+	disclaimer: string | null;
 }
 
 /** One tile of the active fires (`/data/fires/<level>/<x>_<y>.json`). */

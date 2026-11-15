@@ -71,6 +71,36 @@ createServer((req, res) => {
 				(url.pathname === '/v1/tides'
 					? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
 					: '');
+	if (url.pathname === '/v1/drought') {
+		const lat = Number(url.searchParams.get('lat'));
+		const lon = Number(url.searchParams.get('lon'));
+		const inFr = lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10;
+		res.writeHead(200, { 'content-type': 'application/json' });
+		if (inFr && index['/v1/drought?fr']) {
+			res.end(readFileSync(join(dir, index['/v1/drought?fr'])));
+		} else {
+			res.end(
+				JSON.stringify({
+					version: '1.1',
+					server_utc: 1794742560,
+					query: { lat, lon },
+					status: 'outside_coverage',
+					note: 'Outside covered FR/DROM zones.',
+					ambiguous_water_types: [],
+					max_level: null,
+					restrictions_in_force: null,
+					department: null,
+					zones: [],
+					availability: {},
+					as_of: null,
+					stale: false,
+					attribution:
+						'Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0'
+				})
+			);
+		}
+		return;
+	}
 	const file = index[key];
 	if (!file) {
 		res.writeHead(url.pathname.startsWith('/v1/vigilances') ? 503 : 404, {
@@ -90,6 +120,12 @@ createServer((req, res) => {
 		return;
 	}
 	const body = read(file);
-	for (const extra of added[key]) body.features.push(...read(extra).features);
+	for (const extra of added[key]) {
+		const extraBody = read(extra);
+		body.features.push(...extraBody.features);
+		if (extraBody.metadata?.disclaimer && body.metadata && !body.metadata.disclaimer) {
+			body.metadata.disclaimer = extraBody.metadata.disclaimer;
+		}
+	}
 	res.end(JSON.stringify(body));
 }).listen(port, '127.0.0.1', () => console.log(`mock Vigie API on http://127.0.0.1:${port}`));

@@ -7,6 +7,7 @@ import { ApiError, getHazards, getUncovered, servedCodes } from './vigie';
 export interface PlaceContext {
 	hazards: Hazard[];
 	hazardsAttribution: string | null;
+	hazardsDisclaimer: string | null;
 	served: string[];
 	uncovered: UncoveredCountry[];
 	apiDown: boolean;
@@ -16,11 +17,13 @@ export interface PlaceContext {
 export async function placeContext(): Promise<PlaceContext> {
 	let hazards: Hazard[] = [];
 	let hazardsAttribution: string | null = null;
+	let hazardsDisclaimer: string | null = null;
 	let apiDown = false;
 	try {
 		const { value } = await getHazards();
 		hazards = value.items;
 		hazardsAttribution = value.attribution;
+		hazardsDisclaimer = value.disclaimer;
 	} catch (e) {
 		if (!(e instanceof ApiError)) throw e;
 		apiDown = true;
@@ -33,5 +36,13 @@ export async function placeContext(): Promise<PlaceContext> {
 	} catch (e) {
 		if (!(e instanceof ApiError)) throw e;
 	}
-	return { hazards, hazardsAttribution, served, uncovered, apiDown, now: Math.floor(Date.now() / 1000) };
+	return {
+		hazards,
+		hazardsAttribution,
+		hazardsDisclaimer,
+		served,
+		uncovered,
+		apiDown,
+		now: Math.floor(Date.now() / 1000)
+	};
 }

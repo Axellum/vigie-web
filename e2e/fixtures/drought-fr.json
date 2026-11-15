@@ -1,0 +1,85 @@
+{
+  "version": "1.1",
+  "server_utc": 1794742560,
+  "query": { "lat": 42.3, "lon": 9.15 },
+  "status": "available",
+  "note": null,
+  "ambiguous_water_types": ["SUP"],
+  "max_level": "alerte_renforcee",
+  "restrictions_in_force": true,
+  "department": "2B",
+  "zones": [
+    {
+      "id": 910042,
+      "name": "Golo — Travignano",
+      "code": "2B_SUP_01",
+      "water_type": "SUP",
+      "department": "2B",
+      "level": "alerte_renforcee",
+      "influenced_resource": false,
+      "sandre_id": 2817,
+      "decree": {
+        "id": 44102,
+        "pdf_url": "https://regleau.example.org/arrete/44102.pdf",
+        "framework_pdf_url": "https://regleau.example.org/cadre/2B_2026.pdf",
+        "valid_from": "2026-11-01T00:00:00.000Z",
+        "valid_until": "2026-11-30T00:00:00.000Z"
+      },
+      "municipal_decree_url": null,
+      "usages": [
+        {
+          "id": 2721629,
+          "name": "Arrosage des jardins potagers",
+          "theme": "Arroser",
+          "description": "Interdiction de 8h à 20h.",
+          "concerns_individual": true,
+          "concerns_business": true,
+          "concerns_municipality": true,
+          "concerns_farm": true
+        }
+      ]
+    },
+    {
+      "id": 910043,
+      "name": "Haute-Corse — Eau potable",
+      "code": null,
+      "water_type": "AEP",
+      "department": "2B",
+      "level": "vigilance",
+      "influenced_resource": true,
+      "sandre_id": null,
+      "decree": null,
+      "municipal_decree_url": null,
+      "usages": []
+    }
+  ],
+  "availability": {
+    "AEP": {
+      "status": "available",
+      "as_of": "2026-11-15T10:00:00Z",
+      "source_revision": "169352",
+      "official_url": null,
+      "freshness": "current",
+      "pending_since": null
+    },
+    "SUP": {
+      "status": "available",
+      "as_of": "2026-11-15T10:00:00Z",
+      "source_revision": "169352",
+      "official_url": null,
+      "freshness": "updating",
+      "pending_since": null
+    },
+    "SOU": {
+      "status": "confirmed_none",
+      "as_of": "2026-11-15T10:00:00Z",
+      "source_revision": "169352",
+      "official_url": null,
+      "freshness": "current",
+      "pending_since": null
+    }
+  },
+  "as_of": "2026-11-15T10:00:00Z",
+  "stale": false,
+  "attribution": "Source: VigiEau, Ministère de la Transition écologique (https://vigieau.gouv.fr). Licence Ouverte 2.0"
+}

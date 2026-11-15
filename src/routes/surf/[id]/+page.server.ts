@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { buoyOf, type ActivitiesForecast, type SpotBuoy } from '#lib/activities.js';
-import { ApiError, getActivities, getSurfBuoys, getSurfForecast } from '#lib/server/vigie.js';
+import type { SpotStationReading } from '#lib/stations.js';
+import { ApiError, getActivities, getSpotStation, getSurfBuoys, getSurfForecast } from '#lib/server/vigie.js';
 import type { SurfForecast } from '#lib/surf.js';
 import type { PageServerLoad } from './$types';
 
@@ -33,11 +34,13 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 	let buoy: SpotBuoy | null = null;
 	let buoyAttribution: string | null = null;
 	let buoyMaxKm: number | null = null;
+	let station: SpotStationReading | null = null;
 	if (forecast) {
-		// Only for a spot that exists: a made-up address costs the API one request, not three.
-		const [activities, buoys] = await Promise.all([
+		// Only for a spot that exists: a made-up address costs the API one request, not four.
+		const [activities, buoys, stationRead] = await Promise.all([
 			settled(getActivities(params.id)),
-			settled(getSurfBuoys())
+			settled(getSurfBuoys()),
+			settled(getSpotStation(params.id))
 		]);
 		verdicts = activities?.value ?? null;
 		// A spot whose forecast the API gave but whose verdicts it did not is a failure of the verdicts, not a spot without any.
@@ -47,9 +50,19 @@ export const load: PageServerLoad = async ({ params, setHeaders }) => {
 			buoyAttribution = buoys.value.attribution;
 			buoyMaxKm = buoys.value.maxComparableKm;
 		}
+		if (stationRead?.value) {
+			station = {
+				...stationRead.value,
+				stale: stationRead.value.stale || stationRead.stale
+			};
+		}
 	}
 	setHeaders({
-		'cache-control': failed ? 'public, max-age=60, s-maxage=60' : 'public, max-age=300, s-maxage=600'
+		'cache-control': failed
+			? 'public, max-age=60, s-maxage=60'
+			: station?.status === 'ok'
+				? 'public, max-age=180, s-maxage=360'
+				: 'public, max-age=300, s-maxage=600'
 	});
-	return { id: params.id, forecast, verdicts, buoy, buoyAttribution, buoyMaxKm };
+	return { id: params.id, forecast, verdicts, buoy, buoyAttribution, buoyMaxKm, station };
 };

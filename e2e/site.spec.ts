@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+﻿import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -6,8 +6,9 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 const fixture = (name: string): Json =>
 	JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `${name}.json`), 'utf-8'));
 const hazards = fixture('hazards');
-// A storm and a tsunami, added by the mock API to the recorded hazards (see e2e/fixtures/index.json).
+// A storm, a tsunami and a wildfire, added by the mock API to the recorded hazards (see e2e/fixtures/index.json).
 const storms = fixture('hazards-storms');
+const wildfires = fixture('hazards-wildfire');
 const isaias = fixture('forecast-nhc_al092026');
 const panama = fixture('forecast-tsunami_pheb_26282000');
 const fr = fixture('warnings-FR');
@@ -35,7 +36,7 @@ function collectErrors(page: Page): string[] {
 }
 
 // The hazards drawn as markers, which name them: all but the earthquakes, a layer of their own.
-const marked = [...hazards.features, ...storms.features].filter(
+const marked = [...hazards.features, ...storms.features, ...wildfires.features].filter(
 	(f: Json) => f.properties.category !== 'EARTHQUAKE'
 );
 const marker = (page: Page, title: string) =>
@@ -866,7 +867,7 @@ test('a place found by name is chosen, with its warnings', async ({ page, reques
 	expect(answer.places[0]).toMatchObject({ name: 'Corte', cc: 'FR' });
 	expect(answer.attribution).toContain('GeoNames');
 
-	await page.goto('/near');
+	await page.goto('/near', { waitUntil: 'networkidle' });
 	await page.getByLabel('Chercher un lieu').fill('Corte');
 	await page
 		.getByRole('button', { name: /^Corte/ })
@@ -1078,4 +1079,67 @@ test('a public page carries its canonical address and a social preview', async (
 	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^Vigie · /);
 	await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /.+/);
 	await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});
+
+test('a surf spot displays the 6-minute Météo-France coastal station alongside the forecast', async ({
+	page
+}) => {
+	await page.goto('/surf/soorts-hossegor-plage-sud-point-d-or');
+	await expect(page.getByText('Station météo côtière (6 min)')).toBeVisible();
+	await expect(page.getByText(/BIARRITZ-PAYS-BASQUE \(ANGLET\), à 24 km/)).toBeVisible();
+	await expect(page.getByText('18 km/h E (100°)')).toBeVisible();
+	await expect(page.getByText('Comparaison avec la prévision')).toBeVisible();
+	await expect(page.getByText(/observations infrahoraires 6 min/)).toBeAttached();
+
+	await page.goto('/surf/soorts-hossegor-plage-sud-point-d-or?lang=en');
+	await expect(page.getByText('Coastal weather station (6 min)')).toBeVisible();
+	await expect(page.getByText(/BIARRITZ-PAYS-BASQUE \(ANGLET\), 24 km away/)).toBeVisible();
+	await expect(page.getByText('Comparison with forecast')).toBeVisible();
+});
+
+test('VigiEau drought restrictions show in France with Etalab credit and stay hidden outside coverage', async ({
+	page,
+	request
+}) => {
+	const outside = await request.get('/data/drought.json?lat=40.7128&lon=-74.006');
+	expect(outside.status()).toBe(200);
+	expect(await outside.json()).toMatchObject({ status: 'outside_coverage' });
+
+	await page.goto('/near', { waitUntil: 'networkidle' });
+	await page.getByLabel('Chercher un lieu').fill('Corte');
+	await page
+		.getByRole('button', { name: /^Corte/ })
+		.first()
+		.click();
+
+	await expect(page.getByRole('heading', { name: /Sécheresse \(VigiEau\)/ })).toBeVisible();
+	await expect(page.getByText('Golo — Travignano')).toBeVisible();
+	await expect(page.getByText('Alerte renforcée', { exact: true }).first()).toBeVisible();
+	await expect(page.getByText(/Plusieurs arrêtés ou zones peuvent s’appliquer/)).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Arrêté préfectoral (PDF)' })).toHaveAttribute(
+		'href',
+		'https://regleau.example.org/arrete/44102.pdf'
+	);
+	await expect(page.getByText(/VigiEau, Ministère de la Transition écologique/)).toBeAttached();
+
+	await page.goto('/near?lang=en', { waitUntil: 'networkidle' });
+	await page.getByLabel('Find a place').fill('Corte');
+	await page
+		.getByRole('button', { name: /^Corte/ })
+		.first()
+		.click();
+	await expect(page.getByRole('heading', { name: /Drought restrictions \(VigiEau\)/ })).toBeVisible();
+	await expect(page.getByText('Reinforced alert', { exact: true }).first()).toBeVisible();
+});
+
+test('an active wildfire alert renders near_places fire items and NASA FIRMS disclaimer', async ({
+	page
+}) => {
+	await page.goto('/alert/gdacs_wf_fiji_2026?lang=en');
+	await expect(page.getByText('Forest fire - Vanua Levu')).toBeVisible();
+	await expect(page.getByText(/Active fire.*active fire \(satellite\)/)).toBeVisible();
+	await expect(page.getByText(/NASA's Fire Information for Resource Management System/)).toBeVisible();
+	await expect(
+		page.getByText(/Due to the spatial resolution and other characteristics of these data/)
+	).toBeVisible();
 });

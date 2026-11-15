@@ -28,7 +28,7 @@
 	</header>
 	<div class="layout">
 		<article class="card body">
-			<HazardFacts {lang} hazard={h} />
+			<HazardFacts {lang} hazard={h} disclaimer={data.hazardsDisclaimer} />
 			{#if data.forecast}
 				<ForecastDetails {lang} forecast={data.forecast} level={2} credited={h.attribution} />
 			{:else if h.hasForecast}
