@@ -81,17 +81,22 @@ can be revoked, the headers) are written in ADR 0020 of vigie-api, and `src/lib/
 It is the same screen as above (the clock, the day and the night, the turns, the new readings, the "offline" line), with one
 panel for each block of the page, in the order the person set, and above it the place and the card:
 
-| Card      | What the panel shows                                                                                                 |
-| --------- | -------------------------------------------------------------------------------------------------------------------- |
-| `weather` | The sky (temperature, feels-like, UV, the sun of the place), the wind now, the rain of the next hour.                |
-| `sea`     | The swell (the waves when the API gives no swell), the temperature of the sea (a model value), the wind now.         |
-| `tide`    | The curve of the tide for 24 hours, the next two high and low waters, the range, the coefficient where it is French. |
-| `air`     | The European index as the API gives it (no word is added to it) and the fine particles.                              |
+| Card       | What the panel shows                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `official` | Official warnings in force for the place (verbatim issuer levels and headlines, or the country fallback when no zone). |
+| `hazards`  | Recorded hazards within the place radius (category, severity, distance) and nearby active fires.                       |
+| `weather`  | The sky (temperature, feels-like, UV, the sun of the place), the wind now, the rain of the next hour.                  |
+| `surf`     | Surf spots near the place (wave height, period, energy, wind and rating, with the best slot of the next three days).   |
+| `sea`      | The swell (the waves when the API gives no swell), the temperature of the sea (a model value), the wind now.           |
+| `tide`     | The curve of the tide for 24 hours, the next two high and low waters, the range, the coefficient where it is French.   |
+| `sky`      | Tonight's aurora estimate for the place (`Kp`, probability, visibility label) with the source credit.                  |
+| `air`      | The European index as the API gives it (no word is added to it) and the fine particles.                                |
 
-- **What it leaves out.** The official warnings, the hazards, the surf spots and the sky cards are not drawn yet: the screen
-  skips them, and says "nothing to show here" for a page that has none of the four above (the home alone, for one) instead
-  of an error. The size of a block means nothing on a television. The units of the account are not applied yet: the screen
-  speaks in °C, knots and metres. A page of more than 12 such blocks shows the first 12 (`MAX_PANELS`).
+- **What it shows and leaves out.** All eight cards of "My page" are drawn (`TV_CARDS`). Only places of kind `'place'` are
+  kept: the home is dropped even if blocks point to it, and a page with nothing to show says "nothing to show here" instead
+  of an error. The size of a block means nothing on a television. A private link applies the units (`°C`/`°F`, `kn`/`km/h`/
+  `m/s`/`mph`, `m`/`ft`) and language of its account; public `/tv` routes keep `°C`, `kn` and `m`. A page of more than 12
+  blocks shows the first 12 (`MAX_PANELS`).
 - **The clock.** It is the clock of the first place whose weather answered (the API gives the offset of the time zone of
   each point). Without one the clock stays empty, and the times of the tides are dashes: the screen does not write the hour
   of another zone. The day and the night follow the sun of that first place, worked out by `src/lib/tv/sun.ts` (the
@@ -111,16 +116,18 @@ panel for each block of the page, in the order the person set, and above it the 
   stylesheet reuses them; `e2e/tv-private.spec.ts` fails if any request of the page carries a `Referer`. A browser older than
   Chromium 56 does not know the header: its requests carry the address, to this site only, so the access log of the Deck
   should not keep `Referer` (the example skips the address itself).
-- **Where the links are made.** In "My page" (`/me`), the section "Screens (television, tablet)" (`MyLinks.svelte`): a name
-  to recognise the link, a button, and the address, shown once in the answer of the form that made it (not in the address of
-  the page, a cookie or a log; a reload forgets it). The list shows the name, the day it was made and the last time it was
-  opened (at most once an hour), with "Revoke" after a question. The section says which cards a screen draws (`TV_CARDS`) and
-  how many blocks of the page that is, and the options that may follow the address (`theme`, `d`, `r`, `reload`). At most
-  10 active links for an account (`MAX_LINKS`); a revoked one leaves the list.
+- **Where the links are made and paired.** In "My page" (`/me`), the section "Screens (television, tablet)" (`MyLinks.svelte`):
+  either create a link directly (shown once in the form answer) or pair a keyboardless television via `/tv/pair`. `/tv/pair`
+  displays an 8-character Crockford base32 code valid 15 minutes (`tv_pairing` holds only SHA-256 hashes and, once claimed,
+  the private token encrypted with the code via AES-256-GCM) and polls `/tv/pair/poll` in ES5 XHR until `/me` claims it,
+  opening `/tv/p/<secret>` automatically and deleting the pairing row on pickup. The list shows each link's name, creation
+  day and last open time (at most once an hour), with "Revoke" after confirmation. At most 10 active links for an account
+  (`MAX_LINKS`); a revoked one leaves the list.
 - **What it asks of the API.** Each place of a drawn block costs one reading of the weather (15 minutes, from the same
-  share as the screens of the spots, `VIGIE_TV_POINT_LOOKUPS_PER_DAY`: at most 96 a day for each place, whatever the number of
-  screens) and, for a tide card, one reading of the tide. Several blocks of one place share their readings. Past the share, the
-  panels say "no data".
+  share as the spots' TV screens, `VIGIE_TV_POINT_LOOKUPS_PER_DAY`) and, for `tide` or `sky`, one reading of the tide or
+  aurora estimate (the `sky` aurora estimate shares `VIGIE_TV_POINT_LOOKUPS_PER_DAY` and is cached 1 hour per 0.05° cell).
+  Several blocks of one place share their readings, and fresh marine/aurora caches are reused across `/tv` and the site.
+  Past the share, the panels say "no data".
 
 ## What it needs
 
@@ -150,8 +157,5 @@ per cell, about 340 for the 14 cells (weight 1.0 each), and nothing when the API
 
 - The temperature of the water of the beach itself: the card gives a model value, not a measurement; a nearer source is not chosen.
 - It has been looked at in a desktop browser at 1280 × 720, 1920 × 1080 and 3840 × 2160; not yet on a television.
-- The cards a screen of a personal page does not draw (official warnings, hazards, surf spots, sky), the units of the account
-  and the sizes of the blocks: see "A personal page on a screen".
-- That screen has been looked at in a desktop browser at 1920 × 1080 and by the end-to-end tests; not yet on a television, and
-  not at other ratios.
-- The page that makes the links has been looked at in a desktop browser and by the end-to-end tests; not on a phone by eye.
+- Block sizes (`s`, `m`, `l`) remain a `/me` desktop layout choice; each television panel fills the screen.
+- The private screen and pairing screen have been checked in desktop browsers and end-to-end tests; not yet on a physical television.

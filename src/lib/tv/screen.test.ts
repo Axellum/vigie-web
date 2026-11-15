@@ -155,9 +155,9 @@ describe('the script of the television screen', () => {
 		}
 	});
 
-	it('does not touch the network but for one reading of its own page', () => {
+	it('does not touch the network but for reading its own page or pairing status', () => {
 		const opens = [...source.matchAll(/\.open\(([^)]*)\)/g)].map((m) => m[1].trim());
-		expect(opens).toEqual(["'GET', window.location.href, true"]);
+		expect(opens).toEqual(["'GET', window.location.href, true", "'GET', pollSrc, true"]);
 		expect(source).not.toMatch(
 			/\bsendBeacon\b|\bWebSocket\b|\bEventSource\b|\bimportScripts\b|\beval\(|new Function/
 		);
@@ -166,8 +166,12 @@ describe('the script of the television screen', () => {
 	it('does not read what the page does not give it: every `data-` attribute is written by the screen', () => {
 		const screen = readFileSync(join(import.meta.dirname, 'components', 'Screen.svelte'), 'utf-8');
 		const message = readFileSync(join(import.meta.dirname, 'components', 'Message.svelte'), 'utf-8');
-		const written = new Set([...(screen + message).matchAll(/\bdata-([a-z]+)=/g)].map((m) => m[1]));
-		const read = [...source.matchAll(/attr\('data-([a-z]+)'/g)].map((m) => m[1]);
+		const pair = readFileSync(
+			join(import.meta.dirname, '..', '..', 'routes', 'tv', 'pair', '+page.svelte'),
+			'utf-8'
+		);
+		const written = new Set([...(screen + message + pair).matchAll(/\bdata-([a-z-]+)=/g)].map((m) => m[1]));
+		const read = [...source.matchAll(/attr\('data-([a-z-]+)'/g)].map((m) => m[1]);
 		expect(read.filter((name) => !written.has(name))).toEqual([]);
 	});
 });

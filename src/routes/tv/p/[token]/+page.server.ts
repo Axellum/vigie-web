@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { version } from '$app/env';
 import { accountsEnabled, db } from '#lib/server/db.js';
 import { readSharedPage, type SharedPage } from '#lib/server/pageLinks.js';
-import { readBlocks } from '#lib/server/tvShared.js';
+import { readBlocks, readContext } from '#lib/server/tvShared.js';
 import { parseTvParams, type TvParams } from '#lib/tv/params.js';
 import { buildShared, clockAt, drawnBlocks, type SharedScreen } from '#lib/tv/shared.js';
 import type { Lang } from '#lib/i18n.js';
@@ -43,12 +43,14 @@ export const load: PageServerLoad = async ({ params, url }): Promise<SharedTvDat
 	const base = { params: tv, build: version, lang: page.lang };
 	if (drawnBlocks(page).length === 0) return { ...base, mode: 'empty', screen: null, freshLabel: null };
 
+	const [readings, context] = await Promise.all([readBlocks(page), readContext(page)]);
 	const screen = buildShared({
 		now: Math.floor(Date.now() / 1000),
 		lang: page.lang,
 		params: tv,
 		page,
-		readings: await readBlocks(page)
+		readings,
+		context
 	});
 	return {
 		...base,

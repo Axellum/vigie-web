@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { number } from '#lib/format.js';
 	import type { Lang } from '#lib/i18n.js';
+	import { temperature, type Units } from '#lib/units.js';
 	import type { TvSky } from '../model.js';
 	import { tvText } from '../text.js';
 
@@ -8,22 +9,30 @@
 		sky,
 		lang,
 		compact = false,
-		water = true
-	}: { sky: TvSky | null; lang: Lang; compact?: boolean; water?: boolean } = $props();
+		water = true,
+		unit = 'c'
+	}: {
+		sky: TvSky | null;
+		lang: Lang;
+		compact?: boolean;
+		water?: boolean;
+		unit?: Units['temperature'];
+	} = $props();
+
+	const show = (c: number | null) =>
+		c == null ? null : `${number(lang, temperature(c, unit), 0)}°${unit === 'f' ? 'F' : ''}`;
 </script>
 
 <div class="tv-card tv-tile">
 	<div class="tv-cap">{tvText(lang, 'sky')}</div>
 	{#if sky}
 		<div class="tv-sky-main">
-			<span class="tv-num {compact ? 'tv-n84' : 'tv-n110'}"
-				>{sky.tempC == null ? '–' : `${number(lang, sky.tempC, 0)}°`}</span
-			>
+			<span class="tv-num {compact ? 'tv-n84' : 'tv-n110'}">{show(sky.tempC) ?? '–'}</span>
 			<span class="tv-unit">{sky.label}</span>
 		</div>
 		<div class="tv-sub tv-mut">
 			{#if sky.feelsC != null}{tvText(lang, 'feels')}
-				{number(lang, sky.feelsC, 0)}°{/if}{#if sky.feelsC != null && sky.uv != null}
+				{show(sky.feelsC)}{/if}{#if sky.feelsC != null && sky.uv != null}
 				·
 			{/if}{#if sky.uv != null}UV {number(lang, sky.uv, 1)}{/if}
 		</div>
@@ -34,7 +43,7 @@
 			{:else if sky.waterC != null}
 				<!-- A value of the ocean model for a cell of about 8 km, said as such under the figure. -->
 				<div class="tv-water tv-water-on">
-					{tvText(lang, 'water')} <b>{number(lang, sky.waterC, 0)}°</b>
+					{tvText(lang, 'water')} <b>{show(sky.waterC)}</b>
 					<div class="tv-mut tv-t22">{tvText(lang, 'waterModel')}</div>
 				</div>
 			{:else}

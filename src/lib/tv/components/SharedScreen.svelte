@@ -4,8 +4,12 @@
 	import { cardLabel, clockAt, dateAt, type SharedScreen } from '../shared.js';
 	import { tvText } from '../text.js';
 	import AirTile from './AirTile.svelte';
+	import AuroraTile from './AuroraTile.svelte';
+	import HazardsTile from './HazardsTile.svelte';
+	import OfficialTile from './OfficialTile.svelte';
 	import RainTile from './RainTile.svelte';
 	import SkyTile from './SkyTile.svelte';
+	import SurfTile from './SurfTile.svelte';
 	import SwellTile from './SwellTile.svelte';
 	import TideTile from './TideTile.svelte';
 	import WaterTile from './WaterTile.svelte';
@@ -79,16 +83,34 @@
 								<span class="tv-mut tv-t38">{cardLabel(lang, panel.card)}</span>
 							</div>
 							<div class="tv-cols">
-								{#if panel.card === 'weather'}
-									<div class="tv-col"><SkyTile sky={panel.sky} {lang} water={false} /></div>
-									<div class="tv-col"><WindTile wind={panel.wind} {lang} /></div>
+								{#if panel.card === 'official'}
+									<div class="tv-col"><OfficialTile official={panel.official} {lang} /></div>
+								{:else if panel.card === 'hazards'}
+									<div class="tv-col"><HazardsTile hazards={panel.hazards} {lang} /></div>
+								{:else if panel.card === 'weather'}
+									<div class="tv-col">
+										<SkyTile sky={panel.sky} {lang} water={false} unit={screen.units.temperature} />
+									</div>
+									<div class="tv-col">
+										<WindTile wind={panel.wind} {lang} unit={screen.units.wind} />
+									</div>
 									<div class="tv-col"><RainTile rain={panel.rain} {lang} /></div>
+								{:else if panel.card === 'surf'}
+									<div class="tv-col"><SurfTile surf={panel.surf} {lang} units={screen.units} /></div>
 								{:else if panel.card === 'sea'}
-									<div class="tv-col"><SwellTile swell={panel.swell} {lang} waves={panel.waves} /></div>
-									<div class="tv-col"><WaterTile waterC={panel.waterC} {lang} /></div>
-									<div class="tv-col"><WindTile wind={panel.wind} {lang} /></div>
+									<div class="tv-col">
+										<SwellTile swell={panel.swell} {lang} waves={panel.waves} unit={screen.units.height} />
+									</div>
+									<div class="tv-col">
+										<WaterTile waterC={panel.waterC} {lang} unit={screen.units.temperature} />
+									</div>
+									<div class="tv-col">
+										<WindTile wind={panel.wind} {lang} unit={screen.units.wind} />
+									</div>
 								{:else if panel.card === 'tide'}
-									<div class="tv-col"><TideTile tide={panel.tide} {lang} /></div>
+									<div class="tv-col"><TideTile tide={panel.tide} {lang} unit={screen.units.height} /></div>
+								{:else if panel.card === 'sky'}
+									<div class="tv-col"><AuroraTile aurora={panel.aurora} {lang} /></div>
 								{:else}
 									<div class="tv-col"><AirTile air={panel.air} {lang} /></div>
 								{/if}

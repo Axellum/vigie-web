@@ -1,19 +1,25 @@
 <script lang="ts">
 	import { number } from '#lib/format.js';
 	import type { Lang } from '#lib/i18n.js';
+	import { height, heightLabel, type Units } from '#lib/units.js';
 	import type { TvSwell } from '../model.js';
 	import { tvText } from '../text.js';
 	import Bars from './Bars.svelte';
 
-	let { swell, lang, waves = false }: { swell: TvSwell | null; lang: Lang; waves?: boolean } = $props();
+	let {
+		swell,
+		lang,
+		waves = false,
+		unit = 'm'
+	}: { swell: TvSwell | null; lang: Lang; waves?: boolean; unit?: Units['height'] } = $props();
 </script>
 
 <div class="tv-card tv-tile">
 	<div class="tv-cap">{tvText(lang, waves ? 'waves' : 'swell')}</div>
 	{#if swell && swell.m != null}
 		<div class="tv-swell-main tv-nowrap">
-			<span class="tv-num tv-n150">{number(lang, swell.m, 1)}</span>
-			<span class="tv-unit">m</span>
+			<span class="tv-num tv-n150">{number(lang, height(swell.m, unit), 1)}</span>
+			<span class="tv-unit">{heightLabel(unit)}</span>
 		</div>
 		<div class="tv-line">
 			<b>{swell.periodS == null ? '–' : `${number(lang, swell.periodS, 0)} s`}</b>{#if swell.from}

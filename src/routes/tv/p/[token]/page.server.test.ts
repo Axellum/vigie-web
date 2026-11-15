@@ -16,7 +16,10 @@ vi.mock('#lib/server/db.js', () => ({
 	db: () => (state.db ? state.db() : Promise.resolve({ sql: true }))
 }));
 vi.mock('#lib/server/pageLinks.js', () => ({ readSharedPage: () => state.read!() }));
-vi.mock('#lib/server/tvShared.js', () => ({ readBlocks: async () => new Map() }));
+vi.mock('#lib/server/tvShared.js', () => ({
+	readBlocks: async () => new Map(),
+	readContext: async () => ({})
+}));
 
 import { load } from './+page.server';
 
@@ -68,13 +71,13 @@ describe('the route of the private link', () => {
 		await expect(load(event())).rejects.toMatchObject({ status: 503 });
 	});
 
-	it('shows a message, not an error, for a page with nothing a screen can draw (the home alone, or cards not on a screen)', async () => {
+	it('shows a message, not an error, for a page with nothing to draw (the home alone)', async () => {
 		state.read = async () => page([]);
 		const empty = await load(event());
 		expect(empty).toMatchObject({ mode: 'empty', screen: null, lang: 'en' });
 
 		state.read = async () => page([{ id: 'aaaa0001', type: 'official', size: 'm', place: beach }]);
-		expect(await load(event())).toMatchObject({ mode: 'empty' });
+		expect(await load(event())).toMatchObject({ mode: 'screen' });
 	});
 
 	it('shows the screen of a page that has a card to draw, in the language of the account, with no trace of the secret', async () => {

@@ -1,16 +1,23 @@
-// What the screen of a personal page shows (`/tv/p/<secret>`, docs/tv.md): one panel for each block of the page that a screen can draw,
-// in the order the person set, worked out from the answers of the API for the place of the block. Pure, like `model.ts`: the same
-// page, the same answers and the same `now` give the same screen. A figure the API did not give is `null` and the panel says so.
+// What the screen of a personal page shows (`/tv/p/<secret>`, docs/tv.md): one panel for each block of the page,
+// in the order the person set, worked out from the answers of the API for the place of the block and formatted in
+// the account's units. Pure, like `model.ts`: the same page, the same answers and the same `now` give the same
+// screen. A figure the API did not give is `null` and the panel says so.
 //
-// A screen is not the page: it draws four of the eight cards (`TV_CARDS`), the others are left out of the rotation and the person is
-// told which (docs/tv.md). The size of a block (s, m, l) means nothing on a television, and the units of the account are not applied
-// yet (a screen speaks in °C, knots and metres).
+// The size of a block (s, m, l) applies on the site only: on a television every block gets a full panel in the rotation.
+import { sourceName } from '../credits';
 import { number } from '../format';
-import type { Lang } from '../i18n';
+import { t, tOr, type Key, type Lang } from '../i18n';
+import { rank } from '../levels';
+import { countriesNear, countryAt, hazardsNear, warningsAt, type Borders } from '../near';
+import { placeStatus, type CountryWarnings } from '../placeStatus';
 import type { Card } from '../profiles';
-import { compass } from '../surf';
+import { warningTitle } from '../rows';
+import { untilPhrase } from '../sentence';
+import { activityWords, auroraSentence, type Aurora, type AuroraLevel } from '../sky';
+import { band, compass, spotsAround, type SurfOverview } from '../surf';
 import type { TideCurve } from '../tides';
-import type { PointWeather } from '../types';
+import type { HazardsData, Level, PointWeather, WarningsData } from '../types';
+import { DEFAULT_UNITS, type Units } from '../units';
 import { skyLabel } from '../weather';
 import type { SharedPage, SharedPlace } from '../server/pageLinks';
 import {
@@ -33,8 +40,17 @@ import type { TvParams } from './params';
 import { sunWindows } from './sun';
 import { tvText, type TvKey } from './text';
 
-/** The cards a screen can draw. The others (the official warnings, the hazards, the surf spots, the sky) are not on a screen yet. */
-export const TV_CARDS = ['weather', 'sea', 'tide', 'air'] as const satisfies readonly Card[];
+/** The cards a screen can draw: all eight cards of a personal page. */
+export const TV_CARDS = [
+	'official',
+	'hazards',
+	'weather',
+	'surf',
+	'sea',
+	'tide',
+	'sky',
+	'air'
+] as const satisfies readonly Card[];
 export type TvCard = (typeof TV_CARDS)[number];
 
 /** Whether a screen draws this card. */
@@ -53,6 +69,72 @@ export interface TvAir {
 	pm10: number | null;
 }
 
+export interface TvOfficialItem {
+	id: string;
+	cc: string;
+	level: Level | null;
+	title: string;
+	area: string | null;
+	source: string;
+	until: string | null;
+	river: boolean;
+	distanceKm: number | null;
+}
+
+export interface TvOfficial {
+	kind: 'nosource' | 'failed' | 'none' | 'country' | 'here';
+	level: Level | null;
+	count: number;
+	country: string | null;
+	items: TvOfficialItem[];
+}
+
+export interface TvHazardItem {
+	id: string;
+	level: Level | null;
+	category: string;
+	title: string;
+	distanceKm: number;
+}
+
+export interface TvHazards {
+	available: boolean;
+	radiusKm: number;
+	count: number;
+	items: TvHazardItem[];
+	fires: { count: number; radiusKm: number } | null;
+}
+
+export interface TvSurfSpot {
+	id: string;
+	name: string;
+	km: number;
+	points: number | null;
+	outOf: number | null;
+	band: 0 | 1 | 2 | 3 | null;
+	swellM: number | null;
+	periodS: number | null;
+	windKmh: number | null;
+	relative: 'offshore' | 'cross-shore' | 'onshore' | null;
+	best: { time: string; points: number; outOf: number } | null;
+}
+
+export interface TvSurf {
+	available: boolean;
+	radiusKm: number;
+	stale: boolean;
+	spots: TvSurfSpot[];
+}
+
+export interface TvAurora {
+	available: boolean;
+	estimate: boolean;
+	level: AuroraLevel | null;
+	sentence: string | null;
+	activity: string | null;
+	ovation: { strongest: number | null; strongestKm: number | null } | null;
+}
+
 interface PanelBase {
 	/** The id of the block (4 to 12 letters and digits, not the secret). */
 	id: string;
@@ -60,7 +142,10 @@ interface PanelBase {
 }
 
 export type SharedPanel =
+	| (PanelBase & { card: 'official'; official: TvOfficial })
+	| (PanelBase & { card: 'hazards'; hazards: TvHazards })
 	| (PanelBase & { card: 'weather'; sky: TvSky | null; wind: TvWind | null; rain: TvRain })
+	| (PanelBase & { card: 'surf'; surf: TvSurf })
 	| (PanelBase & {
 			card: 'sea';
 			swell: TvSwell | null;
@@ -70,6 +155,7 @@ export type SharedPanel =
 			waterC: number | null;
 	  })
 	| (PanelBase & { card: 'tide'; tide: TvTide | null })
+	| (PanelBase & { card: 'sky'; aurora: TvAurora })
 	| (PanelBase & { card: 'air'; air: TvAir | null });
 
 export interface SharedScreen {
@@ -80,6 +166,8 @@ export interface SharedScreen {
 	theme: 'day' | 'night';
 	/** The daylight windows of the first place, so that the screen can turn itself to night. */
 	windows: [number, number][];
+	/** The account's display units for temperature, wind and height. */
+	units: Units;
 	fresh: number | null;
 	stale: boolean;
 	/** Something a panel would show was not available. */
@@ -88,10 +176,20 @@ export interface SharedScreen {
 	credit: string;
 }
 
-/** What was read for one block: the weather of its place and, for a tide, the tide. A reading that did not answer is null. */
+/** What was read for one block: weather, tide, and aurora when needed. A reading that did not answer is null. */
 export interface Reading {
 	point: Fresh<PointWeather> | null;
 	tide: Fresh<TideCurve> | null;
+	aurora?: Fresh<Aurora> | null;
+}
+
+/** Shared site-wide data passed into `buildShared` when official warnings, hazards or surf cards are present. */
+export interface SharedContext {
+	served?: string[] | null;
+	warnings?: Map<string, Fresh<WarningsData> | null>;
+	borders?: Borders | null;
+	hazards?: Fresh<HazardsData> | null;
+	surf?: Fresh<SurfOverview> | null;
 }
 
 export interface SharedInput {
@@ -101,6 +199,7 @@ export interface SharedInput {
 	page: SharedPage;
 	/** By block id. */
 	readings: Map<string, Reading>;
+	context?: SharedContext;
 }
 
 /** The blocks a screen draws, in the order of the page, at most `MAX_PANELS`. */
@@ -188,9 +287,209 @@ const offsetOf = (point: Fresh<PointWeather> | null): number | null => {
 	return typeof s === 'number' && Number.isFinite(s) ? s : null;
 };
 
+function officialOf(
+	place: SharedPlace,
+	now: number,
+	lang: Lang,
+	context?: SharedContext
+): { view: TvOfficial; attributions: (string | null | undefined)[]; missing: boolean } {
+	const served = context?.served ?? null;
+	const country = context?.borders ? countryAt(context.borders, place) : null;
+	if (!served) {
+		return {
+			view: { kind: 'failed', level: null, count: 0, country, items: [] },
+			attributions: [],
+			missing: true
+		};
+	}
+	const nearCcs = countriesNear(place, served);
+	const warningsMap = context?.warnings ?? new Map<string, Fresh<WarningsData> | null>();
+	const near: { cc: string; state: CountryWarnings }[] = nearCcs.map((cc) => {
+		const w = warningsMap.get(cc);
+		if (!w) return { cc, state: { status: 'error' } };
+		return { cc, state: { status: 'ok', data: w.value } };
+	});
+	const status = placeStatus(place, near, country, served);
+	const attributions: (string | null | undefined)[] = [];
+	const items: TvOfficialItem[] = [];
+	for (const cc of nearCcs) {
+		const w = warningsMap.get(cc);
+		if (!w) continue;
+		attributions.push(...w.value.attributions);
+		const found = warningsAt(w.value, place);
+		for (const h of found.here) {
+			const end = h.warning.ends ?? h.warning.expires;
+			items.push({
+				id: `${h.warning.cc}:${h.warning.id}`,
+				cc: h.warning.cc,
+				level: h.warning.level,
+				title: warningTitle(h.warning, lang),
+				area: h.warning.area,
+				source: sourceName(lang, h.warning.source),
+				until: end && end > now ? untilPhrase(lang, end, now) : null,
+				river: h.river,
+				distanceKm: h.distanceKm
+			});
+		}
+	}
+	items.sort((a, b) => rank(b.level) - rank(a.level));
+	if (status.kind === 'here') {
+		return {
+			view: {
+				kind: 'here',
+				level: status.level,
+				count: items.length,
+				country,
+				items: items.slice(0, 4)
+			},
+			attributions,
+			missing: false
+		};
+	}
+	if (status.kind === 'country') {
+		return {
+			view: { kind: 'country', level: status.level, count: status.n, country, items: [] },
+			attributions,
+			missing: false
+		};
+	}
+	return {
+		view: {
+			kind: status.kind === 'loading' ? 'failed' : status.kind,
+			level: null,
+			count: 0,
+			country,
+			items: []
+		},
+		attributions,
+		missing: status.kind === 'failed' || status.kind === 'loading'
+	};
+}
+
+function hazardsOf(
+	place: SharedPlace,
+	radiusKm: number,
+	lang: Lang,
+	point: PointWeather | null,
+	hazardsData: Fresh<HazardsData> | null | undefined
+): { view: TvHazards; attributions: (string | null | undefined)[]; missing: boolean } {
+	const fires =
+		point?.fires && point.fires.count != null
+			? { count: point.fires.count, radiusKm: point.fires.radiusKm ?? radiusKm }
+			: null;
+	if (!hazardsData) {
+		return {
+			view: { available: false, radiusKm, count: 0, items: [], fires },
+			attributions: [point?.fires?.attribution],
+			missing: true
+		};
+	}
+	const near = hazardsNear(hazardsData.value.items, place, radiusKm);
+	near.sort((a, b) => rank(b.hazard.level) - rank(a.hazard.level) || a.distanceKm - b.distanceKm);
+	return {
+		view: {
+			available: true,
+			radiusKm,
+			count: near.length,
+			items: near.slice(0, 4).map(({ hazard, distanceKm }) => ({
+				id: hazard.id,
+				level: hazard.level,
+				category: tOr(lang, `cat.${hazard.category}` as Key, hazard.category),
+				title: hazard.title,
+				distanceKm
+			})),
+			fires
+		},
+		attributions: [hazardsData.value.attribution, point?.fires?.attribution],
+		missing: false
+	};
+}
+
+function surfOf(
+	place: SharedPlace,
+	radiusKm: number,
+	zone: number | null,
+	surfData: Fresh<SurfOverview> | null | undefined
+): { view: TvSurf; attributions: (string | null | undefined)[]; missing: boolean } {
+	if (!surfData) {
+		return {
+			view: { available: false, radiusKm, stale: false, spots: [] },
+			attributions: [],
+			missing: true
+		};
+	}
+	const spots = spotsAround(surfData.value.spots, place, radiusKm, 3);
+	return {
+		view: {
+			available: true,
+			radiusKm,
+			stale: surfData.value.stale,
+			spots: spots.map((s) => ({
+				id: s.id,
+				name: s.name,
+				km: s.km,
+				points: s.now?.rating?.points ?? null,
+				outOf: s.now?.rating?.outOf ?? null,
+				band: band(s.now?.rating ?? null),
+				swellM: s.now?.swell.height ?? null,
+				periodS: s.now?.swell.period ?? null,
+				windKmh: s.now?.wind.speed ?? null,
+				relative: s.now?.wind.relative ?? null,
+				best: s.best
+					? {
+							time: zone == null ? '–' : clockAt(s.best.t, zone),
+							points: s.best.points,
+							outOf: s.best.outOf
+						}
+					: null
+			}))
+		},
+		attributions: [surfData.value.attribution],
+		missing: false
+	};
+}
+
+function auroraOf(
+	lang: Lang,
+	auroraData: Fresh<Aurora> | null | undefined
+): { view: TvAurora; attributions: (string | null | undefined)[]; missing: boolean } {
+	const aurora = auroraData?.value ?? null;
+	if (!aurora) {
+		return {
+			view: {
+				available: false,
+				estimate: false,
+				level: null,
+				sentence: null,
+				activity: null,
+				ovation: null
+			},
+			attributions: [],
+			missing: true
+		};
+	}
+	const place = aurora.place;
+	const activity = activityWords(lang, aurora.kpMax24h);
+	return {
+		view: {
+			available: Boolean(place || activity),
+			estimate: place != null,
+			level: place?.estimate?.level ?? null,
+			sentence: place ? auroraSentence(lang, place) : null,
+			activity,
+			ovation: place?.ovation
+				? { strongest: place.ovation.strongest, strongestKm: place.ovation.strongestKm }
+				: null
+		},
+		attributions: [aurora.attribution],
+		missing: !place && aurora.unavailable.length > 0 && !activity
+	};
+}
+
 export function buildShared(input: SharedInput): SharedScreen {
-	const { now, lang, page, readings } = input;
+	const { now, lang, page, readings, context } = input;
 	const blocks = drawnBlocks(page);
+	const units: Units = { ...DEFAULT_UNITS, ...page.units };
 
 	const offsetS =
 		blocks.map((b) => offsetOf(readings.get(b.id)?.point ?? null)).find((o): o is number => o != null) ??
@@ -199,12 +498,26 @@ export function buildShared(input: SharedInput): SharedScreen {
 	const windows = first ? sunWindows(first.lat, first.lon, now) : [];
 	const day = input.params.theme === 'auto' ? isDay(windows, [], now) : input.params.theme === 'day';
 
+	const extraCredits: (string | null | undefined)[] = [];
+	let contextMissing = false;
 	const panels: SharedPanel[] = blocks.map((b): SharedPanel => {
 		const read = readings.get(b.id) ?? { point: null, tide: null };
 		const point = read.point?.value ?? null;
 		const base = { id: b.id, place: b.place.name };
 		const zone = offsetOf(read.point) ?? offsetS;
 		switch (b.type as TvCard) {
+			case 'official': {
+				const built = officialOf(b.place, now, lang, context);
+				extraCredits.push(...built.attributions);
+				if (built.missing) contextMissing = true;
+				return { ...base, card: 'official', official: built.view };
+			}
+			case 'hazards': {
+				const built = hazardsOf(b.place, b.place.radiusKm, lang, point, context?.hazards);
+				extraCredits.push(...built.attributions);
+				if (built.missing) contextMissing = true;
+				return { ...base, card: 'hazards', hazards: built.view };
+			}
 			case 'weather':
 				return {
 					...base,
@@ -213,6 +526,12 @@ export function buildShared(input: SharedInput): SharedScreen {
 					wind: windOf(point, lang),
 					rain: rainView(read.point, now)
 				};
+			case 'surf': {
+				const built = surfOf(b.place, b.place.radiusKm, zone, context?.surf);
+				extraCredits.push(...built.attributions);
+				if (built.missing) contextMissing = true;
+				return { ...base, card: 'surf', surf: built.view };
+			}
 			case 'sea':
 				return {
 					...base,
@@ -236,6 +555,12 @@ export function buildShared(input: SharedInput): SharedScreen {
 						zone == null ? () => '–' : (_l, t) => clockAt(t, zone)
 					)
 				};
+			case 'sky': {
+				const built = auroraOf(lang, read.aurora);
+				extraCredits.push(...built.attributions);
+				if (built.missing) contextMissing = true;
+				return { ...base, card: 'sky', aurora: built.view };
+			}
 			default:
 				return {
 					...base,
@@ -245,38 +570,50 @@ export function buildShared(input: SharedInput): SharedScreen {
 		}
 	});
 
-	const all = blocks.flatMap((b) => {
+	const all: (Fresh<unknown> | null | undefined)[] = blocks.flatMap((b) => {
 		const r = readings.get(b.id);
-		return r ? [r.point, r.tide] : [];
+		return r ? [r.point, r.tide, r.aurora] : [];
 	});
-	const answered = all.filter((r): r is Fresh<never> => r != null);
+	if (blocks.some((b) => b.type === 'hazards') && context?.hazards) all.push(context.hazards);
+	if (blocks.some((b) => b.type === 'surf') && context?.surf) all.push(context.surf);
+	if (blocks.some((b) => b.type === 'official') && context?.warnings) {
+		for (const w of context.warnings.values()) if (w) all.push(w);
+	}
+	const answered = all.filter((r): r is Fresh<unknown> => r != null);
 	const fresh = answered.length ? Math.floor(Math.min(...answered.map((r) => r.fetchedAt)) / 1000) : null;
-	const credit = creditOf(
-		blocks.flatMap((b) => {
+	const credit = creditOf([
+		...blocks.flatMap((b) => {
 			const r = readings.get(b.id);
 			if (!r) return [];
 			const p = r.point?.value;
 			return [
-				p?.attribution,
+				b.type === 'weather' || b.type === 'sea' || b.type === 'air' ? p?.attribution : null,
 				b.type === 'weather' ? p?.rain?.attribution : null,
 				b.type === 'sea' && p?.marine ? p.marine.attribution : null,
 				b.type === 'air' ? p?.air?.attribution : null,
 				b.type === 'tide' ? r.tide?.value.attribution : null
 			];
-		})
-	);
+		}),
+		...extraCredits
+	]);
 	return {
 		title: page.title,
 		now,
 		offsetS,
 		theme: day ? 'day' : 'night',
 		windows,
+		units,
 		fresh,
 		stale: answered.some((r) => r.stale) || (fresh != null && now - fresh > STALE_AFTER_S),
-		partial: blocks.some((b) => {
-			const r = readings.get(b.id);
-			return !r?.point || (b.type === 'tide' && !r.tide);
-		}),
+		partial:
+			contextMissing ||
+			blocks.some((b) => {
+				const r = readings.get(b.id);
+				if (b.type === 'weather' || b.type === 'sea' || b.type === 'air') return !r?.point;
+				if (b.type === 'tide') return !r?.point || !r?.tide;
+				if (b.type === 'sky') return !r?.aurora;
+				return false;
+			}),
 		panels,
 		credit
 	};
