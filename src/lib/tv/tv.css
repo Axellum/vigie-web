@@ -950,3 +950,78 @@
 .tv-rain-bars-big .tv-rain-bar {
 	margin-right: 1.2rem;
 }
+.tv-status-row {
+	display: flex;
+	align-items: center;
+	margin-bottom: 1.6rem;
+}
+.tv-badge {
+	flex: none;
+	display: inline-block;
+	padding: 0.6rem 1.4rem;
+	margin-right: 1.8rem;
+	border: 0.15rem solid var(--c, var(--tv-muted));
+	border-radius: 0.8rem;
+	background: var(--cb, transparent);
+	color: var(--c, var(--tv-ink));
+	font-size: 2.6rem;
+	font-weight: 700;
+	line-height: 1.1;
+	white-space: nowrap;
+}
+.tv-badge.tv-badge-sm {
+	padding: 0.4rem 1rem;
+	margin-right: 1.4rem;
+	font-size: 2.2rem;
+}
+.tv-list {
+	list-style: none;
+	margin: 1.2rem 0 0;
+	padding: 0;
+}
+.tv-item {
+	display: flex;
+	align-items: flex-start;
+	padding: 1.2rem 0;
+	border-top: 0.1rem solid var(--tv-line);
+}
+.tv-item:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+.tv-item-body {
+	flex: 1 1 0;
+	min-width: 0;
+}
+.tv-item-title {
+	color: var(--tv-ink);
+	font-weight: 600;
+	line-height: 1.2;
+}
+.tv-aurora-line {
+	margin-bottom: 1.4rem;
+	line-height: 1.2;
+}
+.tv-pair-wrap {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.tv-pair-main {
+	flex: 1 1 0;
+	min-width: 0;
+	padding-right: 4rem;
+}
+.tv-pair-code {
+	display: inline-block;
+	margin: 2.4rem 0;
+	padding: 2rem 3.2rem;
+	border: 0.2rem solid var(--tv-line);
+	border-radius: 1.2rem;
+	background: var(--tv-tint);
+	color: var(--tv-ink);
+	font-size: 9.6rem;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	line-height: 1;
+}

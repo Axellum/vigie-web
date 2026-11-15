@@ -268,12 +268,55 @@
 		if (Date.now() > reloadAt && !offline && Date.now() - lastGood < quick) window.location.reload();
 	}
 
+	function pairPoll() {
+		var pollUrl = attr('data-pair-poll', '');
+		if (!pollUrl) return;
+		var query = attr('data-pair-query', '');
+		var timer = null;
+		function tick() {
+			var xhr = new XMLHttpRequest();
+			var sep = pollUrl.indexOf('?') === -1 ? '?_=' : '&_=';
+			var now = Date.now();
+			var pollSrc = pollUrl + sep + now;
+			xhr.open('GET', pollSrc, true);
+			xhr.timeout = 8000;
+			xhr.onreadystatechange = guard(function () {
+				if (xhr.readyState !== 4) return;
+				if (xhr.status >= 200 && xhr.status < 300) {
+					var data = null;
+					try {
+						data = JSON.parse(xhr.responseText);
+					} catch (e) {
+						data = null;
+					}
+					if (data && data.status === 'ready' && data.location) {
+						if (timer) clearInterval(timer);
+						window.location.replace(data.location + query);
+						return;
+					}
+					if (data && data.status === 'expired') {
+						if (timer) clearInterval(timer);
+						var el = byId('tv-pair-status');
+						var msg = attr('data-pair-expired', '');
+						if (el && msg) el.textContent = msg;
+					}
+				}
+			});
+			xhr.send();
+		}
+		timer = setInterval(guard(tick), 3000);
+	}
+
 	function start() {
 		var state = attr('data-state', '');
 		skew = number(attr('data-now', ''), Date.now() / 1000) - Date.now() / 1000;
 		fit();
 		window.addEventListener('resize', guard(fit));
 		moveScreen();
+		if (state === 'pair') {
+			pairPoll();
+			return;
+		}
 		/* A site that had nothing to say (it has not read its data yet): ask again in a minute. */
 		if (state === 'unavailable') {
 			setTimeout(

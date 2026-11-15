@@ -2,8 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { SharedPage } from '../server/pageLinks';
+import type { Borders } from '../near';
+import { auroraFromApi } from '../sky';
+import { surfOverviewFromApi } from '../surf';
 import { tidesFromApi } from '../tides';
-import { pointFromApi } from '../transform';
+import { hazardsFromApi, pointFromApi, warningsFromApi } from '../transform';
 import { DEFAULT_UNITS } from '../units';
 import type { Fresh } from './model';
 import { parseTvParams } from './params';
@@ -59,12 +62,12 @@ const input = (
 const all: Reading = { point: fresh(point), tide: fresh(tide) };
 
 describe('what a screen draws of a page', () => {
-	it('draws weather, sea, tide and air, and nothing else', () => {
-		expect([...TV_CARDS]).toEqual(['weather', 'sea', 'tide', 'air']);
-		for (const card of ['official', 'hazards', 'surf', 'sky'] as const) expect(isTvCard(card)).toBe(false);
+	it('draws all eight cards of a personal page', () => {
+		expect([...TV_CARDS]).toEqual(['official', 'hazards', 'weather', 'surf', 'sea', 'tide', 'sky', 'air']);
+		for (const card of TV_CARDS) expect(isTvCard(card)).toBe(true);
 	});
 
-	it('keeps the order of the page, leaves out the cards it cannot draw, and stops at twelve panels', () => {
+	it('keeps the order of the page and stops at twelve panels', () => {
 		const p = page(
 			block('aaaa0001', 'tide'),
 			block('aaaa0002', 'official'),
@@ -72,7 +75,13 @@ describe('what a screen draws of a page', () => {
 			block('aaaa0004', 'surf'),
 			block('aaaa0005', 'air')
 		);
-		expect(drawnBlocks(p).map((b) => b.id)).toEqual(['aaaa0001', 'aaaa0003', 'aaaa0005']);
+		expect(drawnBlocks(p).map((b) => b.id)).toEqual([
+			'aaaa0001',
+			'aaaa0002',
+			'aaaa0003',
+			'aaaa0004',
+			'aaaa0005'
+		]);
 
 		const many = page(
 			...Array.from({ length: 24 }, (_, i) => block(`bbbb${String(i).padStart(4, '0')}`, 'weather'))
@@ -263,8 +272,78 @@ describe('the words', () => {
 		const fr = Object.keys(TV_TEXT.fr).sort();
 		const en = Object.keys(TV_TEXT.en).sort();
 		expect(en).toEqual(fr);
-		for (const key of ['card.weather', 'card.sea', 'card.tide', 'card.air', 'waves', 'emptyTitle']) {
+		for (const key of [
+			'card.official',
+			'card.hazards',
+			'card.weather',
+			'card.surf',
+			'card.sea',
+			'card.tide',
+			'card.sky',
+			'card.air',
+			'waves',
+			'emptyTitle',
+			'pair.title'
+		]) {
 			expect(fr).toContain(key);
 		}
+	});
+});
+
+describe('units and extra cards (official, hazards, surf, sky)', () => {
+	it('passes the account units through to the screen', () => {
+		const p: SharedPage = {
+			...page(block('aaaa0001', 'weather')),
+			units: { temperature: 'f', wind: 'mph', height: 'ft' }
+		};
+		const s = buildShared(input(p, { aaaa0001: all }));
+		expect(s.units).toEqual({ temperature: 'f', wind: 'mph', height: 'ft' });
+	});
+
+	it('builds official, hazards, surf and sky panels from site-wide context and aurora answers', () => {
+		const borders = JSON.parse(
+			readFileSync(join(import.meta.dirname, '..', 'data', 'borders.json'), 'utf-8')
+		) as Borders;
+		const frWarnings = warningsFromApi('FR', fixture('warnings-FR.json')).data;
+		const hazards = hazardsFromApi(fixture('hazards.json'));
+		const surf = surfOverviewFromApi(fixture('surf-overview.json'))!;
+		const aurora = auroraFromApi(fixture('sky-aurora.json'));
+
+		const p = page(
+			block('aaaa0001', 'official'),
+			block('aaaa0002', 'hazards'),
+			block('aaaa0003', 'surf'),
+			block('aaaa0004', 'sky')
+		);
+		const r: Reading = { point: fresh(point), tide: null, aurora: fresh(aurora) };
+		const s = buildShared(
+			input(
+				p,
+				{ aaaa0001: r, aaaa0002: r, aaaa0003: r, aaaa0004: r },
+				{
+					context: {
+						served: ['FR'],
+						warnings: new Map([['FR', fresh(frWarnings)]]),
+						borders,
+						hazards: fresh(hazards),
+						surf: fresh(surf)
+					}
+				}
+			)
+		);
+		expect(s.panels.map((x) => x.card)).toEqual(['official', 'hazards', 'surf', 'sky']);
+		const surfPanel = s.panels[2];
+		expect(surfPanel.card).toBe('surf');
+		if (surfPanel.card === 'surf') {
+			expect(surfPanel.surf.available).toBe(true);
+			expect(surfPanel.surf.spots.length).toBeGreaterThan(0);
+		}
+		const skyPanel = s.panels[3];
+		expect(skyPanel.card).toBe('sky');
+		if (skyPanel.card === 'sky') {
+			expect(skyPanel.aurora.estimate).toBe(aurora.place != null);
+			expect(skyPanel.aurora.activity).not.toBeNull();
+		}
+		expect(s.credit).toContain('NOAA Space Weather Prediction Center');
 	});
 });

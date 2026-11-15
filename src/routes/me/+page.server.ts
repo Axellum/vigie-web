@@ -2,8 +2,10 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { asLang, t } from '#lib/i18n.js';
 import { parseTitle } from '#lib/pageConfig.js';
 import { sessionUser } from '#lib/server/accounts.js';
+import { SlidingBudget } from '#lib/server/budget.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
 import { createLink, LinkError, listLinks, MAX_LINKS, revokeLink } from '#lib/server/pageLinks.js';
+import { claimPairing, PairingError } from '#lib/server/tvPairing.js';
 import { ensureFirstPage, PageError, savePage } from '#lib/server/pages.js';
 import { setLangCookie } from '#lib/server/langCookie.js';
 import { placeContext } from '#lib/server/placeContext.js';
@@ -15,6 +17,21 @@ import type { Actions, PageServerLoad } from './$types';
 
 // A private page: it is made for one account, so no shared cache and not the service worker's either.
 const PRIVATE = { 'cache-control': 'private, no-store' };
+
+const pairAttemptBudgets = new Map<string, SlidingBudget>();
+function allowPairAttempt(userId: string): boolean {
+	if (pairAttemptBudgets.size > 5000) {
+		for (const [k, b] of pairAttemptBudgets) {
+			if (b.used() === 0) pairAttemptBudgets.delete(k);
+		}
+	}
+	let budget = pairAttemptBudgets.get(userId);
+	if (!budget) {
+		budget = new SlidingBudget(10, 10 * 60_000);
+		pairAttemptBudgets.set(userId, budget);
+	}
+	return budget.take();
+}
 
 export const load: PageServerLoad = async ({ cookies, url, setHeaders, locals }) => {
 	if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
@@ -123,5 +140,27 @@ export const actions: Actions = {
 			throw e;
 		}
 		return { revokedLink: true };
+	},
+
+	/** Claims a one-time pairing code displayed on `/tv/pair` and sends it a fresh private link. */
+	linkPair: async ({ cookies, url, request }) => {
+		if (!accountsEnabled()) error(404, 'Accounts are not open on this server');
+		const sql = await db();
+		const user = await sessionUser(sql, cookies, url.protocol === 'https:');
+		if (!user) redirect(303, '/login');
+		if (!allowPairAttempt(user.id)) return fail(429, { linkError: 'pairRate' });
+		const form = await request.formData();
+		const page = form.get('page');
+		const code = form.get('code');
+		const label = form.get('label');
+		if (typeof page !== 'string') return fail(400, { linkError: 'unknown' });
+		try {
+			await claimPairing(sql, user.id, page, code, typeof label === 'string' ? label : '');
+			return { pairedLink: true };
+		} catch (e) {
+			if (e instanceof PairingError) return fail(400, { linkError: 'pairInvalid' });
+			if (e instanceof LinkError) return fail(400, { linkError: e.code });
+			throw e;
+		}
 	}
 };

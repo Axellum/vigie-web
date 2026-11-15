@@ -1,6 +1,11 @@
 // The only place that talks to the Vigie API. Every call goes through the cache: the number of requests
 // to the API depends on the number of distinct keys and on the TTLs, not on the number of visitors.
-import { VIGIE_API_URL, VIGIE_POINT_LOOKUPS_PER_DAY, VIGIE_TV_POINT_LOOKUPS_PER_DAY } from '$app/env/private';
+import {
+	VIGIE_API_URL,
+	VIGIE_ME_POINT_LOOKUPS_PER_DAY,
+	VIGIE_POINT_LOOKUPS_PER_DAY,
+	VIGIE_TV_POINT_LOOKUPS_PER_DAY
+} from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
 import { snapToGrid } from '#lib/near.js';
@@ -264,18 +269,66 @@ function budget(): SlidingBudget {
 	return pointBudget;
 }
 
+/**
+ * Signed-in accounts' daily share of point weather requests (`VIGIE_ME_POINT_LOOKUPS_PER_DAY`, 1,000 by default),
+ * separate from anonymous `budget()` so saved places on `/me` (up to 96 grid refreshes/day each) do not drain `/near`.
+ * One account cannot consume more than half of the pool (capped at 500/day by default) unless the pool is smaller.
+ */
+let mePointBudget: SlidingBudget | null = null;
+const perUserPointBudgets = new Map<string, SlidingBudget>();
+function takeAccountPointBudget(accountId: string): boolean {
+	if (!mePointBudget) {
+		const raw = Number(VIGIE_ME_POINT_LOOKUPS_PER_DAY || 1000);
+		const pool = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 1000;
+		mePointBudget = new SlidingBudget(pool);
+	}
+	const raw = Number(VIGIE_ME_POINT_LOOKUPS_PER_DAY || 1000);
+	const pool = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 1000;
+	if (pool === 0) return false;
+	const perAccount = Math.min(pool, Math.max(1, Math.min(500, pool)));
+	let userBudget = perUserPointBudgets.get(accountId);
+	if (!userBudget) {
+		if (perUserPointBudgets.size > 2000) {
+			for (const [id, b] of perUserPointBudgets) {
+				if (b.used() === 0) perUserPointBudgets.delete(id);
+			}
+		}
+		userBudget = new SlidingBudget(perAccount);
+		perUserPointBudgets.set(accountId, userBudget);
+	}
+	// Check pool capacity before reserving an individual slot? Order: individual limit + pool limit.
+	if (userBudget.used() >= perAccount) return false;
+	if (!mePointBudget.take()) return false;
+	userBudget.take();
+	return true;
+}
+
 /** The weather requests of the last 24 hours are used up: the page says so instead of asking. */
 export class BudgetError extends Error {}
 
 /**
  * Weather at the grid point nearest to a position. A request that is not in the cache counts against the
- * site's daily share, whether or not the API had the answer in its own cache: the count stays on the safe side.
+ * site's daily share (or the signed-in accounts' share when `accountId` is provided), whether or not the API
+ * had the answer in its own cache: the count stays on the safe side. Reuses fresh marine/TV cache entries of
+ * the same grid cell without spending another request.
  */
-export function getPoint(lat: number, lon: number, marine: boolean): Promise<Cached<PointWeather>> {
+export function getPoint(
+	lat: number,
+	lon: number,
+	marine: boolean,
+	accountId?: string
+): Promise<Cached<PointWeather>> {
 	const cell = snapToGrid({ lat, lon });
+	const tvFresh = pointCache.peek<PointWeather>(`tvpoint:${cell.lat},${cell.lon}`);
+	if (tvFresh && !tvFresh.stale) return Promise.resolve(tvFresh);
+	if (!marine) {
+		const marineFresh = pointCache.peek<PointWeather>(`point:${cell.lat},${cell.lon}:marine`);
+		if (marineFresh && !marineFresh.stale) return Promise.resolve(marineFresh);
+	}
 	const key = `point:${cell.lat},${cell.lon}:${marine ? 'marine' : 'land'}`;
 	return pointCache.get(key, TTL_S.point * 1000, async () => {
-		if (!budget().take()) throw new BudgetError('The weather requests of the day are used up');
+		const allowed = accountId ? takeAccountPointBudget(accountId) : budget().take();
+		if (!allowed) throw new BudgetError('The weather requests of the day are used up');
 		const query = new URLSearchParams({
 			lat: String(cell.lat),
 			lon: String(cell.lon),
@@ -324,6 +377,8 @@ export function getAuroraOval(): Promise<Cached<ReturnType<typeof ovalFromApi>>>
  */
 export function getAuroraPlace(lat: number, lon: number): Promise<Cached<Aurora>> {
 	const cell = snapToGrid({ lat, lon });
+	const tvFresh = pointCache.peek<Aurora>(`tvaurora:${cell.lat},${cell.lon}`);
+	if (tvFresh && !tvFresh.stale) return Promise.resolve(tvFresh);
 	return pointCache.get(`aurora:${cell.lat},${cell.lon}`, TTL_S.auroraPlace * 1000, async () => {
 		if (!budget().take()) throw new BudgetError('The weather requests of the day are used up');
 		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
@@ -552,14 +607,20 @@ export function getSurfBuoys(): Promise<Cached<SurfBuoys>> {
  */
 const TV_POINT_TTL_S = 900;
 let tvPointBudget: SlidingBudget | null = null;
+function tvBudget(): SlidingBudget {
+	if (!tvPointBudget) {
+		const value = Number(VIGIE_TV_POINT_LOOKUPS_PER_DAY || 5000);
+		tvPointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 5000);
+	}
+	return tvPointBudget;
+}
+
 export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeather>> {
 	const cell = snapToGrid({ lat, lon });
+	const marineFresh = pointCache.peek<PointWeather>(`point:${cell.lat},${cell.lon}:marine`);
+	if (marineFresh && !marineFresh.stale) return Promise.resolve(marineFresh);
 	return pointCache.get(`tvpoint:${cell.lat},${cell.lon}`, TV_POINT_TTL_S * 1000, async () => {
-		if (!tvPointBudget) {
-			const value = Number(VIGIE_TV_POINT_LOOKUPS_PER_DAY || 5000);
-			tvPointBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 5000);
-		}
-		if (!tvPointBudget.take())
+		if (!tvBudget().take())
 			throw new BudgetError('The weather requests of the television screens of the day are used up');
 		const query = new URLSearchParams({
 			lat: String(cell.lat),
@@ -571,6 +632,22 @@ export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeathe
 			radius_km: '1'
 		});
 		return pointFromApi(await getJson(`/v1/point?${query}`, 30_000));
+	});
+}
+
+/**
+ * Aurora estimate of a place for a television screen (`/tv/p/<secret>`), sharing the TV budget (`VIGIE_TV_POINT_LOOKUPS_PER_DAY`)
+ * and kept an hour per 0.05° cell, so a screen left on all night cannot use up `/near` or `/sky` weather lookups.
+ */
+export function getTvAurora(lat: number, lon: number): Promise<Cached<Aurora>> {
+	const cell = snapToGrid({ lat, lon });
+	const placeFresh = pointCache.peek<Aurora>(`aurora:${cell.lat},${cell.lon}`);
+	if (placeFresh && !placeFresh.stale) return Promise.resolve(placeFresh);
+	return pointCache.get(`tvaurora:${cell.lat},${cell.lon}`, TTL_S.auroraPlace * 1000, async () => {
+		if (!tvBudget().take())
+			throw new BudgetError('The weather requests of the television screens of the day are used up');
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return auroraFromApi(await getJson(`/v1/sky/aurora?${query}`, 30_000));
 	});
 }
 

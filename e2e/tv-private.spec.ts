@@ -14,15 +14,27 @@ const digest = (s: string) => createHash('sha256').update(s).digest();
 const secret = () => randomBytes(24).toString('base64url');
 const stamp = Date.now().toString(36);
 
-const world = {} as { valid: string; revoked: string; homeOnly: string; english: string; moving: string };
+const world = {} as {
+	valid: string;
+	revoked: string;
+	homeOnly: string;
+	english: string;
+	moving: string;
+	extraCards: string;
+	imperial: string;
+	frSession: string;
+	frPageId: string;
+};
 let userIds: string[] = [];
 
 test.beforeAll(async () => {
 	const sql = postgres(DATABASE_URL, { max: 1 });
 	try {
-		const account = async (lang: 'fr' | 'en') => {
+		const account = async (lang: 'fr' | 'en', prefs: Record<string, unknown> = {}) => {
 			const [user] = await sql`
-				insert into users (id, name, lang) values (gen_random_uuid(), ${`Écran ${lang} ${stamp}`}, ${lang}) returning id`;
+				insert into users (id, name, lang, prefs)
+				values (gen_random_uuid(), ${`Écran ${lang} ${stamp}`}, ${lang}, ${sql.json(prefs as never)})
+				returning id`;
 			userIds.push(user.id);
 			const place = async (
 				name: string,
@@ -49,7 +61,14 @@ test.beforeAll(async () => {
 					values (${digest(s)}, ${pageId}, ${user.id}, ${label}, ${revoked ? sql`now()` : null})`;
 				return s;
 			};
-			return { place, page, link };
+			const session = async () => {
+				const raw = secret();
+				await sql`
+					insert into sessions (token_hash, user_id, expires_at)
+					values (${digest(raw)}, ${user.id}, now() + interval '1 day')`;
+				return raw;
+			};
+			return { place, page, link, session };
 		};
 		const block = (id: string, type: string, place: string) => ({ id, type, place, size: 'm' });
 
@@ -66,17 +85,37 @@ test.beforeAll(async () => {
 			block('aaaa0005', 'official', beach),
 			block('aaaa0006', 'weather', home)
 		]);
+		const extras = await fr.page('Tout voir', [
+			block('dddd0001', 'official', beach),
+			block('dddd0002', 'hazards', beach),
+			block('dddd0003', 'surf', beach),
+			block('dddd0004', 'sky', beach)
+		]);
 		const lonely = await fr.page('Maison seule', [block('bbbb0001', 'weather', home)]);
+		world.frPageId = page;
+		world.frSession = await fr.session();
 		world.valid = await fr.link(page, 'Salon');
 		world.revoked = await fr.link(page, 'Ancien écran', true);
 		world.homeOnly = await fr.link(lonely, 'Maison');
 		world.moving = await fr.link(page, 'Écran qui bouge');
+		world.extraCards = await fr.link(extras, 'Toutes les cartes');
 
 		const en = await account('en');
 		const shore = await en.place('North Beach', 43.6601, -1.4448);
 		world.english = await en.link(
 			await en.page('Harbour office', [block('cccc0001', 'weather', shore), block('cccc0002', 'sea', shore)]),
 			'Office'
+		);
+
+		const imp = await account('en', { units: { temperature: 'f', wind: 'mph', height: 'ft' } });
+		const impShore = await imp.place('West Pier', 43.6601, -1.4448);
+		world.imperial = await imp.link(
+			await imp.page('Pier Units', [
+				block('eeee0001', 'weather', impShore),
+				block('eeee0002', 'sea', impShore),
+				block('eeee0003', 'tide', impShore)
+			]),
+			'Pier'
 		);
 	} finally {
 		await sql.end();
@@ -109,11 +148,11 @@ test('a private link shows the page of its account, in its order, never the home
 	await expect(page).toHaveTitle('Vigie · TV');
 	await expect(page.locator('#tv-root')).toHaveAttribute('data-state', 'screen');
 	await expect(page.locator('.tv-place-page')).toHaveText('Salon des Landes');
-	// The four cards a screen draws, in the order of the page; the official card is not on a screen yet, the home never is.
-	await expect(page.locator('#tv-panels > section')).toHaveCount(4);
+	// Five cards are drawn in the order of the page (including official); the home is never included.
+	await expect(page.locator('#tv-panels > section')).toHaveCount(5);
 	expect(
 		await page.locator('#tv-panels > section').evaluateAll((s) => s.map((x) => x.getAttribute('data-panel')))
-	).toEqual(['aaaa0001', 'aaaa0002', 'aaaa0003', 'aaaa0004']);
+	).toEqual(['aaaa0001', 'aaaa0002', 'aaaa0003', 'aaaa0004', 'aaaa0005']);
 	const shown = page.locator('.tv-panel.tv-on');
 	await expect(shown).toContainText('Plage Sud');
 	await expect(shown).toContainText('Météo');
@@ -148,6 +187,8 @@ test('every card of the page takes its turn, with its own figures', async ({ pag
 	await page.clock.runFor(5_000);
 	await expect(on).toContainText('Qualité de l’air');
 	await expect(on).toContainText('indice européen');
+	await page.clock.runFor(5_000);
+	await expect(on).toContainText('Vigilances');
 	await page.clock.runFor(5_000);
 	await expect(on).toContainText('Météo'); // and round again
 });
@@ -213,4 +254,59 @@ test('the screen keeps its last value when the site does not answer, and leaves 
 	await page.clock.runFor(70_000);
 	await expect(page.locator('body')).toHaveText('gone');
 	expect(navigations).toBeGreaterThan(0);
+});
+
+test('official, hazards, surf and sky cards render on a private link screen', async ({ page }) => {
+	await page.clock.install({ time: new Date() });
+	await page.goto(`/tv/p/${world.extraCards}?d=5`);
+	const on = page.locator('.tv-panel.tv-on');
+	await expect(on).toContainText('Vigilances');
+	await page.clock.runFor(5_500);
+	await expect(on).toContainText('Dangers');
+	await page.clock.runFor(5_000);
+	await expect(on).toContainText('Surf');
+	await page.clock.runFor(5_000);
+	await expect(on).toContainText('Ciel');
+	await expect(on).toContainText('Aurores boréales');
+	await expect(on).toContainText('estimation');
+});
+
+test('a private screen applies the temperature, wind and height units of its account', async ({ page }) => {
+	await page.clock.install({ time: new Date() });
+	await page.goto(`/tv/p/${world.imperial}?d=5`);
+	const on = page.locator('.tv-panel.tv-on');
+	// 20.8 °C -> 69°F; wind in mph rather than knots.
+	await expect(on).toContainText('69°F');
+	await expect(on).toContainText('mph');
+	await page.clock.runFor(5_500);
+	await expect(on).toContainText('Sea');
+	await expect(on).toContainText('ft');
+	await page.clock.runFor(5_000);
+	await expect(on).toContainText('Tide');
+	await expect(on).toContainText('ft');
+});
+
+test('pairing from /tv/pair opens the personal page once claimed on /me', async ({ page, browser }) => {
+	await page.goto('/tv/pair');
+	const codeEl = page.locator('#tv-pair-code');
+	await expect(codeEl).toHaveText(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+	const code = (await codeEl.innerText()).trim();
+
+	const ownerCtx = await browser.newContext();
+	await ownerCtx.route(`${SITE}/**`, (route) =>
+		route.continue({ headers: { ...route.request().headers(), 'x-forwarded-proto': 'http' } })
+	);
+	await ownerCtx.addCookies([{ name: 'vigie-session', value: world.frSession, url: SITE }]);
+	const ownerPage = await ownerCtx.newPage();
+	await ownerPage.goto(`/me?page=${world.frPageId}#pair=${encodeURIComponent(code)}`);
+	await expect(ownerPage.locator('details.links')).toHaveAttribute('open', '');
+	await ownerPage.getByRole('button', { name: 'Envoyer à l’écran' }).click();
+	await expect(
+		ownerPage.getByText('Écran appairé : la télé va ouvrir votre page dans quelques secondes.')
+	).toBeVisible();
+	await ownerCtx.close();
+
+	await expect(page).toHaveURL(/\/tv\/p\/[A-Za-z0-9_-]{32}$/, { timeout: 15_000 });
+	await expect(page.locator('#tv-root')).toHaveAttribute('data-state', 'screen');
+	await expect(page.locator('.tv-place-page')).toHaveText('Salon des Landes');
 });

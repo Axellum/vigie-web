@@ -41,6 +41,14 @@ import {
 	updatePlace
 } from './savedPlaces';
 import { prefsFromForm, readPrefs, savePrefs } from './userPrefs';
+import {
+	claimPairing,
+	normalizePairingCode,
+	PairingError,
+	pollPairing,
+	resumePairing,
+	startPairing
+} from './tvPairing';
 import { addZone, listZones, ZoneError } from './zones';
 
 const MIGRATIONS = join(import.meta.dirname, 'migrations');
@@ -104,7 +112,9 @@ describe('the migrations', () => {
 	it('have a way back for the latest one, kept out of the loader', () => {
 		const loader = readFileSync(join(import.meta.dirname, 'db.ts'), 'utf-8');
 		expect(loader).not.toContain('down/');
-		expect(readdirSync(join(MIGRATIONS, 'down'))).toContain('006_personal_page.down.sql');
+		const downs = readdirSync(join(MIGRATIONS, 'down'));
+		expect(downs).toContain('006_personal_page.down.sql');
+		expect(downs).toContain('008_tv_pairing.down.sql');
 	});
 });
 
@@ -696,5 +706,82 @@ describe('the way back', () => {
 		const back =
 			await sql`select 1 from information_schema.columns where table_name = 'users' and column_name = 'prefs'`;
 		expect(back).toHaveLength(1);
+	});
+
+	it('drops what 008 added, and the migration applies again', async () => {
+		await sql.unsafe(read('down', '008_tv_pairing.down.sql'));
+		const dropped = await sql`
+			select 1 from information_schema.tables where table_name = 'tv_pairing'`;
+		expect(dropped).toHaveLength(0);
+		await sql.unsafe(read('008_tv_pairing.sql'));
+		const back = await sql`
+			select 1 from information_schema.tables where table_name = 'tv_pairing'`;
+		expect(back).toHaveLength(1);
+	});
+});
+
+describe('television pairing codes', () => {
+	it('creates a code without keeping it in clear, lets a page claim it once, and deletes it on pickup', async () => {
+		const u = await user('pair-ok');
+		const page = await createPage(sql, u, 'Salon');
+		const place = await addPlace(sql, u, spot);
+		await savePage(
+			sql,
+			u,
+			page,
+			'Salon',
+			JSON.stringify([{ id: 'aaaa1111', type: 'weather', size: 'm', place }])
+		);
+
+		const session = await startPairing(sql);
+		expect(session.code).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+		expect(normalizePairingCode(session.code.toLowerCase())).toBe(session.rawCode);
+
+		// Reloading the pairing screen resumes the same unclaimed session.
+		const resumed = await resumePairing(sql, session.waitToken, session.rawCode);
+		expect(resumed?.code).toBe(session.code);
+		expect(await pollPairing(sql, session.waitToken, session.rawCode)).toEqual({ status: 'pending' });
+
+		// The database does not store the pairing code in clear.
+		const rows = await sql<{ code_hash: Buffer; link_cipher: string | null }[]>`
+			select code_hash, link_cipher from tv_pairing`;
+		expect(rows.some((r) => r.code_hash.toString('utf8').includes(session.rawCode))).toBe(false);
+
+		// Claim from /me creates an active link on the page and encrypts the token for the TV.
+		await claimPairing(sql, u, page, session.code.toLowerCase().replace('-', ' '), 'Living room');
+		const links = await listLinks(sql, u, page);
+		expect(links).toHaveLength(1);
+		expect(links[0].label).toBe('Living room');
+
+		// Claiming the same code a second time fails cleanly.
+		await expect(claimPairing(sql, u, page, session.code, 'Second')).rejects.toBeInstanceOf(PairingError);
+
+		// First poll retrieves the private link token and removes the pairing row immediately.
+		const ready = await pollPairing(sql, session.waitToken, session.rawCode);
+		expect(ready.status).toBe('ready');
+		if (ready.status === 'ready') {
+			const shared = await readSharedPage(sql, ready.token);
+			expect(shared?.title).toBe('Salon');
+		}
+		expect(await pollPairing(sql, session.waitToken, session.rawCode)).toEqual({ status: 'expired' });
+	});
+
+	it('does not burn the pairing code when the account is already at MAX_LINKS', async () => {
+		const u = await user('pair-full');
+		const page = await createPage(sql, u, 'Full');
+		for (let i = 0; i < MAX_LINKS; i++) await createLink(sql, u, page, `L${i}`);
+
+		const session = await startPairing(sql);
+		await expect(claimPairing(sql, u, page, session.code, 'Extra')).rejects.toBeInstanceOf(LinkError);
+		expect(await resumePairing(sql, session.waitToken, session.rawCode)).not.toBeNull();
+	});
+
+	it('rejects expired or unknown pairing codes', async () => {
+		const u = await user('pair-exp');
+		const page = await createPage(sql, u, 'Exp');
+		const expired = await startPairing(sql, -1000);
+		await expect(claimPairing(sql, u, page, expired.code, 'TV')).rejects.toBeInstanceOf(PairingError);
+		expect(await pollPairing(sql, expired.waitToken, expired.rawCode)).toEqual({ status: 'expired' });
+		await expect(claimPairing(sql, u, page, '0000-0000', 'TV')).rejects.toBeInstanceOf(PairingError);
 	});
 });

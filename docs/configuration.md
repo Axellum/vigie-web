@@ -4,26 +4,27 @@ Vigie Web reads its settings from environment variables. Three hold secrets, `DA
 password), `VIGIE_VAPID_PRIVATE_KEY` and the file `VIGIE_FCM_SERVICE_ACCOUNT` names: they live on the server
 (Podman secrets), never in the repository.
 
-| Variable                      | Default                            | Meaning                                                                                                                                                                      |
-| ----------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VIGIE_API_URL`               | `http://127.0.0.1:8080`            | Base URL of the Vigie API instance the site reads (from its server only).                                                                                                    |
-| `VIGIE_RATE_LIMIT_PER_MINUTE` | `240`                              | Requests a single address may make per minute (pages and `/data/*`; the site's own files are not counted).                                                                   |
-| `PORT`, `HOST`                | `3000`, `0.0.0.0`                  | Where the Node server listens (adapter-node).                                                                                                                                |
-| `ORIGIN`                      | –                                  | The public address of the site, e.g. `https://example.org`: the invitation links (`scripts/invite.mjs`) and the notifications' contact. SvelteKit itself no longer reads it. |
-| `PROTOCOL_HEADER`             | –                                  | Behind a reverse proxy: `PROTOCOL_HEADER=X-Forwarded-Proto`, the scheme visitors use. Without it SvelteKit assumes https; forms and passkeys compare it with the browser's.  |
-| `ADDRESS_HEADER`, `XFF_DEPTH` | –                                  | Behind a reverse proxy: `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1`, so that the rate limit sees the visitor's address and not the proxy's.                           |
-| `VIGIE_PLACES_FILE`           | `data/places.tsv.gz`               | The places of the search by name (`scripts/build-places.mjs`). When it cannot be read, the search answers 503 and the rest works.                                            |
-| `DATABASE_URL`                | –                                  | PostgreSQL of the accounts, e.g. `postgres://vigie:<password>@vigie-db:5432/vigie`. Unset: the site runs without accounts (no "Account" link, `/account` answers 404).       |
-| `DATABASE_POOL_MAX`           | `5`                                | Connections the site keeps open to the database.                                                                                                                             |
-| `VIGIE_POINT_LOOKUPS_PER_DAY` | `200`                              | Weather requests of the "near me" page that may reach the API in 24 hours (cache misses); `0` turns the weather off. See below.                                              |
-| `VIGIE_PUBLIC_ORIGIN`         | `https://vigie.auxfilsdesidees.fr` | The public address used in canonical links, social previews and `/sitemap.xml` (another address for a copy of the site).                                                     |
-| `VIGIE_VAPID_PUBLIC_KEY`      | –                                  | Notifications: the public key browsers subscribe with (web-push, base64url). Unset, with the private key: no notification.                                                   |
-| `VIGIE_VAPID_PRIVATE_KEY`     | –                                  | Notifications: the private key that signs them. Secret. Changing the pair makes every device turn notifications on again.                                                    |
-| `VIGIE_VAPID_SUBJECT`         | `ORIGIN` if https                  | Notifications: how a push service can reach the sender (`mailto:` or `https:`); else the project's page.                                                                     |
-| `VIGIE_FCM_SERVICE_ACCOUNT`   | –                                  | Notifications of the Android app: the path of the JSON key of a Firebase service account (Firebase Cloud Messaging). Secret. Unset: nothing is sent to the app.              |
-| `VIGIE_MATCH_INTERVAL_S`      | `120`                              | Seconds between two comparisons of the zones with the alerts in force (5 at least).                                                                                          |
-| `VIGIE_PUSH_EXTRA_HOSTS`      | –                                  | Tests only: hosts (`host:port`, comma-separated) accepted as push services besides the browsers' (the end-to-end tests' mock).                                               |
-| `VIGIE_FCM_BASE_URL`          | `https://fcm.googleapis.com`       | Tests only: where the messages to the app are posted (the end-to-end tests' mock).                                                                                           |
+| Variable                         | Default                            | Meaning                                                                                                                                                                      |
+| -------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIGIE_API_URL`                  | `http://127.0.0.1:8080`            | Base URL of the Vigie API instance the site reads (from its server only).                                                                                                    |
+| `VIGIE_RATE_LIMIT_PER_MINUTE`    | `240`                              | Requests a single address may make per minute (pages and `/data/*`; the site's own files are not counted).                                                                   |
+| `PORT`, `HOST`                   | `3000`, `0.0.0.0`                  | Where the Node server listens (adapter-node).                                                                                                                                |
+| `ORIGIN`                         | –                                  | The public address of the site, e.g. `https://example.org`: the invitation links (`scripts/invite.mjs`) and the notifications' contact. SvelteKit itself no longer reads it. |
+| `PROTOCOL_HEADER`                | –                                  | Behind a reverse proxy: `PROTOCOL_HEADER=X-Forwarded-Proto`, the scheme visitors use. Without it SvelteKit assumes https; forms and passkeys compare it with the browser's.  |
+| `ADDRESS_HEADER`, `XFF_DEPTH`    | –                                  | Behind a reverse proxy: `ADDRESS_HEADER=X-Forwarded-For` and `XFF_DEPTH=1`, so that the rate limit sees the visitor's address and not the proxy's.                           |
+| `VIGIE_PLACES_FILE`              | `data/places.tsv.gz`               | The places of the search by name (`scripts/build-places.mjs`). When it cannot be read, the search answers 503 and the rest works.                                            |
+| `DATABASE_URL`                   | –                                  | PostgreSQL of the accounts, e.g. `postgres://vigie:<password>@vigie-db:5432/vigie`. Unset: the site runs without accounts (no "Account" link, `/account` answers 404).       |
+| `DATABASE_POOL_MAX`              | `5`                                | Connections the site keeps open to the database.                                                                                                                             |
+| `VIGIE_POINT_LOOKUPS_PER_DAY`    | `200`                              | Weather requests of the "near me" page and anonymous point queries that may reach the API in 24 hours (cache misses); `0` turns them off. See below.                         |
+| `VIGIE_ME_POINT_LOOKUPS_PER_DAY` | `1000`                             | Daily pool of `/data/point.json` lookups reserved for signed-in accounts on "My page" (`/me`), capped at 500 per account/day; `0` turns them off.                            |
+| `VIGIE_PUBLIC_ORIGIN`            | `https://vigie.auxfilsdesidees.fr` | The public address used in canonical links, social previews and `/sitemap.xml` (another address for a copy of the site).                                                     |
+| `VIGIE_VAPID_PUBLIC_KEY`         | –                                  | Notifications: the public key browsers subscribe with (web-push, base64url). Unset, with the private key: no notification.                                                   |
+| `VIGIE_VAPID_PRIVATE_KEY`        | –                                  | Notifications: the private key that signs them. Secret. Changing the pair makes every device turn notifications on again.                                                    |
+| `VIGIE_VAPID_SUBJECT`            | `ORIGIN` if https                  | Notifications: how a push service can reach the sender (`mailto:` or `https:`); else the project's page.                                                                     |
+| `VIGIE_FCM_SERVICE_ACCOUNT`      | –                                  | Notifications of the Android app: the path of the JSON key of a Firebase service account (Firebase Cloud Messaging). Secret. Unset: nothing is sent to the app.              |
+| `VIGIE_MATCH_INTERVAL_S`         | `120`                              | Seconds between two comparisons of the zones with the alerts in force (5 at least).                                                                                          |
+| `VIGIE_PUSH_EXTRA_HOSTS`         | –                                  | Tests only: hosts (`host:port`, comma-separated) accepted as push services besides the browsers' (the end-to-end tests' mock).                                               |
+| `VIGIE_FCM_BASE_URL`             | `https://fcm.googleapis.com`       | Tests only: where the messages to the app are posted (the end-to-end tests' mock).                                                                                           |
 
 In development, `npm run dev` reads them from a `.env` file (see `.env.example`).
 
@@ -41,19 +42,20 @@ The weather of a place (`/data/point.json`) is the one thing that costs the API'
 a new grid point asked of the API cost 7.5 weighted Open-Meteo calls (forecast 5.5, river discharge 1, air 1),
 measured on 20 October 2026. Open-Meteo's free quota (10,000 calls a day) is per IP address, so it is shared
 with every other client of the same API instance and every program on the same address, and the API keeps no
-part of it for them. The site therefore keeps its own part bounded: each answer is cached 15 minutes per grid
-point (0.05°, the API's forecast grid), and at most `VIGIE_POINT_LOOKUPS_PER_DAY` requests that miss this
-cache reach the API in 24 hours (200 by default, at most 1,500 weighted calls, about 17 % of the quota).
-Beyond it, the page says that the weather by place is paused; the warnings and hazards are not affected. The
-count is in memory: a restart starts it again.
+part of it for them. The site therefore keeps its own part bounded: Each answer is cached 15 minutes per grid point (0.05°, the API's forecast grid). Anonymous `/near` lookups share
+`VIGIE_POINT_LOOKUPS_PER_DAY` (200 by default, at most 1,500 weighted calls, about 17 % of the quota), while signed-in `/me`
+lookups use a separate pool `VIGIE_ME_POINT_LOOKUPS_PER_DAY` (1,000 by default, capped at 500 per account/day). Fresh marine
+and TV cache entries are reused across pools without spending another lookup. Beyond its share, the page says that the weather
+by place is paused; the warnings and hazards are not affected. The count is in memory: a restart starts it again.
 
 ## Television screens
 
 The screens for televisions (`/tv`, see [`tv.md`](tv.md)) ask the API for the same things as the surf pages, which the site
-keeps, and for the weather of the sky and the rain of the hour of the spot, which is kept 15 minutes. That weather has a
-budget of its own, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (5,000 by default, 96 a day for each of the 51 spots; `0` leaves the sky
-card empty and the rain "not read"), apart from `VIGIE_POINT_LOOKUPS_PER_DAY`: a screen left on for weeks cannot use up the
-weather of the "near me" page. A spot costs at most 96 requests a day, whatever the number of screens that show it.
+keeps, and for the weather of the sky, rain of the hour (kept 15 minutes) and personal-page aurora estimates (kept 1 hour).
+That weather and aurora share a budget of their own, `VIGIE_TV_POINT_LOOKUPS_PER_DAY` (5,000 by default, 96 a day for each of
+the 51 spots; `0` leaves the sky card empty and the rain "not read"), apart from `VIGIE_POINT_LOOKUPS_PER_DAY` and
+`VIGIE_ME_POINT_LOOKUPS_PER_DAY`: a screen left on for weeks cannot use up the weather of the "near me" or "My page" views.
+A spot costs at most 96 requests a day, whatever the number of screens that show it.
 
 ## Accounts
 

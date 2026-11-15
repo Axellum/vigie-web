@@ -55,6 +55,7 @@
 		maxLinks={data.maxLinks}
 		tvCards={data.tvCards}
 		made={form?.madeLink ?? null}
+		paired={form?.pairedLink ?? false}
 		error={form?.linkError ?? null}
 	/>
 

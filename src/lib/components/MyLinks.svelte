@@ -24,6 +24,7 @@
 		maxLinks,
 		tvCards,
 		made,
+		paired = false,
 		error
 	}: {
 		lang: Lang;
@@ -35,6 +36,7 @@
 		tvCards: string[];
 		/** The path of the link just made (`/tv/p/<secret>`), only in the answer that made it. */
 		made: string | null;
+		paired?: boolean;
 		error: string | null;
 	} = $props();
 	const tr = $derived(translator(lang));
@@ -46,16 +48,24 @@
 	// Opened by the person, and by the link just made so that it is seen; never closed by an answer.
 	let opened = $state(false);
 	$effect(() => {
-		if (made) opened = true;
+		if (made || paired || error) opened = true;
 	});
 
 	let asking = $state<string | null>(null);
 	let copied = $state(false);
 	let revoked = $state(false);
+	let pairCode = $state('');
 	// The button waits for the page's script: a form sent before it runs would be a plain page request, and its answer (the
 	// address, shown once) would then be sent again by a reload.
 	let ready = $state(false);
-	onMount(() => (ready = true));
+	onMount(() => {
+		ready = true;
+		const m = /^#pair=([0-9A-Za-z-]+)$/.exec(window.location.hash);
+		if (m) {
+			pairCode = m[1];
+			opened = true;
+		}
+	});
 	async function copy() {
 		const field = document.getElementById('link-address') as HTMLInputElement | null;
 		try {
@@ -101,10 +111,18 @@
 			</div>
 		{/if}
 
+		{#if paired}
+			<p class="made" role="status"><strong>{tr('links.paired')}</strong></p>
+		{/if}
+
 		{#if error === 'full'}
 			<p class="note" role="alert">{tr('links.full', { max: maxLinks })}</p>
 		{:else if error === 'unknown'}
 			<p class="note" role="alert">{tr('links.errorUnknown')}</p>
+		{:else if error === 'pairInvalid'}
+			<p class="note" role="alert">{tr('links.pairInvalid')}</p>
+		{:else if error === 'pairRate'}
+			<p class="note" role="alert">{tr('links.pairRate')}</p>
 		{/if}
 
 		<form
@@ -134,6 +152,53 @@
 			</p>
 			{#if full}<p class="muted small">{tr('links.full', { max: maxLinks })}</p>{/if}
 		</form>
+
+		<div class="pair">
+			<h3>{tr('links.pairTitle')}</h3>
+			<p class="muted small">{tr('links.pairLead')}</p>
+			<form
+				method="POST"
+				action="?/linkPair"
+				class="form make"
+				use:enhance={() => {
+					revoked = false;
+					copied = false;
+					return async ({ result, update }) => {
+						await update();
+						if (result.type === 'success') pairCode = '';
+					};
+				}}
+			>
+				<input type="hidden" name="page" value={pageId} />
+				<label class="form-field">
+					<span>{tr('links.pairCode')}</span>
+					<input
+						class="input"
+						type="text"
+						name="code"
+						bind:value={pairCode}
+						maxlength="24"
+						placeholder={tr('links.pairCodeHint')}
+						autocomplete="off"
+						required
+					/>
+				</label>
+				<label class="form-field">
+					<span>{tr('links.pairLabel')}</span>
+					<input
+						class="input"
+						type="text"
+						name="label"
+						maxlength="60"
+						placeholder={tr('links.labelHint')}
+						autocomplete="off"
+					/>
+				</label>
+				<p class="btn-row">
+					<button type="submit" class="btn" disabled={full || !ready}>{tr('links.pairButton')}</button>
+				</p>
+			</form>
+		</div>
 
 		<h3>{tr('links.active')}</h3>
 		{#if links.length === 0}
@@ -212,6 +277,14 @@
 	}
 	.make {
 		max-width: 420px;
+	}
+	.pair {
+		margin-top: 8px;
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
 	.made {
 		display: flex;
