@@ -1,0 +1,1 @@
+- Rented server: the firewall lets WireGuard in (UDP 51820), for a private link to a helper server.

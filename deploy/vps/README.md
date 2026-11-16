@@ -13,7 +13,8 @@ database is not reachable from outside, and of the API only its reads are, throu
 | `caddy.container`     | the one door, host network (real visitor addresses)        | `80`, `443` (TCP and UDP); `127.0.0.1:8090` |
 | `vigie-backup.timer`  | a dump of the database every day, kept 5 days              | –                                           |
 
-`setup.sh` also sets the firewall (`nftables.conf`: SSH, HTTP and HTTPS only), SSH by key only with fail2ban
+`setup.sh` also sets the firewall (`nftables.conf`: SSH, HTTP, HTTPS, and UDP 51820 for WireGuard, a private link to a
+helper server whose peer and keys are set by hand in `/etc/wireguard` and never kept in this repository), SSH by key only with fail2ban
 (an address that fails 5 times in 10 minutes is banned an hour, longer each time it comes back), automatic security
 updates with a reboot at 04:45 UTC when one needs it (a kernel fix only protects after a reboot; the site is down
 about a minute), a journal kept 14 days at most, and 2 GB of swap for the image builds.

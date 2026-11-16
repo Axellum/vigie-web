@@ -2,7 +2,7 @@
 # Prepares a fresh Debian 13 server for Vigie, as root (deploy.sh setup runs it with sudo from the admin account).
 #   - the user "vigie" (no sudo) runs the containers, with the admin account's SSH keys;
 #   - Podman (rootless); ports 80 and 443 allowed to unprivileged users; the user's units start at boot;
-#   - firewall: only SSH, HTTP and HTTPS come in (nftables.conf);
+#   - firewall: only SSH, HTTP, HTTPS and WireGuard come in (nftables.conf);
 #   - SSH by key only, fail2ban on SSH, security updates installed automatically (with a reboot at 04:45 UTC when one
 #     needs it), the journal kept 14 days at most.
 # Running it again changes nothing that is already in place.
@@ -18,7 +18,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd fail2ban
+apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd fail2ban wireguard-tools
 
 # The account that runs the containers, reachable with the same keys as the admin account.
 if ! id vigie >/dev/null 2>&1; then
