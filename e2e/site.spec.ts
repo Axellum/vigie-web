@@ -1198,4 +1198,19 @@ test('pollen, recognised natural disasters and avalanche bulletins show where th
 	);
 	// No French decrees in Switzerland.
 	await expect(page.getByRole('heading', { name: 'Recognised natural disasters' })).toHaveCount(0);
+
+	// Chamonix: the Météo-France bulletin of the Mont-Blanc massif, in French, with its two bands of altitude.
+	await page.goto('/near?lang=fr#45.92,6.87,50');
+	await expect(page.getByText('Avalanches : danger 3 · Marqué')).toBeVisible();
+	const bra = await opened('Avalanches : danger 3 · Marqué');
+	await expect(bra.getByText('Secteur : Mont-Blanc')).toBeVisible();
+	await expect(bra.locator('.band')).toHaveText(['2 au-dessous de 2700 m', '3 au-dessus de 2700 m']);
+	await expect(bra.getByText('Neige soufflée', { exact: true })).toBeVisible();
+	await expect(bra.getByText('Texte du bulletin', { exact: true })).toBeVisible();
+	await expect(bra.getByText(/en anglais/)).toHaveCount(0);
+	await expect(bra.getByRole('link', { name: 'Lire le bulletin complet du service' })).toHaveAttribute(
+		'href',
+		'https://meteofrance.com/meteo-montagne'
+	);
+	await expect(page.getByText(/bulletin d'estimation du risque d'avalanche/)).toBeAttached();
 });

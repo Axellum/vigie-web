@@ -8,7 +8,9 @@ import {
 	avalanchesFromApi,
 	avalancheTone,
 	elevationText,
-	isCoveredAvalancheCountry
+	isCoveredAvalancheCountry,
+	originalLabel,
+	ratingBands
 } from './avalanches';
 
 const fixture = (name: string) =>
@@ -58,6 +60,32 @@ describe('avalanche bulletins', () => {
 		expect([1, 2, 3, 4, 5].map(avalancheTone)).toEqual(['GREEN', 'YELLOW', 'ORANGE', 'RED', 'RED']);
 		expect(avalancheTone(null)).toBeNull();
 		expect(isCoveredAvalancheCountry('CH')).toBe(true);
-		expect(isCoveredAvalancheCountry('FR')).toBe(false);
+		expect(isCoveredAvalancheCountry('FR')).toBe(true);
+		expect(isCoveredAvalancheCountry('ES')).toBe(false);
+	});
+
+	it('shows the bands of altitude only when the danger changes with them', () => {
+		const b = value.bulletins[0];
+		expect(ratingBands(b)).toEqual([]);
+		const two = {
+			...b,
+			ratings: [
+				{ level: 2, lowerM: null, upperM: '2700' },
+				{ level: 3, lowerM: '2700', upperM: null }
+			]
+		};
+		expect(ratingBands(two).map((r) => elevationText('fr', r))).toEqual([
+			'au-dessous de 2700 m',
+			'au-dessus de 2700 m'
+		]);
+		expect(ratingBands({ ...two, ratings: two.ratings.map((r) => ({ ...r, level: 2 })) })).toEqual([]);
+	});
+
+	it('says the language of the texts only when it is not the page’s', () => {
+		expect(originalLabel('fr', 'en')).toBe('Texte du bulletin, en anglais');
+		expect(originalLabel('fr', 'fr')).toBe('Texte du bulletin');
+		expect(originalLabel('en', 'fr')).toBe('Text of the bulletin, in French');
+		expect(originalLabel('en', null)).toBe('Text of the bulletin');
+		expect(originalLabel('fr', 'xx')).toBe('Texte du bulletin');
 	});
 });
