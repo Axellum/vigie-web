@@ -1,11 +1,19 @@
-// Official avalanche bulletins (`GET /v1/avalanches`, CAAML v6 of the SLF for Switzerland and Liechtenstein, and of
-// Avalanche.report for Tyrol, South Tyrol and Trentino). The danger level is the European scale 1 to 5 as the service
-// wrote it; the texts of the bulletin are the service's own, in the language it published (English for now).
+// Official avalanche bulletins (`GET /v1/avalanches`: CAAML v6 of the SLF for Switzerland and Liechtenstein and of
+// Avalanche.report for Tyrol, South Tyrol and Trentino; the BRA of Météo-France for the French massifs). The danger level
+// is the European scale 1 to 5 as the service wrote it; the texts of the bulletin are the service's own, in the language
+// it published (English for the first two, French for Météo-France).
 import type { Lang } from './i18n';
 import type { Level } from './types';
 
-/** The countries the two services cover in part: asked only there, the API says whether the point is inside. */
-export const AVALANCHE_COUNTRIES = new Set(['CH', 'LI', 'AT', 'IT']);
+/** The countries the services cover in part: asked only there, the API says whether the point is inside a massif. */
+export const AVALANCHE_COUNTRIES = new Set(['CH', 'LI', 'AT', 'IT', 'FR']);
+
+/** The danger of one band of altitude ("2 below 2700 m, 3 above"). */
+export interface AvalancheRating {
+	level: number;
+	lowerM: string | null;
+	upperM: string | null;
+}
 
 export interface AvalancheProblem {
 	type: string;
@@ -23,7 +31,12 @@ export interface AvalancheBulletin {
 	validFrom: string | null;
 	validUntil: string | null;
 	maxLevel: number | null;
+	ratings: AvalancheRating[];
 	problems: AvalancheProblem[];
+	/** The bulletin's own summary of the day ("Départs spontanés : …"), and its comment on the avalanche activity. */
+	highlights: string | null;
+	activity: string | null;
+	snowpackTitle: string | null;
 	snowpack: string | null;
 	tendency: string | null;
 	url: string | null;
@@ -57,8 +70,9 @@ export function avalanchesFromApi(raw: unknown): AvalanchesResponse | null {
 		const b = obj(item);
 		const id = str(b.bulletin_id);
 		if (!id || b.is_expired === true) return [];
+		// The outlook: its headline (the BRA's danger of the next day) then its comment, as one text.
 		const tendency = list(b.tendency)
-			.map((t) => str(obj(t).comment))
+			.map((t) => [str(obj(t).highlights), str(obj(t).comment)].filter(Boolean).join(' — ') || null)
 			.find((t) => t != null);
 		return [
 			{
@@ -68,6 +82,15 @@ export function avalanchesFromApi(raw: unknown): AvalanchesResponse | null {
 				validFrom: str(b.valid_from),
 				validUntil: str(b.valid_until),
 				maxLevel: level(b.max_danger_level),
+				ratings: list(b.danger_ratings).flatMap((r): AvalancheRating[] => {
+					const o = obj(r);
+					const lvl = level(o.level);
+					const e = obj(o.elevation);
+					return lvl ? [{ level: lvl, lowerM: bound(e.lower_bound), upperM: bound(e.upper_bound) }] : [];
+				}),
+				highlights: str(b.avalanche_activity_highlights),
+				activity: str(b.avalanche_activity_comment),
+				snowpackTitle: str(b.snowpack_highlights),
 				problems: list(b.avalanche_problems).flatMap((p): AvalancheProblem[] => {
 					const o = obj(p);
 					const type = str(o.problem_type);
@@ -116,7 +139,15 @@ export function avalancheTone(lvl: number | null): Level | null {
 
 /** The official page of the service that published, when the bulletin gave none. */
 export function avalancheServiceUrl(source: string | null): string {
-	return source === 'euregio_avalanche' ? 'https://avalanche.report/' : 'https://www.slf.ch/';
+	if (source === 'euregio_avalanche') return 'https://avalanche.report/';
+	if (source === 'meteofrance_bra') return 'https://meteofrance.com/meteo-montagne';
+	return 'https://www.slf.ch/';
+}
+
+/** The bands of a bulletin worth a line: only when the danger changes with the altitude. */
+export function ratingBands(b: AvalancheBulletin): AvalancheRating[] {
+	const bands = b.ratings.filter((r) => r.lowerM || r.upperM);
+	return bands.length > 1 && new Set(bands.map((r) => r.level)).size > 1 ? bands : [];
 }
 
 const TEXT = {
@@ -146,11 +177,18 @@ const TEXT = {
 		aspects: 'versants {list}',
 		snowpack: 'Manteau neigeux',
 		tendency: 'Tendance',
-		original: 'Texte du service, en anglais',
+		original: 'Texte du bulletin',
+		originalIn: 'Texte du bulletin, en {language}',
+		'language.en': 'anglais',
+		'language.de': 'allemand',
+		'language.it': 'italien',
+		'language.fr': 'français',
+		band: '{level} {where}',
 		official: 'Lire le bulletin complet du service',
 		unavailable: 'Le bulletin n’a pas pu être lu pour l’instant.',
 		stale: 'Bulletin plus ancien que d’habitude : le service n’a pas répondu.',
-		advice: 'En montagne, le bulletin du service fait foi : lisez-le en entier avant de partir.'
+		advice: 'En montagne, le bulletin du service fait foi : lisez-le en entier avant de partir.',
+		activity: 'Activité avalancheuse'
 	},
 	en: {
 		title: 'Avalanche bulletin',
@@ -178,11 +216,18 @@ const TEXT = {
 		aspects: 'aspects {list}',
 		snowpack: 'Snowpack',
 		tendency: 'Outlook',
-		original: 'Text of the service',
+		original: 'Text of the bulletin',
+		originalIn: 'Text of the bulletin, in {language}',
+		'language.en': 'English',
+		'language.de': 'German',
+		'language.it': 'Italian',
+		'language.fr': 'French',
+		band: '{level} {where}',
 		official: 'Read the full bulletin of the service',
 		unavailable: 'The bulletin could not be read for now.',
 		stale: 'Older bulletin than usual: the service did not answer.',
-		advice: 'In the mountains the bulletin of the service prevails: read it in full before you go.'
+		advice: 'In the mountains the bulletin of the service prevails: read it in full before you go.',
+		activity: 'Avalanche activity'
 	}
 } as const;
 
@@ -208,6 +253,14 @@ export function avalancheProblemLabel(lang: Lang, type: string): string {
 	return key in TEXT[lang] ? avalancheText(lang, key as AvalancheTextKey) : type.replaceAll('_', ' ');
 }
 
+/** The heading of the bulletin's texts: the language is said only when it is not the page's. */
+export function originalLabel(lang: Lang, bulletinLang: string | null): string {
+	const code = bulletinLang?.slice(0, 2).toLowerCase() ?? null;
+	const key = `language.${code}`;
+	if (!code || code === lang || !(key in TEXT[lang])) return avalancheText(lang, 'original');
+	return avalancheText(lang, 'originalIn', { language: avalancheText(lang, key as AvalancheTextKey) });
+}
+
 const ASPECT_FR: Record<string, string> = { W: 'O', NW: 'NO', SW: 'SO' };
 
 /** The compass points, in French with O for west. */
@@ -216,7 +269,10 @@ export function aspectLabel(lang: Lang, aspect: string): string {
 }
 
 /** The band of altitude of a problem, in words, or null when the bulletin gives none (the treeline in words). */
-export function elevationText(lang: Lang, p: AvalancheProblem): string | null {
+export function elevationText(
+	lang: Lang,
+	p: { lowerM: string | null; upperM: string | null }
+): string | null {
 	const at = (b: string) =>
 		/^\d+$/.test(b)
 			? `${b} m`

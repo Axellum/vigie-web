@@ -1,0 +1,123 @@
+{
+ "version": "1.2.0",
+ "server_utc": "2026-11-16T18:00:00Z",
+ "query": {
+  "lat": 45.9237,
+  "lon": 6.8694
+ },
+ "status": "active",
+ "covered_by": "meteofrance_bra",
+ "note": "1 active Météo-France BRA bulletin(s) matched for massif Mont-Blanc.",
+ "region_id": "FR-BRA-3",
+ "region_name": "Mont-Blanc",
+ "max_danger_level": 3,
+ "max_danger_label": "considerable",
+ "bulletins": [
+  {
+   "bulletin_id": "FR-BRA-3-2026-11-16T16:00:00",
+   "source": "meteofrance_bra",
+   "lang": "fr",
+   "publication_time": "2026-11-16T15:07:00Z",
+   "valid_from": "2026-11-16T15:00:00Z",
+   "valid_until": "2026-11-17T17:00:00Z",
+   "next_update": null,
+   "unscheduled": false,
+   "is_expired": false,
+   "max_danger_level": 3,
+   "max_danger_label": "considerable",
+   "regions": [
+    {
+     "region_id": "FR-BRA-3",
+     "name": "Mont-Blanc"
+    }
+   ],
+   "danger_ratings": [
+    {
+     "main_value": "moderate",
+     "level": 2,
+     "valid_time_period": "all_day",
+     "elevation": {
+      "lower_bound": null,
+      "upper_bound": 2700
+     },
+     "subdivision": null
+    },
+    {
+     "main_value": "considerable",
+     "level": 3,
+     "valid_time_period": "all_day",
+     "elevation": {
+      "lower_bound": 2700,
+      "upper_bound": null
+     },
+     "subdivision": null
+    }
+   ],
+   "avalanche_problems": [
+    {
+     "problem_type": "wind_slab",
+     "danger_rating_value": null,
+     "danger_level": null,
+     "valid_time_period": null,
+     "elevation": null,
+     "aspects": [
+      "N",
+      "NE",
+      "E",
+      "SE",
+      "S",
+      "SW",
+      "W",
+      "NW"
+     ],
+     "snowpack_stability": null,
+     "frequency": null,
+     "avalanche_size": null,
+     "avalanche_type": null,
+     "core_zone_text": null,
+     "comment": null
+    },
+    {
+     "problem_type": "wet_snow",
+     "danger_rating_value": null,
+     "danger_level": null,
+     "valid_time_period": null,
+     "elevation": null,
+     "aspects": [
+      "N",
+      "NE",
+      "E",
+      "SE",
+      "S",
+      "SW",
+      "W",
+      "NW"
+     ],
+     "snowpack_stability": null,
+     "frequency": null,
+     "avalanche_size": null,
+     "avalanche_type": null,
+     "core_zone_text": null,
+     "comment": null
+    }
+   ],
+   "avalanche_activity_highlights": "Au-dessus de 2700m indice de risque marqué, plus bas indice limité.",
+   "avalanche_activity_comment": "Départs spontanés : Avalanches de neige humides en moyenne montagne.\nDéclenchements skieurs : Nombreuses plaques à vent dans la neige fraiche en haute montagne.",
+   "snowpack_highlights": "Nombreuses instabilités dans la neige fraiche.",
+   "snowpack_comment": "Déclenchements provoqués : * Au-dessus de 2700 m : de nombreuses plaques dures se forment avec le fort transport de neige fraîche. Elles sont plus nombreuses et plus épaisses en gagnant en altitude. Taille 1 à 2 (petites à moyennes) parfois 3 (grandes). Quelques plaques se forment également en fin d'après-midi et soirée entre 2500 et 2700 m. Taille 1, rarement 2.Observables : fissures sous les skis, accumulations de neige récentes, vaguelettes.Départs spontanés : * Entre 2300 et 2800 m, avalanches de neige humides en tous versants. Taille 1 (petites) parfois 2 (moyennes). Ces avalanches deviennent moins nombreuses l'après-midi au-dessus de 2500 m avec la baisse des températures. Rares départs également possibles entre 2100 et 2300 m, mais avec des volumes plus faibles. Taille 1.* Au-dessus de 2700 m, quelques départs de plaques à vent sous l'effet du fort transport de neige fraiche. Taille 1 à 2, rarement 3. Rares départs également possibles entre 2500 et 2700 m en fin d'après-midi et soirée. Taille 1.Autres : Cailloux et blocs de pierre juste masqués sous la neige de faible épaisseur. Glaciers très crevassés et ponts de neige fragiles.\n\nEnneigement faible pour la saison. La neige est présente au sol dès 2000 m. En dessous de 2800 m, la pratique du ski reste compliquée.Qualité de la neige mardi :En dessous de 2500 m, manteau neigeux s'humidifiant de plus en plus sous l'effet de la pluie et du vent en cours de journée.Entre 2500 et 2800 m, manteau neigeux humidifié en surface par la pluie en matinée. La neige prend le relais à la mi-journée. En fin d'après-midi, on retrouve 5 cm de neige fraiche humide à 2500 m, jusqu'à 20/25 cm de neige fraiche ventée à 2800 m.Au-dessus de 2800 m, manteau neigeux travaillé par le vent avec de nombreuses et volumineuses accumulations. Neige ventée, voire cartonnée, même loin des crêtes.",
+   "tendency": [
+    {
+     "tendency_type": null,
+     "valid_from": "2026-11-17T23:00:00Z",
+     "valid_until": null,
+     "highlights": "Indice de risque marqué",
+     "comment": "Poursuite des conditions perturbées et baisse des températures. Cumuls de neige fraiche importants. Risque en augmentation."
+    }
+   ],
+   "bulletin_url": "https://meteofrance.com/meteo-montagne",
+   "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+  }
+ ],
+ "stale": false,
+ "attribution": "Météo-France, bulletin d'estimation du risque d'avalanche (BRA, https://meteofrance.com/meteo-montagne). Licence Ouverte 2.0 (Etalab)"
+}

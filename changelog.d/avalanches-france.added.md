@@ -1,0 +1,1 @@
+- The avalanche panel covers the French massifs with the Météo-France avalanche bulletin (BRA): sector, danger by altitude band, problems and the bulletin text in French. Needs a Vigie API with the Météo-France BRA source.

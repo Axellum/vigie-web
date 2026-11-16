@@ -1,7 +1,8 @@
 <script lang="ts">
-	// The official avalanche bulletin of a place (`GET /v1/avalanches`: SLF, Avalanche.report): the danger level on the
-	// European scale, the problems with their altitude and aspects, and the service's own texts as it wrote them. Off season
-	// it says there is no current bulletin; outside the two services' areas it is not shown.
+	// The official avalanche bulletin of a place (`GET /v1/avalanches`: SLF, Avalanche.report, Météo-France): the danger
+	// level on the European scale (per band of altitude when it changes with it), the problems with their altitude and
+	// aspects, and the service's own texts as it wrote them. Off season it says there is no current bulletin; outside the
+	// services' areas it is not shown.
 	import {
 		aspectLabel,
 		avalancheLevelLabel,
@@ -10,6 +11,8 @@
 		avalancheText,
 		avalancheTone,
 		elevationText,
+		originalLabel,
+		ratingBands,
 		type AvalanchesResponse
 	} from '#lib/avalanches.js';
 	import type { Lang } from '#lib/i18n.js';
@@ -47,6 +50,20 @@
 			{#if until(b.validUntil)}
 				<p class="muted small">{avalancheText(lang, 'valid', { date: until(b.validUntil) ?? '' })}</p>
 			{/if}
+			{@const bands = ratingBands(b)}
+			{#if bands.length}
+				<p class="bands small">
+					{#each bands as r, i (i)}
+						<span class="band"
+							><span class="pill sev-{avalancheTone(r.level)}">{r.level}</span>
+							{elevationText(lang, r)}</span
+						>
+					{/each}
+				</p>
+			{/if}
+			{#if b.highlights}
+				<p class="small" lang={b.lang ?? undefined}>{b.highlights}</p>
+			{/if}
 			{#if b.problems.length}
 				<ul class="problems">
 					{#each b.problems as p, i (i)}
@@ -72,13 +89,20 @@
 				</ul>
 			{/if}
 			{@const texts = [...new Set(b.problems.map((p) => p.comment).filter((t): t is string => t != null))]}
-			{#if texts.length || b.snowpack || b.tendency}
+			{#if texts.length || b.activity || b.snowpack || b.tendency}
 				<details class="texts">
-					<summary class="small">{avalancheText(lang, 'original')}</summary>
+					<summary class="small">{originalLabel(lang, b.lang)}</summary>
 					<div class="body small" lang={b.lang ?? undefined}>
 						{#each texts as t (t)}<p>{t}</p>{/each}
-						{#if b.snowpack}
-							<p><strong>{avalancheText(lang, 'snowpack')}.</strong> {b.snowpack}</p>
+						{#if b.activity}
+							<p><strong>{avalancheText(lang, 'activity')}.</strong> {b.activity}</p>
+						{/if}
+						{#if b.snowpackTitle || b.snowpack}
+							<p>
+								<strong>{avalancheText(lang, 'snowpack')}.</strong>
+								{#if b.snowpackTitle}<em>{b.snowpackTitle}</em>{/if}
+								{b.snowpack ?? ''}
+							</p>
 						{/if}
 						{#if b.tendency}
 							<p><strong>{avalancheText(lang, 'tendency')}.</strong> {b.tendency}</p>
@@ -122,6 +146,17 @@
 	h3 {
 		margin: 0;
 		font-size: 16px;
+	}
+	.bands {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 14px;
+	}
+	.band .pill {
+		margin-right: 4px;
+	}
+	.body p {
+		white-space: pre-line;
 	}
 	.problems {
 		margin: 0;

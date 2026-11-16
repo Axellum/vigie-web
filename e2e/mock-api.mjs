@@ -84,6 +84,16 @@ createServer((req, res) => {
 			(lat, lon) => lat >= 46.5 && lat <= 47 && lon >= 9.5 && lon <= 10.2
 		]
 	}[url.pathname];
+	// Chamonix, in the Mont-Blanc massif: the Météo-France bulletin (BRA) the API answers there.
+	if (
+		url.pathname === '/v1/avalanches' &&
+		Math.abs(Number(url.searchParams.get('lat')) - 45.92) < 0.3 &&
+		Math.abs(Number(url.searchParams.get('lon')) - 6.87) < 0.3
+	) {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(readFileSync(join(dir, index['/v1/avalanches?bra'])));
+		return;
+	}
 	if (extra) {
 		const lat = Number(url.searchParams.get('lat'));
 		const lon = Number(url.searchParams.get('lon'));
