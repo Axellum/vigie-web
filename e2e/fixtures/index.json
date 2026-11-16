@@ -43,7 +43,8 @@
   "pollens-corte.json": 1794854900,
   "catnat-corte.json": 1794854900,
   "avalanches-davos.json": 1794854900,
-  "avalanches-chamonix.json": 1794861000
+  "avalanches-chamonix.json": 1794861000,
+  "sea-buoys.json": 1794868200
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -105,7 +106,8 @@
   "/v1/pollens?europe": "pollens-season.json",
   "/v1/history/catnat?fr": "catnat-corte.json",
   "/v1/avalanches?slf": "avalanches-davos.json",
-  "/v1/avalanches?bra": "avalanches-chamonix.json"
+  "/v1/avalanches?bra": "avalanches-chamonix.json",
+  "/v1/sea/buoys": "sea-buoys.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -122,6 +124,7 @@
   "activities-overview.json": "Answer of vigie-api's branch that adds GET /v1/activities/overview (the headline of the four activities of every surf spot), run locally on 2026-11-08 with scripts/record-fixtures.mjs: it read the two every-spot answers of the surf overview (Open-Meteo, once) and the cached coastal warnings; the public instance did not serve it yet. A calm day: the surf is poor everywhere (swell too small), the kite varies.",
   "sea-place*.json": "Answers of vigie-api 41bfeff (its pull request 60, which adds GET /v1/sea/places and /v1/sea/places/{id}), run locally on 2026-11-08 with scripts/record-fixtures.mjs: the catalogue is a file bundled in the API (OpenStreetMap, the Sandre ports, the bathing results), built on 2026-11-08, so no provider is asked. The mock replies by the kinds, the words and whether a position is given, whatever the position or the page (e2e/mock-api.mjs): the places around Saint-Malo stand for the neighbours of every place.",
   "pollens-*.json, catnat-corte.json, avalanches-davos.json": "Answers of the public Vigie API (vigie-api 595d5e3) read on 2026-11-16 for Corte's weather cell (42.3, 9.15) and Davos (46.8, 9.85). No pollen was in the air in November, so pollens-season.json is pollens-corte.json with the figures of a spring day written by hand (birch leading), to show the table; the mock answers it for any position in Europe, catnat-corte.json for any position in France and avalanches-davos.json around Davos (e2e/mock-api.mjs).",
-  "avalanches-chamonix.json": "Answer of vigie-api's branch that adds the Météo-France BRA (its pull request 84), produced on 2026-11-16 by its own test setup from the real bulletin of the Mont-Blanc massif read that day (tests/fixtures/avalanches/meteofrance_bra_mont_blanc.xml), for Chamonix; the public instance did not serve the BRA yet. The mock answers it around Chamonix (e2e/mock-api.mjs)."
+  "avalanches-chamonix.json": "Answer of vigie-api's branch that adds the Météo-France BRA (its pull request 84), produced on 2026-11-16 by its own test setup from the real bulletin of the Mont-Blanc massif read that day (tests/fixtures/avalanches/meteofrance_bra_mont_blanc.xml), for Chamonix; the public instance did not serve the BRA yet. The mock answers it around Chamonix (e2e/mock-api.mjs).",
+  "sea-buoys.json": "Answer of vigie-api's branch that adds the offshore buoys of Météo-France (GET /v1/sea/buoys), produced on 2026-11-16 by its own code from the real buoy records read that evening (its tests/fixtures/meteofrance_buoys/bouees-2026-11-16.json), at 22:30 UTC; the public instance did not serve it yet."
  }
 }

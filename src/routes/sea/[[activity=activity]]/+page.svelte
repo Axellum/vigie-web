@@ -12,6 +12,7 @@
 	import { readFollowed } from '#lib/followed.js';
 	import type { Box } from '#lib/geo.js';
 	import { answerText } from '#lib/sea/answer.js';
+	import { buoysText } from '#lib/sea/buoys.js';
 	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
 	import { answerOf, NEAR_KM, rankSpots, SLUGS } from '#lib/sea/overview.js';
 	import SeaSettings from '#lib/sea/SeaSettings.svelte';
@@ -215,6 +216,7 @@
 
 		<p class="muted small"><a href="/surf">{t('surfPage')}</a></p>
 		<p class="muted small"><a href="/sea/places">{t('placesPage')}</a></p>
+		<p class="muted small"><a href="/sea/buoys">{buoysText(lang, 'seaPageLink')}</a></p>
 		<p class="muted small">
 			{t('updated', {
 				time: `${dayLabel(lang, overview.generated)}, ${hourLabel(lang, overview.generated)}`
