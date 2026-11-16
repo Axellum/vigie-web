@@ -19,6 +19,9 @@ import {
 import { eventsFromApi, type WorldEvents } from '#lib/events.js';
 import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
+import { avalanchesFromApi, type AvalanchesResponse } from '#lib/avalanches.js';
+import { catnatFromApi, type CatNatResponse } from '#lib/catnat.js';
+import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
@@ -121,6 +124,12 @@ export const TTL_S = {
 	surfStation: 360,
 	// VigiEau French drought restrictions are snapped on the API grid and updated hourly.
 	drought: 3600,
+	// CAMS pollen forecasts are hourly; the API keeps them an hour.
+	pollens: 3600,
+	// The CatNat decrees are a file bundled in the API (one vintage a year): the same answer all day.
+	catnat: 86_400,
+	// The avalanche services publish once or twice a day (SLF at 08:00 and 17:00 local time).
+	avalanches: 1800,
 	// The places of the coast are a file bundled in the API (built once, ADR 0021 of the API): no provider is asked, and the
 	// answer is the same all day. The ids of the named places (the sitemap) are read through a few pages: kept longer.
 	seaPlaces: 3600,
@@ -622,6 +631,33 @@ export async function getDrought(lat: number, lon: number): Promise<Cached<Droug
 	return pointCache.get(`drought:${cell.lat},${cell.lon}`, TTL_S.drought * 1000, async () => {
 		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
 		return droughtFromApi(await getJson(`/v1/drought?${query}`, 15_000));
+	});
+}
+
+/** CAMS pollen concentrations and 4-day peaks around one snapped position (Europe only). */
+export function getPollens(lat: number, lon: number): Promise<Cached<PollensResponse | null>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`pollens:${cell.lat},${cell.lon}`, TTL_S.pollens * 1000, async () => {
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return pollensFromApi(await getJson(`/v1/pollens?${query}`, 15_000));
+	});
+}
+
+/** The natural disasters recognised in the commune nearest one snapped position (France only). */
+export function getCatNat(lat: number, lon: number): Promise<Cached<CatNatResponse | null>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`catnat:${cell.lat},${cell.lon}`, TTL_S.catnat * 1000, async () => {
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return catnatFromApi(await getJson(`/v1/history/catnat?${query}`, 15_000));
+	});
+}
+
+/** The official avalanche bulletin of one snapped position (SLF and Avalanche.report areas only). */
+export function getAvalanches(lat: number, lon: number): Promise<Cached<AvalanchesResponse | null>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`avalanches:${cell.lat},${cell.lon}`, TTL_S.avalanches * 1000, async () => {
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
+		return avalanchesFromApi(await getJson(`/v1/avalanches?${query}`, 15_000));
 	});
 }
 

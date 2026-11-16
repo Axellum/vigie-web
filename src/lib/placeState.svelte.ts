@@ -22,6 +22,9 @@ import {
 } from './near';
 import { pointCredits } from './credits';
 import { isCoveredDroughtCountry, type DroughtResponse } from './drought';
+import { isCoveredAvalancheCountry, type AvalanchesResponse } from './avalanches';
+import { isCoveredCatNatCountry, type CatNatResponse } from './catnat';
+import { pollenPeaks, type PollensResponse } from './pollens';
 import { cardOrder, wantsSea, type Profile } from './profiles';
 import { warningRow } from './rows';
 import { placeSentence, type OfficialState } from './sentence';
@@ -49,6 +52,10 @@ export interface PlaceInput {
 }
 
 type CountryState = { status: 'loading' | 'ok' | 'error'; data?: WarningsData };
+
+/** One answer of the API about the rounded position, with the position it was asked for. */
+type Loaded<T> = { key: string; status: 'loading' | 'ok' | 'error'; value?: T } | null;
+type Extra = 'pollens' | 'catnat' | 'avalanches';
 
 export class PlaceState {
 	readonly #input: () => PlaceInput;
@@ -148,6 +155,37 @@ export class PlaceState {
 	);
 	readonly hasDrought = $derived(this.drought != null || (this.droughtCovered && this.w?.drought != null));
 
+	// --- pollen (Europe), recognised natural disasters (France), avalanche bulletins (Alps) ---------------
+	// Each is asked only where it can exist; outside, the API's `outside_coverage` hides it too.
+	pollensState = $state<Loaded<PollensResponse>>(null);
+	catnatState = $state<Loaded<CatNatResponse>>(null);
+	avalanchesState = $state<Loaded<AvalanchesResponse>>(null);
+	readonly pollens = $derived(
+		this.pollensState?.status === 'ok' && this.pollensState.value?.status === 'available'
+			? this.pollensState.value
+			: null
+	);
+	readonly pollenPeaks = $derived(this.pollens ? pollenPeaks(this.pollens) : []);
+	readonly catnatCovered = $derived(isCoveredCatNatCountry(this.country));
+	readonly catnat = $derived(
+		this.catnatCovered &&
+			this.catnatState?.status === 'ok' &&
+			this.catnatState.value &&
+			this.catnatState.value.status !== 'outside_coverage'
+			? this.catnatState.value
+			: null
+	);
+	readonly avalanchesCovered = $derived(isCoveredAvalancheCountry(this.country));
+	readonly avalanches = $derived(
+		this.avalanchesCovered &&
+			this.avalanchesState?.status === 'ok' &&
+			this.avalanchesState.value &&
+			(this.avalanchesState.value.status === 'active' ||
+				this.avalanchesState.value.status === 'confirmed_none')
+			? this.avalanchesState.value
+			: null
+	);
+
 	/** The tide of the same rounded position, computed by the API; no card where the model has no point near. */
 	readonly tide = new TideAt();
 
@@ -214,6 +252,9 @@ export class PlaceState {
 		this.hasFireNear ? this.hazardsDisclaimer : null,
 		...(this.w ? pointCredits(this.w) : []),
 		this.drought?.attribution ?? null,
+		this.catnat?.attribution ?? null,
+		this.avalanches?.attribution ?? null,
+		this.pollens?.attribution ?? null,
 		this.skyCredit,
 		this.tide.value?.attribution ?? null,
 		this.withSurf && this.surfNear.length ? (this.surfAll?.value?.attribution ?? null) : null
@@ -257,6 +298,18 @@ export class PlaceState {
 				if (this.droughtState?.key !== key) void this.#loadDrought(key, at);
 			});
 		});
+
+		for (const [kind, wanted] of [
+			['pollens', () => true],
+			['catnat', () => this.catnatCovered],
+			['avalanches', () => this.avalanchesCovered]
+		] as const) {
+			$effect(() => {
+				const at = this.cell;
+				const covered = wanted();
+				untrack(() => this.#follow(kind, at && covered ? at : null));
+			});
+		}
 
 		$effect(() => {
 			const at = this.cell;
@@ -339,6 +392,26 @@ export class PlaceState {
 			if (this.weather?.key === key) this.weather = { key, status: 'ok', value };
 		} catch {
 			if (this.weather?.key === key) this.weather = { key, status: 'error' };
+		}
+	}
+
+	/** Ask `/data/<kind>.json` for the rounded position, once per position; forget it when there is none. */
+	async #follow(kind: Extra, at: Place | null) {
+		const field = `${kind}State` as const;
+		if (!at) {
+			if (this[field]) this[field] = null;
+			return;
+		}
+		const key = `${at.lat},${at.lon}`;
+		if (this[field]?.key === key) return;
+		this[field] = { key, status: 'loading' };
+		try {
+			const response = await fetch(`/data/${kind}.json?lat=${at.lat}&lon=${at.lon}`);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = await response.json();
+			if (this[field]?.key === key) this[field] = { key, status: 'ok', value };
+		} catch {
+			if (this[field]?.key === key) this[field] = { key, status: 'error' };
 		}
 	}
 

@@ -1,0 +1,76 @@
+{
+ "status": "available",
+ "lat": 42.3,
+ "lon": 9.15,
+ "country": "FR",
+ "commune": {
+  "insee_code": "2B074",
+  "name": "Casanova",
+  "department": "2B",
+  "centroid_lat": 42.2589,
+  "centroid_lon": 9.1502,
+  "centroid_distance_km": 4.57
+ },
+ "dataset_updated": "2026-07-20",
+ "period_start": "1982-08-15",
+ "period_end": "2025-07-09",
+ "total_decrees": 3,
+ "filtered_decrees": 3,
+ "first_decree_date": "1993-10-31",
+ "last_decree_date": "2011-11-18",
+ "by_type": [
+  {
+   "category": "floods",
+   "type_label": "Inondations",
+   "count": 3
+  }
+ ],
+ "by_year": [
+  {
+   "year": 2011,
+   "count": 1
+  },
+  {
+   "year": 2008,
+   "count": 1
+  },
+  {
+   "year": 1993,
+   "count": 1
+  }
+ ],
+ "limit": 50,
+ "offset": 0,
+ "returned": 3,
+ "decrees": [
+  {
+   "category": "floods",
+   "type_label": "Inondations",
+   "start_date": "2011-11-04",
+   "end_date": "2011-11-06",
+   "decree_date": "2011-11-18"
+  },
+  {
+   "category": "floods",
+   "type_label": "Inondations",
+   "start_date": "2008-11-27",
+   "end_date": "2008-11-28",
+   "decree_date": "2009-03-13"
+  },
+  {
+   "category": "floods",
+   "type_label": "Inondations",
+   "start_date": "1993-10-31",
+   "end_date": "1993-11-02",
+   "decree_date": "1993-11-29"
+  }
+ ],
+ "derived": [
+  "commune_match",
+  "centroid_distance_km",
+  "category",
+  "summary"
+ ],
+ "note": "Offline TACCT extraction of GASPAR CatNat decrees (data.gouv.fr vintage 2026-07-20, decrees through 2025-07-09). Matched by nearest commune centroid (4.57 km from point); commune polygons are not bundled so border points may snap to a neighbouring centroid. Official decrees published in the Journal officiel and G\u00e9orisques remain authoritative.",
+ "attribution": "Source: Arr\u00eat\u00e9s de catastrophe naturelle par commune (TACCT / GASPAR extraction, 2026-07-20, Licence Ouverte 2.0); commune centroids from API D\u00e9coupage Administratif (DINUM/Etalab, Licence Ouverte 2.0)"
+}

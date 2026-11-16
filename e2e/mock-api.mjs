@@ -71,6 +71,69 @@ createServer((req, res) => {
 				(url.pathname === '/v1/tides'
 					? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
 					: '');
+	// Pollen in Europe, the natural disasters of France and the avalanche bulletin around Davos: one recorded answer each,
+	// whatever the position inside; outside, the empty answer the API gives (index.json says where they come from).
+	const extra = {
+		'/v1/pollens': ['/v1/pollens?europe', (lat, lon) => lat >= 34 && lat <= 72 && lon >= -25 && lon <= 45],
+		'/v1/history/catnat': [
+			'/v1/history/catnat?fr',
+			(lat, lon) => lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10
+		],
+		'/v1/avalanches': [
+			'/v1/avalanches?slf',
+			(lat, lon) => lat >= 46.5 && lat <= 47 && lon >= 9.5 && lon <= 10.2
+		]
+	}[url.pathname];
+	if (extra) {
+		const lat = Number(url.searchParams.get('lat'));
+		const lon = Number(url.searchParams.get('lon'));
+		res.writeHead(200, { 'content-type': 'application/json' });
+		if (extra[1](lat, lon)) res.end(readFileSync(join(dir, index[extra[0]])));
+		else
+			res.end(
+				JSON.stringify(
+					url.pathname === '/v1/pollens'
+						? {
+								version: '1.1',
+								lat,
+								lon,
+								coverage: 'outside_europe',
+								status: 'outside_coverage',
+								pollens: null,
+								stale: false,
+								attribution: null
+							}
+						: url.pathname === '/v1/avalanches'
+							? {
+									version: '1.2.0',
+									query: { lat, lon },
+									status: 'outside_coverage',
+									covered_by: null,
+									note: 'Outside coverage.',
+									region_id: null,
+									region_name: null,
+									max_danger_level: null,
+									max_danger_label: null,
+									bulletins: [],
+									stale: false,
+									attribution: null
+								}
+							: {
+									status: 'outside_coverage',
+									lat,
+									lon,
+									country: null,
+									commune: null,
+									total_decrees: null,
+									by_type: [],
+									by_year: [],
+									decrees: [],
+									attribution: null
+								}
+				)
+			);
+		return;
+	}
 	if (url.pathname === '/v1/drought') {
 		const lat = Number(url.searchParams.get('lat'));
 		const lon = Number(url.searchParams.get('lon'));

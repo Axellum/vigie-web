@@ -1,0 +1,110 @@
+{
+ "version": "1.2.0",
+ "server_utc": "2026-11-16T18:46:09.246341Z",
+ "query": {
+  "lat": 46.8,
+  "lon": 9.85
+ },
+ "status": "active",
+ "covered_by": "slf_avalanche",
+ "note": "1 active SLF CAAML v6 bulletin(s) matched at this coordinate.",
+ "region_id": "CH-5123",
+ "region_name": "Davos",
+ "max_danger_level": 2,
+ "max_danger_label": "moderate",
+ "bulletins": [
+  {
+   "bulletin_id": "b1dbeaba-d1a6-4a92-a13c-8f88415fc1d7",
+   "source": "slf_avalanche",
+   "lang": "en",
+   "publication_time": "2026-11-16T16:00:00Z",
+   "valid_from": "2026-11-16T16:00:00Z",
+   "valid_until": "2026-11-17T16:00:00Z",
+   "next_update": "2026-11-17T16:00:00Z",
+   "unscheduled": false,
+   "is_expired": false,
+   "max_danger_level": 2,
+   "max_danger_label": "moderate",
+   "regions": [
+    {
+     "region_id": "CH-5123",
+     "name": "Davos"
+    }
+   ],
+   "danger_ratings": [
+    {
+     "main_value": "moderate",
+     "level": 2,
+     "valid_time_period": "all_day",
+     "elevation": null,
+     "subdivision": "minus"
+    }
+   ],
+   "avalanche_problems": [
+    {
+     "problem_type": "wind_slab",
+     "danger_rating_value": "moderate",
+     "danger_level": 2,
+     "valid_time_period": "all_day",
+     "elevation": {
+      "lower_bound": "2400",
+      "upper_bound": null
+     },
+     "aspects": [
+      "N",
+      "NE",
+      "E",
+      "SE",
+      "NW"
+     ],
+     "snowpack_stability": null,
+     "frequency": null,
+     "avalanche_size": null,
+     "avalanche_type": null,
+     "core_zone_text": "Danger level \"moderate\" (2-) in northwest to northeast to southeast facing aspects above 2400m.",
+     "comment": "Fresh wind slabs are rather small but in some cases prone to triggering. They are lying on top of a weakly bonded old snowpack in particular on steep shady slopes above approximately 2600 m. Avalanches can in isolated cases be released by people. Mostly they are small. Backcountry touring calls for careful route selection. The Avalanche Warning Service currently has only a small amount of information that has been collected in the field, so that the avalanche danger should be investigated especially thoroughly in the relevant locality."
+    },
+    {
+     "problem_type": "persistent_weak_layers",
+     "danger_rating_value": "moderate",
+     "danger_level": 2,
+     "valid_time_period": "all_day",
+     "elevation": {
+      "lower_bound": "2400",
+      "upper_bound": null
+     },
+     "aspects": [
+      "N",
+      "NE",
+      "E",
+      "SE",
+      "NW"
+     ],
+     "snowpack_stability": null,
+     "frequency": null,
+     "avalanche_size": null,
+     "avalanche_type": null,
+     "core_zone_text": "Danger level \"moderate\" (2-) in northwest to northeast to southeast facing aspects above 2400m.",
+     "comment": "Fresh wind slabs are rather small but in some cases prone to triggering. They are lying on top of a weakly bonded old snowpack in particular on steep shady slopes above approximately 2600 m. Avalanches can in isolated cases be released by people. Mostly they are small. Backcountry touring calls for careful route selection. The Avalanche Warning Service currently has only a small amount of information that has been collected in the field, so that the avalanche danger should be investigated especially thoroughly in the relevant locality."
+    }
+   ],
+   "avalanche_activity_highlights": null,
+   "avalanche_activity_comment": null,
+   "snowpack_highlights": null,
+   "snowpack_comment": "There is still only a little snow. Snow depths are far below average for the time of year. A continuous old snowpack is generally present only on high-altitude shady slopes with a smooth ground surface. There, local wind slabs and, in isolated cases, avalanches in the old snow can also be triggered.",
+   "tendency": [
+    {
+     "tendency_type": null,
+     "valid_from": null,
+     "valid_until": null,
+     "highlights": null,
+     "comment": "Dry avalanches can in isolated cases be released in the old snowpack in particular in areas where the snow cover is rather shallow. Caution is to be exercised on very steep slopes in little used backcountry terrain."
+    }
+   ],
+   "bulletin_url": "https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/",
+   "attribution": "WSL Institute for Snow and Avalanche Research SLF (https://www.slf.ch). CC BY 4.0"
+  }
+ ],
+ "stale": false,
+ "attribution": "WSL Institute for Snow and Avalanche Research SLF (https://www.slf.ch). CC BY 4.0"
+}

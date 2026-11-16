@@ -4,7 +4,10 @@
 	// (`placeState.svelte.ts`) and holds nothing of its own.
 	import type { Snippet } from 'svelte';
 	import AlertRow from '#lib/components/AlertRow.svelte';
+	import AvalanchePanel from '#lib/components/AvalanchePanel.svelte';
+	import CatNatPanel from '#lib/components/CatNatPanel.svelte';
 	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
+	import PollenPanel from '#lib/components/PollenPanel.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import NearCard from '#lib/components/NearCard.svelte';
 	import NearSky from '#lib/components/NearSky.svelte';
@@ -20,6 +23,9 @@
 	import { hazardRow, warningRow } from '#lib/rows.js';
 	import { nearSurfSpots, surfText } from '#lib/surf.js';
 	import { droughtLevelLabel, droughtText } from '#lib/drought.js';
+	import { avalancheLevelLabel, avalancheText } from '#lib/avalanches.js';
+	import { catnatSummary } from '#lib/catnat.js';
+	import { pollenText, speciesLabel } from '#lib/pollens.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
 	// `placeName` says which place the card is of when a page shows several; `size` is the block's size on "my page":
@@ -123,6 +129,18 @@
 				{/if}
 			</p>
 		{/if}
+		{#if s.avalanches}
+			<p class="small">
+				{#if s.avalanches.status === 'active' && s.avalanches.maxLevel}
+					{avalancheText(lang, 'summary', { level: avalancheLevelLabel(lang, s.avalanches.maxLevel) })}
+				{:else}
+					<span class="muted">{avalancheText(lang, 'summaryNone')}</span>
+				{/if}
+			</p>
+		{/if}
+		{#if s.catnat}
+			<p class="small muted">{catnatSummary(lang, s.catnat)}</p>
+		{/if}
 	{/if}
 {/snippet}
 {#snippet officialDetails()}
@@ -142,6 +160,12 @@
 	{/if}
 	{#if s.hasDrought}
 		<DroughtPanel {lang} status={s.w?.drought ?? null} detail={s.drought} />
+	{/if}
+	{#if s.avalanches}
+		<AvalanchePanel {lang} value={s.avalanches} />
+	{/if}
+	{#if s.catnat}
+		<CatNatPanel {lang} value={s.catnat} />
 	{/if}
 {/snippet}
 
@@ -338,21 +362,35 @@
 	{:else}
 		{@render weatherState()}
 	{/if}
+	{#if s.pollens}
+		{@const top = s.pollenPeaks[0]}
+		<p class="small">
+			{#if top}
+				{pollenText(lang, 'summary', {
+					species: speciesLabel(lang, top.species),
+					peak: number(lang, top.peak, 0)
+				})}
+			{:else}
+				<span class="muted">{pollenText(lang, 'summaryNone')}</span>
+			{/if}
+		</p>
+	{/if}
 {/snippet}
 {#snippet airDetails()}
-	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['air']} />{/if}
+	{#if s.w?.air}<PointWeather {lang} {units} weather={s.w} parts={['air']} />{/if}
+	{#if s.pollens}<PollenPanel {lang} value={s.pollens} />{/if}
 {/snippet}
 
 {#snippet card()}
 	{@const details: Record<Card, Snippet | undefined> = {
-		official: s.here.length || s.hasDrought ? officialDetails : undefined,
+		official: s.here.length || s.hasDrought || s.avalanches || s.catnat ? officialDetails : undefined,
 		hazards: s.near.length || s.w?.fires ? hazardsDetails : undefined,
 		weather: s.w ? weatherDetails : undefined,
 		sea: s.w?.marine ? seaDetails : undefined,
 		tide: s.tide.value ? tideDetails : undefined,
 		surf: undefined,
 		sky: undefined,
-		air: s.w?.air ? airDetails : undefined
+		air: s.w?.air || s.pollens ? airDetails : undefined
 	}}
 	{@const summaries: Record<Card, Snippet> = {
 		official: officialSummary,

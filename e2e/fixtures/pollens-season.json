@@ -1,0 +1,67 @@
+{
+ "version": "1.1",
+ "server_utc": 1794854767,
+ "lat": 42.3,
+ "lon": 9.15,
+ "grid_lat": 42.3,
+ "grid_lon": 9.2,
+ "coverage": "cams_europe",
+ "status": "available",
+ "pollens": {
+  "observed_time": "2026-11-16T18:00",
+  "current": {
+   "alder_grains_m3": 0.0,
+   "birch_grains_m3": 12.0,
+   "grass_grains_m3": 3.0,
+   "mugwort_grains_m3": 0.0,
+   "olive_grains_m3": 0.2,
+   "ragweed_grains_m3": 0.0
+  },
+  "daily": [
+   {
+    "date": "2026-11-16",
+    "alder_max_grains_m3": 0.0,
+    "birch_max_grains_m3": 12.0,
+    "grass_max_grains_m3": 3.0,
+    "mugwort_max_grains_m3": 0.0,
+    "olive_max_grains_m3": 0.2,
+    "ragweed_max_grains_m3": 0.0
+   },
+   {
+    "date": "2026-11-17",
+    "alder_max_grains_m3": 0.0,
+    "birch_max_grains_m3": 48.0,
+    "grass_max_grains_m3": 6.0,
+    "mugwort_max_grains_m3": 0.0,
+    "olive_max_grains_m3": 0.4,
+    "ragweed_max_grains_m3": 0.0
+   },
+   {
+    "date": "2026-11-18",
+    "alder_max_grains_m3": 0.0,
+    "birch_max_grains_m3": 96.0,
+    "grass_max_grains_m3": 9.0,
+    "mugwort_max_grains_m3": 0.0,
+    "olive_max_grains_m3": 0.3,
+    "ragweed_max_grains_m3": 0.0
+   },
+   {
+    "date": "2026-11-19",
+    "alder_max_grains_m3": 0.0,
+    "birch_max_grains_m3": 30.0,
+    "grass_max_grains_m3": 4.0,
+    "mugwort_max_grains_m3": 0.0,
+    "olive_max_grains_m3": 0.1,
+    "ragweed_max_grains_m3": 0.0
+   }
+  ],
+  "dominant_species": "birch",
+  "derived": [
+   "daily"
+  ],
+  "stale": false,
+  "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Air quality: CAMS ENSEMBLE data provider (Copernicus Atmosphere Monitoring Service)"
+ },
+ "stale": false,
+ "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Air quality: CAMS ENSEMBLE data provider (Copernicus Atmosphere Monitoring Service)"
+}
