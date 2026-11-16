@@ -1,4 +1,4 @@
-﻿import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -1142,4 +1142,60 @@ test('an active wildfire alert renders near_places fire items and NASA FIRMS dis
 	await expect(
 		page.getByText(/Due to the spatial resolution and other characteristics of these data/)
 	).toBeVisible();
+});
+
+test('pollen, recognised natural disasters and avalanche bulletins show where they exist, with their credits', async ({
+	page,
+	request
+}) => {
+	// Outside their areas the site's own routes say so, and the cards stay as they were.
+	for (const kind of ['pollens', 'catnat', 'avalanches']) {
+		const outside = await request.get(`/data/${kind}.json?lat=40.7128&lon=-74.006`);
+		expect(outside.status()).toBe(200);
+		expect(await outside.json()).toMatchObject({ status: 'outside_coverage' });
+	}
+	expect((await request.get('/data/pollens.json?lat=north&lon=1')).status()).toBe(400);
+	// The card that holds a line, with its detail opened (whether or not it was already).
+	const opened = async (text: string) => {
+		const card = page.locator('section.near-card').filter({ hasText: text });
+		await card.locator(':scope > details').evaluate((d: HTMLDetailsElement) => (d.open = true));
+		return card;
+	};
+
+	// Corte, in Haute-Corse: pollen in the air card, the decrees of the nearest commune in the official card.
+	await page.goto('/near#42.306,9.15,300');
+	await expect(page.getByText('Pollens : Bouleau en tête, jusqu’à 96 grains/m³')).toBeVisible();
+	await expect(
+		page.getByText('Catastrophes naturelles : 3 reconnues depuis 1982, la dernière en 2011')
+	).toBeVisible();
+	const air = await opened('Pollens : Bouleau en tête');
+	await expect(air.getByRole('heading', { name: 'Pollens' })).toBeVisible();
+	await expect(air.getByRole('rowheader', { name: 'Bouleau' })).toBeVisible();
+	await expect(air.getByRole('rowheader', { name: 'Graminées' })).toBeVisible();
+	await expect(air.getByRole('rowheader', { name: 'Olivier' })).toHaveCount(0);
+	const official = await opened('Catastrophes naturelles : 3 reconnues');
+	await expect(official.getByRole('heading', { name: 'Catastrophes naturelles reconnues' })).toBeVisible();
+	await expect(
+		official.getByText(/Commune la plus proche du point arrondi : Casanova \(2B\), à 5 km/)
+	).toBeVisible();
+	await expect(official.getByText(/arrêté du 18 nov\. 2011/)).toBeVisible();
+	await expect(page.getByText(/Arrêtés de catastrophe naturelle par commune/)).toBeAttached();
+	await expect(page.getByText(/CAMS ENSEMBLE/)).toBeAttached();
+	// No avalanche bulletin is asked in France.
+	await expect(page.getByRole('heading', { name: 'Bulletin d’avalanches' })).toHaveCount(0);
+
+	// Davos: the SLF bulletin, in English.
+	await page.goto('/near?lang=en#46.8,9.85,50');
+	await expect(page.getByText('Avalanches: danger 2 · Moderate')).toBeVisible();
+	const bulletin = await opened('Avalanches: danger 2 · Moderate');
+	await expect(bulletin.getByRole('heading', { name: 'Avalanche bulletin' })).toBeVisible();
+	await expect(bulletin.getByText('Area: Davos')).toBeVisible();
+	await expect(bulletin.getByText('Wind slab', { exact: true })).toBeVisible();
+	await expect(bulletin.getByText(/above 2400 m, aspects N, NE, E, SE, NW/).first()).toBeVisible();
+	await expect(bulletin.getByRole('link', { name: 'Read the full bulletin of the service' })).toHaveAttribute(
+		'href',
+		/slf\.ch/
+	);
+	// No French decrees in Switzerland.
+	await expect(page.getByRole('heading', { name: 'Recognised natural disasters' })).toHaveCount(0);
 });

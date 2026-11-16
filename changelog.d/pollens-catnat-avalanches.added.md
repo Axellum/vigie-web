@@ -1,0 +1,1 @@
+- The card of a place shows the pollen of the next four days (CAMS Europe) in the air card, and, in the official card, the avalanche bulletin of the SLF or Avalanche.report in their areas and the natural disasters the French State recognised in the nearest commune since 1982 (GASPAR). Needs a Vigie API with `/v1/pollens`, `/v1/avalanches` and `/v1/history/catnat`.

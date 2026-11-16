@@ -38,3 +38,13 @@ export function number(lang: Lang, value: number | null, digits = 1): string {
 	if (value == null) return '–';
 	return value.toLocaleString(LOCALE[lang], { maximumFractionDigits: digits });
 }
+
+/** A calendar day written `YYYY-MM-DD` ("18 nov. 2011"; "lun. 17" when `short`), read as it is, with no time zone. */
+export function calendarDay(lang: Lang, iso: string | null, short = false): string {
+	const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
+	if (!m) return '–';
+	return new Intl.DateTimeFormat(LOCALE[lang], {
+		...(short ? { weekday: 'short', day: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' }),
+		timeZone: 'UTC'
+	}).format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))));
+}
