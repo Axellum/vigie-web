@@ -6,6 +6,7 @@
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import AvalanchePanel from '#lib/components/AvalanchePanel.svelte';
 	import CatNatPanel from '#lib/components/CatNatPanel.svelte';
+	import ClimatePanel from '#lib/components/ClimatePanel.svelte';
 	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
 	import PollenPanel from '#lib/components/PollenPanel.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -46,6 +47,7 @@
 		official: 'card.official',
 		hazards: 'card.hazards',
 		weather: 'card.weather',
+		climate: 'card.climate',
 		sea: 'card.sea',
 		tide: 'card.tide',
 		surf: 'card.surf',
@@ -251,6 +253,34 @@
 	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['now', 'rain', 'days', 'river']} />{/if}
 {/snippet}
 
+<!-- Is it normal? (the normals of the month at the nearest Météo-France station) ----------------------- -->
+{#snippet climateSummary()}
+	{#if s.climate}
+		<ClimatePanel
+			{lang}
+			{units}
+			value={s.climate}
+			tmax={s.w?.daily[0]?.tmaxC ?? null}
+			tmin={s.w?.daily[0]?.tminC ?? null}
+			part="summary"
+		/>
+	{:else}
+		<p class="muted">–</p>
+	{/if}
+{/snippet}
+{#snippet climateDetails()}
+	{#if s.climate}
+		<ClimatePanel
+			{lang}
+			{units}
+			value={s.climate}
+			tmax={s.w?.daily[0]?.tmaxC ?? null}
+			tmin={s.w?.daily[0]?.tminC ?? null}
+			part="details"
+		/>
+	{/if}
+{/snippet}
+
 <!-- Sea --------------------------------------------------------------------------------------------------- -->
 {#snippet seaSummary()}
 	{#if !s.withSea}
@@ -386,6 +416,7 @@
 		official: s.here.length || s.hasDrought || s.avalanches || s.catnat ? officialDetails : undefined,
 		hazards: s.near.length || s.w?.fires ? hazardsDetails : undefined,
 		weather: s.w ? weatherDetails : undefined,
+		climate: s.climate ? climateDetails : undefined,
 		sea: s.w?.marine ? seaDetails : undefined,
 		tide: s.tide.value ? tideDetails : undefined,
 		surf: undefined,
@@ -396,6 +427,7 @@
 		official: officialSummary,
 		hazards: hazardsSummary,
 		weather: weatherSummary,
+		climate: climateSummary,
 		sea: seaSummary,
 		tide: tideSummary,
 		surf: surfSummary,

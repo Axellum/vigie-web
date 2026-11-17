@@ -24,6 +24,7 @@ import { pointCredits } from './credits';
 import { isCoveredDroughtCountry, type DroughtResponse } from './drought';
 import { isCoveredAvalancheCountry, type AvalanchesResponse } from './avalanches';
 import { isCoveredCatNatCountry, type CatNatResponse } from './catnat';
+import { climateShown, isCoveredClimateCountry, type ClimateResponse } from './climate';
 import { pollenPeaks, type PollensResponse } from './pollens';
 import { cardOrder, wantsSea, type Profile } from './profiles';
 import { warningRow } from './rows';
@@ -55,7 +56,7 @@ type CountryState = { status: 'loading' | 'ok' | 'error'; data?: WarningsData };
 
 /** One answer of the API about the rounded position, with the position it was asked for. */
 type Loaded<T> = { key: string; status: 'loading' | 'ok' | 'error'; value?: T } | null;
-type Extra = 'pollens' | 'catnat' | 'avalanches';
+type Extra = 'pollens' | 'catnat' | 'avalanches' | 'climate';
 
 export class PlaceState {
 	readonly #input: () => PlaceInput;
@@ -175,6 +176,19 @@ export class PlaceState {
 			? this.catnatState.value
 			: null
 	);
+	// The normals and records of the Météo-France station nearest the place (France and overseas), for the month of the
+	// forecast's first day (else the reader's own month).
+	climateState = $state<Loaded<ClimateResponse>>(null);
+	readonly climateCovered = $derived(isCoveredClimateCountry(this.country));
+	readonly climateMonth = $derived.by(() => {
+		const first = this.w?.daily[0]?.date;
+		const m = first ? Number(first.slice(5, 7)) : NaN;
+		return m >= 1 && m <= 12 ? m : new Date().getMonth() + 1;
+	});
+	readonly climate = $derived.by(() => {
+		const v = this.climateCovered && this.climateState?.status === 'ok' ? this.climateState.value : null;
+		return climateShown(v) ? v : null;
+	});
 	readonly avalanchesCovered = $derived(isCoveredAvalancheCountry(this.country));
 	readonly avalanches = $derived(
 		this.avalanchesCovered &&
@@ -215,7 +229,10 @@ export class PlaceState {
 	);
 	readonly order = $derived(
 		cardOrder(this.profile, this.here.length > 0).filter(
-			(c) => (c !== 'tide' || !this.tide.none) && (c !== 'surf' || this.withSurf)
+			(c) =>
+				(c !== 'tide' || !this.tide.none) &&
+				(c !== 'surf' || this.withSurf) &&
+				(c !== 'climate' || this.climate != null)
 		)
 	);
 
@@ -254,6 +271,7 @@ export class PlaceState {
 		this.drought?.attribution ?? null,
 		this.catnat?.attribution ?? null,
 		this.avalanches?.attribution ?? null,
+		this.climate?.attribution ?? null,
 		this.pollens?.attribution ?? null,
 		this.skyCredit,
 		this.tide.value?.attribution ?? null,
@@ -310,6 +328,12 @@ export class PlaceState {
 				untrack(() => this.#follow(kind, at && covered ? at : null));
 			});
 		}
+		$effect(() => {
+			const at = this.cell;
+			const covered = this.climateCovered;
+			const month = this.climateMonth;
+			untrack(() => this.#follow('climate', at && covered ? at : null, `&month=${month}`));
+		});
 
 		$effect(() => {
 			const at = this.cell;
@@ -395,18 +419,18 @@ export class PlaceState {
 		}
 	}
 
-	/** Ask `/data/<kind>.json` for the rounded position, once per position; forget it when there is none. */
-	async #follow(kind: Extra, at: Place | null) {
+	/** Ask `/data/<kind>.json` for the rounded position (and `extra` query), once per position; forget it when there is none. */
+	async #follow(kind: Extra, at: Place | null, extra = '') {
 		const field = `${kind}State` as const;
 		if (!at) {
 			if (this[field]) this[field] = null;
 			return;
 		}
-		const key = `${at.lat},${at.lon}`;
+		const key = `${at.lat},${at.lon}${extra}`;
 		if (this[field]?.key === key) return;
 		this[field] = { key, status: 'loading' };
 		try {
-			const response = await fetch(`/data/${kind}.json?lat=${at.lat}&lon=${at.lon}`);
+			const response = await fetch(`/data/${kind}.json?lat=${at.lat}&lon=${at.lon}${extra}`);
 			if (!response.ok) throw new Error(String(response.status));
 			const value = await response.json();
 			if (this[field]?.key === key) this[field] = { key, status: 'ok', value };

@@ -1214,3 +1214,42 @@ test('pollen, recognised natural disasters and avalanche bulletins show where th
 	);
 	await expect(page.getByText(/bulletin d'estimation du risque d'avalanche/)).toBeAttached();
 });
+
+test('"Is it normal?" sets the day against the normals and records of the nearest Météo-France station', async ({
+	page,
+	request
+}) => {
+	const errors = collectErrors(page);
+	// Outside France the site's route says so; a month out of range is refused.
+	const outside = await request.get('/data/climate.json?lat=40.7128&lon=-74.006&month=10');
+	expect(outside.status()).toBe(200);
+	expect(await outside.json()).toMatchObject({ status: 'outside_coverage' });
+	expect((await request.get('/data/climate.json?lat=42.3&lon=9.15&month=13')).status()).toBe(400);
+
+	// Corte, in October (the month of the recorded weather): a high of 19.3 °C against a normal of 21.6 °C.
+	await page.goto('/near#42.306,9.15,300');
+	const card = page.getByRole('region', { name: 'Est-ce normal ?' });
+	await expect(card.getByText('Max du jour 19 °C : 2° au-dessous de la normale d’octobre')).toBeVisible({
+		timeout: 15_000
+	});
+	await expect(card.getByRole('img', { name: /^Jauge du mois/ })).toBeVisible();
+	await expect(card.getByText('record 31° (2022)')).toBeVisible();
+	await card.locator(':scope > details').evaluate((d: HTMLDetailsElement) => (d.open = true));
+	await expect(card.getByRole('heading', { name: 'Octobre à Corte (20)' })).toBeVisible();
+	await expect(card.getByText(/Station Météo-France Corte \(20\), à 3,8 km, altitude 350 m/)).toBeVisible();
+	await expect(card.getByRole('rowheader', { name: 'Max moyen' })).toBeVisible();
+	await expect(card.getByText(/record 31 °C le 22 oct\. 2022/)).toBeVisible();
+	// The station of Corte opened in 2015: its records are said to count from then.
+	await expect(card.getByText(/records depuis 2015\./)).toBeVisible();
+	await expect(page.getByText(/Fiches climatologiques/)).toBeAttached();
+	const overflow = await page.evaluate(
+		() => document.documentElement.scrollWidth - document.documentElement.clientWidth
+	);
+	expect(overflow).toBeLessThanOrEqual(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+
+	// Davos is outside the sheets: no card.
+	await page.goto('/near?lang=en#46.8,9.85,50');
+	await expect(page.getByText('Avalanches: danger 2 · Moderate')).toBeVisible({ timeout: 15_000 });
+	await expect(page.getByRole('region', { name: 'Is it normal?' })).toHaveCount(0);
+});

@@ -24,6 +24,12 @@ describe('profiles', () => {
 		expect(cardOrder('garden', true).slice(0, 2)).toEqual(['official', 'weather']);
 	});
 
+	it('never puts "Is it normal?" among the first three cards: a background, not a warning', () => {
+		for (const profile of [null, ...PROFILES])
+			for (const inForce of [false, true])
+				expect(cardOrder(profile, inForce).indexOf('climate')).toBeGreaterThanOrEqual(3);
+	});
+
 	it('asks for the sea for the sea profiles only', () => {
 		expect(PROFILES.filter(wantsSea)).toEqual(['surf', 'sea']);
 		expect(wantsSea(null)).toBe(false);
