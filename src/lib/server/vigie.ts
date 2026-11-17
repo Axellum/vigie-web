@@ -25,6 +25,7 @@ import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
+import { seaBuoysFromApi, type SeaBuoys } from '#lib/sea/buoys.js';
 import {
 	collectNamedIds,
 	isPlaceId,
@@ -133,6 +134,8 @@ export const TTL_S = {
 	// The places of the coast are a file bundled in the API (built once, ADR 0021 of the API): no provider is asked, and the
 	// answer is the same all day. The ids of the named places (the sitemap) are read through a few pages: kept longer.
 	seaPlaces: 3600,
+	// The offshore buoys of Météo-France send a record an hour; the API reads them every 30 minutes.
+	seaBuoys: 600,
 	seaPlaceIds: 21_600
 } as const;
 
@@ -603,6 +606,15 @@ export function getNamedPlaceIds(): Promise<Cached<string[]>> {
 	return cache.get('sea-place-ids', TTL_S.seaPlaceIds * 1000, () =>
 		collectNamedIds(async (type, offset) => (await getSeaPlaces({ types: [type], limit: 500, offset })).value)
 	);
+}
+
+/** The offshore buoys of Météo-France and their latest record, from north to south. */
+export function getSeaBuoys(): Promise<Cached<SeaBuoys>> {
+	return cache.get('sea-buoys', TTL_S.seaBuoys * 1000, async () => {
+		const answer = seaBuoysFromApi(await getJson('/v1/sea/buoys', 15_000));
+		if (!answer) throw new ApiError('Vigie API gave no list of buoys', null);
+		return answer;
+	});
 }
 
 /** The nearest wave buoy of every spot (CANDHIS / NDBC). */

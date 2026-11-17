@@ -14,6 +14,7 @@ export const STATIC_PATHS = [
 	'/sea/boat',
 	'/sea/shore-fishing',
 	'/sea/places',
+	'/sea/buoys',
 	'/surf',
 	'/screens',
 	'/sources',
