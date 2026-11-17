@@ -21,6 +21,7 @@ import { auroraFromApi, ovalFromApi, type Aurora } from '#lib/sky.js';
 import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
 import { avalanchesFromApi, type AvalanchesResponse } from '#lib/avalanches.js';
 import { catnatFromApi, type CatNatResponse } from '#lib/catnat.js';
+import { climateFromApi, type ClimateResponse } from '#lib/climate.js';
 import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
@@ -129,6 +130,8 @@ export const TTL_S = {
 	pollens: 3600,
 	// The CatNat decrees are a file bundled in the API (one vintage a year): the same answer all day.
 	catnat: 86_400,
+	// The climate sheets are bundled in the API (rebuilt about once a month): the same answer all day.
+	climate: 86_400,
 	// The avalanche services publish once or twice a day (SLF at 08:00 and 17:00 local time).
 	avalanches: 1800,
 	// The places of the coast are a file bundled in the API (built once, ADR 0021 of the API): no provider is asked, and the
@@ -661,6 +664,15 @@ export function getCatNat(lat: number, lon: number): Promise<Cached<CatNatRespon
 	return pointCache.get(`catnat:${cell.lat},${cell.lon}`, TTL_S.catnat * 1000, async () => {
 		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon) });
 		return catnatFromApi(await getJson(`/v1/history/catnat?${query}`, 15_000));
+	});
+}
+
+/** The normals and records of the month at the Météo-France station nearest one snapped position (France and overseas). */
+export function getClimate(lat: number, lon: number, month: number): Promise<Cached<ClimateResponse | null>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointCache.get(`climate:${cell.lat},${cell.lon}:${month}`, TTL_S.climate * 1000, async () => {
+		const query = new URLSearchParams({ lat: String(cell.lat), lon: String(cell.lon), month: String(month) });
+		return climateFromApi(await getJson(`/v1/climate/normals?${query}`, 15_000));
 	});
 }
 

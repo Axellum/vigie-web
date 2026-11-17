@@ -101,6 +101,7 @@
 		official: 'me.cardOfficial',
 		hazards: 'me.cardHazards',
 		weather: 'me.cardWeather',
+		climate: 'me.cardClimate',
 		sea: 'me.cardSea',
 		tide: 'me.cardTide',
 		surf: 'me.cardSurf',

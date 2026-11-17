@@ -7,19 +7,31 @@ export type Profile = (typeof PROFILES)[number];
 
 /** The cards of a place. The tide follows the sea in every order (a page leaves it out inland); the surf spots are shown for
  *  the sea profiles only (`wantsSea`). */
-export const CARDS = ['official', 'hazards', 'weather', 'surf', 'sea', 'tide', 'sky', 'air'] as const;
+export const CARDS = [
+	'official',
+	'hazards',
+	'weather',
+	'climate',
+	'surf',
+	'sea',
+	'tide',
+	'sky',
+	'air'
+] as const;
 export type Card = (typeof CARDS)[number];
 
+// "Is it normal?" (`climate`) follows the weather, never among the first three cards: those are the ones "my page" starts
+// with (`pageStarter.ts`), and the card exists in France and its overseas territories only.
 const ORDER: Record<Profile | 'none', Card[]> = {
-	none: ['official', 'hazards', 'weather', 'sea', 'tide', 'sky', 'air', 'surf'],
-	surf: ['surf', 'sea', 'tide', 'official', 'weather', 'hazards', 'sky', 'air'],
-	sea: ['sea', 'tide', 'surf', 'official', 'weather', 'hazards', 'air', 'sky'],
-	mountain: ['official', 'weather', 'hazards', 'sky', 'air', 'sea', 'tide', 'surf'],
-	sky: ['sky', 'weather', 'official', 'hazards', 'air', 'sea', 'tide', 'surf'],
-	travel: ['official', 'hazards', 'weather', 'air', 'sea', 'tide', 'sky', 'surf'],
-	allergy: ['air', 'official', 'weather', 'hazards', 'sky', 'sea', 'tide', 'surf'],
-	garden: ['weather', 'official', 'air', 'hazards', 'sky', 'sea', 'tide', 'surf'],
-	home: ['official', 'hazards', 'weather', 'air', 'sky', 'sea', 'tide', 'surf']
+	none: ['official', 'hazards', 'weather', 'climate', 'sea', 'tide', 'sky', 'air', 'surf'],
+	surf: ['surf', 'sea', 'tide', 'official', 'weather', 'climate', 'hazards', 'sky', 'air'],
+	sea: ['sea', 'tide', 'surf', 'official', 'weather', 'climate', 'hazards', 'air', 'sky'],
+	mountain: ['official', 'weather', 'hazards', 'climate', 'sky', 'air', 'sea', 'tide', 'surf'],
+	sky: ['sky', 'weather', 'official', 'climate', 'hazards', 'air', 'sea', 'tide', 'surf'],
+	travel: ['official', 'hazards', 'weather', 'climate', 'air', 'sea', 'tide', 'sky', 'surf'],
+	allergy: ['air', 'official', 'weather', 'climate', 'hazards', 'sky', 'sea', 'tide', 'surf'],
+	garden: ['weather', 'official', 'air', 'climate', 'hazards', 'sky', 'sea', 'tide', 'surf'],
+	home: ['official', 'hazards', 'weather', 'climate', 'air', 'sky', 'sea', 'tide', 'surf']
 };
 
 export function asProfile(value: unknown): Profile | null {

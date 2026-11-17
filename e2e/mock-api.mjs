@@ -71,12 +71,16 @@ createServer((req, res) => {
 				(url.pathname === '/v1/tides'
 					? `?lat=${url.searchParams.get('lat')}&lon=${url.searchParams.get('lon')}`
 					: '');
-	// Pollen in Europe, the natural disasters of France and the avalanche bulletin around Davos: one recorded answer each,
+	// Pollen in Europe, the natural disasters and the climate normals of France and the avalanche bulletin around Davos: one recorded answer each,
 	// whatever the position inside; outside, the empty answer the API gives (index.json says where they come from).
 	const extra = {
 		'/v1/pollens': ['/v1/pollens?europe', (lat, lon) => lat >= 34 && lat <= 72 && lon >= -25 && lon <= 45],
 		'/v1/history/catnat': [
 			'/v1/history/catnat?fr',
+			(lat, lon) => lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10
+		],
+		'/v1/climate/normals': [
+			'/v1/climate/normals?fr',
 			(lat, lon) => lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10
 		],
 		'/v1/avalanches': [
@@ -113,33 +117,44 @@ createServer((req, res) => {
 								stale: false,
 								attribution: null
 							}
-						: url.pathname === '/v1/avalanches'
+						: url.pathname === '/v1/climate/normals'
 							? {
-									version: '1.2.0',
-									query: { lat, lon },
-									status: 'outside_coverage',
-									covered_by: null,
-									note: 'Outside coverage.',
-									region_id: null,
-									region_name: null,
-									max_danger_level: null,
-									max_danger_label: null,
-									bulletins: [],
-									stale: false,
-									attribution: null
-								}
-							: {
 									status: 'outside_coverage',
 									lat,
 									lon,
-									country: null,
-									commune: null,
-									total_decrees: null,
-									by_type: [],
-									by_year: [],
-									decrees: [],
+									month: Number(url.searchParams.get('month')),
+									station: null,
+									normals: null,
+									records: null,
 									attribution: null
 								}
+							: url.pathname === '/v1/avalanches'
+								? {
+										version: '1.2.0',
+										query: { lat, lon },
+										status: 'outside_coverage',
+										covered_by: null,
+										note: 'Outside coverage.',
+										region_id: null,
+										region_name: null,
+										max_danger_level: null,
+										max_danger_label: null,
+										bulletins: [],
+										stale: false,
+										attribution: null
+									}
+								: {
+										status: 'outside_coverage',
+										lat,
+										lon,
+										country: null,
+										commune: null,
+										total_decrees: null,
+										by_type: [],
+										by_year: [],
+										decrees: [],
+										attribution: null
+									}
 				)
 			);
 		return;
