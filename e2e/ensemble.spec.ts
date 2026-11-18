@@ -42,6 +42,33 @@ for (const width of [375, 1280]) {
 		await expect(ens.getByText("Rafales > 56 km/h : 95 % jusqu'à 14 h")).toBeVisible();
 		await expect(ens.getByText('Orage : 11 %')).toBeVisible();
 		await expect(ens.getByText(/Grêle/)).toHaveCount(0);
+		// From 50 % a chip is stressed with the accent of the site, never with a colour of the official warnings (yellow, orange, red).
+		await expect(ens.locator('.ens-chip.strong').first()).toContainText('Rafales');
+		const colours = await page.evaluate(() => {
+			const resolve = (v: string) => {
+				const e = document.createElement('i');
+				e.style.color = v;
+				document.body.append(e);
+				const c = getComputedStyle(e).color;
+				e.remove();
+				return c;
+			};
+			const css = getComputedStyle(document.documentElement);
+			const chip = document.querySelector('.ens-chip.strong') as Element;
+			const s = getComputedStyle(chip);
+			return {
+				border: s.borderTopColor,
+				ring: s.boxShadow,
+				accent: resolve(css.getPropertyValue('--accent')),
+				sev: ['yellow', 'orange', 'red'].map((k) => resolve(css.getPropertyValue('--sev-' + k)))
+			};
+		});
+		expect(colours.border).toBe(colours.accent);
+		for (const c of colours.sev) {
+			expect(c).not.toBe('');
+			expect(colours.border).not.toBe(c);
+			expect(colours.ring).not.toContain(c);
+		}
 		await expect(ens.getByText(/Neige/)).toHaveCount(0);
 
 		// Said plainly: a chance for the area, not for one spot, a model forecast; the credit with the run.

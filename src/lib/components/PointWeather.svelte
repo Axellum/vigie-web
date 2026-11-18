@@ -482,8 +482,11 @@
 		padding: 2px 10px;
 		font-size: 13px;
 	}
+	/* From 50 %: a heavier outline and weight in the accent of the site, never a colour of the official warnings (the value is in the text). */
 	.ens-chip.strong {
-		border-color: var(--sev-orange);
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+		font-weight: 600;
 	}
 	.st {
 		margin: 0;
