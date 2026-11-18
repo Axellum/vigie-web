@@ -273,6 +273,10 @@ export function slug(name: string): string {
 		.replace(/^-+|-+$/g, '');
 }
 
+/** `value` when it is one of the listed levels, `none` for anything else (an unknown level is no signal). */
+const oneOf = <T extends string>(value: unknown, levels: T[]): T | 'none' =>
+	typeof value === 'string' && (levels as string[]).includes(value) ? (value as T) : 'none';
+
 const numList = (v: unknown): number[] | null =>
 	Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'number' && Number.isFinite(x))
 		? (v as number[])
@@ -284,6 +288,7 @@ export function pointFromApi(body: unknown): PointWeather {
 	const coords = obj(p.coordinates);
 	const c = p.current == null ? null : obj(p.current);
 	const rain = p.rain_nowcast == null ? null : obj(p.rain_nowcast);
+	const shortTerm = p.short_term == null ? null : obj(p.short_term);
 	const air = p.air_quality == null ? null : obj(p.air_quality);
 	const river = p.flood_risk == null ? null : obj(p.flood_risk);
 	const marine = p.marine == null ? null : obj(p.marine);
@@ -332,6 +337,33 @@ export function pointFromApi(body: unknown): PointWeather {
 			expected60: bool(rain.rain_expected_60m),
 			maxMmH: num(rain.max_mm_h),
 			attribution: str(rain.attribution)
+		},
+		shortTerm: shortTerm && {
+			runUtc: num(shortTerm.run_utc),
+			gust: {
+				level: oneOf(obj(shortTerm.gusts).level, ['strong', 'very_strong']),
+				maxKmh: num(obj(shortTerm.gusts).max_kmh),
+				at: num(obj(shortTerm.gusts).at_utc)
+			},
+			hail: {
+				level: oneOf(obj(shortTerm.hail).level, ['small_hail', 'hail']),
+				at: num(obj(shortTerm.hail).first_at_utc)
+			},
+			visibility: {
+				level: oneOf(obj(shortTerm.visibility).level, ['reduced', 'very_reduced']),
+				minM: num(obj(shortTerm.visibility).min_m),
+				at: num(obj(shortTerm.visibility).first_at_utc)
+			},
+			precipitation: (Array.isArray(shortTerm.precipitation) ? shortTerm.precipitation : []).flatMap(
+				(raw) => {
+					const span = obj(raw);
+					const kind = str(span.kind);
+					return kind && kind !== 'rain' && kind !== 'drizzle' && kind !== 'unknown'
+						? [{ kind, first: num(span.first_at_utc) }]
+						: [];
+				}
+			),
+			attribution: str(shortTerm.attribution)
 		},
 		air: air && {
 			eaqi: num(air.european_aqi),

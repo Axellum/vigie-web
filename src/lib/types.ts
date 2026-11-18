@@ -193,6 +193,19 @@ export interface PointWeather {
 		maxMmH: number | null;
 		attribution: string | null;
 	} | null;
+	/**
+	 * What Météo-France's AROME-PI model forecasts for the next hours, as levels (France only, null elsewhere). A model
+	 * forecast, never a warning: the API keeps it out of the local alert level.
+	 */
+	shortTerm: {
+		runUtc: number | null;
+		gust: { level: 'none' | 'strong' | 'very_strong'; maxKmh: number | null; at: number | null };
+		hail: { level: 'none' | 'small_hail' | 'hail'; at: number | null };
+		visibility: { level: 'none' | 'reduced' | 'very_reduced'; minM: number | null; at: number | null };
+		/** The kinds of precipitation of the steps that are not rain (`snow`, `freezing`, `hail`...), in order. */
+		precipitation: { kind: string; first: number | null }[];
+		attribution: string | null;
+	} | null;
 	air: {
 		eaqi: number | null;
 		usAqi: number | null;

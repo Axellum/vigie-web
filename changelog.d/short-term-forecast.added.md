@@ -1,0 +1,1 @@
+- "Model forecast, next hours" in the weather detail of a place in France: strong gusts, hail, reduced visibility and snow or freezing precipitation forecast by Météo-France's AROME-PI model, one line each and none when the model forecasts nothing, said to be a forecast and not a warning. Needs a Vigie API with the AROME-PI source.

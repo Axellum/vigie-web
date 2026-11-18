@@ -160,6 +160,34 @@ describe('pointFromApi', () => {
 		expect(point.attribution).toBe(raw.weather_attribution);
 	});
 
+	it('reads the short-term levels of the API and leaves the point without them when it has none', () => {
+		const withLevels = pointFromApi({
+			coordinates: { lat: 50.6, lon: 3.1 },
+			daily: [],
+			short_term: {
+				run_utc: 1794988800,
+				gusts: { level: 'strong', max_kmh: 74, at_utc: 1794996000 },
+				hail: { level: 'none', max_kg_m2: 2.2, first_at_utc: null },
+				visibility: { level: 'mystery', min_m: 800, first_at_utc: 1794999600 },
+				precipitation: [
+					{ kind: 'rain', first_at_utc: 1794992400 },
+					{ kind: 'snow', first_at_utc: 1795000000 },
+					{ kind: 'unknown', first_at_utc: 1795000900 }
+				],
+				attribution: 'Weather data by Météo-France (AROME-PI)'
+			}
+		});
+		expect(withLevels.shortTerm?.gust).toEqual({ level: 'strong', maxKmh: 74, at: 1794996000 });
+		expect(withLevels.shortTerm?.hail.level).toBe('none');
+		expect(withLevels.shortTerm?.visibility.level).toBe('none'); // a level the page does not know is no signal
+		expect(withLevels.shortTerm?.precipitation).toEqual([{ kind: 'snow', first: 1795000000 }]); // rain is already above
+		expect(withLevels.shortTerm?.attribution).toBe('Weather data by Météo-France (AROME-PI)');
+		expect(pointFromApi({ coordinates: { lat: 1, lon: 2 }, daily: [] }).shortTerm).toBeNull();
+		expect(
+			pointFromApi({ coordinates: { lat: 1, lon: 2 }, daily: [], short_term: {} }).shortTerm?.gust.level
+		).toBe('none');
+	});
+
 	it('leaves out the radar and the heuristic flood level, and keeps unknown blocks null', () => {
 		const point = pointFromApi({
 			coordinates: { lat: 1, lon: 2 },
