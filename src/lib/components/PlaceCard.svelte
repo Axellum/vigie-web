@@ -250,7 +250,12 @@
 			})}
 		</p>
 	{/if}
-	{#if s.w}<PointWeather {lang} {units} weather={s.w} parts={['now', 'rain', 'days', 'river']} />{/if}
+	{#if s.w}<PointWeather
+			{lang}
+			{units}
+			weather={s.w}
+			parts={['now', 'rain', 'ensemble', 'days', 'river']}
+		/>{/if}
 {/snippet}
 
 <!-- Is it normal? (the normals of the month at the nearest Météo-France station) ----------------------- -->

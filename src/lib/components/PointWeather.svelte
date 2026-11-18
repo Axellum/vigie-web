@@ -4,6 +4,7 @@
 	// Every value comes from the API as it is; an unknown one shows "–", a block the API did not give is left out.
 	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
 	import Time from '#lib/components/Time.svelte';
+	import { ensembleView, hourLabel, percent } from '#lib/ensemble.js';
 	import { number } from '#lib/format.js';
 	import { translator, type Lang } from '#lib/i18n.js';
 	import { placeFormat } from '#lib/placeFormat.js';
@@ -11,8 +12,20 @@
 	import { DEFAULT_UNITS, type Units } from '#lib/units.js';
 	import { compass, skyLabel } from '#lib/weather.js';
 
-	type Part = 'now' | 'rain' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space' | 'drought';
-	const ALL: Part[] = ['now', 'rain', 'days', 'air', 'river', 'fires', 'marine', 'space', 'drought'];
+	type Part =
+		'now' | 'rain' | 'ensemble' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space' | 'drought';
+	const ALL: Part[] = [
+		'now',
+		'rain',
+		'ensemble',
+		'days',
+		'air',
+		'river',
+		'fires',
+		'marine',
+		'space',
+		'drought'
+	];
 
 	// `parts`: the blocks to show, so that the cards of a place can each hold their own.
 	let {
@@ -67,6 +80,18 @@
 		}
 		return lines;
 	});
+
+	// The ensemble forecast: bars of the next 24 hours and a few chips, in the hours of the place. Nothing without it.
+	const ensemble = $derived(ensembleView(weather.probabilities, weather.utcOffsetS));
+	const CHIP_KEY = {
+		rain5: 'w.ens.rain5',
+		gust: 'w.ens.gust',
+		storm: 'w.ens.storm',
+		hail: 'w.ens.hail',
+		snow: 'w.ens.snow'
+	} as const;
+	// The gust threshold of the model, 30 knots, in the reader's wind unit.
+	const GUST_THRESHOLD_KMH = 30 * 1.852;
 </script>
 
 <div class="weather">
@@ -138,6 +163,52 @@
 				{/each}
 			</ul>
 			<p class="muted small">{tr('w.st.note')}</p>
+		</section>
+	{/if}
+
+	{#if ensemble && show('ensemble')}
+		<section class="part" aria-labelledby="ens-title">
+			<h3 id="ens-title">{tr('w.ens.title')}</h3>
+			<ol class="ens-bars" style:--n={ensemble.bars.length} aria-label={tr('w.ens.bars')}>
+				{#each ensemble.bars as bar, i (i)}
+					<li>
+						<span class="visually-hidden">
+							{tr('w.ens.bar', {
+								h: hourLabel(lang, bar.endMinutes),
+								p: bar.rain1Pct == null ? '–' : percent(lang, bar.rain1Pct)
+							})}
+						</span>
+						<span class="ens-plot" aria-hidden="true">
+							<span class="ens-bar" class:high={bar.high} style:--h="{bar.rain1Pct ?? 0}%">
+								<span class="ens-value data">{bar.rain1Pct ?? '–'}</span>
+							</span>
+						</span>
+						<span class="ens-hour data muted" aria-hidden="true">{hourLabel(lang, bar.endMinutes)}</span>
+					</li>
+				{/each}
+			</ol>
+			{#if ensemble.chips.length}
+				<ul class="ens-chips">
+					{#each ensemble.chips as chip (chip.kind)}
+						<li class="ens-chip" class:strong={chip.strong}>
+							{tr(CHIP_KEY[chip.kind], {
+								p: percent(lang, chip.pct),
+								v: fmt.wind(GUST_THRESHOLD_KMH),
+								h: chip.atMinutes == null ? '' : hourLabel(lang, chip.atMinutes)
+							})}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<p class="muted small">{tr('w.ens.legend')}</p>
+			<p class="muted small">
+				{tr('w.ens.credit', {
+					run:
+						ensemble.runUtc == null
+							? '–'
+							: String(new Date(ensemble.runUtc * 1000).getUTCHours()).padStart(2, '0') + ' h'
+				})}
+			</p>
 		</section>
 	{/if}
 
@@ -347,6 +418,72 @@
 		border-bottom: 2px solid var(--line);
 		background: linear-gradient(to top, var(--accent) var(--h), transparent var(--h));
 		border-radius: 3px 3px 0 0;
+	}
+	.ens-bars {
+		list-style: none;
+		margin: 14px 0 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+		gap: 4px;
+		max-width: 520px;
+	}
+	.ens-bars li {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.ens-plot {
+		position: relative;
+		height: 96px;
+		display: block;
+	}
+	.ens-bar {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: var(--h);
+		min-height: 2px;
+		background: var(--surf-q2);
+		border-radius: 3px 3px 0 0;
+	}
+	.ens-bar.high {
+		background: var(--surf-q3);
+	}
+	.ens-value {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 100%;
+		text-align: center;
+		font-size: 11px;
+		font-weight: 600;
+		line-height: 1;
+	}
+	.ens-hour {
+		text-align: center;
+		font-size: 11px;
+		white-space: nowrap;
+	}
+	.ens-chips {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.ens-chip {
+		border: 1px solid var(--line);
+		background: var(--accent-soft);
+		border-radius: 14px;
+		padding: 2px 10px;
+		font-size: 13px;
+	}
+	.ens-chip.strong {
+		border-color: var(--sev-orange);
 	}
 	.st {
 		margin: 0;

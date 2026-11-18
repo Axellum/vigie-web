@@ -282,6 +282,37 @@ const numList = (v: unknown): number[] | null =>
 		? (v as number[])
 		: null;
 
+/** A percentage of the ensemble: a whole number from 0 to 100, else unknown (a value out of range is not shown). */
+const pct = (v: unknown): number | null => {
+	const n = num(v);
+	return n != null && n >= 0 && n <= 100 ? n : null;
+};
+
+/** The three-hour windows of the PE-AROME ensemble of `/v1/point`; null without any usable window (the long range is not shown). */
+function ensembleFromApi(p: Record<string, unknown> | null): PointWeather['probabilities'] {
+	if (!p) return null;
+	const short = p.short_range == null ? null : obj(p.short_range);
+	const windows = (short && Array.isArray(short.windows) ? short.windows : []).flatMap((raw) => {
+		const w = obj(raw);
+		const to = num(w.to_utc);
+		if (to == null) return [];
+		return [
+			{
+				to,
+				rain1Pct: pct(w.rain_1mm_pct),
+				rain5Pct: pct(w.rain_5mm_pct),
+				snowPct: pct(w.snow_1mm_pct),
+				gust30ktPct: pct(w.gust_30kt_pct),
+				hailPct: pct(w.hail_pct),
+				stormPct: pct(w.storm_pct)
+			}
+		];
+	});
+	if (!short || windows.length === 0) return null;
+	windows.sort((a, b) => a.to - b.to);
+	return { runUtc: num(short.run_utc), windows, attribution: str(p.attribution) };
+}
+
 /** The weather of `/v1/point`, without the nearby hazards (the page has them) and without the radar fields. */
 export function pointFromApi(body: unknown): PointWeather {
 	const p = obj(body);
@@ -289,6 +320,7 @@ export function pointFromApi(body: unknown): PointWeather {
 	const c = p.current == null ? null : obj(p.current);
 	const rain = p.rain_nowcast == null ? null : obj(p.rain_nowcast);
 	const shortTerm = p.short_term == null ? null : obj(p.short_term);
+	const probabilities = p.probabilities == null ? null : obj(p.probabilities);
 	const air = p.air_quality == null ? null : obj(p.air_quality);
 	const river = p.flood_risk == null ? null : obj(p.flood_risk);
 	const marine = p.marine == null ? null : obj(p.marine);
@@ -365,6 +397,7 @@ export function pointFromApi(body: unknown): PointWeather {
 			),
 			attribution: str(shortTerm.attribution)
 		},
+		probabilities: ensembleFromApi(probabilities),
 		air: air && {
 			eaqi: num(air.european_aqi),
 			usAqi: num(air.us_aqi),
