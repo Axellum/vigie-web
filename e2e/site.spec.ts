@@ -375,6 +375,12 @@ test('near me shows the warnings and the weather of a place given in the address
 	await expect(
 		weather.getByText('Ciel du jour : le temps le plus marqué prévu dans la journée')
 	).toBeVisible();
+	// The model's forecast of the next hours (AROME-PI, recorded for the point): one line per signal, said to be a model forecast.
+	await expect(
+		weather.getByRole('heading', { name: 'Prévision du modèle, prochaines heures' })
+	).toBeVisible();
+	await expect(weather.getByText(/Rafales fortes prévues par le modèle, jusqu.à 74 km\/h/)).toBeVisible();
+	await expect(weather.getByText('pas une alerte', { exact: false })).toBeVisible();
 	// The credits are folded at the end of the page, one click away.
 	const credit = page.getByText('Weather data by Open-Meteo.com (https://open-meteo.com/)');
 	await expect(credit).toBeHidden();

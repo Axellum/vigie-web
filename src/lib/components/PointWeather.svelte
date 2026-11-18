@@ -35,6 +35,38 @@
 	const current = $derived(weather.current);
 	const steps = $derived(weather.rain?.mmPerStep ?? null);
 	const stepMax = $derived(steps ? Math.max(0.1, ...steps) : 0.1);
+
+	// What the AROME-PI model forecasts for the next hours: one line per signal, nothing when it forecasts none.
+	// A model forecast, not a warning: the wording says so.
+	const PRECIPITATION_LINE = {
+		freezing: 'w.st.type.freezing',
+		snow: 'w.st.type.snow',
+		wet_snow: 'w.st.type.wet_snow',
+		rain_snow: 'w.st.type.rain_snow',
+		ice_pellets: 'w.st.type.ice_pellets',
+		snow_pellets: 'w.st.type.snow_pellets',
+		hail: 'w.st.type.hail'
+	} as const;
+	const shortTermLines = $derived.by(() => {
+		const s = weather.shortTerm;
+		if (!s) return [];
+		const lines: { text: string; at: number | null }[] = [];
+		if (s.gust.level !== 'none' && s.gust.maxKmh != null) {
+			lines.push({ text: tr(`w.st.gust.${s.gust.level}`, { v: fmt.wind(s.gust.maxKmh) }), at: s.gust.at });
+		}
+		if (s.hail.level !== 'none') lines.push({ text: tr(`w.st.hail.${s.hail.level}`), at: s.hail.at });
+		if (s.visibility.level !== 'none' && s.visibility.minM != null) {
+			lines.push({
+				text: tr(`w.st.vis.${s.visibility.level}`, { v: number(lang, s.visibility.minM, 0) }),
+				at: s.visibility.at
+			});
+		}
+		for (const span of s.precipitation) {
+			const key = PRECIPITATION_LINE[span.kind as keyof typeof PRECIPITATION_LINE];
+			if (key) lines.push({ text: tr(key), at: span.first });
+		}
+		return lines;
+	});
 </script>
 
 <div class="weather">
@@ -92,6 +124,20 @@
 					{/each}
 				</ol>
 			{/if}
+		</section>
+	{/if}
+
+	{#if shortTermLines.length && show('rain')}
+		<section class="part">
+			<h3>{tr('w.st.title')}</h3>
+			<ul class="st">
+				{#each shortTermLines as line (line.text)}
+					<li>
+						{line.text}{#if line.at != null}, {tr('w.st.from')} <Time {lang} unix={line.at} />{/if}.
+					</li>
+				{/each}
+			</ul>
+			<p class="muted small">{tr('w.st.note')}</p>
 		</section>
 	{/if}
 
@@ -301,6 +347,12 @@
 		border-bottom: 2px solid var(--line);
 		background: linear-gradient(to top, var(--accent) var(--h), transparent var(--h));
 		border-radius: 3px 3px 0 0;
+	}
+	.st {
+		margin: 0;
+		padding-left: 18px;
+		display: grid;
+		gap: 4px;
 	}
 	.scroll {
 		overflow-x: auto;
