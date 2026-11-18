@@ -361,6 +361,19 @@ const fr = {
 	'w.st.type.ice_pellets': 'Le modèle prévoit du grésil',
 	'w.st.type.snow_pellets': 'Le modèle prévoit de la neige roulée',
 	'w.st.type.hail': 'Le modèle prévoit des précipitations de grêle',
+	'w.ens.title': 'Pluie probable, 24 prochaines heures',
+	'w.ens.bars':
+		"Chance d'au moins 1 mm de pluie par tranche de 3 heures, la tranche étant nommée par son heure de fin",
+	'w.ens.bar': "Jusqu'à {h} : {p}",
+	'w.ens.rain5': 'Pluie ≥ 5 mm : {p} vers {h}',
+	'w.ens.gust': "Rafales > {v} : {p} jusqu'à {h}",
+	'w.ens.storm': 'Orage : {p}',
+	'w.ens.hail': 'Grêle : {p}',
+	'w.ens.snow': 'Neige : {p}',
+	'w.ens.legend':
+		"Chaque barre est la chance d'au moins 1 mm de pluie pendant 3 heures, nommée par son heure de fin ; les pastilles apparaissent à partir de 10 %. « Orage » compte aussi les fortes averses. C'est une chance pour la zone d'environ 5 km autour du lieu, pas pour un point précis : sur un point précis, la pluie annoncée arrive moins souvent que le pourcentage.",
+	'w.ens.credit':
+		"Prévision d'ensemble PE-AROME, Météo-France (Licence Ouverte 2.0), run de {run} UTC. Prévision d'un modèle : les vigilances officielles sont affichées à part.",
 	'w.days': 'Prochains jours',
 	'w.day': 'Jour',
 	'w.sky': 'Ciel',
@@ -1238,6 +1251,18 @@ const en: Record<Key, string> = {
 	'w.st.type.ice_pellets': 'The model forecasts ice pellets',
 	'w.st.type.snow_pellets': 'The model forecasts snow pellets',
 	'w.st.type.hail': 'The model forecasts hail precipitation',
+	'w.ens.title': 'Chance of rain, next 24 hours',
+	'w.ens.bars': 'Chance of 1 mm of rain or more per window of 3 hours, each window named by the hour it ends',
+	'w.ens.bar': 'Until {h}: {p}',
+	'w.ens.rain5': 'Rain ≥ 5 mm: {p} around {h}',
+	'w.ens.gust': 'Gusts > {v}: {p} until {h}',
+	'w.ens.storm': 'Storm: {p}',
+	'w.ens.hail': 'Hail: {p}',
+	'w.ens.snow': 'Snow: {p}',
+	'w.ens.legend':
+		'Each bar is the chance of 1 mm of rain or more during 3 hours, named by the hour it ends; the chips appear from 10%. "Storm" also counts heavy showers. This is a chance for the area of about 5 km around the place, not for one exact spot: at one exact spot, the forecast rain comes less often than the percentage says.',
+	'w.ens.credit':
+		'Ensemble forecast PE-AROME, Météo-France (Licence Ouverte 2.0), run of {run} UTC. A model forecast: the official warnings are shown separately.',
 	'w.days': 'Next days',
 	'w.day': 'Day',
 	'w.sky': 'Sky',

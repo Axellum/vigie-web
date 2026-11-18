@@ -188,6 +188,50 @@ describe('pointFromApi', () => {
 		).toBe('none');
 	});
 
+	it('reads the ensemble probabilities of the next hours, and none when the API gave no usable window', () => {
+		const window = (to: number, over: Record<string, unknown> = {}) => ({
+			to_utc: to,
+			rain_1mm_pct: 40,
+			rain_5mm_pct: 10,
+			snow_1mm_pct: 0,
+			gust_30kt_pct: 20,
+			gust_50kt_pct: 0,
+			hail_pct: 3,
+			storm_pct: 7,
+			...over
+		});
+		const point = pointFromApi({
+			coordinates: { lat: 50.6, lon: 3.1 },
+			daily: [],
+			probabilities: {
+				short_range: {
+					run_utc: 1794970800,
+					windows: [
+						window(1795014000),
+						window(1795003200, { rain_1mm_pct: 150, hail_pct: null }),
+						{ rain_1mm_pct: 5 }
+					]
+				},
+				long_range: { windows: [{ to_utc: 1795068000, rain_1mm_pct: 100 }] },
+				attribution: 'Source: Météo-France (Licence Ouverte 2.0)'
+			}
+		});
+		// Soonest first, a window without its end is dropped, a value out of 0..100 is unknown (never shown), the long range is not kept.
+		expect(point.probabilities?.windows.map((w) => w.to)).toEqual([1795003200, 1795014000]);
+		expect(point.probabilities?.windows[0]).toMatchObject({ rain1Pct: null, hailPct: null, stormPct: 7 });
+		expect(point.probabilities?.windows[1]).toMatchObject({ rain1Pct: 40, rain5Pct: 10, gust30ktPct: 20 });
+		expect(point.probabilities?.runUtc).toBe(1794970800);
+		expect(point.probabilities?.attribution).toBe('Source: Météo-France (Licence Ouverte 2.0)');
+		const none = { coordinates: { lat: 1, lon: 2 }, daily: [] };
+		expect(pointFromApi(none).probabilities).toBeNull();
+		expect(
+			pointFromApi({ ...none, probabilities: { short_range: null, long_range: null } }).probabilities
+		).toBeNull();
+		expect(
+			pointFromApi({ ...none, probabilities: { short_range: { windows: [] } } }).probabilities
+		).toBeNull();
+	});
+
 	it('leaves out the radar and the heuristic flood level, and keeps unknown blocks null', () => {
 		const point = pointFromApi({
 			coordinates: { lat: 1, lon: 2 },

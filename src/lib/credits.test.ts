@@ -36,6 +36,7 @@ describe('credits', () => {
 		);
 		expect(lines).toContain('Weather data by Open-Meteo.com (https://open-meteo.com/)');
 		expect(lines).toContain(raw.fires_nearby.attribution);
+		expect(lines).toContain(raw.probabilities.attribution);
 		expect(lines).toContain(raw.fires_nearby.disclaimer);
 		expect(lines).toContain(raw.space_weather.attribution);
 		expect(lines).toContain(droughtRaw.attribution);

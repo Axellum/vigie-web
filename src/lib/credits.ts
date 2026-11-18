@@ -17,6 +17,7 @@ export function pointCredits(weather: PointWeather): (string | null)[] {
 		weather.attribution,
 		weather.rain?.attribution ?? null,
 		weather.shortTerm?.attribution ?? null,
+		weather.probabilities?.attribution ?? null,
 		weather.air?.attribution ?? null,
 		weather.river?.attribution ?? null,
 		weather.fires?.attribution ?? null,

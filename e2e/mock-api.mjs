@@ -214,6 +214,15 @@ createServer((req, res) => {
 		return;
 	}
 	res.writeHead(200, { 'content-type': 'application/json' });
+	// The ensemble probabilities are Météo-France's: the recorded ones are for a point in France, and the API gives none elsewhere.
+	if (url.pathname === '/v1/point' && file === 'point.json') {
+		const lat = Number(url.searchParams.get('lat'));
+		const lon = Number(url.searchParams.get('lon'));
+		const body = read(file);
+		if (!(lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10)) delete body.probabilities;
+		res.end(JSON.stringify(body));
+		return;
+	}
 	if (today.has(file)) {
 		const days = Math.floor((Date.now() / 1000 - recorded[file]) / 86400);
 		res.end(JSON.stringify(moved(read(file), days * 86400)));

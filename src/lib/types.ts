@@ -152,6 +152,17 @@ export interface Provider {
 	[key: string]: unknown;
 }
 
+/** What PE-AROME gives for the three hours that end at `to`; a percentage the API did not give is null. */
+export interface EnsembleWindow {
+	to: number;
+	rain1Pct: number | null;
+	rain5Pct: number | null;
+	snowPct: number | null;
+	gust30ktPct: number | null;
+	hailPct: number | null;
+	stormPct: number | null;
+}
+
 /** Weather at one point of the API's grid (`/v1/point`). Every value the API did not give stays null. */
 export interface PointWeather {
 	/** The grid point that was asked: the visitor's position rounded to the weather grid. */
@@ -204,6 +215,16 @@ export interface PointWeather {
 		visibility: { level: 'none' | 'reduced' | 'very_reduced'; minM: number | null; at: number | null };
 		/** The kinds of precipitation of the steps that are not rain (`snow`, `freezing`, `hail`...), in order. */
 		precipitation: { kind: string; first: number | null }[];
+		attribution: string | null;
+	} | null;
+	/**
+	 * The ensemble forecast of Météo-France (PE-AROME) for the next 24 hours, in windows of three hours (France only, null
+	 * elsewhere or when the API gave none). Chances for the area around the point, never a warning.
+	 */
+	probabilities: {
+		runUtc: number | null;
+		/** The windows, soonest first; each is named by the instant its three hours end. */
+		windows: EnsembleWindow[];
 		attribution: string | null;
 	} | null;
 	air: {
