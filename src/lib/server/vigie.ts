@@ -22,6 +22,7 @@ import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
 import { avalanchesFromApi, type AvalanchesResponse } from '#lib/avalanches.js';
 import { catnatFromApi, type CatNatResponse } from '#lib/catnat.js';
 import { climateFromApi, type ClimateResponse } from '#lib/climate.js';
+import { radarFromApi, type Radar } from '#lib/radar.js';
 import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
@@ -139,7 +140,10 @@ export const TTL_S = {
 	seaPlaces: 3600,
 	// The offshore buoys of Météo-France send a record an hour; the API reads them every 30 minutes.
 	seaBuoys: 600,
-	seaPlaceIds: 21_600
+	seaPlaceIds: 21_600,
+	// The radar sends an image every 5 minutes; the list is not asked again before. A tile of an image never changes.
+	radar: 300,
+	radarTile: 86_400
 } as const;
 
 const cache = new TtlCache();
@@ -470,6 +474,35 @@ export function getTideTile(level: TideLevel, x: number, y: number): Promise<Cac
 		const bbox = tideTileBox(level, x, y).join(',');
 		return tideTileFromApi(await getJson(`/v1/tides/coast?bbox=${bbox}&limit=${level.limit}`, 15_000));
 	});
+}
+
+/** The images of the rain radar of France (`/v1/radar/france`), kept 5 minutes; null when the gateway has none. */
+export async function getRadar(): Promise<Cached<Radar | null>> {
+	return cache.get('radar', TTL_S.radar * 1000, async () =>
+		radarFromApi(await getJson('/v1/radar/france', 15_000))
+	);
+}
+
+/** One tile (PNG) of an image of the radar, relayed as the API sends it; null for an image the API does not list. */
+export async function getRadarTile(
+	epoch: number,
+	z: number,
+	x: number,
+	y: number
+): Promise<Uint8Array | null> {
+	let response: Response;
+	try {
+		response = await fetch(apiUrl(`/v1/radar/france/tiles/${epoch}/${z}/${x}/${y}.png`), {
+			headers: { accept: 'image/png' },
+			signal: AbortSignal.timeout(15_000)
+		});
+	} catch (error) {
+		throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+	}
+	if (response.status === 404) return null;
+	if (!response.ok)
+		throw new ApiError(`Vigie API answered ${response.status} for a radar tile`, response.status);
+	return new Uint8Array(await response.arrayBuffer());
 }
 
 /** Every ministry's level for each country (`/v1/travel`): one answer for every visitor. */

@@ -45,7 +45,8 @@
   "avalanches-davos.json": 1794854900,
   "avalanches-chamonix.json": 1794861000,
   "sea-buoys.json": 1794868200,
-  "climate-corte.json": 1794950640
+  "climate-corte.json": 1794950640,
+  "radar-france.json": 1794995747
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -109,7 +110,8 @@
   "/v1/avalanches?slf": "avalanches-davos.json",
   "/v1/avalanches?bra": "avalanches-chamonix.json",
   "/v1/sea/buoys": "sea-buoys.json",
-  "/v1/climate/normals?fr": "climate-corte.json"
+  "/v1/climate/normals?fr": "climate-corte.json",
+  "/v1/radar/france": "radar-france.json"
  },
  "added": {
   "/v1/geojson/hazards": [
@@ -128,6 +130,7 @@
   "pollens-*.json, catnat-corte.json, avalanches-davos.json": "Answers of the public Vigie API (vigie-api 595d5e3) read on 2026-11-16 for Corte's weather cell (42.3, 9.15) and Davos (46.8, 9.85). No pollen was in the air in November, so pollens-season.json is pollens-corte.json with the figures of a spring day written by hand (birch leading), to show the table; the mock answers it for any position in Europe, catnat-corte.json for any position in France and avalanches-davos.json around Davos (e2e/mock-api.mjs).",
   "avalanches-chamonix.json": "Answer of vigie-api's branch that adds the Météo-France BRA (its pull request 84), produced on 2026-11-16 by its own test setup from the real bulletin of the Mont-Blanc massif read that day (tests/fixtures/avalanches/meteofrance_bra_mont_blanc.xml), for Chamonix; the public instance did not serve the BRA yet. The mock answers it around Chamonix (e2e/mock-api.mjs).",
   "sea-buoys.json": "Answer of vigie-api's branch that adds the offshore buoys of Météo-France (GET /v1/sea/buoys), produced on 2026-11-16 by its own code from the real buoy records read that evening (its tests/fixtures/meteofrance_buoys/bouees-2026-11-16.json), at 22:30 UTC; the public instance did not serve it yet.",
-  "climate-corte.json": "Answer of the public Vigie API (vigie-api 6d26b38) read on 2026-11-17 for Corte's weather cell (42.3, 9.15) and the month of the recorded weather (October): the normals and records of the Météo-France station of Corte. The mock answers it for any position in France (e2e/mock-api.mjs)."
+  "climate-corte.json": "Answer of the public Vigie API (vigie-api 6d26b38) read on 2026-11-17 for Corte's weather cell (42.3, 9.15) and the month of the recorded weather (October): the normals and records of the Météo-France station of Corte. The mock answers it for any position in France (e2e/mock-api.mjs).",
+  "radar-france.json, radar-tile.png": "Answer and one tile (z6, x32, y22: northern France) of the public Vigie API (vigie-api d497634, its pull request 94) read on 2026-11-18. The mock gives that one tile for every tile of every image the list names (e2e/mock-api.mjs), and counts the tiles asked."
  }
 }
