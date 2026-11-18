@@ -1,0 +1,1 @@
+- The chips of the ensemble forecast that reach 50 % are now stressed with the accent colour of the site and a heavier weight instead of an orange outline, so they cannot be mistaken for an official warning.
