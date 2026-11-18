@@ -41,6 +41,13 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   `/data/fires/<level>/<x>_<y>.json` and cached 10 minutes, so the requests to the API depend on the tiles
   looked at, not on the visitors. The near-me weather adds the API's summary of the fires within 50 km. NASA's
   credit and disclaimer are shown with the data.
+- **Rain radar** (Météo-France, through the API, `GET /v1/radar/france`), a card over the map while it is on France
+  (`src/lib/radar.ts`, `radarLayer.svelte.ts`, `components/RadarCard.svelte`): the last 35 minutes (8 images, 5 minutes
+  apart), Play, a slider, the legend. The list of images is `/data/radar.json` (kept 5 minutes, asked at most once every 5);
+  the tiles are relayed by `/data/radar/<epoch>/<z>/<x>/<y>.png` (only images the API lists; kept a day by browsers, the
+  site's rate limit does not count `.png`), so a visitor's requests go to the site, never to the API's rate-limited front.
+  The map draws only the image shown until the first Play or slider move, then loads the 8 images (about 20 tiles each over
+  a screen) so the animation does not wait. Measured rain, not a forecast.
 - **Covered countries.** Which countries have official warnings is the API's answer
   (`/v1/vigilances/countries`, cached 10 minutes), given with the pages that need it (the world map, near me,
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the

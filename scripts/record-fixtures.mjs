@@ -83,6 +83,9 @@ const targets = [
 	['sea-place-bathing', '/v1/sea/places/bathing-bon-secours-4142'],
 	['sea-place-slipway', '/v1/sea/places/slipway-saint-malo-eb59'],
 	['sea-place-dive', '/v1/sea/places/dive-pytheas-ffa1'],
+	// The images of the rain radar of France (the last 75 minutes). The tiles are not recorded here: the mock draws them
+	// (e2e/mock-api.mjs).
+	['radar-france', '/v1/radar/france'],
 	// The weather of the cell of a spot of the Landes coast, asked with the sea as a television screen asks it (the temperature of the
 	// water). The mock gives it for that cell only; every other position gets `point`.
 	[

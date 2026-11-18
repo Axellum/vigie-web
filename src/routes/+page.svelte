@@ -8,8 +8,10 @@
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import FireDetails from '#lib/components/FireDetails.svelte';
 	import TideSection from '#lib/components/TideSection.svelte';
+	import RadarCard from '#lib/components/RadarCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
+	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -241,6 +243,20 @@
 	// --- the tide along the coasts (computed by the API; off until asked) --------------------------------
 	const tides = new TideLayer();
 	$effect(() => tides.move(view, zoom));
+
+	// --- the rain radar of France (a card over the map, on while the map is on France) ---------------------------
+	const radar = new RadarLayer();
+	$effect(() => radar.move(view, zoom));
+	$effect(() => {
+		void radar.wanted;
+		untrack(() => radar.sync());
+	});
+	// An image comes every 5 minutes: the list is asked again then, not before (`RadarLayer.sync` keeps the delay).
+	$effect(() => {
+		const timer = setInterval(() => radar.sync(), 60_000);
+		return () => clearInterval(timer);
+	});
+	$effect(() => () => radar.pause());
 	$effect(() => {
 		void tides.keys;
 		untrack(() => tides.sync());
@@ -950,6 +966,9 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
+			{#if radar.open && radar.inFrance && radar.data?.attribution}<p class="credit">
+					{radar.data.attribution}
+				</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
@@ -964,6 +983,7 @@
 			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
 			{fires}
 			tides={tides.features}
+			radar={radar.onMap(tr('radar.credit'))}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {
@@ -971,6 +991,7 @@
 				zoom = z;
 			}}
 		/>
+		<RadarCard {lang} {radar} />
 	</div>
 </div>
 

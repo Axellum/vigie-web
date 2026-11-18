@@ -20,6 +20,7 @@
 	import type { Box } from '#lib/geo.js';
 	import { circleRing, type Place } from '#lib/near.js';
 	import type { Hazard } from '#lib/types.js';
+	import type { RadarOnMap } from '#lib/radar.js';
 
 	interface Props {
 		lang: Lang;
@@ -44,6 +45,9 @@
 		eclipse?: FeatureCollection | null;
 		/** The tide now along the coasts, computed by the API (`TideTile.features`: `up` 1 rising, 0 falling). */
 		tides?: FeatureCollection | null;
+		/** The rain radar: the images to draw (only the active one, or all of them once `preload` is set, so that a slider and an
+		 * animation do not wait for tiles), drawn under the labels of the base map. Null: no radar. */
+		radar?: RadarOnMap | null;
 		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
 		spots?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
@@ -67,6 +71,7 @@
 		aurora = null,
 		eclipse = null,
 		tides = null,
+		radar = null,
 		spots = null,
 		onselect,
 		onmove,
@@ -415,8 +420,62 @@
 		}
 	}
 
+	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
+	// the active one visible and the others transparent (they are only loaded, for the animation).
+	const radarIds = new Set<string>();
+	let radarAnchor: string | undefined;
+	let overlayAdded = false;
+	const RADAR_OPACITY = 0.85;
+
+	function syncRadar() {
+		if (!map || !overlayAdded) return;
+		const wanted = radar ? radar.frames.filter((f) => radar!.preload || f.epoch === radar!.active) : [];
+		const keep = new Set(wanted.map((f) => `radar-${f.epoch}`));
+		for (const id of [...radarIds]) {
+			if (keep.has(id)) continue;
+			if (map.getLayer(id)) map.removeLayer(id);
+			if (map.getSource(id)) map.removeSource(id);
+			radarIds.delete(id);
+		}
+		if (!radar) return;
+		for (const f of wanted) {
+			const id = `radar-${f.epoch}`;
+			const opacity = f.epoch === radar.active ? RADAR_OPACITY : 0;
+			if (radarIds.has(id)) {
+				map.setPaintProperty(id, 'raster-opacity', opacity);
+				continue;
+			}
+			map.addSource(id, {
+				type: 'raster',
+				tiles: [f.tiles],
+				tileSize: 256,
+				minzoom: radar.minZoom,
+				maxzoom: radar.maxZoom,
+				bounds: radar.bounds,
+				attribution: radar.attribution
+			});
+			map.addLayer(
+				{
+					id,
+					type: 'raster',
+					source: id,
+					paint: {
+						'raster-opacity': opacity,
+						'raster-opacity-transition': { duration: 0 },
+						'raster-fade-duration': 0
+					}
+				},
+				radarAnchor
+			);
+			radarIds.add(id);
+		}
+	}
+
 	function addOverlay() {
 		if (!map) return;
+		// A new style has none of the radar's layers; the first label of the base map is where they go under.
+		radarIds.clear();
+		radarAnchor = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
 		// between them at world scale).
 		if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', css('--map-land'));
@@ -514,6 +573,8 @@
 		addFireLayers();
 		addTideLayers();
 		addSpotLayers();
+		overlayAdded = true;
+		syncRadar();
 		map.addLayer({
 			id: 'quake',
 			type: 'circle',
@@ -644,6 +705,8 @@
 		const next = theme();
 		if (next === currentTheme) return;
 		currentTheme = next;
+		// The new style has none of the overlay until it has loaded (`addOverlay`).
+		overlayAdded = false;
 		map.setStyle(STYLE[next], { diff: false });
 	}
 
@@ -820,6 +883,10 @@
 	$effect(() => {
 		void tides;
 		if (ready && map?.getSource('tides')) (map.getSource('tides') as GeoJSONSource).setData(tideData());
+	});
+	$effect(() => {
+		void radar;
+		if (ready) syncRadar();
 	});
 	$effect(() => {
 		void spots;

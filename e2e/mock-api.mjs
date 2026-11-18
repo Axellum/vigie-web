@@ -52,8 +52,24 @@ function placesKey(url) {
 	return `/v1/sea/places?${parts.join('&')}`;
 }
 
+// The radar's tiles: one recorded tile for every tile of an image of the list. An image the list does not name is a 404, as the API's.
+const radarEpochs = new Set(
+	JSON.parse(readFileSync(join(dir, 'radar-france.json'), 'utf-8')).frames.map((f) => String(f.epoch))
+);
+
 createServer((req, res) => {
 	const url = new URL(req.url, 'http://mock');
+	const tile = /^\/v1\/radar\/france\/tiles\/(\d+)\/\d+\/\d+\/\d+\.png$/.exec(url.pathname);
+	if (tile) {
+		if (!radarEpochs.has(tile[1])) {
+			res.writeHead(404, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'unknown image' }));
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'image/png' });
+		res.end(readFileSync(join(dir, 'radar-tile.png')));
+		return;
+	}
 	const key =
 		url.pathname === '/v1/sea/places'
 			? placesKey(url)
