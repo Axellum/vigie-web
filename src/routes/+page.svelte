@@ -599,24 +599,6 @@
 	}).replace(/</g, '\\u003c')}</script>`}
 </svelte:head>
 
-<section class="briefing" aria-labelledby="home-title">
-	<div class="brief-title">
-		<h1 id="home-title">{tr('home.localTitle')}</h1>
-		<p>{tr('home.localDescription')}</p>
-	</div>
-	<div class="lookup">
-		<PlaceSearch
-			{lang}
-			onpick={(p, label) => {
-				const saved = places.find((f) => sameSpot(f, p));
-				const hash = placeHash(p, saved?.radiusKm ?? 300, saved?.profile);
-				goto('/near' + hash, { state: { searchedPlace: { hash, label: saved?.name ?? label } } });
-			}}
-		/>
-	</div>
-	<a class="local-link" href="/near">{tr('nav.near')}</a>
-</section>
-
 {#snippet eventItem(e: WorldEvent)}
 	<li>
 		<button
@@ -674,6 +656,23 @@
 {/snippet}
 
 <div class="app">
+	<section class="briefing" aria-labelledby="home-title">
+		<div class="brief-title">
+			<h1 id="home-title">{tr('home.localTitle')}</h1>
+			<p>{tr('home.localDescription')}</p>
+		</div>
+		<div class="lookup">
+			<PlaceSearch
+				{lang}
+				onpick={(p, label) => {
+					const saved = places.find((f) => sameSpot(f, p));
+					const hash = placeHash(p, saved?.radiusKm ?? 300, saved?.profile);
+					goto('/near' + hash, { state: { searchedPlace: { hash, label: saved?.name ?? label } } });
+				}}
+			/>
+		</div>
+		<a class="local-link" href="/near">{tr('nav.near')}</a>
+	</section>
 	<aside class="rail" bind:this={rail} aria-label={tr('list.title')}>
 		{#if selection}
 			<section class="detail">
@@ -1192,11 +1191,12 @@
 	}
 	.app {
 		display: flex;
-		flex-direction: column-reverse;
+		flex-direction: column;
 		flex: 1;
 		min-height: 0;
 	}
 	.rail {
+		order: 2;
 		min-width: 0;
 		background: var(--surface);
 		padding-block: 14px 24px;
@@ -1215,6 +1215,27 @@
 		.app {
 			display: grid;
 			grid-template-columns: 410px minmax(0, 1fr);
+			grid-template-rows: auto minmax(0, 1fr);
+			grid-template-areas: 'briefing map' 'rail map';
+		}
+		.briefing {
+			grid-area: briefing;
+			grid-template-columns: minmax(0, 1fr) auto;
+			padding: 1rem;
+			gap: 0.65rem;
+			border-right: 1px solid var(--line);
+		}
+		.brief-title {
+			grid-column: 1/-1;
+		}
+		.brief-title h1 {
+			font-size: 2rem;
+		}
+		.rail {
+			grid-area: rail;
+		}
+		.mapwrap {
+			grid-area: map;
 		}
 		.rail {
 			overflow-y: auto;

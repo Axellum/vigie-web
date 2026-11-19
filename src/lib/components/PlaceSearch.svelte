@@ -1,6 +1,7 @@
 <script lang="ts">
 	// The search of a place by name: the server keeps the GeoNames places; the browser asks after 250 ms
 	// without typing. Enter takes the first answer. Changing the query invalidates pending answers.
+	import { onMount } from 'svelte';
 	import { number } from '#lib/format.js';
 	import { countryName, translator, type Lang } from '#lib/i18n.js';
 	import type { Place } from '#lib/near.js';
@@ -13,6 +14,10 @@
 	}: { lang: Lang; id?: string; onpick: (place: Place, label: string) => void } = $props();
 	const tr = $derived(translator(lang));
 
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
 	let query = $state('');
 	let found = $state<PlaceMatch[]>([]);
 	let search = $state<'idle' | 'busy' | 'ok' | 'none' | 'failed'>('idle');
@@ -80,6 +85,7 @@
 	<input
 		{id}
 		type="search"
+		disabled={!ready}
 		autocomplete="off"
 		spellcheck="false"
 		placeholder={tr('near.searchPlaceholder')}

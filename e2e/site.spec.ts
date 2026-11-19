@@ -1057,7 +1057,7 @@ test('a warning and an alert are not indexed, and an ended warning answers 410 a
 
 test('the map page has a heading, its own description and a WebSite for search engines', async ({ page }) => {
 	await page.goto('/?lang=en');
-	await expect(page.locator('h1')).toHaveText('Vigie · World alerts, in one place');
+	await expect(page.locator('h1')).toHaveText('Weather and warnings by place');
 	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
 		'content',
 		/^World map of official warnings/
