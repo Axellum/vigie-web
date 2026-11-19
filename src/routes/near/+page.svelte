@@ -7,6 +7,7 @@
 	// this browser only; the places of an account (its zones that are a point and a radius) come from the
 	// account, asked for by the browser, so that the page stays the same for everybody.
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import Credits from '#lib/components/Credits.svelte';
 	import MapView from '#lib/components/MapView.svelte';
@@ -147,7 +148,10 @@
 	function readHash() {
 		const read = parsePlace(location.hash);
 		if (!read) return;
-		if (!place || place.lat !== read.lat || place.lon !== read.lon) placeName = knownAt(read)?.name ?? null;
+		if (!place || place.lat !== read.lat || place.lon !== read.lon) {
+			const searched = page.state.searchedPlace;
+			placeName = knownAt(read)?.name ?? (searched?.hash === location.hash ? searched.label : null);
+		}
 		place = { lat: read.lat, lon: read.lon };
 		if (read.radiusKm && RADII.includes(read.radiusKm)) radiusKm = read.radiusKm;
 		profile = asProfile(read.profile);

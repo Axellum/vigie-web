@@ -12,6 +12,7 @@
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import NearCard from '#lib/components/NearCard.svelte';
 	import NearSky from '#lib/components/NearSky.svelte';
+	import Time from '#lib/components/Time.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
 	import SurfSpotRow from '#lib/components/SurfSpotRow.svelte';
 	import TideCurve from '#lib/components/TideCurve.svelte';
@@ -201,6 +202,15 @@
 
 <!-- Weather ----------------------------------------------------------------------------------------------- -->
 {#snippet weatherSummary()}
+	{#if s.w}
+		{#if s.w.stale}<p class="note">{tr('near.weatherStale')}</p>{/if}
+		{#if s.w.provider || s.w.generated != null}
+			<div class="weather-origin">
+				{#if s.w.provider}<span>{s.w.provider}</span>{/if}
+				{#if s.w.generated != null}<span>{tr('home.asOf')} <Time {lang} unix={s.w.generated} /></span>{/if}
+			</div>
+		{/if}
+	{/if}
 	{#if s.w?.current}
 		{@const w = s.w}
 		{@const c = s.w.current}
@@ -219,7 +229,7 @@
 			</div>
 			{#if w.rain?.expected60 != null}
 				<div>
-					<p class="fig">{w.rain.expected60 ? unit(w.rain.maxMmH, 'mm/h') : '0 mm/h'}</p>
+					<p class="fig">{w.rain.expected60 === false ? tr('w.rainNone') : unit(w.rain.maxMmH, 'mm/h')}</p>
 					<span>{tr('fig.rainHour')}</span>
 				</div>
 			{/if}
@@ -454,6 +464,18 @@
 {@render card()}
 
 <style>
+	.weather-origin {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		color: var(--muted);
+		font-size: 0.875rem;
+	}
+	.weather-origin span:first-child {
+		font-weight: 600;
+	}
+
 	.surf-near {
 		list-style: none;
 		padding: 0;

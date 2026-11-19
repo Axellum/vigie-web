@@ -45,6 +45,14 @@ const marker = (page: Page, title: string) =>
 		.and(page.getByRole('button', { name: title, exact: true }))
 		.first();
 
+test('searching on the map opens the named local bulletin', async ({ page }) => {
+	await page.goto('/');
+	await page.locator('#place-search').fill('Corte');
+	await page.locator('.lookup .results button').filter({ hasText: 'Corte' }).first().click();
+	await expect(page).toHaveURL(/\/near#/);
+	await expect(page.locator('main').getByText(/Corte/).first()).toBeVisible();
+});
+
 test('the world map draws the recorded hazards', async ({ page }) => {
 	const errors = collectErrors(page);
 	await page.goto('/');
@@ -1049,7 +1057,7 @@ test('a warning and an alert are not indexed, and an ended warning answers 410 a
 
 test('the map page has a heading, its own description and a WebSite for search engines', async ({ page }) => {
 	await page.goto('/?lang=en');
-	await expect(page.locator('h1')).toHaveText('Vigie · World alerts, in one place');
+	await expect(page.locator('h1')).toHaveText('Weather and warnings by place');
 	await expect(page.locator('meta[name="description"]')).toHaveAttribute(
 		'content',
 		/^World map of official warnings/
