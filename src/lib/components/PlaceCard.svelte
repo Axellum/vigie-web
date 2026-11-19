@@ -219,7 +219,7 @@
 			</div>
 			{#if w.rain?.expected60 != null}
 				<div>
-					<p class="fig">{w.rain.expected60 ? unit(w.rain.maxMmH, 'mm/h') : '0 mm/h'}</p>
+					<p class="fig">{w.rain.expected60 === false ? tr('w.rainNone') : unit(w.rain.maxMmH, 'mm/h')}</p>
 					<span>{tr('fig.rainHour')}</span>
 				</div>
 			{/if}

@@ -18,6 +18,11 @@ export function langFromHeader(header: string | null): Lang {
 }
 
 const fr = {
+	'home.localTitle': 'La météo et les alertes par lieu',
+	'home.localDescription':
+		'Choisissez une ville pour consulter la pluie, le vent et les vigilances officielles.',
+	'home.asOf': 'Dernier bulletin',
+	'home.refreshFailed': 'Actualisation impossible. Le bulletin précédent reste affiché.',
 	'site.tagline': 'Alertes du monde, au même endroit',
 	'site.disclaimer': 'Vigie ne remplace pas les alertes officielles : suivez les consignes de vos autorités.',
 	'site.personal': "Projet personnel, non commercial, fait avec l'aide de l'IA.",
@@ -914,6 +919,10 @@ const fr = {
 export type Key = keyof typeof fr;
 
 const en: Record<Key, string> = {
+	'home.localTitle': 'Weather and warnings by place',
+	'home.localDescription': 'Choose a town to see rain, wind and official warnings.',
+	'home.asOf': 'Latest bulletin',
+	'home.refreshFailed': 'Refresh failed. The previous bulletin is still displayed.',
 	'site.tagline': 'World alerts, in one place',
 	'site.disclaimer': 'Vigie does not replace official warnings: follow the instructions of your authorities.',
 	'site.personal': 'A personal, non-commercial project, made with the help of AI.',

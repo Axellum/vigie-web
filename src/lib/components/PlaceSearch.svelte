@@ -1,6 +1,6 @@
 <script lang="ts">
 	// The search of a place by name: the server keeps the GeoNames places; the browser asks after 250 ms
-	// without typing. Enter takes the first answer. While a new answer is on its way, the last one stays.
+	// without typing. Enter takes the first answer. Changing the query invalidates pending answers.
 	import { number } from '#lib/format.js';
 	import { countryName, translator, type Lang } from '#lib/i18n.js';
 	import type { Place } from '#lib/near.js';
@@ -21,6 +21,8 @@
 
 	function onQuery() {
 		clearTimeout(timer);
+		const ticket = ++asked;
+		found = [];
 		const q = query.trim();
 		if (q.length < 2) {
 			found = [];
@@ -28,11 +30,10 @@
 			return;
 		}
 		search = 'busy';
-		timer = setTimeout(() => void runSearch(q), 250);
+		timer = setTimeout(() => void runSearch(q, ticket), 250);
 	}
 
-	async function runSearch(q: string) {
-		const ticket = ++asked;
+	async function runSearch(q: string, ticket: number) {
 		search = 'busy';
 		try {
 			const response = await fetch(`/data/places.json?q=${encodeURIComponent(q)}`);

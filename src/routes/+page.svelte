@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
+	import Time from '#lib/components/Time.svelte';
 	import Seo from '#lib/components/Seo.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -597,7 +599,23 @@
 	}).replace(/</g, '\\u003c')}</script>`}
 </svelte:head>
 
-<h1 class="visually-hidden">Vigie · {tr('site.tagline')}</h1>
+<section class="briefing" aria-labelledby="home-title">
+	<div class="brief-title">
+		<h1 id="home-title">{tr('home.localTitle')}</h1>
+		<p>{tr('home.localDescription')}</p>
+	</div>
+	<div class="lookup">
+		<PlaceSearch
+			{lang}
+			onpick={(p, label) => {
+				const saved = places.find((f) => sameSpot(f, p));
+				const hash = placeHash(p, saved?.radiusKm ?? 300, saved?.profile);
+				goto('/near' + hash, { state: { searchedPlace: { hash, label: saved?.name ?? label } } });
+			}}
+		/>
+	</div>
+	<a class="local-link" href="/near">{tr('nav.near')}</a>
+</section>
 
 {#snippet eventItem(e: WorldEvent)}
 	<li>
@@ -739,6 +757,10 @@
 				<h2 id="point-title" class="eyebrow">{tr('point.title')}</h2>
 				{#if world}
 					<p class="said">{said.join(' ')}</p>
+					{#if world.generated != null}
+						<p class="stamp">{tr('home.asOf')} <Time {lang} unix={world.generated} /></p>
+					{/if}
+					{#if worldStatus === 'failed'}<p class="hint">{tr('home.refreshFailed')}</p>{/if}
 					{#if world.missing.length}
 						<p class="hint">
 							{tr('point.missing', {
@@ -896,7 +918,7 @@
 							title={tr('levels.toggle', { level: t(lang, `level.${level}` as Key) })}
 							onclick={() => (levels.has(level) ? levels.delete(level) : levels.add(level))}
 						>
-							<span class="n data">{levelCounts[level]}</span>
+							<span class="n data">{world ? levelCounts[level] : '–'}</span>
 							<span class="t">{t(lang, `level.${level}` as Key)}</span>
 						</button>
 					{/each}
@@ -996,6 +1018,57 @@
 </div>
 
 <style>
+	.briefing {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(240px, 24rem) auto;
+		align-items: center;
+		gap: 1rem 2rem;
+		padding: clamp(1rem, 2vw, 2rem) var(--gutter-r) clamp(1rem, 2vw, 2rem) var(--gutter);
+		border-bottom: 1px solid var(--line);
+		background: linear-gradient(108deg, var(--accent-soft), var(--surface) 72%);
+	}
+	.brief-title h1 {
+		font: 700 clamp(1.8rem, 3vw, 3rem)/1 var(--font-display);
+		margin: 0;
+	}
+	.brief-title p,
+	.stamp {
+		color: var(--muted);
+		margin: 0.4rem 0 0;
+	}
+	.lookup {
+		position: relative;
+	}
+	.lookup :global(.results) {
+		position: absolute;
+		z-index: 5;
+		top: 100%;
+		inset-inline: 0;
+		max-height: 40vh;
+		overflow-y: auto;
+	}
+	.local-link {
+		color: var(--accent);
+		font-weight: 600;
+	}
+	.stamp {
+		font-size: 0.875rem;
+	}
+	.point {
+		padding: 1rem;
+		border: 1px solid var(--line);
+		border-top: 3px solid var(--accent);
+		border-radius: var(--radius);
+	}
+	@media (max-width: 720px) {
+		.briefing {
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 0.75rem 1rem;
+		}
+		.brief-title {
+			grid-column: 1/-1;
+		}
+	}
 	.said {
 		font-family: var(--font-display);
 		font-weight: 600;

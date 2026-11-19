@@ -1,0 +1,1 @@
+- Search for a town directly from the map, open its local weather and warnings, and see when the map bulletin was issued. Unavailable event counts stay unknown.
