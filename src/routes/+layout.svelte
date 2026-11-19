@@ -172,6 +172,9 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 	}
+	nav a[aria-current='page'] {
+		box-shadow: inset 0 -2px var(--accent);
+	}
 	nav .short {
 		display: none;
 	}
@@ -232,12 +235,18 @@
 	/* Every tab stays in sight on a phone: they wrap, on two lines from 320 px. */
 	@media (max-width: 640px) {
 		nav {
-			margin-left: 0;
+			grid-column: 1 / -1;
+			grid-row: 2;
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 			width: 100%;
+			margin: 0;
 		}
 		nav a {
-			white-space: nowrap;
-			padding: 6px;
+			text-align: center;
+			align-content: center;
+			min-height: 2.5rem;
+			padding: 4px 2px;
 		}
 		nav .long {
 			display: none;
@@ -246,12 +255,17 @@
 			display: inline;
 		}
 		.tools {
-			position: absolute;
-			right: var(--gutter-r);
-			top: max(10px, env(safe-area-inset-top, 0px));
+			justify-self: end;
+			grid-row: 1;
+			grid-column: 2;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 2px;
 		}
 		.top {
-			position: relative;
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 6px;
 		}
 	}
 	/* The tools sit over the brand's line: below 360 px, the logo leaves them its room. */
