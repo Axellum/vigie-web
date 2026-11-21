@@ -28,7 +28,7 @@
   },
   "comparison": {
     "status": "ok",
-    "wind_model": "open_meteo_arome_france",
+    "wind_model": "Open-Meteo hourly wind forecast",
     "forecast_time_utc": 1794744000,
     "model_wind_speed_kmh": 14.0,
     "speed_diff_kmh": 4.0,

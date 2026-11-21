@@ -9,6 +9,7 @@
 		stationSpeedDiffText,
 		stationText,
 		stationWindText,
+		windModelLabel,
 		type SpotStationReading
 	} from '#lib/stations.js';
 	import { compass, hourLabel, surfText } from '#lib/surf.js';
@@ -127,7 +128,10 @@
 					{#if c.status === 'ok'}
 						<p class="small">
 							{#if c.windModel && c.forecastTimeUtc != null}
-								{t('compareModel', { model: c.windModel, time: hourLabel(lang, c.forecastTimeUtc) })} ·
+								{t('compareModel', {
+									model: windModelLabel(lang, c.windModel),
+									time: hourLabel(lang, c.forecastTimeUtc)
+								})} ·
 							{/if}
 							{#if c.modelWindSpeedKmh != null}
 								<span class="data">{stationWindText(lang, c.modelWindSpeedKmh, windUnit)}</span>

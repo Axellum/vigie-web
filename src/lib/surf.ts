@@ -655,16 +655,16 @@ const RULES_FR: Record<Criterion | 'best_slot', [string, string]> = {
 		'sous 8 s : 0 ; de 8 à 11 s : 1 ; 11 s et plus : 2'
 	],
 	swell_direction: [
-		'angle between where the swell comes from and the facing of the spot: up to 30 degrees: 2; up to 60: 1; more: 0',
-		'angle entre la direction d’où vient la houle et celle vers laquelle la plage regarde : jusqu’à 30° : 2 ; jusqu’à 60° : 1 ; au-delà : 0'
+		'angle between where the swell comes from and `best_swell_from_deg` when given, else the facing of the spot: up to 30 degrees: 2; up to 60: 1; more: 0',
+		'angle entre la direction d’où vient la houle et la meilleure direction de houle du spot quand elle est connue, sinon celle vers laquelle la plage regarde : jusqu’à 30° : 2 ; jusqu’à 60° : 1 ; au-delà : 0'
 	],
 	wind: [
 		'under 10 km/h: 2; offshore (from the land side, within 45 degrees) under 35 km/h: 2; cross-shore under 20 km/h: 1; anything else: 0',
 		'moins de 10 km/h : 2 ; de terre (du côté de la terre, à 45° près) sous 35 km/h : 2 ; parallèle à la côte sous 20 km/h : 1 ; sinon : 0'
 	],
 	tide: [
-		'2 when the tide stage is the one the spot works best with, 0 otherwise; left out while that is unknown (every spot today)',
-		'2 quand la marée est dans le tiers où le spot marche le mieux, 0 sinon ; laissée de côté tant que ce tiers est inconnu (pour tous les spots aujourd’hui)'
+		'2 when the tide stage is the one the spot works best with (or `best_tide` is `any`), 0 otherwise; left out while that is unknown (every spot today, unless `best_tide` is given)',
+		'2 quand la marée est dans le tiers où le spot marche le mieux (ou quand il marche à toute marée), 0 sinon ; laissée de côté tant que ce tiers est inconnu (pour tous les spots aujourd’hui, sauf ceux dont on connaît la marée préférée)'
 	],
 	best_slot: [
 		'the daylight hour of the next 72 with the most points for what could be scored, at least three criteria; the first on a tie',
