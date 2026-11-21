@@ -1,8 +1,16 @@
 // The rain radar of a map: the images of the last half hour, the one shown, the animation. Kept apart from the page that shows
-// the map, as `tideLayer`. It asks the site for the list of images (`/data/radar.json`) only while the card is open and the map
-// is on France, and not again before `RADAR_REFRESH_MS`: an image comes every 5 minutes, and one request a visit is enough.
+// the map, as `tideLayer`. It asks the site for the list of images of the area in view (`/data/radar.json?area=`) only while the
+// card is open and the map is on an area the radar covers, and not again before `RADAR_REFRESH_MS`: an image comes every 5
+// minutes, and one request a visit is enough. The list of another area is dropped when the map moves there.
 import type { Box } from './geo';
-import { RADAR_REFRESH_MS, radarInView, radarTiles, type Radar, type RadarOnMap } from './radar';
+import {
+	RADAR_REFRESH_MS,
+	radarAreaOf,
+	radarTiles,
+	type Radar,
+	type RadarArea,
+	type RadarOnMap
+} from './radar';
 
 const RETRY_MS = 60_000;
 /** The time an image stays on screen while playing, and the last one (the present) a little longer. */
@@ -12,7 +20,7 @@ const LAST_STEP_MS = 1500;
 export class RadarLayer {
 	/** The card is open (the rain is drawn); a reader can fold it away. */
 	open = $state(true);
-	data = $state<Radar | null>(null);
+	#loaded = $state<{ area: RadarArea; radar: Radar } | null>(null);
 	status = $state<'idle' | 'loading' | 'ok' | 'failed'>('idle');
 	/** The image chosen with the slider or by the animation; null follows the newest. */
 	#chosen = $state<number | null>(null);
@@ -24,14 +32,18 @@ export class RadarLayer {
 	#at = 0;
 	#timer: ReturnType<typeof setTimeout> | null = null;
 
-	/** The map is on France, close enough for the tiles: the card is shown. */
-	readonly inFrance = $derived(radarInView(this.#view, this.#zoom, this.data?.minZoom ?? 3));
+	/** The area the map is on, close enough for the tiles: the card is shown for it (null: no card). */
+	readonly area = $derived(radarAreaOf(this.#view, this.#zoom, this.#loaded?.radar.minZoom ?? 3));
+	/** The map is on an area of the radar. */
+	readonly covered = $derived(this.area !== null);
+	/** The images of the area in view; null while they are asked, and for the images of another area. */
+	readonly data = $derived(this.#loaded && this.#loaded.area === this.area ? this.#loaded.radar : null);
 	/** The card has something to say or show. */
 	readonly shown = $derived(
-		this.inFrance && this.status !== 'idle' && (this.data !== null || this.status === 'failed')
+		this.covered && this.status !== 'idle' && (this.data !== null || this.status === 'failed')
 	);
-	/** Wants the images: asked once the map is on France (and the card not folded away). */
-	readonly wanted = $derived(this.open && this.inFrance);
+	/** Wants the images: asked once the map is on an area of the radar (and the card not folded away). */
+	readonly wanted = $derived(this.open && this.covered);
 
 	readonly index = $derived.by(() => {
 		const frames = this.data?.frames ?? [];
@@ -43,9 +55,10 @@ export class RadarLayer {
 	/** What the map draws (`credit`: the short credit of the radar for the map's attribution); null when nothing is to be seen. */
 	onMap(credit: string): RadarOnMap | null {
 		const d = this.data;
-		if (!d || !this.open || !this.inFrance || this.epoch === null) return null;
+		const area = this.area;
+		if (!d || !area || !this.open || this.epoch === null) return null;
 		return {
-			frames: d.frames.map((epoch) => ({ epoch, tiles: radarTiles(epoch) })),
+			frames: d.frames.map((epoch) => ({ epoch, tiles: radarTiles(area, epoch) })),
 			active: this.epoch,
 			preload: this.preload,
 			minZoom: d.minZoom,
@@ -58,7 +71,7 @@ export class RadarLayer {
 	move(view: Box | null, zoom: number) {
 		this.#view = view;
 		this.#zoom = zoom;
-		if (!this.inFrance) this.pause();
+		if (!this.covered) this.pause();
 	}
 
 	choose(index: number) {
@@ -98,26 +111,33 @@ export class RadarLayer {
 
 	/** Load the list of images when it is missing or old. Call it from an effect of the page, and from a timer. */
 	sync() {
-		if (!this.wanted || this.status === 'loading') return;
+		const area = this.area;
+		if (!this.wanted || area === null || this.status === 'loading') return;
 		if (typeof document !== 'undefined' && document.hidden) return;
+		// The images held are those of another area (or none): ask for this one now.
+		if (this.#loaded?.area !== area) return void this.#load(area);
 		const wait = this.status === 'failed' ? RETRY_MS : RADAR_REFRESH_MS;
-		if (this.status === 'idle' || Date.now() - this.#at > wait) void this.#load();
+		if (this.status === 'idle' || Date.now() - this.#at > wait) void this.#load(area);
 	}
 
-	async #load() {
+	async #load(area: RadarArea) {
 		this.status = 'loading';
 		this.#at = Date.now();
+		this.#chosen = null;
 		try {
-			const response = await fetch('/data/radar.json');
+			const response = await fetch(`/data/radar.json?area=${area}`);
 			if (!response.ok) throw new Error(String(response.status));
 			const body = (await response.json()) as Radar;
 			if (!Array.isArray(body.frames) || body.frames.length === 0) throw new Error('no image');
 			// An image that is no longer listed is not chosen any more: the slider goes back to the newest.
-			this.data = body;
+			this.#loaded = { area, radar: body };
 			this.status = 'ok';
 		} catch {
-			this.status = this.data ? 'ok' : 'failed';
-			if (this.data) this.#at = Date.now() - RADAR_REFRESH_MS + RETRY_MS;
+			const held = this.#loaded?.area === area;
+			this.status = held ? 'ok' : 'failed';
+			if (held) this.#at = Date.now() - RADAR_REFRESH_MS + RETRY_MS;
 		}
+		// The map moved to another area while the images came: ask for that one.
+		if (this.area !== area) this.sync();
 	}
 }

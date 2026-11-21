@@ -82,7 +82,7 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 }) => {
 	const asked: string[] = [];
 	page.on('request', (r) => {
-		if (/\/data\/radar\/\d+\/.*\.png$/.test(r.url())) asked.push(r.url());
+		if (/\/data\/radar\/france\/\d+\/.*\.png$/.test(r.url())) asked.push(r.url());
 	});
 	await open(page);
 	await view(page, 'France');
@@ -111,7 +111,7 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 	console.log(`radar: one animation = ${asked.length} tile requests`);
 	expect(asked.length).toBeGreaterThanOrEqual(kept.length);
 	expect(asked.length).toBeLessThan(250);
-	expect(new Set(asked.map((u) => u.split('/')[5])).size).toBe(kept.length);
+	expect(new Set(asked.map((u) => u.split('/')[6])).size).toBe(kept.length);
 });
 
 test('the card folds into a button, and the page asks the list of images once', async ({ page }) => {
@@ -170,4 +170,17 @@ test('the site relays the images and their tiles, and checks what it is asked', 
 	expect((await request.get(`/data/radar/${newest}/6/a/22.png`)).status()).toBe(404);
 	// The oldest image of the API's list, older than the 35 minutes kept, is not relayed either.
 	expect((await request.get(`/data/radar/${frames[0].epoch}/6/32/22.png`)).status()).toBe(404);
+
+	// The overseas areas: their own list (the mock derives it from France's, as the API's was not deployed when this was written) and
+	// their own tiles; an area the API does not have is a 404, like a word that is not one.
+	const antilles = await request.get('/data/radar.json?area=antilles');
+	expect(antilles.status()).toBe(200);
+	expect((await antilles.json()).bounds).toEqual([-66, 10.59, -57, 21]);
+	const antillesTile = await request.get(`/data/radar/antilles/${newest}/6/20/30.png`);
+	expect(antillesTile.status()).toBe(200);
+	expect((await antillesTile.body()).subarray(1, 4).toString()).toBe('PNG');
+	expect((await request.get(`/data/radar/france/${newest}/6/32/22.png`)).status()).toBe(200);
+	for (const bad of ['guyane', 'toString', 'FRANCE'])
+		expect((await request.get(`/data/radar.json?area=${bad}`)).status()).toBe(404);
+	expect((await request.get(`/data/radar/guyane/${newest}/6/32/22.png`)).status()).toBe(404);
 });

@@ -1,5 +1,6 @@
-// The rain radar of Météo-France over metropolitan France (vigie-api `GET /v1/radar/france`, its ADR 0030): a mosaic measured
-// every 5 minutes, drawn by the API as map tiles in intensity classes. Measured rain, never a forecast and never a warning.
+// The rain radar of Météo-France over metropolitan France and three overseas areas (vigie-api `GET /v1/radar/{area}`, its ADR 0030
+// and 0037): a mosaic measured every 5 minutes, drawn by the API as map tiles in intensity classes. Measured rain, never a forecast
+// and never a warning.
 // The site shows the last half hour as a small card on the map: a button that plays the images, a slider, the legend.
 import { boxesOverlap, type Box } from './geo';
 
@@ -8,6 +9,15 @@ export const RADAR_FRAMES = 8;
 
 /** The box of metropolitan France (the same as the "France" shortcut of the map): the radar says nothing elsewhere. */
 export const RADAR_FRANCE: Box = [-5.5, 41.2, 9.8, 51.3];
+
+/** The areas of the API's radar (`GET /v1/radar/{area}`), with the box of each mosaic's grid (the API's own boxes, its ADR 0037). */
+export type RadarArea = 'france' | 'antilles' | 'reunion' | 'new-caledonia';
+export const RADAR_AREAS: Record<RadarArea, Box> = {
+	france: RADAR_FRANCE,
+	antilles: [-66, 10.59, -57, 21],
+	reunion: [51, -25.02, 62.02, -16],
+	'new-caledonia': [159.7, -27.27, 171.58, -16.2]
+};
 
 /** The refresh of the list of images: an image comes every 5 minutes, so the list is not asked again before. */
 export const RADAR_REFRESH_MS = 300_000;
@@ -66,8 +76,13 @@ export function radarFromApi(body: unknown): Radar | null {
 	};
 }
 
+/** A radar area of the API from the text of an address; null for an unknown one. */
+export const radarAreaFrom = (value: string): RadarArea | null =>
+	Object.hasOwn(RADAR_AREAS, value) ? (value as RadarArea) : null;
+
 /** The address of the tiles of one image, on the site (it relays the API's: `/data/radar/...`). */
-export const radarTiles = (epoch: number): string => `/data/radar/${epoch}/{z}/{x}/{y}.png`;
+export const radarTiles = (area: RadarArea, epoch: number): string =>
+	`/data/radar/${area}/${epoch}/{z}/{x}/{y}.png`;
 
 /** What the map draws of the radar (`MapView`'s `radar` prop). */
 export interface RadarOnMap {
@@ -82,9 +97,24 @@ export interface RadarOnMap {
 	attribution: string;
 }
 
-/** Whether the card is worth showing: the view is on France and close enough for the tiles (they start at `minZoom`). */
-export function radarInView(view: Box | null, zoom: number, minZoom: number): boolean {
-	return view !== null && zoom >= minZoom && boxesOverlap(view, RADAR_FRANCE);
+/**
+ * The area whose radar the card shows: close enough for the tiles (they start at `minZoom`), and either on France (any overlap, as
+ * the card always did) or with the centre of the view inside an overseas mosaic (a small island in a view of a whole ocean is not
+ * worth a card). Null when the card is not shown.
+ */
+export function radarAreaOf(view: Box | null, zoom: number, minZoom: number): RadarArea | null {
+	if (view === null || zoom < minZoom) return null;
+	if (boxesOverlap(view, RADAR_FRANCE)) return 'france';
+	const [west, south, east, north] = view;
+	const lat = (south + north) / 2;
+	// A view that crosses the antimeridian has its east above 180: bring the centre back into -180..180.
+	let lon = (west + east) / 2;
+	if (lon > 180) lon -= 360;
+	for (const area of ['antilles', 'reunion', 'new-caledonia'] as const) {
+		const [w, s, e, n] = RADAR_AREAS[area];
+		if (lon >= w && lon <= e && lat >= s && lat <= n) return area;
+	}
+	return null;
 }
 
 /** A rain rate for a label: "0,1" in French, "0.1" in English; whole numbers without a decimal. */

@@ -22,7 +22,7 @@ import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
 import { avalanchesFromApi, type AvalanchesResponse } from '#lib/avalanches.js';
 import { catnatFromApi, type CatNatResponse } from '#lib/catnat.js';
 import { climateFromApi, type ClimateResponse } from '#lib/climate.js';
-import { radarFromApi, type Radar } from '#lib/radar.js';
+import { radarFromApi, type Radar, type RadarArea } from '#lib/radar.js';
 import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
@@ -476,15 +476,16 @@ export function getTideTile(level: TideLevel, x: number, y: number): Promise<Cac
 	});
 }
 
-/** The images of the rain radar of France (`/v1/radar/france`), kept 5 minutes; null when the gateway has none. */
-export async function getRadar(): Promise<Cached<Radar | null>> {
-	return cache.get('radar', TTL_S.radar * 1000, async () =>
-		radarFromApi(await getJson('/v1/radar/france', 15_000))
+/** The images of the rain radar of an area (`/v1/radar/{area}`), kept 5 minutes; null when the gateway has none. */
+export async function getRadar(area: RadarArea = 'france'): Promise<Cached<Radar | null>> {
+	return cache.get(`radar:${area}`, TTL_S.radar * 1000, async () =>
+		radarFromApi(await getJson(`/v1/radar/${area}`, 15_000))
 	);
 }
 
 /** One tile (PNG) of an image of the radar, relayed as the API sends it; null for an image the API does not list. */
 export async function getRadarTile(
+	area: RadarArea,
 	epoch: number,
 	z: number,
 	x: number,
@@ -492,7 +493,7 @@ export async function getRadarTile(
 ): Promise<Uint8Array | null> {
 	let response: Response;
 	try {
-		response = await fetch(apiUrl(`/v1/radar/france/tiles/${epoch}/${z}/${x}/${y}.png`), {
+		response = await fetch(apiUrl(`/v1/radar/${area}/tiles/${epoch}/${z}/${x}/${y}.png`), {
 			headers: { accept: 'image/png' },
 			signal: AbortSignal.timeout(15_000)
 		});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { radarFromApi, radarInView, radarTiles, radarTime, rate, RADAR_FRAMES } from './radar';
+import { radarAreaFrom, radarAreaOf, radarFromApi, radarTiles, radarTime, rate, RADAR_FRAMES } from './radar';
 
 const body = (n: number) => ({
 	status: 'ok',
@@ -42,15 +42,36 @@ describe('radar', () => {
 	});
 
 	it('addresses the tiles on the site', () => {
-		expect(radarTiles(1794995100)).toBe('/data/radar/1794995100/{z}/{x}/{y}.png');
+		expect(radarTiles('france', 1794995100)).toBe('/data/radar/france/1794995100/{z}/{x}/{y}.png');
+		expect(radarTiles('antilles', 1794995100)).toBe('/data/radar/antilles/1794995100/{z}/{x}/{y}.png');
 	});
 
-	it('shows the card on France only, close enough for the tiles', () => {
-		expect(radarInView([-6, 41, 10, 51.5], 5, 3)).toBe(true);
-		expect(radarInView([-170, -58, 190, 75], 1.4, 3)).toBe(false);
-		expect(radarInView([-6, 41, 10, 51.5], 2, 3)).toBe(false);
-		expect(radarInView([100, -10, 120, 10], 6, 3)).toBe(false);
-		expect(radarInView(null, 6, 3)).toBe(false);
+	it('knows the areas of the API and no other', () => {
+		expect(radarAreaFrom('new-caledonia')).toBe('new-caledonia');
+		expect(radarAreaFrom('france')).toBe('france');
+		for (const bad of ['', 'guyane', 'toString', '__proto__', 'FRANCE'])
+			expect(radarAreaFrom(bad)).toBeNull();
+	});
+
+	it('shows the card on France, or on an overseas area the view is centred on, close enough for the tiles', () => {
+		expect(radarAreaOf([-6, 41, 10, 51.5], 5, 3)).toBe('france');
+		expect(radarAreaOf([-170, -58, 190, 75], 1.4, 3)).toBeNull();
+		expect(radarAreaOf([-6, 41, 10, 51.5], 2, 3)).toBeNull();
+		expect(radarAreaOf([100, -10, 120, 10], 6, 3)).toBeNull();
+		expect(radarAreaOf(null, 6, 3)).toBeNull();
+		// Martinique and Guadeloupe, La Reunion, Noumea.
+		expect(radarAreaOf([-62.5, 14, -60.5, 16.5], 7, 3)).toBe('antilles');
+		expect(radarAreaOf([55, -21.5, 56, -20.8], 9, 3)).toBe('reunion');
+		expect(radarAreaOf([166, -23, 167, -22], 9, 3)).toBe('new-caledonia');
+		// A view of the whole western Pacific, whose centre is in no mosaic, shows no card, and neither does one too far out.
+		expect(radarAreaOf([110, -48, 180, 40], 3.5, 3)).toBeNull();
+		expect(radarAreaOf([55, -21.5, 56, -20.8], 2, 3)).toBeNull();
+		// Cayenne, Mayotte and Papeete have no mosaic.
+		expect(radarAreaOf([-52.5, 4.5, -52, 5.2], 9, 3)).toBeNull();
+		expect(radarAreaOf([45, -13, 45.4, -12.6], 9, 3)).toBeNull();
+		expect(radarAreaOf([-149.7, -17.7, -149.3, -17.4], 9, 3)).toBeNull();
+		// A view whose longitudes run past 180 (a map panned round the world) still finds the Antilles.
+		expect(radarAreaOf([295, 14, 299, 17], 7, 3)).toBe('antilles');
 	});
 
 	it('writes rates and times in the language and time zone of the reader', () => {
