@@ -77,3 +77,37 @@ test('knots and "on" are kept for the next visit; the card turns the wind off', 
 	await expect(card(page)).toHaveCount(0);
 	await expect(badges(page)).toHaveCount(0);
 });
+
+// 2026-11-22: past zoom 6 the badges grow and are drawn again; the class written over took MapLibre's off them, and
+// they left their station as the map moved. Every badge stays a placed marker, zoomed in and in knots.
+test('badges stay on their station when the map zooms in and the unit changes', async ({ page }) => {
+	await open(page);
+	await page.getByRole('button', { name: 'France', exact: true }).click();
+	await toggle(page).check();
+	await expect.poll(async () => badges(page).count(), { timeout: 15_000 }).toBeGreaterThan(60);
+	const unplaced = () =>
+		page.evaluate(
+			() =>
+				[...document.querySelectorAll('[data-testid="wind-badge"]')].filter(
+					(e) => !e.classList.contains('maplibregl-marker') || getComputedStyle(e).position !== 'absolute'
+				).length
+		);
+	const zoomIn = page.locator('.maplibregl-ctrl-zoom-in');
+	for (let i = 0; i < 3; i++) {
+		await zoomIn.click();
+		await page.waitForTimeout(600);
+	}
+	await expect
+		.poll(async () =>
+			badges(page)
+				.first()
+				.evaluate((e) => e.style.getPropertyValue('--r'))
+		)
+		.not.toBe('10px');
+	expect(await badges(page).count()).toBeGreaterThan(0);
+	expect(await unplaced()).toBe(0);
+
+	await card(page).getByRole('button', { name: 'nœuds' }).click();
+	await expect(badges(page).first()).toHaveAttribute('aria-label', /nœuds/);
+	expect(await unplaced()).toBe(0);
+});

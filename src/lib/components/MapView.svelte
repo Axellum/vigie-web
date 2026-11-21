@@ -794,10 +794,14 @@
 			const key = [p.kmh, p.gustKmh, p.fromDeg, p.measured, unit, radius, lang].join('|');
 			const known = windMarkers.get(id);
 			if (known?.key === key) continue;
+			// A badge drawn again (zoom, unit, new measure) keeps its element: MapLibre has added its own classes to it
+			// (`maplibregl-marker`, absolute position), so its class is set once, never written over.
 			const el = known?.el ?? document.createElement('button');
-			el.type = 'button';
-			el.className = 'vigie-wind';
-			el.dataset.testid = 'wind-badge';
+			if (!known) {
+				el.type = 'button';
+				el.classList.add('vigie-wind');
+				el.dataset.testid = 'wind-badge';
+			}
 			el.setAttribute('aria-label', `${windName(p)} : ${windLines(p).slice(0, -1).join(', ')}`);
 			el.innerHTML =
 				windBadgeSvg(p, unit, radius) +
@@ -1120,8 +1124,8 @@
 		color: var(--accent);
 		border-color: var(--accent);
 	}
+	/* No `position` here: the marker of MapLibre is absolute, which also places the gust. */
 	:global(.vigie-wind) {
-		position: relative;
 		display: block;
 		padding: 0;
 		border: 0;
