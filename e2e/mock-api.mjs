@@ -57,9 +57,34 @@ const radarEpochs = new Set(
 	JSON.parse(readFileSync(join(dir, 'radar-france.json'), 'utf-8')).frames.map((f) => String(f.epoch))
 );
 
+// The overseas areas of the radar (the API's ADR 0037) were not recorded (not deployed yet): their list is the France one with the box
+// and the tile address of the area, and their tiles are the same recorded tile.
+const radarOverseas = {
+	antilles: [-66, 10.59, -57, 21],
+	reunion: [51, -25.02, 62.02, -16],
+	'new-caledonia': [159.7, -27.27, 171.58, -16.2]
+};
+
 createServer((req, res) => {
 	const url = new URL(req.url, 'http://mock');
-	const tile = /^\/v1\/radar\/france\/tiles\/(\d+)\/\d+\/\d+\/\d+\.png$/.exec(url.pathname);
+	const area = /^\/v1\/radar\/(antilles|reunion|new-caledonia)$/.exec(url.pathname)?.[1];
+	if (area) {
+		const list = read('radar-france.json');
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(
+			JSON.stringify({
+				...list,
+				area,
+				bounds: radarOverseas[area],
+				tile_url_template: `/v1/radar/${area}/tiles/{epoch}/{z}/{x}/{y}.png`
+			})
+		);
+		return;
+	}
+	const tile =
+		/^\/v1\/radar\/(?:france|antilles|reunion|new-caledonia)\/tiles\/(\d+)\/\d+\/\d+\/\d+\.png$/.exec(
+			url.pathname
+		);
 	if (tile) {
 		if (!radarEpochs.has(tile[1])) {
 			res.writeHead(404, { 'content-type': 'application/json' });

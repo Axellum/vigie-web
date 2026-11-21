@@ -246,11 +246,12 @@
 	const tides = new TideLayer();
 	$effect(() => tides.move(view, zoom));
 
-	// --- the rain radar of France (a card over the map, on while the map is on France) ---------------------------
+	// --- the rain radar (a card over the map, on while the map is on France or an overseas area it covers) ---------------------------
 	const radar = new RadarLayer();
 	$effect(() => radar.move(view, zoom));
 	$effect(() => {
 		void radar.wanted;
+		void radar.area; // another area: its images are asked now
 		untrack(() => radar.sync());
 	});
 	// An image comes every 5 minutes: the list is asked again then, not before (`RadarLayer.sync` keeps the delay).
@@ -987,7 +988,7 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
-			{#if radar.open && radar.inFrance && radar.data?.attribution}<p class="credit">
+			{#if radar.open && radar.covered && radar.data?.attribution}<p class="credit">
 					{radar.data.attribution}
 				</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
