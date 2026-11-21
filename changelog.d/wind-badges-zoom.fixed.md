@@ -1,0 +1,1 @@
+- The badges of the measured wind no longer leave their station once the map is zoomed in past the country view or the unit changes.
