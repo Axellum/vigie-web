@@ -11,9 +11,11 @@
 	import FireDetails from '#lib/components/FireDetails.svelte';
 	import TideSection from '#lib/components/TideSection.svelte';
 	import RadarCard from '#lib/components/RadarCard.svelte';
+	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
+	import { WindLayer } from '#lib/windLayer.svelte.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -260,6 +262,21 @@
 		return () => clearInterval(timer);
 	});
 	$effect(() => () => radar.pause());
+
+	// --- the measured wind (stations and buoys; off until the visitor turns it on, the choice kept in this browser) ----------
+	const wind = new WindLayer();
+	onMount(() => wind.restore());
+	$effect(() => wind.move(view, zoom));
+	$effect(() => {
+		void wind.on;
+		void view;
+		untrack(() => wind.sync());
+	});
+	// A new observation comes every 6 minutes: `WindLayer.sync` asks again then, not before.
+	$effect(() => {
+		const timer = setInterval(() => wind.sync(), 60_000);
+		return () => clearInterval(timer);
+	});
 	$effect(() => {
 		void tides.keys;
 		untrack(() => tides.sync());
@@ -966,6 +983,15 @@
 					{/if}
 				{/if}
 				<label class="check">
+					<input type="checkbox" bind:checked={wind.on} data-testid="wind-toggle" />
+					<span class="swatch wind" aria-hidden="true"></span>
+					{tr('wind.toggle')}
+				</label>
+				{#if wind.on}
+					<p class="hint">{tr('wind.hint')}</p>
+					<p class="hint">{tr('wind.note')}</p>
+				{/if}
+				<label class="check">
 					<input type="checkbox" bind:checked={tides.on} />
 					<span class="swatch tide" aria-hidden="true"></span>
 					{tr('tide.toggle')}
@@ -988,6 +1014,7 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
+			{#if wind.on && wind.data?.attribution}<p class="credit">{wind.data.attribution}</p>{/if}
 			{#if radar.open && radar.covered && radar.data?.attribution}<p class="credit">
 					{radar.data.attribution}
 				</p>{/if}
@@ -1006,6 +1033,7 @@
 			{fires}
 			tides={tides.features}
 			radar={radar.onMap(tr('radar.credit'))}
+			wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {
@@ -1014,6 +1042,7 @@
 			}}
 		/>
 		<RadarCard {lang} {radar} />
+		<WindCard {lang} {wind} />
 	</div>
 </div>
 
@@ -1325,6 +1354,9 @@
 	}
 	.swatch.tide {
 		background: var(--accent);
+	}
+	.swatch.wind {
+		background: var(--wind-3);
 	}
 	.list {
 		display: flex;

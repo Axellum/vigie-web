@@ -48,6 +48,13 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   site's rate limit does not count `.png`), so a visitor's requests go to the site, never to the API's rate-limited front.
   The map draws only the image shown until the first Play or slider move, then loads the 8 images (about 20 tiles each over
   a screen) so the animation does not wait. Measured rain, not a forecast.
+- **Measured wind** (Météo-France, through the API: `GET /v1/stations/wind` for the ground stations, `GET /v1/sea/buoys` for
+  the offshore buoys), a layer of the map, off until the visitor turns it on (`src/lib/wind.ts`, `windLayer.svelte.ts`,
+  `components/WindCard.svelte`): a round badge per station, a square per buoy, the mean wind in km/h or knots, a beak toward
+  where the wind goes, the gust in small when it is 15 km/h or more above the mean, a popup with the details. Where badges
+  would touch, the strongest is kept (`declutter`, every station counts, summits too). The site reads the whole list once
+  every 3 minutes for every visitor and serves a view from it (`/data/wind.json?bbox=` in whole degrees). Whether the layer
+  is on and the unit stay in the browser (`localStorage`, `vigie-wind-map`). Measured wind, not a forecast.
 - **Covered countries.** Which countries have official warnings is the API's answer
   (`/v1/vigilances/countries`, cached 10 minutes), given with the pages that need it (the world map, near me,
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the

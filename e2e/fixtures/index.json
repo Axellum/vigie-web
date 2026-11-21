@@ -1,6 +1,7 @@
 {
  "recorded_utc": 1792505613,
  "recorded": {
+  "stations-wind.json": 1795299120,
   "point.json": 1792528658,
   "vigilances-countries.json": 1792782589,
   "warnings-MX.json": 1792522808,
@@ -111,7 +112,8 @@
   "/v1/avalanches?bra": "avalanches-chamonix.json",
   "/v1/sea/buoys": "sea-buoys.json",
   "/v1/climate/normals?fr": "climate-corte.json",
-  "/v1/radar/france": "radar-france.json"
+  "/v1/radar/france": "radar-france.json",
+  "/v1/stations/wind": "stations-wind.json"
  },
  "added": {
   "/v1/geojson/hazards": [

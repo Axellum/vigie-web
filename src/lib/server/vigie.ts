@@ -28,6 +28,7 @@ import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
 import { seaBuoysFromApi, type SeaBuoys } from '#lib/sea/buoys.js';
+import { windStationsFromApi, type WindPoint } from '#lib/wind.js';
 import {
 	collectNamedIds,
 	isPlaceId,
@@ -143,7 +144,9 @@ export const TTL_S = {
 	seaPlaceIds: 21_600,
 	// The radar sends an image every 5 minutes; the list is not asked again before. A tile of an image never changes.
 	radar: 300,
-	radarTile: 86_400
+	radarTile: 86_400,
+	// The stations' wind: a new 6-minute package; the whole list is read once for every visitor, and a view cut from it.
+	stationWind: 180
 } as const;
 
 const cache = new TtlCache();
@@ -636,6 +639,23 @@ export async function getSeaPlace(id: string): Promise<Cached<SeaPlaceAnswer> | 
 		if (e instanceof ApiError && e.status === 404) return null;
 		throw e;
 	}
+}
+
+/**
+ * The wind measured now by every Météo-France ground station (`/v1/stations/wind` over the whole world: a single answer for
+ * every view, cut by `/data/wind.json`). Null when the API has no such route (an older API): the map then shows the buoys only.
+ */
+export function getStationWind(): Promise<
+	Cached<{ points: WindPoint[]; stale: boolean; attribution: string | null } | null>
+> {
+	return cache.get('station-wind', TTL_S.stationWind * 1000, async () => {
+		try {
+			return windStationsFromApi(await getJson('/v1/stations/wind?bbox=-180,-90,180,90&limit=5000', 15_000));
+		} catch (e) {
+			if (e instanceof ApiError && e.status === 404) return null;
+			throw e;
+		}
+	});
 }
 
 /** The ids of the places that have a name (the sitemap): every kind, page by page, or an error if one page cannot be read. */

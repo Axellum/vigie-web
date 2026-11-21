@@ -17,6 +17,12 @@
 	--fire: #d63d12;
 	--map-land: #f4f3ee;
 	--map-water: #c9d9e3;
+	--wind-1: #8fc3a6;
+	--wind-2: #3f9fb8;
+	--wind-3: #2f5fa8;
+	--wind-4: #6b3fa0;
+	--wind-5: #b0287a;
+	--on-wind-1: #12222c;
 	--on-sev: #ffffff;
 	--on-yellow: #2a2200;
 	/* Nothing in force: a calm word, darker than the level green so that it reads on the surface. */
@@ -54,6 +60,12 @@
 		--fire: #ff6a3d;
 		--map-land: #1b2a33;
 		--map-water: #0a141b;
+		--wind-1: #7cc39b;
+		--wind-2: #3a9bb5;
+		--wind-3: #4f7fd0;
+		--wind-4: #8d5fcf;
+		--wind-5: #d04a8c;
+		--on-wind-1: #0c151b;
 		--on-sev: #0c151b;
 		--on-yellow: #1d1800;
 		--calm-ink: #58c178;
@@ -82,6 +94,12 @@
 	--fire: #ff6a3d;
 	--map-land: #1b2a33;
 	--map-water: #0a141b;
+	--wind-1: #7cc39b;
+	--wind-2: #3a9bb5;
+	--wind-3: #4f7fd0;
+	--wind-4: #8d5fcf;
+	--wind-5: #d04a8c;
+	--on-wind-1: #0c151b;
 	--on-sev: #0c151b;
 	--on-yellow: #1d1800;
 	--calm-ink: #58c178;

@@ -21,6 +21,17 @@
 	import { circleRing, type Place } from '#lib/near.js';
 	import type { Hazard } from '#lib/types.js';
 	import type { RadarOnMap } from '#lib/radar.js';
+	import { compass } from '#lib/surf.js';
+	import {
+		badgeRadius,
+		declutter,
+		gustShown,
+		windBadgeSvg,
+		windTime,
+		windValue,
+		type WindOnMap,
+		type WindPoint
+	} from '#lib/wind.js';
 
 	interface Props {
 		lang: Lang;
@@ -48,6 +59,8 @@
 		/** The rain radar: the images to draw (only the active one, or all of them once `preload` is set, so that a slider and an
 		 * animation do not wait for tiles), drawn under the labels of the base map. Null: no radar. */
 		radar?: RadarOnMap | null;
+		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch. Null: no wind. */
+		wind?: WindOnMap | null;
 		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
 		spots?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
@@ -72,6 +85,7 @@
 		eclipse = null,
 		tides = null,
 		radar = null,
+		wind = null,
 		spots = null,
 		onselect,
 		onmove,
@@ -695,6 +709,114 @@
 		applySelection();
 	}
 
+	// The measured wind: HTML badges, laid out again after each move (the strongest first, `declutter`). A badge opens a popup
+	// with the station's details. Kept apart from the hazard markers, which stay on the map whatever the zoom.
+	const windMarkers = new Map<string, { marker: Marker; el: HTMLButtonElement; key: string }>();
+	let windPopup: import('maplibre-gl').Popup | null = null;
+
+	const escapeHtml = (text: string) =>
+		text.replace(
+			/[&<>"']/g,
+			(ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!
+		);
+
+	function windSpeed(kmh: number) {
+		const unit = wind?.unit ?? 'kmh';
+		return tr('wind.speed', {
+			value: String(windValue(kmh, unit)),
+			unit: tr(unit === 'kn' ? 'wind.kn' : 'wind.kmh')
+		});
+	}
+
+	function windName(p: WindPoint) {
+		if (p.buoy) return tr('wind.buoyName', { name: p.name ?? '' });
+		return p.name ?? tr('wind.noName');
+	}
+
+	function windLines(p: WindPoint): string[] {
+		const time = windTime(lang, p.measured);
+		return [
+			p.fromDeg === null
+				? tr('wind.calm', { speed: windSpeed(p.kmh) })
+				: tr('wind.from', { speed: windSpeed(p.kmh), dir: compass(lang, p.fromDeg) }),
+			...(p.gustKmh !== null ? [tr('wind.gusts', { speed: windSpeed(p.gustKmh) })] : []),
+			p.buoy
+				? tr('wind.buoy', { time })
+				: p.altM !== null
+					? tr('wind.station', { alt: String(p.altM), time })
+					: tr('wind.stationNoAlt', { time })
+		];
+	}
+
+	function openWindPopup(p: WindPoint, radius: number) {
+		if (!map || !ml) return;
+		windPopup?.remove();
+		const [first, ...rest] = windLines(p);
+		const html =
+			`<strong>${escapeHtml(windName(p))}</strong><span>${escapeHtml(first)}</span>` +
+			rest
+				.map((line, i) => `<span${i === rest.length - 1 ? ' class="muted"' : ''}>${escapeHtml(line)}</span>`)
+				.join('');
+		windPopup = new ml.Popup({ offset: radius + 4, className: 'vigie-wind-popup', maxWidth: '260px' })
+			.setLngLat([p.lon, p.lat])
+			.setHTML(html)
+			.addTo(map);
+	}
+
+	function syncWind() {
+		if (!map || !ml) return;
+		const points = wind?.points ?? [];
+		if (!wind) {
+			windPopup?.remove();
+			windPopup = null;
+		}
+		const radius = badgeRadius(map.getZoom());
+		const { clientWidth: w, clientHeight: h } = map.getContainer();
+		const kept = declutter(
+			points,
+			(p) => {
+				const xy = map!.project([p.lon, p.lat]);
+				return xy.x < -radius || xy.y < -radius || xy.x > w + radius || xy.y > h + radius
+					? null
+					: [xy.x, xy.y];
+			},
+			radius
+		);
+		const wanted = new Map(kept.map((k) => [k.point.id, k.point]));
+		for (const [id, m] of windMarkers) {
+			if (!wanted.has(id)) {
+				m.marker.remove();
+				windMarkers.delete(id);
+			}
+		}
+		const unit = wind?.unit ?? 'kmh';
+		for (const [id, p] of wanted) {
+			const key = [p.kmh, p.gustKmh, p.fromDeg, p.measured, unit, radius, lang].join('|');
+			const known = windMarkers.get(id);
+			if (known?.key === key) continue;
+			const el = known?.el ?? document.createElement('button');
+			el.type = 'button';
+			el.className = 'vigie-wind';
+			el.dataset.testid = 'wind-badge';
+			el.setAttribute('aria-label', `${windName(p)} : ${windLines(p).slice(0, -1).join(', ')}`);
+			el.innerHTML =
+				windBadgeSvg(p, unit, radius) +
+				(gustShown(p) ? `<span class="gust">${windValue(p.gustKmh as number, unit)}</span>` : '');
+			el.style.setProperty('--r', `${radius}px`);
+			el.onclick = (event) => {
+				event.stopPropagation();
+				openWindPopup(p, radius);
+			};
+			if (known) known.key = key;
+			else
+				windMarkers.set(id, {
+					el,
+					key,
+					marker: new ml.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map)
+				});
+		}
+	}
+
 	function view(): Box {
 		const b = map!.getBounds();
 		return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
@@ -821,7 +943,10 @@
 						onpick?.({ lat: at.lat, lon: at.lng });
 					});
 				}
-				map.on('moveend', () => onmove?.(view(), map!.getZoom()));
+				map.on('moveend', () => {
+					onmove?.(view(), map!.getZoom());
+					syncWind();
+				});
 				map.once('idle', () => (drawn = true));
 				map.on('load', () => {
 					syncMarkers();
@@ -887,6 +1012,11 @@
 	$effect(() => {
 		void radar;
 		if (ready) syncRadar();
+	});
+	$effect(() => {
+		void wind;
+		void lang;
+		if (ready) syncWind();
 	});
 	$effect(() => {
 		void spots;
@@ -989,6 +1119,64 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 		border-color: var(--accent);
+	}
+	:global(.vigie-wind) {
+		position: relative;
+		display: block;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: pointer;
+		font-family: var(--font-body);
+		line-height: 0;
+	}
+	:global(.vigie-wind svg) {
+		display: block;
+		filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.3));
+	}
+	:global(.vigie-wind .gust) {
+		position: absolute;
+		left: calc(50% + var(--r) * 0.55);
+		top: calc(50% - var(--r) * 1.25);
+		font-size: calc(var(--r) * 0.7);
+		font-weight: 700;
+		line-height: 1;
+		color: var(--ink);
+		text-shadow:
+			0 0 2px var(--surface),
+			0 0 2px var(--surface),
+			0 0 3px var(--surface);
+		pointer-events: none;
+	}
+	:global(.vigie-wind:focus-visible) {
+		outline: 2px solid var(--accent);
+		outline-offset: 1px;
+		border-radius: 50%;
+	}
+	:global(.vigie-wind-popup .maplibregl-popup-content) {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 8px 26px 8px 10px;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		font: 13px/1.35 var(--font-body);
+	}
+	:global(.vigie-wind-popup .maplibregl-popup-content strong) {
+		font-size: 14px;
+	}
+	:global(.vigie-wind-popup .muted) {
+		color: var(--muted);
+		font-size: 12px;
+	}
+	:global(.vigie-wind-popup .maplibregl-popup-tip) {
+		display: none;
+	}
+	:global(.vigie-wind-popup .maplibregl-popup-close-button) {
+		color: var(--muted);
+		font-size: 18px;
 	}
 	:global(.vigie-marker) {
 		width: 28px;
