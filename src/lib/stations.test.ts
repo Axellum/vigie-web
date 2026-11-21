@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { spotStationFromApi, stationSpeedDiffText, stationText, stationWindText } from './stations';
+import {
+	spotStationFromApi,
+	stationSpeedDiffText,
+	stationText,
+	stationWindText,
+	windModelLabel
+} from './stations';
 
 const fixture = (name: string) =>
 	JSON.parse(readFileSync(join(import.meta.dirname, '..', '..', 'e2e', 'fixtures', name), 'utf-8'));
@@ -55,5 +61,14 @@ describe('coastal 6-minute Météo-France station', () => {
 		expect(stationText('en', 'title')).toContain('6 min');
 		expect(stationText('fr', 'comparable', { max: 25 })).toContain('25 km');
 		expect(stationText('en', 'noCurrentReading', { hours: 3 })).toContain('3 h');
+	});
+});
+
+describe('windModelLabel', () => {
+	it('says in French the forecast the recorded answer compares with, and leaves an unknown one as the API gives it', () => {
+		const model = fixture('surf-station-hossegor.json').comparison.wind_model as string;
+		expect(windModelLabel('fr', model)).not.toBe(model);
+		expect(windModelLabel('en', model)).toBe(model);
+		expect(windModelLabel('fr', 'Some new model')).toBe('Some new model');
 	});
 });

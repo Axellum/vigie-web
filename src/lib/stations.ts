@@ -239,6 +239,16 @@ const TEXT = {
 
 export type StationTextKey = keyof (typeof TEXT)['fr'];
 
+/** The API names in English the forecast it compares the station with; these are their French while they are those words. */
+const WIND_MODELS_FR: Record<string, string> = {
+	'Open-Meteo hourly wind forecast': 'du vent heure par heure d’Open-Meteo'
+};
+
+/** The forecast the station is compared with, in the reader's language when the API's words are known, else as the API gives them. */
+export function windModelLabel(lang: Lang, model: string): string {
+	return lang === 'fr' ? (WIND_MODELS_FR[model] ?? model) : model;
+}
+
 export function stationText(
 	lang: Lang,
 	key: StationTextKey,
