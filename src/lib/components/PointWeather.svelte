@@ -4,6 +4,7 @@
 	// Every value comes from the API as it is; an unknown one shows "–", a block the API did not give is left out.
 	import DroughtPanel from '#lib/components/DroughtPanel.svelte';
 	import Time from '#lib/components/Time.svelte';
+	import WeatherCharts from '#lib/components/WeatherCharts.svelte';
 	import { ensembleView, hourLabel, percent } from '#lib/ensemble.js';
 	import { number } from '#lib/format.js';
 	import { translator, type Lang } from '#lib/i18n.js';
@@ -11,13 +12,25 @@
 	import type { PointWeather } from '#lib/types.js';
 	import { DEFAULT_UNITS, type Units } from '#lib/units.js';
 	import { compass, skyLabel } from '#lib/weather.js';
+	import type { MeasuredComparison } from '#lib/weatherCharts.js';
 
 	type Part =
-		'now' | 'rain' | 'ensemble' | 'days' | 'air' | 'river' | 'fires' | 'marine' | 'space' | 'drought';
+		| 'now'
+		| 'rain'
+		| 'ensemble'
+		| 'charts'
+		| 'days'
+		| 'air'
+		| 'river'
+		| 'fires'
+		| 'marine'
+		| 'space'
+		| 'drought';
 	const ALL: Part[] = [
 		'now',
 		'rain',
 		'ensemble',
+		'charts',
 		'days',
 		'air',
 		'river',
@@ -32,8 +45,17 @@
 		lang,
 		weather,
 		parts = ALL,
-		units = DEFAULT_UNITS
-	}: { lang: Lang; weather: PointWeather & { stale?: boolean }; parts?: Part[]; units?: Units } = $props();
+		units = DEFAULT_UNITS,
+		measured = null,
+		now
+	}: {
+		lang: Lang;
+		weather: PointWeather & { stale?: boolean };
+		parts?: Part[];
+		units?: Units;
+		measured?: MeasuredComparison | null;
+		now?: number;
+	} = $props();
 	const fmt = $derived(placeFormat(lang, units));
 	const show = (part: Part) => parts.includes(part);
 	const tr = $derived(translator(lang));
@@ -210,6 +232,10 @@
 				})}
 			</p>
 		</section>
+	{/if}
+
+	{#if show('charts')}
+		<WeatherCharts {lang} {weather} {units} {measured} {now} />
 	{/if}
 
 	{#if weather.daily.length && show('days')}

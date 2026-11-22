@@ -442,7 +442,8 @@
 		gap: 12px;
 		grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
 	}
-	.cards > :global(:first-child) {
+	.cards > :global(:first-child),
+	.cards > :global(.near-card:has(> details[open])) {
 		grid-column: 1 / -1;
 	}
 	.map {

@@ -56,6 +56,9 @@ function placesKey(url) {
 const radarEpochs = new Set(
 	JSON.parse(readFileSync(join(dir, 'radar-france.json'), 'utf-8')).frames.map((f) => String(f.epoch))
 );
+const nowcastEpochs = new Set(
+	JSON.parse(readFileSync(join(dir, 'radar-france-nowcast.json'), 'utf-8')).frames.map((f) => String(f.epoch))
+);
 
 // The overseas areas of the radar (the API's ADR 0037) were not recorded (not deployed yet): their list is the France one with the box
 // and the tile address of the area, and their tiles are the same recorded tile.
@@ -67,6 +70,40 @@ const radarOverseas = {
 
 createServer((req, res) => {
 	const url = new URL(req.url, 'http://mock');
+	if (url.pathname === '/v1/radar/france/nowcast') {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(readFileSync(join(dir, 'radar-france-nowcast.json')));
+		return;
+	}
+	const ncTile = /^\/v1\/radar\/france\/nowcast\/tiles\/(\d+)\/(\d+)\/\d+\/\d+\.png$/.exec(url.pathname);
+	if (ncTile) {
+		const z = Number(ncTile[2]);
+		if (!nowcastEpochs.has(ncTile[1]) || z < 3 || z > 10) {
+			res.writeHead(404, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'unknown nowcast tile' }));
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'image/png' });
+		res.end(readFileSync(join(dir, 'radar-tile.png')));
+		return;
+	}
+	if (url.pathname === '/v1/rain/field') {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(readFileSync(join(dir, 'rain-field.json')));
+		return;
+	}
+	if (url.pathname.startsWith('/v1/rain/field/')) {
+		const field = read('rain-field.json');
+		const level = field.levels.find((l) => l.frames.some((f) => f.url === url.pathname));
+		if (!level) {
+			res.writeHead(404, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'unknown rain field image' }));
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'image/png' });
+		res.end(readFileSync(join(dir, `rain-field-${level.id}.png`)));
+		return;
+	}
 	const area = /^\/v1\/radar\/(antilles|reunion|new-caledonia)$/.exec(url.pathname)?.[1];
 	if (area) {
 		const list = read('radar-france.json');
@@ -262,6 +299,12 @@ createServer((req, res) => {
 		const lon = Number(url.searchParams.get('lon'));
 		const body = read(file);
 		if (!(lat >= 41 && lat <= 51.5 && lon >= -5.5 && lon <= 10)) delete body.probabilities;
+		// Compact mode (or far-south test coordinates) omits hourly series, mirroring the API's honest null behavior.
+		if (url.searchParams.get('compact') !== 'false' || lat < -50) {
+			body.hourly = null;
+			body.pressure_history = null;
+			body.air_hourly = null;
+		}
 		res.end(JSON.stringify(body));
 		return;
 	}

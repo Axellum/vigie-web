@@ -60,12 +60,28 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 	await expect(page.getByTestId('radar-card')).toBeVisible({ timeout: 15_000 });
 	await expectOrder(page, 1);
 
-	// Play loads every image of the last 35 minutes: the images added later go over the warnings too.
+	// Play loads every observed + PIAF frame: the images added later go over the warnings too.
 	await page.getByTestId('radar-card').getByRole('button', { name: 'Lecture' }).click();
 	await expect
 		.poll(async () => (await layers(page)).ids.filter((id) => id.startsWith('radar-')).length)
-		.toBe(8);
-	await expectOrder(page, 8);
+		.toBe(20);
+	await expectOrder(page, 20);
+
+	// Global forecast rain layer sits above warnings, below radar and below base map labels.
+	await page.getByTestId('rain-field-toggle').check();
+	await expect
+		.poll(async () => (await layers(page)).ids.includes('rain-field'), { timeout: 15_000 })
+		.toBe(true);
+	{
+		const { ids, firstLabel } = await layers(page);
+		const rf = ids.indexOf('rain-field');
+		const maxWarn = Math.max(...WARNINGS.map((id) => ids.indexOf(id)));
+		const minRadar = Math.min(...ids.flatMap((id, i) => (id.startsWith('radar-') ? [i] : [])));
+		expect(rf).toBeGreaterThan(maxWarn);
+		expect(rf).toBeLessThan(minRadar);
+		expect(rf).toBeLessThan(firstLabel);
+	}
+	await page.getByTestId('rain-field-toggle').uncheck();
 
 	// The dark theme builds the map again (another base map), the radar already there: the same order.
 	const light = (await layers(page)).ids.join();

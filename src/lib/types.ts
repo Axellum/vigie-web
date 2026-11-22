@@ -163,6 +163,48 @@ export interface EnsembleWindow {
 	stormPct: number | null;
 }
 
+/** One hour of the point's weather forecast (`/v1/point` `hourly`); missing provider values stay null. */
+export interface HourlyWeatherPoint {
+	/** Epoch seconds (UTC). */
+	t: number;
+	tempC: number | null;
+	feelsLikeC: number | null;
+	dewPointC: number | null;
+	precipMm: number | null;
+	precipProbPct: number | null;
+	windKmh: number | null;
+	windGustKmh: number | null;
+	windDeg: number | null;
+	cloudCoverPct: number | null;
+	cloudLowPct: number | null;
+	cloudMidPct: number | null;
+	cloudHighPct: number | null;
+	pressureHpa: number | null;
+	uvIndex: number | null;
+	shortwaveWm2: number | null;
+	weatherCode: number | null;
+	isDay: boolean | null;
+}
+
+/** One past barometric sample (`/v1/point` `pressure_history`). */
+export interface PressureHistoryPoint {
+	/** Epoch seconds (UTC). */
+	t: number;
+	pressureHpa: number;
+}
+
+/** One hour of air quality forecast (`/v1/point` `air_hourly`); missing values stay null. */
+export interface AirHourlyPoint {
+	/** Epoch seconds (UTC). */
+	t: number;
+	pm25: number | null;
+	pm10: number | null;
+	ozone: number | null;
+	nitrogenDioxide: number | null;
+	dust: number | null;
+	europeanAqi: number | null;
+}
+
 /** Weather at one point of the API's grid (`/v1/point`). Every value the API did not give stays null. */
 export interface PointWeather {
 	/** The grid point that was asked: the visitor's position rounded to the weather grid. */
@@ -279,6 +321,12 @@ export interface PointWeather {
 	} | null;
 	/** French VigiEau drought summary around the point, null outside coverage or when unavailable. */
 	drought: DroughtStatus | null;
+	/** Optional hourly weather forecast series (up to 72 hours); null when absent. */
+	hourly?: HourlyWeatherPoint[] | null;
+	/** Optional past barometric pressure series (up to 24 hours); null when absent. */
+	pressureHistory?: PressureHistoryPoint[] | null;
+	/** Optional hourly air quality series (up to 72 hours); null when absent. */
+	airHourly?: AirHourlyPoint[] | null;
 	/** Optional disclaimer attached to the point response (for example NASA FIRMS on nearby fires). */
 	disclaimer: string | null;
 }

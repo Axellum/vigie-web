@@ -264,7 +264,9 @@
 			{lang}
 			{units}
 			weather={s.w}
-			parts={['now', 'rain', 'ensemble', 'days', 'river']}
+			measured={s.nearestMeasured}
+			now={s.now}
+			parts={['now', 'rain', 'ensemble', 'charts', 'days', 'river']}
 		/>{/if}
 {/snippet}
 
