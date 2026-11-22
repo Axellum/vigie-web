@@ -100,6 +100,21 @@ for (const [size, height] of [
 	});
 }
 
+test('in the widgets board, a medium widget given the frame of a large one shows the large layout', async ({
+	page
+}) => {
+	// Measured in November 2026: the board gave a medium web widget 300 × 462, as for a large one.
+	await page.setViewportSize({ width: 300, height: 462 });
+	await page.goto(`/widget?size=medium&frame=board&spot=tv-hossegor${PLACE}`);
+	await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.locator('.widget')).toHaveClass(/\blarge\b/);
+	await expect(page.locator('.spot-rows')).toBeVisible();
+	await expect.poll(() => overflow(page)).toBe(0);
+	// Without the board, the size asked is the size shown.
+	await page.goto(`/widget?size=medium&spot=tv-hossegor${PLACE}`);
+	await expect(page.locator('.widget')).toHaveClass(/\bmedium\b/);
+});
+
 test('a part that does not fit goes whole, the five days before the spot', async ({ page }) => {
 	await page.setViewportSize({ width: 300, height: 462 });
 	await page.goto(`/widget?size=large&frame=board&spot=tv-hossegor${PLACE}`);

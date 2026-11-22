@@ -22,7 +22,7 @@ import {
 	vigilanceView,
 	windBox
 } from './model';
-import { parseWidgetParams, parseWidgetPlace } from './params';
+import { boardSize, parseWidgetParams, parseWidgetPlace } from './params';
 import { WIDGET_TEXT, widgetText } from './text';
 
 const fixture = (name: string) =>
@@ -263,6 +263,13 @@ describe('the address of the widget', () => {
 			spot: null,
 			board: false
 		});
+	});
+
+	it('in the widgets board, takes the layout from the height Windows gives', () => {
+		expect(boardSize(462)).toBe('large');
+		expect(boardSize(360)).toBe('large');
+		expect(boardSize(304)).toBe('medium');
+		expect(boardSize(146)).toBe('small');
 	});
 
 	it('reads the place and its name after the #', () => {

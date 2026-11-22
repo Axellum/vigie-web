@@ -7,7 +7,7 @@
 	import SpotView from '#lib/widget/components/SpotView.svelte';
 	import { fit } from '#lib/widget/fit.js';
 	import { rainView, vigilanceView } from '#lib/widget/model.js';
-	import { parseWidgetPlace } from '#lib/widget/params.js';
+	import { boardSize, parseWidgetPlace } from '#lib/widget/params.js';
 	import { labelOf, postToHost, widgetSummary } from '#lib/widget/summary.js';
 	import { PlaceWidget } from '#lib/widget/placeWidget.svelte.js';
 	import { widgetText } from '#lib/widget/text.js';
@@ -16,6 +16,9 @@
 	let { data }: PageProps = $props();
 	const lang = $derived(data.lang);
 	const params = $derived(data.params);
+	// In the widgets board the layout follows the height Windows gives, not the size it was asked (params.ts).
+	let height = $state(0);
+	const size = $derived(params.board && height > 0 ? boardSize(height) : params.size);
 
 	/** Every few minutes the page reads again: a widget stays open for days. */
 	const REFRESH_MS = 10 * 60 * 1000;
@@ -36,7 +39,7 @@
 			...widget.officialCredits,
 			...(widget.w ? pointCredits(widget.w) : []),
 			widget.wind?.value?.points.length ? widget.wind.value.attribution : null,
-			...(spot && (params.size === 'large' || !place) ? [spot.credit] : [])
+			...(spot && (size === 'large' || !place) ? [spot.credit] : [])
 		])
 	);
 
@@ -85,6 +88,8 @@
 	});
 </script>
 
+<svelte:window bind:innerHeight={height} />
+
 <svelte:head>
 	<title>{widgetText(lang, 'title')}</title>
 	<meta name="robots" content="noindex, nofollow" />
@@ -92,7 +97,7 @@
 </svelte:head>
 
 <div
-	class="widget {params.theme} {params.size}"
+	class="widget {params.theme} {size}"
 	class:board={params.board}
 	use:fit
 	title={credit || undefined}
@@ -101,9 +106,9 @@
 	{#if !mounted}
 		<!-- The place is read in the browser. -->
 	{:else if place}
-		<PlaceView {widget} {name} size={params.size} theme={params.theme} {lang} {now} {spot} />
+		<PlaceView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
 	{:else if spot}
-		<SpotView screen={spot} size={params.size} {lang} />
+		<SpotView screen={spot} {size} {lang} />
 	{:else if data.spot.status === 'unknown' || data.spot.status === 'unavailable'}
 		<div class="empty">
 			<b>{widgetText(lang, data.spot.status === 'unknown' ? 'spotUnknown' : 'spotUnavailable')}</b>
@@ -114,7 +119,7 @@
 			<span class="t3">{widgetText(lang, 'noPlaceHint')}</span>
 		</div>
 	{/if}
-	{#if mounted && params.size === 'large' && credit}
+	{#if mounted && size === 'large' && credit}
 		<div class="credit t3">{credit}</div>
 	{/if}
 </div>
