@@ -32,7 +32,12 @@ data class PointNow(
   val days: List<Day>,
   /** The hour-by-hour forecast (`hourly`, up to 72 hours); empty while the API does not serve it. */
   val hours: List<HourWeather> = emptyList(),
+  /** The rain of the hour to come (`rain_nowcast`); null when the API does not serve it. */
+  val rainSoon: RainNowcast? = null,
 )
+
+/** `rain_nowcast` of `/v1/point`: the millimetres of each step of [stepMinutes] over the next hour. */
+data class RainNowcast(val stepMinutes: Int, val mmPerStep: List<Double>)
 
 data class Day(val date: String, val code: Int?, val tminC: Double?, val tmaxC: Double?, val rainMm: Double?)
 

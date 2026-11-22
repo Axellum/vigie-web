@@ -133,7 +133,7 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
 
     val f = choices.currentPlace ?: return@SkyPage
     val bySpot = (catalogue as? CatalogueState.Ready)?.spots?.associateBy { it.id }.orEmpty()
-    Section(stringResource(R.string.spots_header, f.place.name))
+    Section(stringResource(R.string.spots_header, Words.near(f.place.name)))
     Text(stringResource(R.string.spots_star_hint), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
     Glass {
       if (f.spots.isEmpty()) Text(stringResource(R.string.spots_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
@@ -156,7 +156,7 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
       }
     }
 
-    Section(stringResource(R.string.spots_add_header, f.place.name))
+    Section(stringResource(R.string.spots_add_header, Words.near(f.place.name)))
     when (val c = catalogue) {
       CatalogueState.Idle,
       CatalogueState.Loading -> Text(stringResource(R.string.spots_loading), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)

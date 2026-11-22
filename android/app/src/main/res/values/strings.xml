@@ -13,7 +13,6 @@
     <string name="feels_like">Ressenti %1$s</string>
     <string name="wind">Vent</string>
     <string name="gusts">Rafales</string>
-    <string name="rain_1h">Pluie (1 h)</string>
     <string name="next_days">Prochains jours</string>
     <string name="hours_no_weather">Ciel, température, pluie et vent heure par heure : indisponibles pour l\'instant.</string>
     <string name="hours_drag">Glissez sur la frise : le relevé suit le doigt. Mer : %1$s.</string>
@@ -47,6 +46,9 @@
     <string name="vigil_fold">Replier le bulletin</string>
     <string name="vigil_advice">Conseils</string>
     <string name="vigil_sources">Sources</string>
+    <string name="vigil_credit_short">Données : %1$s · texte officiel tel quel · relayées par Vigie</string>
+    <string name="vigil_credit_full">Voir les mentions des sources</string>
+    <string name="vigil_credit_fold">Replier les mentions</string>
     <string name="credits_vigil">Vigilances : %1$s, lues par l\'API de Vigie.</string>
     <string name="readout_rain">pluie %1$s</string>
     <string name="readout_night">nuit</string>
@@ -58,7 +60,8 @@
     <string name="credits_sea">Verdicts : règles de Vigie, à partir des données de la houle, du vent et de la marée.</string>
     <string name="credits_places">Lieux : GeoNames (www.geonames.org), CC BY 4.0, par la recherche du site de Vigie.</string>
     <string name="hours_no_spot">Aucun spot suivi ici : la frise montre seulement la météo.</string>
-    <string name="sea_none_followed">Aucun spot suivi près de %1$s.</string>
+    <!-- %1$s = « près d'Ajaccio » / « près de Brest » (Words.near) -->
+    <string name="sea_none_followed">Aucun spot suivi %1$s.</string>
     <string name="sea_choose">Choisir des spots</string>
     <string name="page_of">Lieu %1$d sur %2$d</string>
 
@@ -72,10 +75,10 @@
     <string name="place_add">Ajouter un lieu</string>
     <string name="place_add_hint">Les spots les plus proches (moins de 60 km, trois au plus) le suivent d\'office ; changez-les ensuite ici.</string>
     <string name="place_exists">Ce lieu est déjà suivi.</string>
-    <string name="spots_header">Spots suivis près de %1$s</string>
+    <string name="spots_header">Spots suivis %1$s</string>
     <string name="spots_star_hint">L\'étoile marque le spot dessiné dans la frise (onglet Heures).</string>
     <string name="spots_none">Aucun spot suivi : la frise montre la météo seule.</string>
-    <string name="spots_add_header">Ajouter un spot près de %1$s</string>
+    <string name="spots_add_header">Ajouter un spot %1$s</string>
     <string name="spots_more">Plus loin</string>
     <string name="spots_loading">Lecture des spots…</string>
     <string name="spot_star">Dessiner %1$s dans la frise</string>
@@ -99,7 +102,7 @@
     <string name="first_where">Où regardez-vous le ciel ?</string>
     <string name="first_where_text">Une ville ou un village. Seuls votre recherche et ce point partent vers Vigie ; vos choix restent sur le téléphone.</string>
     <string name="first_next">Suivant</string>
-    <string name="first_spots">Vos spots, près de %1$s</string>
+    <string name="first_spots">Vos spots, %1$s</string>
     <string name="first_spots_text">Les spots à moins de 60 km sont cochés, trois au plus. Le premier coché va dans la frise.</string>
     <string name="first_spots_far">Aucun spot à moins de 60 km : cochez-en un si la mer vous intéresse, ou passez.</string>
     <string name="first_done">C\'est parti</string>

@@ -45,6 +45,12 @@ object VigieParser {
           isDay = h["is_day"].bool(),
         )
       }
+    // A step without a number makes the whole hour unread rather than dry: nothing is claimed without data.
+    val nowcast = root["rain_nowcast"].objOrNull()
+    val steps = nowcast?.get("mm_per_step").arr().map { it.dbl() }
+    val rainSoon =
+      if (nowcast == null || steps.isEmpty() || steps.any { it == null }) null
+      else RainNowcast(stepMinutes = nowcast["interval_minutes"].int()?.takeIf { it > 0 } ?: 15, mmPerStep = steps.map { it!! })
     return PointNow(
       serverUtc = root["server_utc"].long() ?: 0L,
       utcOffsetS = root["utc_offset_s"].int() ?: 0,
@@ -59,6 +65,7 @@ object VigieParser {
       weatherCode = current?.get("weather_code").int(),
       days = days,
       hours = hours.sortedBy { it.timeUtc },
+      rainSoon = rainSoon,
     )
   }
 

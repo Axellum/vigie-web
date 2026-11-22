@@ -140,9 +140,16 @@ internal fun WarningsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
     if (view.state != Vigil.State.Warnings) WarningBanner(view, now, off) {}
     view.live.forEach { WarningCard(it, now, off) }
     if (view.live.isNotEmpty()) {
+      // One short French line, as the Home Assistant card writes it; the issuers' own credits (in English, with the date of
+      // their last update) stay one touch away, word for word.
       Text(stringResource(R.string.vigil_sources), color = VigieColors.Text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 6.dp))
-      view.live.mapNotNull { it.attribution }.distinct().forEach { Credits(it) }
-      snap.vigilances?.disclaimer?.let { Credits(it) }
+      Credits(stringResource(R.string.vigil_credit_short, Vigil.issuers(view.live)))
+      val full = Vigil.fullCredits(view.live, snap.vigilances?.disclaimer)
+      if (full.isNotEmpty()) {
+        var shown by rememberSaveable { mutableStateOf(false) }
+        TextLink(stringResource(if (shown) R.string.vigil_credit_fold else R.string.vigil_credit_full)) { shown = !shown }
+        if (shown) full.forEach { Credits(it) }
+      }
     }
   }
 }
