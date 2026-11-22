@@ -1,0 +1,71 @@
+{
+ "server_utc": 1795363660,
+ "utc_offset_s": 3600,
+ "weather_provider": "Open-Meteo",
+ "current": {
+  "temp_c": 13.1,
+  "weather_code": 1
+ },
+ "hourly": [
+  {
+   "time_utc": 1795363200,
+   "temp_c": 13.1,
+   "feels_like_c": 8.4,
+   "dew_point_c": 6.4,
+   "precipitation_mm": 0.0,
+   "precipitation_probability_pct": 0,
+   "wind_kmh": 23.3,
+   "wind_gust_kmh": 46.8,
+   "wind_deg": 283,
+   "cloud_cover_pct": 31,
+   "cloud_low_pct": 1,
+   "cloud_mid_pct": 0,
+   "cloud_high_pct": 0,
+   "pressure_hpa": 1014.9,
+   "uv_index": 0.4,
+   "shortwave_wm2": 90.1,
+   "weather_code": 1,
+   "is_day": true
+  },
+  {
+   "time_utc": 1795366800,
+   "temp_c": 12.1,
+   "feels_like_c": 6.9,
+   "dew_point_c": 7.2,
+   "precipitation_mm": 0.0,
+   "precipitation_probability_pct": 0,
+   "wind_kmh": 20.2,
+   "wind_gust_kmh": 44.3,
+   "wind_deg": 289,
+   "cloud_cover_pct": 56,
+   "cloud_low_pct": 97,
+   "cloud_mid_pct": 0,
+   "cloud_high_pct": 0,
+   "pressure_hpa": 1016.0,
+   "uv_index": 0.1,
+   "shortwave_wm2": 1.7,
+   "weather_code": 2,
+   "is_day": false
+  },
+  {
+   "time_utc": 1795370400,
+   "temp_c": 11.8,
+   "feels_like_c": 8.1,
+   "dew_point_c": 7.9,
+   "precipitation_mm": 0.1,
+   "precipitation_probability_pct": 0,
+   "wind_kmh": 15.7,
+   "wind_gust_kmh": 35.6,
+   "wind_deg": 286,
+   "cloud_cover_pct": 89,
+   "cloud_low_pct": 100,
+   "cloud_mid_pct": 0,
+   "cloud_high_pct": 0,
+   "pressure_hpa": 1017.1,
+   "uv_index": 0.0,
+   "shortwave_wm2": 0.0,
+   "weather_code": 51,
+   "is_day": false
+  }
+ ]
+}

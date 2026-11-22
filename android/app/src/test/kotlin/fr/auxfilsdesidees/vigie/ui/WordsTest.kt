@@ -1,6 +1,9 @@
 package fr.auxfilsdesidees.vigie.ui
 
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
+import fr.auxfilsdesidees.vigie.data.Day
+import fr.auxfilsdesidees.vigie.data.HourWeather
+import fr.auxfilsdesidees.vigie.data.TideExtreme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -51,6 +54,44 @@ class WordsTest {
     assertEquals("Bon", Words.verdict("good"))
     assertEquals("Déconseillé", Words.verdict("poor"))
     assertEquals("Inconnu", Words.verdict(null))
+  }
+
+  @Test
+  fun `the frise's days, hours and reading`() {
+    assertEquals("Auj.", Words.dayPill(now, now, off))
+    assertEquals("Lun. 23", Words.dayPill(1795410000L, now, off))
+    assertEquals(22, Words.dayOfMonth(Words.dayKey(now, off)))
+    assertEquals(1, Words.dayOfMonth(20_454L)) // 1 January 2026
+    assertEquals(31, Words.dayOfMonth(20_453L)) // 31 December 2025
+    assertEquals(29, Words.dayOfMonth(19_782L)) // 29 February 2024
+    assertEquals("Dimanche · 14${nb}h", Words.readoutTitle(now, off))
+    assertEquals("maintenant", Words.fromNow(0))
+    assertEquals("dans 7${nb}h", Words.fromNow(7))
+    assertEquals("Ciel clair", Words.weatherAt(0, day = false))
+    assertEquals("Ciel dégagé", Words.weatherAt(0, day = true))
+    assertEquals("Pêche", Words.activityShort("shore_fishing"))
+    assertEquals("orange", Words.warningLevel("ORANGE"))
+    assertEquals("descend" to "basse mer 20${nb}h${nb}53", Words.tideTrend(TideExtreme(1795377180L, false, -1.84), off))
+  }
+
+  @Test
+  fun `one sentence for the day, never dry without data`() {
+    assertEquals("Éclaircies, de 8° à 12°, 4${nb}mm.", Words.daySentence(Day("2026-11-23", 2, 7.6, 12.4, 4.2)))
+    assertEquals("Couvert, de 8° à 12°.", Words.daySentence(Day("2026-11-23", 3, 7.6, 12.4, 0.3)))
+    val start = 1795352400L // 14 h local
+    val dry = (0 until 12).map { HourWeather(start + it * 3600L, 12.0, 0.0, 20.0, 30.0, 270.0, 3, true) }
+    assertEquals("Sec ces 12 prochaines heures.", Words.next12Hours(dry, off))
+    assertEquals("Sec jusqu'à 17${nb}h.", Words.next12Hours(dry.mapIndexed { i, x -> if (i == 3) x.copy(rainMm = 0.4) else x }, off))
+    val wet =
+      dry.mapIndexed { i, x ->
+        when (i) {
+          0 -> x.copy(rainMm = 2.0)
+          5 -> x.copy(gustKmh = 62.0)
+          else -> x
+        }
+      }
+    assertEquals("Il pleut, rafales fortes vers 19${nb}h.", Words.next12Hours(wet, off))
+    assertNull(Words.next12Hours(dry.mapIndexed { i, x -> if (i == 6) x.copy(rainMm = null) else x }, off))
   }
 
   @Test

@@ -3,12 +3,17 @@ package fr.auxfilsdesidees.vigie.data
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
-/** Reads the public Vigie API. One refresh = two requests, run together: the place, and the activity verdicts. */
+/**
+ * Reads the public Vigie API. One refresh = three requests, run together: the place, the activity verdicts of the
+ * followed spots, and the hours of the favourite spot (the first one). The favourite's hours are a bonus: when they fail,
+ * the rest still shows.
+ */
 class VigieRepository(
   private val baseUrl: String = BASE_URL,
   private val fetch: suspend (String) -> String = ::httpGet,
@@ -17,8 +22,19 @@ class VigieRepository(
     val q = String.format(Locale.ROOT, "lat=%.4f&lon=%.4f", place.lat, place.lon)
     val point = async { VigieParser.point(fetch("$baseUrl/v1/point?$q&compact=false")) }
     val overview = async { VigieParser.overview(fetch("$baseUrl/v1/activities/overview"), spotIds) }
+    val favourite =
+      async {
+        val id = spotIds.firstOrNull() ?: return@async null
+        try {
+          VigieParser.spotHours(fetch("$baseUrl/v1/activities/$id?days=3"))
+        } catch (err: CancellationException) {
+          throw err
+        } catch (err: Exception) {
+          null
+        }
+      }
     val (spots, stale) = overview.await()
-    Snapshot(place = place, point = point.await(), spots = spots, spotsStale = stale)
+    Snapshot(place = place, point = point.await(), spots = spots, spotsStale = stale, favourite = favourite.await())
   }
 
   companion object {

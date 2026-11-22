@@ -56,18 +56,84 @@ class VigieParserTest {
   }
 
   @Test
-  fun `repository asks the point and the overview and puts them together`() = runTest {
+  fun `point reads the hourly forecast when the API serves it, and stays empty otherwise`() {
+    // point_hourly.json: vigie-api main run locally (ADR 0040), not yet the public API.
+    val p = VigieParser.point(fixture("point_hourly.json"))
+    assertEquals(3, p.hours.size)
+    val h = p.hours[2]
+    assertEquals(1795370400L, h.timeUtc)
+    assertEquals(11.8, h.tempC!!, 0.0)
+    assertEquals(0.1, h.rainMm!!, 0.0)
+    assertEquals(286.0, h.windDeg!!, 0.0)
+    assertEquals(51, h.weatherCode)
+    assertEquals(false, h.isDay)
+    assertTrue(VigieParser.point(fixture("point_lorient.json")).hours.isEmpty())
+  }
+
+  @Test
+  fun `spot hours read the verdicts hour by hour, the tide and the warnings`() {
+    val s = VigieParser.spotHours(fixture("activities_plouharnel.json"))
+    assertEquals("plouharnel-la-grande-plage", s.id)
+    assertEquals("La Grande Plage", s.name)
+    assertEquals(setOf("surf", "boat"), s.activities.keys)
+    val surf = s.activities.getValue("surf")
+    assertEquals(4, surf.size)
+    assertEquals(HourVerdict(1795363200L, true, "possible"), surf[0])
+    assertEquals(false, surf[1].daylight)
+    assertEquals(3, s.tide.size)
+    assertTrue(s.tide[0].high)
+    assertEquals(-1.84, s.tide[1].heightM, 0.0)
+    assertTrue(s.vigilanceKnown)
+    assertTrue(s.alerts.isEmpty())
+  }
+
+  @Test
+  fun `unread warnings are not taken for no warning`() {
+    val unread = VigieParser.spotHours("""{"spot": {"id": "x"}, "activities": [], "vigilance": {"status": "unknown", "alerts": []}}""")
+    assertFalse(unread.vigilanceKnown)
+    assertTrue(unread.tide.isEmpty())
+    val alert =
+      VigieParser.spotHours(
+        """{"spot": {"id": "x"}, "vigilance": {"status": "ok", "alerts": [{"id": "a", "source": "s", "attribution": "c",
+        "level": "ORANGE", "onset_utc": 10, "expires_utc": 20, "ends_utc": null}]}}"""
+      )
+    assertEquals(CoastAlert("ORANGE", 10L, 20L), alert.alerts.single())
+  }
+
+  @Test
+  fun `repository asks the point, the overview and the favourite's hours and puts them together`() = runTest {
     val asked = mutableListOf<String>()
     val repo =
       VigieRepository(baseUrl = "https://example.test") { url ->
         asked += url
-        if ("/v1/point" in url) fixture("point_lorient.json") else fixture("overview_three_spots.json")
+        when {
+          "/v1/point" in url -> fixture("point_lorient.json")
+          "/v1/activities/overview" in url -> fixture("overview_three_spots.json")
+          else -> fixture("activities_plouharnel.json")
+        }
       }
     val snap = repo.load()
     assertEquals("Lorient", snap.place.name)
     assertEquals(14.0, snap.point.tempC!!, 0.0)
     assertEquals(2, snap.spots.size)
+    assertEquals("La Grande Plage", snap.favourite?.name)
     assertTrue(asked.any { it.startsWith("https://example.test/v1/point?lat=47.7500&lon=-3.3700") })
     assertTrue(asked.contains("https://example.test/v1/activities/overview"))
+    assertTrue(asked.contains("https://example.test/v1/activities/plouharnel-la-grande-plage?days=3"))
+  }
+
+  @Test
+  fun `the favourite's hours failing does not hide the rest`() = runTest {
+    val repo =
+      VigieRepository(baseUrl = "https://example.test") { url ->
+        when {
+          "/v1/point" in url -> fixture("point_lorient.json")
+          "/v1/activities/overview" in url -> fixture("overview_three_spots.json")
+          else -> throw ApiException(503)
+        }
+      }
+    val snap = repo.load()
+    assertNull(snap.favourite)
+    assertEquals(2, snap.spots.size)
   }
 }

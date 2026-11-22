@@ -70,6 +70,19 @@ object Words {
       else -> id
     }
 
+  /** The short name of an activity, for the rows of the frise. */
+  fun activityShort(id: String): String = if (id == "shore_fishing") "Pêche" else activity(id)
+
+  /** The colour word of an official warning level, so that the colour is never alone. */
+  fun warningLevel(level: String?): String =
+    when (level) {
+      "GREEN" -> "verte"
+      "YELLOW" -> "jaune"
+      "ORANGE" -> "orange"
+      "RED" -> "rouge"
+      else -> "niveau inconnu"
+    }
+
   /** The three words of a verdict, never « sûr »; unknown says so. */
   fun verdict(v: String?): String =
     when (v) {
@@ -136,12 +149,83 @@ object Words {
 
   private fun localHour(t: Long, offsetS: Int): Int = (Math.floorMod(t + offsetS, 86_400L) / 3600).toInt()
 
-  private fun dayKey(t: Long, offsetS: Int): Long = floor((t + offsetS) / 86_400.0).toLong()
+  /** The local day of [t]: days since 1970-01-01 (a Thursday) at the place. */
+  internal fun dayKey(t: Long, offsetS: Int): Long = floor((t + offsetS) / 86_400.0).toLong()
 
   private val DAYS = listOf("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+  private val DAYS_SHORT = listOf("Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam.", "Dim.")
 
   /** « lundi » … « dimanche » for a local day key (days since 1970-01-01, a Thursday). */
   fun dayName(key: Long): String = DAYS[Math.floorMod(key + 3, 7L).toInt()]
+
+  /** « Lun. » … « Dim. » for a local day key. */
+  fun dayShort(key: Long): String = DAYS_SHORT[Math.floorMod(key + 3, 7L).toInt()]
+
+  /** Day of the month of a local day key (civil calendar, without java.time: the app runs from Android 7). */
+  fun dayOfMonth(key: Long): Int {
+    val z = key + 719_468
+    val era = Math.floorDiv(z, 146_097L)
+    val doe = z - era * 146_097
+    val yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365
+    val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+    val mp = (5 * doy + 2) / 153
+    return (doy - (153 * mp + 2) / 5 + 1).toInt()
+  }
+
+  /** « 21 h » */
+  fun hour(t: Long, offsetS: Int): String = "${localHour(t, offsetS)}${NBSP}h"
+
+  /** The pill of a frise day: « Auj. », then « Lun. 23 ». */
+  fun dayPill(t: Long, nowUtc: Long, offsetS: Int): String {
+    val key = dayKey(t, offsetS)
+    return if (key == dayKey(nowUtc, offsetS)) "Auj." else "${dayShort(key)} ${dayOfMonth(key)}"
+  }
+
+  /** « Dimanche · 21 h », the title of the reading under the frise. */
+  fun readoutTitle(t: Long, offsetS: Int): String =
+    "${dayName(dayKey(t, offsetS)).replaceFirstChar { it.uppercase() }} · ${hour(t, offsetS)}"
+
+  /** « maintenant », « dans 7 h ». */
+  fun fromNow(hours: Long): String = if (hours <= 0) "maintenant" else "dans $hours${NBSP}h"
+
+  /** « Ciel clair » for a clear night; otherwise the words of [weather]. */
+  fun weatherAt(code: Int?, day: Boolean): String = if (!day && code == 0) "Ciel clair" else weather(code)
+
+  /** « Éclaircies, de 8° à 13°, 4 mm. »: one day of `daily` (rain said from half a millimetre). */
+  fun daySentence(d: fr.auxfilsdesidees.vigie.data.Day): String {
+    val rain = d.rainMm?.takeIf { it >= 0.5 }?.let { ", ${it.roundToInt()}${NBSP}mm" } ?: ""
+    return "${weather(d.code)}, de ${degrees(d.tminC)} à ${degrees(d.tmaxC)}$rain."
+  }
+
+  /**
+   * The next 12 hours in one sentence, as the prototype: « Sec ces 12 prochaines heures. », « Sec jusqu'à 18 h, rafales
+   * fortes vers 21 h. ». Null when the rain of one of these hours is unknown (nothing is claimed dry without data).
+   */
+  fun next12Hours(hours: List<fr.auxfilsdesidees.vigie.data.HourWeather>, offsetS: Int): String? {
+    val h = hours.take(12)
+    if (h.isEmpty() || h.any { it.rainMm == null }) return null
+    val iRain = h.indexOfFirst { it.rainMm!! >= 0.1 }
+    val iHeavy = h.indexOfFirst { it.rainMm!! >= 1.0 }
+    val lastWind = h.indexOfLast { (it.gustKmh ?: 0.0) >= 50.0 }
+    val title =
+      when {
+        iRain < 0 -> "Sec ces 12 prochaines heures"
+        iRain == 0 -> if (iHeavy == 0) "Il pleut" else "Quelques gouttes"
+        else -> "Sec jusqu'à ${hour(h[iRain].timeUtc, offsetS)}"
+      }
+    val wind =
+      when {
+        lastWind < 0 -> ""
+        (h[0].gustKmh ?: 0.0) >= 50.0 -> ", rafales fortes jusqu'à ${hour(h[lastWind].timeUtc + 3600, offsetS)}"
+        else -> ", rafales fortes vers ${hour(h[lastWind].timeUtc, offsetS)}"
+      }
+    return "$title$wind."
+  }
+
+  /** « monte » / « descend » before the next extreme, and « pleine mer 18 h 42 » / « basse mer 12 h 10 ». */
+  fun tideTrend(next: fr.auxfilsdesidees.vigie.data.TideExtreme, offsetS: Int): Pair<String, String> =
+    if (next.high) "monte" to "pleine mer ${clock(next.timeUtc, offsetS)}"
+    else "descend" to "basse mer ${clock(next.timeUtc, offsetS)}"
 
   /** « aujourd'hui », « demain » or the day's name, relative to [nowUtc]. */
   fun relativeDay(t: Long, nowUtc: Long, offsetS: Int): String =
