@@ -29,8 +29,8 @@ The user chooses the places and their spots; widgets come later. It is not on an
   follows the finger. Night hours are shaded and show no verdict.
 - Offline: the last good read of every followed place is kept on the phone (the texts the API served, the overview cut
   down to the place's spots, in the app's folder that the phone's backup leaves out). It shows at once at the next
-  launch while the network answers, and stays when it does not, with when it was read: « Données d'hier 18 h 05 · Pas
-  de réponse du serveur… ». A failed or unreadable read never replaces it; a place no longer followed loses its copy.
+  launch while the network answers, and stays when it does not, with when it was read, on the three tabs: « Données
+  d'hier 18 h 05 · Pas de réponse du serveur… ». A failed or unreadable read never replaces it; a place no longer followed loses its copy.
   The screen then reads as of that time (the frise, the days, the warnings); the rain of the hour to come, past 30
   minutes, reads « non lue ».
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per

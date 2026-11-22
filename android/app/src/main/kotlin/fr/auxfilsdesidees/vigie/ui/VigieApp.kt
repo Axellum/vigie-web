@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
-import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.Spot
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
@@ -108,7 +107,7 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () ->
         when (Tab.entries[tab]) {
           Tab.Home -> HomePager(app, viewModel, padding, onSettings, onWarnings)
           Tab.Hours -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { HoursTab(it, followsSpots = place.spots.isNotEmpty()) }
-          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it.snapshot, place.spots.isEmpty(), onSettings) }
+          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it, place.spots.isEmpty(), onSettings) }
         }
       }
     }
@@ -295,10 +294,13 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
 }
 
 @Composable
-private fun SeaTab(snap: Snapshot, noneFollowed: Boolean, onSettings: () -> Unit) {
+private fun SeaTab(state: HomeState.Ready, noneFollowed: Boolean, onSettings: () -> Unit) {
+  val snap = state.snapshot
   Column {
     Text(stringResource(R.string.sea_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
     Text(snap.place.name, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    // As on the other tabs: verdicts read yesterday, without network, must not pass for today's.
+    Freshness(state)
   }
   if (noneFollowed) {
     Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.name)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
