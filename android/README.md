@@ -1,8 +1,8 @@
 # Vigie for Android
 
 A first, small native app that reads the public Vigie API. It is a skeleton: three tabs (home, hours, sea), the weather
-of one town, the alert level around it and the activity verdicts of four spots, in French. The place and the spots are
-fixed for now; choosing them, the hour-by-hour chart and widgets come later. It is not on any store.
+of one town and the activity verdicts of four spots, in French. The place and the spots are fixed for now; choosing
+them, the official warnings of the place, the hour-by-hour chart and widgets come later. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).

@@ -15,11 +15,6 @@
     <string name="gusts">Rafales</string>
     <string name="rain_1h">Pluie (1 h)</string>
     <string name="next_days">Prochains jours</string>
-    <string name="no_alert">Aucune alerte relevée autour</string>
-    <string name="alert_yellow">Alerte jaune autour</string>
-    <string name="alert_orange">Alerte orange autour</string>
-    <string name="alert_red">Alerte rouge autour</string>
-    <string name="alert_unknown">Alertes indisponibles</string>
     <string name="hours_title">Heure par heure</string>
     <string name="hours_soon">La frise des prochaines heures (température, pluie, vent) arrive dans une prochaine version.</string>
     <string name="sea_title">Les spots suivis</string>

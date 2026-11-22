@@ -202,7 +202,8 @@ private fun HomeTab(state: HomeState.Ready) {
       Fact(stringResource(R.string.rain_1h), Words.mm(p.rain1hMm), VigieColors.Rain, Modifier.weight(1f))
     }
   }
-  AlertLine(p.alertLevel)
+  // No alert line yet: `local_alert_level` is a level computed by Vigie over a wide radius, not the official warning of
+  // the place; the official one (Météo-France's vigilance of the department) comes with its own step.
   if (p.days.isNotEmpty()) {
     Glass {
       Text(stringResource(R.string.next_days), color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
@@ -219,24 +220,6 @@ private fun HomeTab(state: HomeState.Ready) {
     }
   }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
-}
-
-@Composable
-private fun AlertLine(level: String?) {
-  when (level?.uppercase()) {
-    "YELLOW" -> Pill(stringResource(R.string.alert_yellow), VigieColors.level(level))
-    "ORANGE" -> Pill(stringResource(R.string.alert_orange), VigieColors.level(level))
-    "RED" -> Pill(stringResource(R.string.alert_red), VigieColors.level(level))
-    "GREEN" -> Text(stringResource(R.string.no_alert), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-    // An unreadable level is never « all is well »: a yellow frame, not tinted, and the word « indisponibles ».
-    else ->
-      Text(
-        stringResource(R.string.alert_unknown),
-        color = VigieColors.Text,
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.border(1.5.dp, VigieColors.Possible, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp),
-      )
-  }
 }
 
 @Composable

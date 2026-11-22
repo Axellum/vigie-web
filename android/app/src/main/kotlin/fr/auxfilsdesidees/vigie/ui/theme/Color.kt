@@ -31,15 +31,6 @@ object VigieColors {
   val Wind = Color(0xFF8FD6FF)
   val Rain = Color(0xFF5CB8FF)
 
-  /** Official level colour; green is never shown as an alert, an unknown level stays neutral. */
-  fun level(level: String?): Color =
-    when (level?.uppercase()) {
-      "YELLOW" -> Possible
-      "ORANGE" -> Orange
-      "RED" -> Poor
-      else -> Text3
-    }
-
   /** Verdict colour; an unknown verdict takes the rule colour, never a verdict colour. */
   fun verdict(v: String?): Color =
     when (v) {
