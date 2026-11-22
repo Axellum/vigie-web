@@ -12,13 +12,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import fr.auxfilsdesidees.vigie.data.FolderShelf
 import fr.auxfilsdesidees.vigie.data.KeyValue
+import fr.auxfilsdesidees.vigie.data.OfflineCopies
 import fr.auxfilsdesidees.vigie.data.PlacesStore
 import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
 import fr.auxfilsdesidees.vigie.ui.WarningsScreen
+import java.io.File
 
 /**
  * Three destinations: the three tabs ([Main]), the page « Mes lieux et mes spots » ([Settings]) and the official warnings
@@ -29,7 +32,12 @@ import fr.auxfilsdesidees.vigie.ui.WarningsScreen
 fun MainNavigation(baseUrl: String) {
   val context = LocalContext.current.applicationContext
   val viewModel: HomeViewModel = viewModel {
-    HomeViewModel(VigieRepository(baseUrl), PlacesStore(PrefsKeyValue(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))))
+    // The last read of each place, in the app's own folder that the phone's backup leaves out (it is redone in seconds).
+    val copies = OfflineCopies(FolderShelf(File(context.noBackupFilesDir, COPIES)))
+    HomeViewModel(
+      VigieRepository(baseUrl, copies = copies),
+      PlacesStore(PrefsKeyValue(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))),
+    )
   }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }
@@ -50,6 +58,7 @@ fun MainNavigation(baseUrl: String) {
 }
 
 private const val PREFS = "vigie"
+private const val COPIES = "places"
 
 /** The app's private preferences on the phone (never shared with another app). */
 private class PrefsKeyValue(private val prefs: SharedPreferences) : KeyValue {

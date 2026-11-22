@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
-import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.Spot
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
@@ -108,7 +107,7 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () ->
         when (Tab.entries[tab]) {
           Tab.Home -> HomePager(app, viewModel, padding, onSettings, onWarnings)
           Tab.Hours -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { HoursTab(it, followsSpots = place.spots.isNotEmpty()) }
-          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it.snapshot, place.spots.isEmpty(), onSettings) }
+          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it, place.spots.isEmpty(), onSettings) }
         }
       }
     }
@@ -213,11 +212,15 @@ private fun Fact(label: String, value: String, color: Color, modifier: Modifier 
 @Composable
 internal fun Freshness(state: HomeState.Ready) {
   val p = state.snapshot.point
-  val time = Words.clock(p.serverUtc, p.utcOffsetS)
+  // The read kept on the phone says how old it is: « Données d'hier 18 h 05 · Pas de réponse du serveur… ».
+  val now = System.currentTimeMillis() / 1000
+  val readTime = Words.readTime(p.serverUtc, now, p.utcOffsetS)
+  val old = p.serverUtc > 0 && now - p.serverUtc >= Words.OLD_READ_S
   when {
-    state.error != null -> Text(stringResource(R.string.old_data, time, state.error), color = VigieColors.Warning, style = MaterialTheme.typography.labelMedium)
+    state.error != null -> Text(stringResource(R.string.old_data, readTime, state.error), color = VigieColors.Warning, style = MaterialTheme.typography.labelMedium)
+    state.refreshing && old -> Text(stringResource(R.string.old_data_refreshing, readTime), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
     state.refreshing -> Text(stringResource(R.string.refreshing), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    else -> Text(stringResource(R.string.read_at, time), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    else -> Text(stringResource(R.string.read_at, Words.clock(p.serverUtc, p.utcOffsetS)), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
   }
 }
 
@@ -291,10 +294,13 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
 }
 
 @Composable
-private fun SeaTab(snap: Snapshot, noneFollowed: Boolean, onSettings: () -> Unit) {
+private fun SeaTab(state: HomeState.Ready, noneFollowed: Boolean, onSettings: () -> Unit) {
+  val snap = state.snapshot
   Column {
     Text(stringResource(R.string.sea_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
     Text(snap.place.name, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    // As on the other tabs: verdicts read yesterday, without network, must not pass for today's.
+    Freshness(state)
   }
   if (noneFollowed) {
     Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.name)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)

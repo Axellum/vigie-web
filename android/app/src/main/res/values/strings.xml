@@ -9,7 +9,9 @@
     <string name="refresh">Actualiser</string>
     <string name="refreshing">Mise à jour…</string>
     <string name="read_at">Relevé à %1$s</string>
-    <string name="old_data">Données de %1$s · %2$s</string>
+    <!-- %1$s: « de 8 h 10, il y a 6 h », « d'hier 18 h 05 », « du sam. 21 nov., 18 h 05 » (Words.readTime). -->
+    <string name="old_data">Données %1$s · %2$s</string>
+    <string name="old_data_refreshing">Données %1$s · mise à jour…</string>
     <string name="feels_like">Ressenti %1$s</string>
     <string name="wind">Vent</string>
     <string name="gusts">Rafales</string>
