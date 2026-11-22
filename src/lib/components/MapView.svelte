@@ -32,6 +32,8 @@
 		type WindOnMap,
 		type WindPoint
 	} from '#lib/wind.js';
+	import type { FieldGrid } from '#lib/windField.js';
+	import { WindFlow, type FlowColors } from '#lib/windFlow.js';
 
 	interface Props {
 		lang: Lang;
@@ -61,6 +63,8 @@
 		radar?: RadarOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch. Null: no wind. */
 		wind?: WindOnMap | null;
+		/** The forecast wind, the finest grid first: thin trails that follow it, under the markers. Null: none. */
+		flow?: FieldGrid[] | null;
 		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
 		spots?: FeatureCollection | null;
 		onselect?: (selection: Selection) => void;
@@ -86,6 +90,7 @@
 		tides = null,
 		radar = null,
 		wind = null,
+		flow = null,
 		spots = null,
 		onselect,
 		onmove,
@@ -821,6 +826,25 @@
 		}
 	}
 
+	// The forecast wind: a canvas of its own over the map's (`WindFlow`), made when there is a wind to draw and taken away after.
+	let flowEngine: WindFlow | null = null;
+	const flowColors = (): FlowColors => ({
+		quiet: css('--flow'),
+		strong: css('--wind-4'),
+		stronger: css('--wind-5')
+	});
+
+	function syncFlow() {
+		if (!map) return;
+		if (!flow?.length) {
+			flowEngine?.destroy();
+			flowEngine = null;
+			return;
+		}
+		flowEngine ??= new WindFlow(map, flowColors(), matchMedia('(prefers-reduced-motion: reduce)').matches);
+		flowEngine.setGrids(flow);
+	}
+
 	function view(): Box {
 		const b = map!.getBounds();
 		return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
@@ -831,6 +855,7 @@
 		const next = theme();
 		if (next === currentTheme) return;
 		currentTheme = next;
+		flowEngine?.recolor(flowColors());
 		// The new style has none of the overlay until it has loaded (`addOverlay`).
 		overlayAdded = false;
 		map.setStyle(STYLE[next], { diff: false });
@@ -972,6 +997,8 @@
 	onDestroy(() => {
 		observer?.disconnect();
 		media?.removeEventListener('change', onThemeChange);
+		flowEngine?.destroy();
+		flowEngine = null;
 		map?.remove();
 		map = null;
 	});
@@ -1023,6 +1050,10 @@
 		if (ready) syncWind();
 	});
 	$effect(() => {
+		void flow;
+		if (ready) syncFlow();
+	});
+	$effect(() => {
 		void spots;
 		if (ready && map?.getSource('spots')) (map.getSource('spots') as GeoJSONSource).setData(spotData());
 	});
@@ -1053,6 +1084,11 @@
 	function toggleGlobe() {
 		globeOn = !globeOn;
 		map?.setProjection({ type: globeOn ? 'globe' : 'mercator' });
+		// The trails start again in the new projection.
+		if (flow?.length) {
+			flowEngine?.setGrids([]);
+			flowEngine?.setGrids(flow);
+		}
 	}
 </script>
 
@@ -1123,6 +1159,15 @@
 		background: var(--accent-soft);
 		color: var(--accent);
 		border-color: var(--accent);
+	}
+	/* The forecast wind: over the map's canvas, under its markers, never in the way of a click. */
+	:global(.vigie-flow) {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
 	}
 	/* No `position` here: the marker of MapLibre is absolute, which also places the gust. */
 	:global(.vigie-wind) {

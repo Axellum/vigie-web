@@ -1,0 +1,77 @@
+{
+	"status": "ok",
+	"valid_utc": 1795305600,
+	"valid_at": "2026-11-22T00:00:00Z",
+	"stale": false,
+	"levels": [
+		{
+			"id": "world",
+			"model": "ARPEGE",
+			"run_utc": 1795284000,
+			"run_at": "2026-11-21T18:00:00Z",
+			"valid_utc": 1795305600,
+			"valid_at": "2026-11-22T00:00:00Z",
+			"bbox": [
+				-180.0,
+				-90.0,
+				179.5,
+				90.0
+			],
+			"width": 720,
+			"height": 361,
+			"step_deg": 0.5,
+			"whole_world": true,
+			"scale_ms": 26.0,
+			"min_zoom": 0.0,
+			"image": "/v1/wind/field/world/2026112200-2026112118.png",
+			"size_bytes": 276014
+		},
+		{
+			"id": "europe",
+			"model": "ARPEGE",
+			"run_utc": 1795284000,
+			"run_at": "2026-11-21T18:00:00Z",
+			"valid_utc": 1795305600,
+			"valid_at": "2026-11-22T00:00:00Z",
+			"bbox": [
+				-32.0,
+				20.0,
+				42.0,
+				72.0
+			],
+			"width": 371,
+			"height": 261,
+			"step_deg": 0.2,
+			"whole_world": false,
+			"scale_ms": 21.0,
+			"min_zoom": 3.0,
+			"image": "/v1/wind/field/europe/2026112200-2026112118.png",
+			"size_bytes": 118898
+		},
+		{
+			"id": "france",
+			"model": "AROME",
+			"run_utc": 1795284000,
+			"run_at": "2026-11-21T18:00:00Z",
+			"valid_utc": 1795305600,
+			"valid_at": "2026-11-22T00:00:00Z",
+			"bbox": [
+				-12.0,
+				37.5,
+				16.0,
+				55.4
+			],
+			"width": 561,
+			"height": 359,
+			"step_deg": 0.05,
+			"whole_world": false,
+			"scale_ms": 22.0,
+			"min_zoom": 5.0,
+			"image": "/v1/wind/field/france/2026112200-2026112118.png",
+			"size_bytes": 189153
+		}
+	],
+	"note": "A forecast for the hour, not a measure: the wind measured by the stations is GET /v1/stations/wind. Not for safety.",
+	"licence": "Licence Ouverte 2.0 (Etalab): name Météo-France and the run, do not alter the data",
+	"attribution": "Source: Météo-France, forecast models AROME (France) and ARPEGE (Europe, world), wind at 10 m (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), dated by the run in the answer (run_at); drawn by Vigie at a reduced resolution (every 2nd node, lightly smoothed)"
+}

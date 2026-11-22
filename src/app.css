@@ -22,6 +22,8 @@
 	--wind-3: #2f5fa8;
 	--wind-4: #6b3fa0;
 	--wind-5: #b0287a;
+	/* The trails of the forecast wind: a quiet ink of the base map's own tone, not a level colour. */
+	--flow: #23465b;
 	--on-wind-1: #12222c;
 	--on-sev: #ffffff;
 	--on-yellow: #2a2200;
@@ -65,6 +67,7 @@
 		--wind-3: #4f7fd0;
 		--wind-4: #8d5fcf;
 		--wind-5: #d04a8c;
+		--flow: #d2e1ea;
 		--on-wind-1: #0c151b;
 		--on-sev: #0c151b;
 		--on-yellow: #1d1800;
@@ -99,6 +102,7 @@
 	--wind-3: #4f7fd0;
 	--wind-4: #8d5fcf;
 	--wind-5: #d04a8c;
+	--flow: #d2e1ea;
 	--on-wind-1: #0c151b;
 	--on-sev: #0c151b;
 	--on-yellow: #1d1800;
