@@ -68,10 +68,11 @@ private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
 /**
  * The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste). No
  * place followed yet: the first-launch steps instead. The Accueil swipes between the followed places; the Heures and
- * Mer tabs show the place shown last. The gear of the Accueil and « Choisir des spots » open [onSettings].
+ * Mer tabs show the place shown last. The gear of the Accueil and « Choisir des spots » open [onSettings]; the warning
+ * banner of the Accueil opens [onWarnings].
  */
 @Composable
-fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit) {
+fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val app by viewModel.app.collectAsStateWithLifecycle()
   if (app.firstLaunch) {
     FirstLaunch(viewModel)
@@ -105,7 +106,7 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit) {
       val place = app.choices.currentPlace
       if (place != null) {
         when (Tab.entries[tab]) {
-          Tab.Home -> HomePager(app, viewModel, padding, onSettings)
+          Tab.Home -> HomePager(app, viewModel, padding, onSettings, onWarnings)
           Tab.Hours -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { HoursTab(it, followsSpots = place.spots.isNotEmpty()) }
           Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it.snapshot, place.spots.isEmpty(), onSettings) }
         }
@@ -119,7 +120,7 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit) {
  * view model which page settled; it is not restored from a saved state, so a place chosen in the settings wins.
  */
 @Composable
-private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingValues, onSettings: () -> Unit) {
+private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingValues, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val places = app.choices.places
   val count by rememberUpdatedState(places.size)
   val pager = remember { PagerState(currentPage = app.choices.current) { count } }
@@ -127,7 +128,15 @@ private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingV
   LaunchedEffect(app.choices.current) { if (pager.currentPage != app.choices.current) pager.scrollToPage(app.choices.current) }
   HorizontalPager(pager, Modifier.fillMaxSize().padding(padding), key = { places.getOrNull(it)?.key ?: it }) { page ->
     val f = places.getOrNull(page)
-    if (f != null) PlaceContent(app.stateOf(f), PaddingValues(0.dp), viewModel::refresh) { HomeTab(it, page, places.size, onSettings) }
+    if (f != null) {
+      PlaceContent(app.stateOf(f), PaddingValues(0.dp), viewModel::refresh) {
+        // The banner opens the warnings of the place shown: its page is the current place once settled, select it anyway.
+        HomeTab(it, page, places.size, onSettings) {
+          viewModel.select(page)
+          onWarnings()
+        }
+      }
+    }
   }
 }
 
@@ -220,9 +229,10 @@ internal fun Credits(text: String) {
 // ----------------------------------------------------------------------------------------------------------- the tabs
 
 @Composable
-private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: () -> Unit) {
+private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val snap = state.snapshot
   val p = snap.point
+  val vigil = Vigil.view(snap.vigilances, p.serverUtc)
   Row(verticalAlignment = Alignment.CenterVertically) {
     Column(Modifier.weight(1f)) {
       Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
@@ -236,6 +246,9 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
       Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_title), tint = VigieColors.Text)
     }
   }
+  // The official warnings of the place (`/v1/vigilances`), never `local_alert_level`, a level Vigie works out over a wide
+  // radius: on 22/11/2026 it said green at Ajaccio while Météo-France had the wind in orange there.
+  WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
   Glass {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.displayLarge)
@@ -251,8 +264,6 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
       Fact(stringResource(R.string.rain_1h), Words.mm(p.rain1hMm), VigieColors.Rain, Modifier.weight(1f))
     }
   }
-  // No alert line yet: `local_alert_level` is a level computed by Vigie over a wide radius, not the official warning of
-  // the place; the official one (Météo-France's vigilance of the department) comes with its own step.
   if (p.days.isNotEmpty()) {
     Glass {
       Text(stringResource(R.string.next_days), color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
@@ -269,6 +280,7 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
     }
   }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
+  if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
 }
 
 @Composable

@@ -11,9 +11,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 /**
- * Reads the public Vigie API. One refresh of a place = up to three requests, run together: the place, the activity
- * verdicts of its followed spots, and the hours of its favourite spot (the first one). The favourite's hours are a bonus:
- * when they fail, the rest still shows. A place without spots asks the point only.
+ * Reads the public Vigie API. One refresh of a place = up to four requests, run together: the place, its official
+ * warnings, the activity verdicts of its followed spots, and the hours of its favourite spot (the first one). The
+ * warnings and the favourite's hours are a bonus: when they fail, the rest still shows. A place without spots asks the
+ * point and the warnings only.
  *
  * The place search is the site's (`/data/places.json`, GeoNames): the API has no geocoding of its own. [siteUrl] stays the
  * public site when a debug build reads a local API (an API alone does not serve the search).
@@ -34,17 +35,30 @@ class VigieRepository(
     val favourite =
       async {
         val id = spotIds.firstOrNull() ?: return@async null
-        try {
-          VigieParser.spotHours(fetch("$baseUrl/v1/activities/$id?days=3"))
-        } catch (err: CancellationException) {
-          throw err
-        } catch (err: Exception) {
-          null
-        }
+        orNull { VigieParser.spotHours(fetch("$baseUrl/v1/activities/$id?days=3")) }
       }
+    // The official warnings at the place's exact point (an area that holds it, a river section within 5 km).
+    val vigilances = async { orNull { VigieParser.vigilances(fetch("$baseUrl/v1/vigilances?$q&lang=fr,en")) } }
     val (spots, stale) = overview.await()
-    Snapshot(place = place, point = point.await(), spots = spots, spotsStale = stale, favourite = favourite.await())
+    Snapshot(
+      place = place,
+      point = point.await(),
+      spots = spots,
+      spotsStale = stale,
+      favourite = favourite.await(),
+      vigilances = vigilances.await(),
+    )
   }
+
+  /** A bonus read: its failure gives null, the cancellation of the refresh still cancels it. */
+  private suspend fun <T> orNull(read: suspend () -> T): T? =
+    try {
+      read()
+    } catch (err: CancellationException) {
+      throw err
+    } catch (err: Exception) {
+      null
+    }
 
   /** Every spot with coordinates, to offer the nearest ones of a place. */
   suspend fun catalogue(): List<CatalogueSpot> = VigieParser.catalogue(overviewText(fresh = false))

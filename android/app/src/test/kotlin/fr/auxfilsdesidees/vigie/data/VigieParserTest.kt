@@ -101,13 +101,14 @@ class VigieParserTest {
   }
 
   @Test
-  fun `repository asks the point, the overview and the favourite's hours and puts them together`() = runTest {
+  fun `repository asks the point, the warnings, the overview and the favourite's hours and puts them together`() = runTest {
     val asked = mutableListOf<String>()
     val repo =
       VigieRepository(baseUrl = "https://example.test") { url ->
         asked += url
         when {
           "/v1/point" in url -> fixture("point_lorient.json")
+          "/v1/vigilances" in url -> fixture("vigilances_ajaccio.json")
           "/v1/activities/overview" in url -> fixture("overview_three_spots.json")
           else -> fixture("activities_plouharnel.json")
         }
@@ -117,13 +118,15 @@ class VigieParserTest {
     assertEquals(14.0, snap.point.tempC!!, 0.0)
     assertEquals(2, snap.spots.size)
     assertEquals("La Grande Plage", snap.favourite?.name)
+    assertEquals(2, snap.vigilances?.items?.size)
     assertTrue(asked.any { it.startsWith("https://example.test/v1/point?lat=47.7500&lon=-3.3700") })
+    assertTrue(asked.contains("https://example.test/v1/vigilances?lat=47.7500&lon=-3.3700&lang=fr,en"))
     assertTrue(asked.contains("https://example.test/v1/activities/overview"))
     assertTrue(asked.contains("https://example.test/v1/activities/plouharnel-la-grande-plage?days=3"))
   }
 
   @Test
-  fun `the favourite's hours failing does not hide the rest`() = runTest {
+  fun `the favourite's hours or the warnings failing do not hide the rest`() = runTest {
     val repo =
       VigieRepository(baseUrl = "https://example.test") { url ->
         when {
@@ -134,21 +137,66 @@ class VigieParserTest {
       }
     val snap = repo.load(LORIENT, SPOTS)
     assertNull(snap.favourite)
+    assertNull(snap.vigilances)
     assertEquals(2, snap.spots.size)
   }
 
   @Test
-  fun `a place without spots asks the point only`() = runTest {
+  fun `a place without spots asks the point and its warnings only`() = runTest {
     val asked = mutableListOf<String>()
     val repo =
       VigieRepository(baseUrl = "https://example.test") { url ->
         asked += url
-        fixture("point_lorient.json")
+        if ("/v1/vigilances" in url) fixture("vigilances_rabat.json") else fixture("point_lorient.json")
       }
     val snap = repo.load(LORIENT, emptyList())
     assertTrue(snap.spots.isEmpty())
     assertNull(snap.favourite)
-    assertEquals(1, asked.size)
+    assertEquals(2, asked.size)
+    assertTrue(asked.any { "/v1/vigilances?" in it })
+  }
+
+  @Test
+  fun `the warnings of a point keep the French text, the times, the area and the credit`() {
+    // Ajaccio, 22/11/2026 at 19 h 45: orange wind and yellow waves-flooding of Météo-France, one bulletin in French.
+    val v = VigieParser.vigilances(fixture("vigilances_ajaccio.json"))
+    assertTrue(v.covered)
+    assertFalse(v.unavailable)
+    assertEquals(listOf("ORANGE", "YELLOW"), v.items.map { it.level })
+    val wind = v.items[0]
+    assertEquals("wind", wind.phenomenon)
+    assertEquals("Météo-France", wind.issuer)
+    assertEquals("Vigilance orange vent", wind.event)
+    assertEquals("Corse-du-Sud", wind.area)
+    assertFalse(wind.river)
+    assertEquals(1795363200L, wind.onsetUtc)
+    assertEquals(1795446000L, wind.endUtc) // no `ends_utc`: the end of the bulletin, as the site's widget reads it
+    assertTrue(wind.description!!.startsWith("Faits nouveaux"))
+    assertEquals("https://vigilance.meteofrance.fr/fr", wind.web)
+    assertTrue(wind.attribution!!.contains("Licence Ouverte 2.0"))
+  }
+
+  @Test
+  fun `a river section has its distance and no hours, and a data feed is not offered as a link`() {
+    // Montreuil-sur-Mer, 22/11/2026: the Canche in orange (Vigicrues), 0.56 km away; its link is the GeoJSON feed.
+    val w = VigieParser.vigilances(fixture("vigilances_montreuil.json")).items.single()
+    assertEquals("flood", w.phenomenon)
+    assertTrue(w.river)
+    assertEquals("Canche", w.area)
+    assertEquals(0.56, w.distanceKm!!, 0.0)
+    assertNull(w.onsetUtc)
+    assertNull(w.endUtc)
+    assertNull(w.web)
+  }
+
+  @Test
+  fun `a country without a source reads as not covered`() {
+    val v = VigieParser.vigilances(fixture("vigilances_rabat.json"))
+    assertFalse(v.covered)
+    assertTrue(v.items.isEmpty())
+    val down = VigieParser.vigilances("""{"countries":["FR"],"vigilances":[],"coverage":[{"status":"unavailable"},{"status":"unavailable"}]}""")
+    assertTrue(down.covered)
+    assertTrue(down.unavailable)
   }
 
   @Test

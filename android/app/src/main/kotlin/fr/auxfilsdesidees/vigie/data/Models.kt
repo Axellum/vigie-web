@@ -87,11 +87,46 @@ data class SpotHours(
   val alerts: List<CoastAlert>,
 )
 
-/** Everything one refresh reads. [favourite] is null when its hours could not be read (the rest still shows). */
+/**
+ * One official warning over a place (`/v1/vigilances?lat&lon`), in its issuer's words. [endUtc] is `ends_utc`, else
+ * `expires_utc` (the end of the bulletin), as the site's widget reads it. [river] is a river section near the place
+ * (Vigicrues), [distanceKm] how far; an area that holds the place has none.
+ */
+data class Vigilance(
+  val id: String,
+  val source: String?,
+  val issuer: String?,
+  val level: String?,
+  val phenomenon: String?,
+  val event: String?,
+  val area: String?,
+  val river: Boolean,
+  val distanceKm: Double?,
+  val onsetUtc: Long?,
+  val endUtc: Long?,
+  val sentUtc: Long?,
+  val headline: String?,
+  val description: String?,
+  val instruction: String?,
+  val web: String?,
+  val attribution: String?,
+)
+
+/**
+ * The official warnings of a place. [covered] false = no official source is read for the place (a country without one,
+ * or the open sea); [unavailable] = every source of the place failed at the API, so an empty list proves nothing.
+ */
+data class Vigilances(val covered: Boolean, val unavailable: Boolean, val items: List<Vigilance>, val disclaimer: String?)
+
+/**
+ * Everything one refresh reads. [favourite] is null when its hours could not be read, [vigilances] when the official
+ * warnings could not be read (the rest still shows).
+ */
 data class Snapshot(
   val place: Place,
   val point: PointNow,
   val spots: List<Spot>,
   val spotsStale: Boolean,
   val favourite: SpotHours? = null,
+  val vigilances: Vigilances? = null,
 )

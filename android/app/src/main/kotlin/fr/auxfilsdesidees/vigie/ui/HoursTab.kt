@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.PointNow
 import fr.auxfilsdesidees.vigie.data.SpotHours
+import fr.auxfilsdesidees.vigie.data.Vigilance
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import kotlin.math.abs
 import kotlin.math.floor
@@ -65,8 +67,8 @@ import kotlin.math.sqrt
 
 /**
  * The « Heures » tab: the frise of direction D, as in the clickable prototype. Day pills, one sentence for the day, a
- * card of 24 hour columns (sky, temperature, rain, wind, tide, coastal warning, three activities) with an amber cursor
- * that follows the finger, and the reading of the hour under the cursor.
+ * card of 24 hour columns (sky, temperature, rain, wind, the official warnings of the place, tide, the coastal warning
+ * of the spot, three activities) with an amber cursor that follows the finger, and the reading of the hour under it.
  */
 @Composable
 internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
@@ -82,6 +84,7 @@ internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
   val hours = remember(snap, d) { Frise.window(starts[d], p, spot) }
   val firstHour = remember(snap) { Frise.window(starts[0], p, spot).first() }
   val c = cursor.coerceIn(0, Frise.HOURS - 1)
+  val vigil = remember(snap) { Vigil.view(snap.vigilances, now) }
 
   Column {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -97,8 +100,8 @@ internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
     starts.forEachIndexed { k, t -> DayChip(Words.dayPill(t, now, off), k == d) { dayIndex = k } }
   }
   daySentence(p, starts, d)?.let { Text(it, color = VigieColors.Text, style = MaterialTheme.typography.bodyLarge) }
-  FriseCard(hours, c, today = d == 0, spot = spot, offsetS = off) { cursor = it }
-  Readout(hours[c], spot, now, off)
+  FriseCard(hours, c, today = d == 0, spot = spot, vigil = vigil, offsetS = off) { cursor = it }
+  Readout(hours[c], spot, Vigil.at(vigil.live, hours[c].timeUtc), now, off)
   when {
     spot != null -> Mention(stringResource(R.string.hours_drag, spot.name))
     followsSpots -> Mention(stringResource(R.string.hours_sea_unread))
@@ -106,6 +109,7 @@ internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
   }
   if (p.hours.isNotEmpty() && p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
   if (spot != null) Credits(stringResource(R.string.credits_sea))
+  if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
 }
 
 /** Today: the next 12 hours when the hours are served, else the day's line; another day: its line of `daily`. */
@@ -147,6 +151,7 @@ private class FriseWords(
   val wind: String,
   val tide: String,
   val vigil: String,
+  val coast: String,
   val dry: String,
   val now: String,
   val gusts: String,
@@ -154,6 +159,10 @@ private class FriseWords(
   val unread: String,
   val noTide: String,
   val noWeather: String,
+  val vigilUnread: String,
+  val vigilNoSource: String,
+  val vigilNotHere: String,
+  val vigilUntimed: String,
 )
 
 // The frise's geometry, in dp, from the prototype (a card of 446 dp; label column of 62 dp; rows at fixed heights).
@@ -162,6 +171,13 @@ private const val RIGHT_PAD = 12f
 private const val WEATHER_BLOCK = 210f
 private const val NO_WEATHER_BLOCK = 40f
 
+// The official warnings of the place, under the wind: one lane per warning (three at most), or one line of text.
+private const val VIGIL_TOP = 246f
+private const val VIGIL_LANE = 20f
+private const val VIGIL_LANES = 3
+
+private fun vigilBlock(lanes: Int): Float = 10f + VIGIL_LANE * lanes.coerceIn(1, VIGIL_LANES)
+
 private fun PointerInputScope.hourAt(x: Float): Int {
   val gx = LABEL_COLUMN.dp.toPx()
   val step = (size.width - (LABEL_COLUMN + RIGHT_PAD).dp.toPx()) / Frise.HOURS
@@ -169,10 +185,22 @@ private fun PointerInputScope.hourAt(x: Float): Int {
 }
 
 @Composable
-private fun FriseCard(hours: List<FriseHour>, cursor: Int, today: Boolean, spot: SpotHours?, offsetS: Int, onCursor: (Int) -> Unit) {
+private fun FriseCard(
+  hours: List<FriseHour>,
+  cursor: Int,
+  today: Boolean,
+  spot: SpotHours?,
+  vigil: Vigil.View,
+  offsetS: Int,
+  onCursor: (Int) -> Unit,
+) {
   val hasWeather = hours.any { it.weather != null }
   // Without the hourly weather, its four rows give way to one line: everything under them moves up.
   val shift = if (hasWeather) 0f else NO_WEATHER_BLOCK - WEATHER_BLOCK
+  val t0 = hours.first().timeUtc
+  val lanes = remember(vigil, t0) { Vigil.lanes(vigil.live, t0, t0 + Frise.HOURS * 3600L) }
+  // The rows under the warnings move down by as many lanes as there are warnings to draw.
+  val vb = vigilBlock(lanes.size)
   val measurer = rememberTextMeasurer()
   val words =
     FriseWords(
@@ -182,6 +210,7 @@ private fun FriseCard(hours: List<FriseHour>, cursor: Int, today: Boolean, spot:
       wind = stringResource(R.string.frise_wind),
       tide = stringResource(R.string.frise_tide),
       vigil = stringResource(R.string.frise_vigil),
+      coast = stringResource(R.string.frise_coast),
       dry = stringResource(R.string.frise_dry),
       now = stringResource(R.string.frise_now),
       gusts = stringResource(R.string.frise_gusts),
@@ -189,13 +218,17 @@ private fun FriseCard(hours: List<FriseHour>, cursor: Int, today: Boolean, spot:
       unread = stringResource(R.string.frise_unread),
       noTide = stringResource(R.string.frise_no_tide),
       noWeather = stringResource(R.string.hours_no_weather),
+      vigilUnread = stringResource(R.string.frise_vigil_unread),
+      vigilNoSource = stringResource(R.string.frise_vigil_nosource),
+      vigilNotHere = stringResource(R.string.frise_vigil_not_here),
+      vigilUntimed = stringResource(R.string.frise_vigil_untimed),
     )
   val description = stringResource(R.string.frise_description)
   val update by rememberUpdatedState(onCursor)
   val shape = RoundedCornerShape(22.dp)
   Canvas(
     Modifier.fillMaxWidth()
-      .height((446f + shift).dp)
+      .height((446f + shift + vb).dp)
       .background(VigieColors.Glass, shape)
       .border(1.5.dp, VigieColors.GlassBorder, shape)
       .semantics { contentDescription = description }
@@ -207,7 +240,7 @@ private fun FriseCard(hours: List<FriseHour>, cursor: Int, today: Boolean, spot:
         }
       }
   ) {
-    drawFrise(hours, cursor, today, spot, offsetS, hasWeather, shift, measurer, words)
+    drawFrise(hours, cursor, today, spot, vigil, lanes, offsetS, hasWeather, shift, vb, measurer, words)
   }
 }
 
@@ -238,9 +271,12 @@ private fun DrawScope.drawFrise(
   cursor: Int,
   today: Boolean,
   spot: SpotHours?,
+  vigil: Vigil.View,
+  lanes: List<Vigil.Lane>,
   offsetS: Int,
   hasWeather: Boolean,
   shift: Float,
+  vb: Float,
   measurer: TextMeasurer,
   w: FriseWords,
 ) {
@@ -251,7 +287,8 @@ private fun DrawScope.drawFrise(
   val step = gw / Frise.HOURS
   fun xC(i: Int) = gx + step * (i + 0.5f)
   fun y(v: Float) = v * k // the top band and the weather rows
-  fun yb(v: Float) = (v + shift) * k // the rows under the weather
+  fun yv(v: Float) = (v + shift) * k // the official warnings, under the weather
+  fun yb(v: Float) = (v + shift + vb) * k // the rows under the warnings
   val gridTop = y(32f)
   val gridBottom = yb(428f)
   val t0 = hours.first().timeUtc
@@ -387,6 +424,38 @@ private fun DrawScope.drawFrise(
     drawText(r, topLeft = Offset(12 * k, y(36f)))
   }
 
+  // the official warnings of the place: one lane per warning over the hours it applies, its level and phenomenon written
+  // on it (the widget's words); a warning without hours (a river in flood) is on the banner of the Accueil, named here
+  rowName(w.vigil, yv(VIGIL_TOP + 14f))
+  if (lanes.isNotEmpty()) {
+    lanes.take(VIGIL_LANES).forEachIndexed { j, lane ->
+      val top = yv(VIGIL_TOP + 2f + VIGIL_LANE * j)
+      val x0 = xT(lane.start)
+      val x1 = max(xT(lane.end), x0 + 6 * k)
+      drawRoundRect(VigieColors.warning(lane.warning.level), Offset(x0, top), Size(x1 - x0, 16 * k), CornerRadius(6 * k))
+      // the words start after the cursor when it stands at the start of the lane (a warning already in force, read now)
+      val cx = xC(cursor)
+      val tx = if (cx >= x0 && cx < x0 + 14 * k) cx + 5 * k else x0 + 6 * k
+      clipRect(x0, top, x1 - 4 * k, top + 16 * k) {
+        text(measurer, "${Vigil.levelShort(lane.warning.level)} · ${Vigil.label(lane.warning)}", tx, top + 12 * k, VigieColors.OnPill, size = 11f, bold = true)
+      }
+    }
+    if (lanes.size > VIGIL_LANES) {
+      text(measurer, "+${lanes.size - VIGIL_LANES}", 12 * k, yv(VIGIL_TOP + 14f + VIGIL_LANE * (VIGIL_LANES - 1)), VigieColors.Text3)
+    }
+  } else {
+    val untimed = Vigil.untimed(vigil.live)
+    val line =
+      when (vigil.state) {
+        Vigil.State.Unread -> w.vigilUnread
+        Vigil.State.NoSource -> w.vigilNoSource
+        Vigil.State.None -> w.noAlert
+        Vigil.State.Warnings ->
+          if (untimed.isNotEmpty()) String.format(w.vigilUntimed, untimed.map(Vigil::label).distinct().joinToString(", ")) else w.vigilNotHere
+      }
+    text(measurer, line, gx, yv(VIGIL_TOP + 14f), VigieColors.Text3)
+  }
+
   // tide of the favourite spot: half cosine between the API's extremes, their times written
   rowName(w.tide, yb(276f))
   val extremes = spot?.tide.orEmpty()
@@ -417,8 +486,8 @@ private fun DrawScope.drawFrise(
     } else emptyList()
   if (tidePts.size < 2) text(measurer, if (spot == null) w.unread else w.noTide, gx, yb(276f), VigieColors.Text3)
 
-  // official coastal warning over the spot: a bar per warning, its colour word written on it
-  rowName(w.vigil, yb(332f))
+  // official coastal warning over the favourite spot: a bar per warning, its colour word written on it
+  rowName(w.coast, yb(332f))
   when {
     spot == null || !spot.vigilanceKnown -> text(measurer, w.unread, gx, yb(332f), VigieColors.Text3)
     spot.alerts.isEmpty() -> text(measurer, w.noAlert, gx, yb(332f), VigieColors.Text3)
@@ -456,12 +525,27 @@ private fun DrawScope.drawFrise(
 // -------------------------------------------------------------------------------------------- the reading of an hour
 
 @Composable
-private fun Readout(h: FriseHour, spot: SpotHours?, nowUtc: Long, offsetS: Int) {
+private fun Readout(h: FriseHour, spot: SpotHours?, warnings: List<Vigilance>, nowUtc: Long, offsetS: Int) {
   val wx = h.weather
   Glass {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
       Text(Words.readoutTitle(h.timeUtc, offsetS), color = VigieColors.Accent, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
       Text(Words.fromNow(Frise.hoursFromNow(h.timeUtc, nowUtc)), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    }
+    // the official warnings in force at that hour, the strongest first; « jusqu'à » from the day read, not from today
+    // (at Monday 3 h, a Monday 16 h end is « jusqu'à 16 h », not « jusqu'à demain 16 h »)
+    warnings.forEach { v ->
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+          Vigil.levelShort(v.level),
+          color = VigieColors.OnPill,
+          style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+          modifier = Modifier.background(VigieColors.warning(v.level), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 2.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(Vigil.label(v), color = VigieColors.Text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        v.endUtc?.let { Text(Vigil.until(it, h.timeUtc, offsetS), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
+      }
     }
     Row(Modifier.fillMaxWidth()) {
       Column(Modifier.weight(1.1f)) {

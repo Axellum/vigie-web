@@ -1,0 +1,179 @@
+{
+ "version": "1.0",
+ "server_utc": 1795373156,
+ "query": {
+  "lat": 41.9192,
+  "lon": 8.7386,
+  "country": null,
+  "river_radius_km": 5.0
+ },
+ "countries": [
+  "FR"
+ ],
+ "vigilances": [
+  {
+   "id": "meteofrance:2A:1:2026-11-22T15:01:52Z",
+   "source": "meteofrance",
+   "country": "FR",
+   "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T15:01:52Z",
+   "identifier": "MF-VIGILANCE-2A-1-2026-11-22T15:01:52Z",
+   "sent_utc": 1795359712,
+   "effective_utc": 1795359712,
+   "onset_utc": 1795363200,
+   "expires_utc": 1795446000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "ORANGE",
+   "level_original": "Orange",
+   "phenomenon": "wind",
+   "phenomenon_original": "Vent",
+   "event": "Vigilance orange vent",
+   "issuer": "Météo-France",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "Météo-France",
+     "event": "Vigilance orange vent",
+     "headline": "Bulletin de suivi départemental de la Vigilance : Corse-du-Sud (2A)",
+     "description": "Faits nouveaux :\nPassage en vigilance orange vent sur la Corse à partir de 0h légales en cette nuit de dimanche à lundi.\n\nSituation générale :\nEn cette fin de journée et cette soirée de dimanche, les vents d'ouest se renforcent progressivement sur l'ensemble de la Corse, pour souffler en tempête sur une grosse moitié Est de l'île, à partir du milieu de nuit prochaine (de dimanche à lundi) et jusqu'en début de matinée de lundi.\n\nQualification :\nTempête hivernale de Libeccio (vent de secteur Ouest) pouvant entrainer des dégâts dans un contexte de sol très humide.\n\nObservations notables :\nEn cette fin de journée de dimanche, les vents d'Ouest se renforcent progressivement sur l'ensemble de la Corse, mais l'évènement de niveau orange n'a pas encore débuté.\n\nÉvolution prévue :\nDès cette fin de journée et cette soirée, les vents d'ouest se renforcent sensiblement sur l'ensemble de la Corse. Mais c'est à partir du milieu de nuit prochaine (de dimanche à lundi) et jusqu'en fin de nuit/début de matinée de lundi que les vents les plus forts sont attendus, avec jusqu'à 110/130 km/h, voire 140 km/h possibles sur la Balagne, la chaine centrale et par déferlement sur la façade orientale de Bastia à Porto-Vecchio, et 140/160 km/h, voire 170 km/h sur le Cap Corse.\nA noter que ces vents forts interviennent dans un contexte où les sols sont très humides, et peuvent favoriser notamment les chutes d'arbres.\nCes vents forts perdent progressivement en intensité à compter de la matinée de lundi.",
+     "instruction": null,
+     "web": "https://vigilance.meteofrance.fr/fr",
+     "parameters": [
+      {
+       "name": "phenomenon_id",
+       "value": "1"
+      },
+      {
+       "name": "color_id",
+       "value": "3"
+      },
+      {
+       "name": "timelaps",
+       "value": "2026-11-22T16:00:00Z/2026-11-22T23:00:00Z:Jaune, 2026-11-22T23:00:00Z/2026-11-23T09:00:00Z:Orange, 2026-11-23T09:00:00Z/2026-11-23T15:00:00Z:Jaune"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Corse-du-Sud",
+    "geocodes": [
+     {
+      "scheme": "NUTS3",
+      "value": "FR831"
+     },
+     {
+      "scheme": "INSEE_DEP",
+      "value": "2A"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": null,
+   "web": "https://vigilance.meteofrance.fr/fr",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  },
+  {
+   "id": "meteofrance:2A:9:2026-11-22T15:01:52Z",
+   "source": "meteofrance",
+   "country": "FR",
+   "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0. Last update: 2026-11-22T15:01:52Z",
+   "identifier": "MF-VIGILANCE-2A-9-2026-11-22T15:01:52Z",
+   "sent_utc": 1795359712,
+   "effective_utc": 1795359712,
+   "onset_utc": 1795374000,
+   "expires_utc": 1795446000,
+   "ends_utc": null,
+   "message_type": "Alert",
+   "status": "new",
+   "level": "YELLOW",
+   "level_original": "Jaune",
+   "phenomenon": "coastal",
+   "phenomenon_original": "Vagues-submersion",
+   "event": "Vigilance jaune vagues-submersion",
+   "issuer": "Météo-France",
+   "texts": [
+    {
+     "language": "fr-FR",
+     "sender_name": "Météo-France",
+     "event": "Vigilance jaune vagues-submersion",
+     "headline": "Bulletin de suivi départemental de la Vigilance : Corse-du-Sud (2A)",
+     "description": "Faits nouveaux :\nPassage en vigilance orange vent sur la Corse à partir de 0h légales en cette nuit de dimanche à lundi.\n\nSituation générale :\nEn cette fin de journée et cette soirée de dimanche, les vents d'ouest se renforcent progressivement sur l'ensemble de la Corse, pour souffler en tempête sur une grosse moitié Est de l'île, à partir du milieu de nuit prochaine (de dimanche à lundi) et jusqu'en début de matinée de lundi.\n\nQualification :\nTempête hivernale de Libeccio (vent de secteur Ouest) pouvant entrainer des dégâts dans un contexte de sol très humide.\n\nObservations notables :\nEn cette fin de journée de dimanche, les vents d'Ouest se renforcent progressivement sur l'ensemble de la Corse, mais l'évènement de niveau orange n'a pas encore débuté.\n\nÉvolution prévue :\nDès cette fin de journée et cette soirée, les vents d'ouest se renforcent sensiblement sur l'ensemble de la Corse. Mais c'est à partir du milieu de nuit prochaine (de dimanche à lundi) et jusqu'en fin de nuit/début de matinée de lundi que les vents les plus forts sont attendus, avec jusqu'à 110/130 km/h, voire 140 km/h possibles sur la Balagne, la chaine centrale et par déferlement sur la façade orientale de Bastia à Porto-Vecchio, et 140/160 km/h, voire 170 km/h sur le Cap Corse.\nA noter que ces vents forts interviennent dans un contexte où les sols sont très humides, et peuvent favoriser notamment les chutes d'arbres.\nCes vents forts perdent progressivement en intensité à compter de la matinée de lundi.",
+     "instruction": null,
+     "web": "https://vigilance.meteofrance.fr/fr",
+     "parameters": [
+      {
+       "name": "phenomenon_id",
+       "value": "9"
+      },
+      {
+       "name": "color_id",
+       "value": "2"
+      },
+      {
+       "name": "timelaps",
+       "value": "2026-11-22T19:00:00Z/2026-11-22T23:00:00Z:Jaune, 2026-11-22T23:00:00Z/2026-11-23T15:00:00Z:Jaune"
+      }
+     ]
+    }
+   ],
+   "area": {
+    "description": "Corse-du-Sud",
+    "geocodes": [
+     {
+      "scheme": "NUTS3",
+      "value": "FR831"
+     },
+     {
+      "scheme": "INSEE_DEP",
+      "value": "2A"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "geocode"
+   },
+   "distance_km": null,
+   "link": null,
+   "web": "https://vigilance.meteofrance.fr/fr",
+   "derived": [
+    "status",
+    "level",
+    "phenomenon"
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "source": "meteofrance",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 70,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795359712,
+   "fetched_age_s": 0,
+   "note": null
+  },
+  {
+   "source": "vigicrues",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 15,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795359389,
+   "fetched_age_s": 255,
+   "note": "15 of the 337 river sections are above green; a position gets those within its river radius (`river_radius_km`), with their distance."
+  }
+ ],
+ "uncovered": [],
+ "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0 | Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
+ "disclaimer": null,
+ "note": null
+}

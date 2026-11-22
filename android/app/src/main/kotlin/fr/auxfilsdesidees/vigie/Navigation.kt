@@ -18,10 +18,12 @@ import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
+import fr.auxfilsdesidees.vigie.ui.WarningsScreen
 
 /**
- * Two destinations: the three tabs ([Main]) and the page « Mes lieux et mes spots » ([Settings]). One view model for both,
- * held by the activity, so a choice made in the settings is on the tabs when the user comes back. Instant, by taste.
+ * Three destinations: the three tabs ([Main]), the page « Mes lieux et mes spots » ([Settings]) and the official warnings
+ * of the place shown ([WarningsPage]). One view model for all, held by the activity, so a choice made in the settings is
+ * on the tabs when the user comes back. Instant, by taste.
  */
 @Composable
 fun MainNavigation(baseUrl: String) {
@@ -40,8 +42,9 @@ fun MainNavigation(baseUrl: String) {
     predictivePopTransitionSpec = { instant() },
     entryProvider =
       entryProvider {
-        entry<Main> { VigieApp(viewModel) { backStack.add(Settings) } }
+        entry<Main> { VigieApp(viewModel, onSettings = { backStack.add(Settings) }, onWarnings = { backStack.add(WarningsPage) }) }
         entry<Settings> { SettingsScreen(viewModel) { backStack.removeLastOrNull() } }
+        entry<WarningsPage> { WarningsScreen(viewModel) { backStack.removeLastOrNull() } }
       },
   )
 }
