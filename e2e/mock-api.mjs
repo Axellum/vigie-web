@@ -59,6 +59,8 @@ const radarEpochs = new Set(
 const nowcastEpochs = new Set(
 	JSON.parse(readFileSync(join(dir, 'radar-france-nowcast.json'), 'utf-8')).frames.map((f) => String(f.epoch))
 );
+const observedRainMeta = JSON.parse(readFileSync(join(dir, 'rain-observed.json'), 'utf-8'));
+const observedRainStamps = new Set(observedRainMeta.frames.map((f) => String(f.stamp)));
 
 // The overseas areas of the radar (the API's ADR 0037) were not recorded (not deployed yet): their list is the France one with the box
 // and the tile address of the area, and their tiles are the same recorded tile.
@@ -85,6 +87,32 @@ createServer((req, res) => {
 		}
 		res.writeHead(200, { 'content-type': 'image/png' });
 		res.end(readFileSync(join(dir, 'radar-tile.png')));
+		return;
+	}
+	if (url.pathname === '/v1/rain/observed') {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(readFileSync(join(dir, 'rain-observed.json')));
+		return;
+	}
+	const obsTile = /^\/v1\/rain\/observed\/tiles\/(\d{12})\/(\d+)\/(\d+)\/(\d+)\.png$/.exec(url.pathname);
+	if (obsTile) {
+		const z = Number(obsTile[2]);
+		const x = Number(obsTile[3]);
+		const y = Number(obsTile[4]);
+		const maxCoord = 2 ** z;
+		if (
+			!observedRainStamps.has(obsTile[1]) ||
+			z < observedRainMeta.min_zoom ||
+			z > observedRainMeta.max_zoom ||
+			x >= maxCoord ||
+			y >= maxCoord
+		) {
+			res.writeHead(404, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'unknown observed rain tile' }));
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'image/png' });
+		res.end(readFileSync(join(dir, 'rain-observed-tile.png')));
 		return;
 	}
 	if (url.pathname === '/v1/rain/field') {

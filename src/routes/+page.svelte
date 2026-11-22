@@ -16,7 +16,9 @@
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
-	import { rate } from '#lib/radar.js';
+	import { ObservedRainLayer } from '#lib/observedRainLayer.svelte.js';
+	import { formatObservedLatency } from '#lib/observedRain.js';
+	import { radarTime, rate } from '#lib/radar.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
 	import { windTime, windValue } from '#lib/wind.js';
@@ -286,6 +288,31 @@
 		const picks = [0, 2, 5, n - 1].filter((i, k, all) => i >= 0 && i < n && all.indexOf(i) === k);
 		return picks.map((i) => ({ i, text: rate(lang, classes[i].minMmH) }));
 	});
+
+	// --- global observed satellite precipitation (NASA GIBS IMERG 30-min; off until the visitor turns it on) --------------------
+	const observedRain = new ObservedRainLayer();
+	onMount(() => observedRain.restore());
+	$effect(() => {
+		void observedRain.on;
+		untrack(() => observedRain.sync());
+	});
+	$effect(() => {
+		const timer = setInterval(() => observedRain.sync(), 60_000);
+		return () => clearInterval(timer);
+	});
+	const observedRainMarks = $derived.by(() => {
+		const classes = observedRain.data?.legend ?? [];
+		const n = classes.length;
+		const picks = [0, 2, 5, n - 1].filter((i, k, all) => i >= 0 && i < n && all.indexOf(i) === k);
+		return picks.map((i) => ({ i, text: rate(lang, classes[i].minMmH) }));
+	});
+	const observedRainMeta = $derived.by(() => ({
+		km: observedRain.data?.resolutionKm ?? null,
+		delay:
+			observedRain.data?.typicalLatencyMinutes != null
+				? formatObservedLatency(observedRain.data.typicalLatencyMinutes)
+				: null
+	}));
 
 	// --- the measured wind (stations and buoys; off until the visitor turns it on, the choice kept in this browser) ----------
 	const wind = new WindLayer();
@@ -1026,6 +1053,131 @@
 					{/if}
 				{/if}
 				<label class="check">
+					<input type="checkbox" bind:checked={observedRain.on} data-testid="observed-rain-toggle" />
+					<span class="swatch observed-rain" aria-hidden="true"></span>
+					{tr('observedRain.toggle')}
+				</label>
+				{#if observedRain.on}
+					{#if observedRain.data?.status === 'off'}
+						<p class="hint">{tr('observedRain.off')}</p>
+					{:else if observedRain.data?.status === 'unavailable' || (observedRain.status === 'failed' && !observedRain.data)}
+						<p class="hint">{tr('observedRain.failed')}</p>
+					{:else if observedRain.activeFrame && observedRain.data}
+						<div
+							class="chips observed-frames"
+							role="group"
+							aria-label={tr('observedRain.frames')}
+							data-testid="observed-rain-frames"
+						>
+							{#each observedRain.frames as f (f.stamp)}
+								<button
+									type="button"
+									class="chip"
+									aria-pressed={observedRain.activeFrame.stamp === f.stamp}
+									data-stamp={f.stamp}
+									onclick={() => observedRain.selectFrame(f.stamp)}
+								>
+									{radarTime(lang, f.timeUtc)}
+								</button>
+							{/each}
+						</div>
+						<p class="hint" data-testid="observed-rain-legend">
+							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+								{tr('observedRain.legendMeta', {
+									time: radarTime(lang, observedRain.activeFrame.timeUtc),
+									km: observedRainMeta.km,
+									delay: observedRainMeta.delay
+								})}
+							{:else}
+								{tr('observedRain.legend', {
+									time: radarTime(lang, observedRain.activeFrame.timeUtc)
+								})}
+							{/if}
+						</p>
+						{#if observedRain.data.legend.length}
+							{@const hasSnow = observedRain.data.snowLegend.length > 0}
+							<div class="rf-scale" class:with-label={hasSnow} data-testid="observed-rain-scale">
+								{#if hasSnow}
+									<div class="rf-scale-row">
+										<span class="rf-scale-label">{tr('observedRain.rainScale')}</span>
+										<div
+											class="rf-bar"
+											role="img"
+											aria-label="{tr('observedRain.rainScale')}: {observedRain.data.legend
+												.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+												.join(', ')}"
+										>
+											{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}
+												></i>{/each}
+										</div>
+									</div>
+									<div class="rf-scale-row">
+										<span class="rf-scale-label">{tr('observedRain.snowScale')}</span>
+										<div
+											class="rf-bar"
+											role="img"
+											aria-label="{tr('observedRain.snowScale')}: {observedRain.data.snowLegend
+												.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+												.join(', ')}"
+										>
+											{#each observedRain.data.snowLegend as c (c.minMmH)}<i style:background={c.color}
+												></i>{/each}
+										</div>
+									</div>
+									<div class="rf-scale-row">
+										<span class="rf-scale-label" aria-hidden="true"></span>
+										<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
+											{#each observedRainMarks as m (m.i)}
+												<span
+													class:last={m.i === observedRain.data.legend.length - 1}
+													style:grid-column={m.i === observedRain.data.legend.length - 1
+														? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
+														: m.i + 1}
+													>{m.text}{m.i === observedRain.data.legend.length - 1
+														? ` ${tr('radar.unit')}`
+														: ''}</span
+												>
+											{/each}
+										</div>
+									</div>
+								{:else}
+									<div
+										class="rf-bar"
+										role="img"
+										aria-label="{tr('radar.legend')}: {observedRain.data.legend
+											.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+											.join(', ')}"
+									>
+										{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}></i>{/each}
+									</div>
+									<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
+										{#each observedRainMarks as m (m.i)}
+											<span
+												class:last={m.i === observedRain.data.legend.length - 1}
+												style:grid-column={m.i === observedRain.data.legend.length - 1
+													? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
+													: m.i + 1}
+												>{m.text}{m.i === observedRain.data.legend.length - 1
+													? ` ${tr('radar.unit')}`
+													: ''}</span
+											>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{/if}
+						<p class="hint" data-testid="observed-rain-disclaimer">
+							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+								{tr('observedRain.notRadar', { km: observedRainMeta.km, delay: observedRainMeta.delay })}
+							{:else}
+								{tr('observedRain.notRadarPlain')}
+							{/if}
+						</p>
+					{:else}
+						<p class="hint">{tr('observedRain.loading')}</p>
+					{/if}
+				{/if}
+				<label class="check">
 					<input type="checkbox" bind:checked={rainField.on} data-testid="rain-field-toggle" />
 					<span class="swatch rain-field" aria-hidden="true"></span>
 					{tr('rainField.toggle')}
@@ -1154,6 +1306,9 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
+			{#if observedRain.on && observedRain.data?.attribution}<p class="credit">
+					{observedRain.data.attribution}
+				</p>{/if}
 			{#if rainField.on && rainField.field?.attribution}<p class="credit">
 					{rainField.field.attribution}
 				</p>{/if}
@@ -1181,6 +1336,7 @@
 			tides={tides.features}
 			radar={radar.onMap(tr('radar.credit'))}
 			rainField={rainField.onMap(tr('rainField.credit'))}
+			observedRain={observedRain.onMap(tr('observedRain.credit'))}
 			wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 			flow={flow.grids}
 			globe
@@ -1192,16 +1348,39 @@
 		/>
 		<RadarCard {lang} {radar} />
 		<WindCard {lang} {wind} />
-		{#if rainField.on && rainField.active && !wind.on}
-			<div class="rf-badge" role="status" data-testid="rain-field-badge">
-				<span class="eyebrow">
-					{tr('rainField.badge', {
-						model: rainField.active.level.model,
-						lead: rainField.active.frame.leadHours,
-						time: windTime(lang, rainField.active.frame.validUtc)
-					})}
-				</span>
-				<span class="rf-badge-note">{tr('rainField.notRadarShort')}</span>
+		{#if !wind.on && ((observedRain.on && observedRain.activeFrame) || (rainField.on && rainField.active))}
+			<div class="map-badges">
+				{#if observedRain.on && observedRain.activeFrame}
+					<div class="rf-badge" role="status" data-testid="observed-rain-badge">
+						<span class="eyebrow">
+							{tr('observedRain.badge', {
+								time: radarTime(lang, observedRain.activeFrame.timeUtc)
+							})}
+						</span>
+						<span class="rf-badge-note">
+							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+								{tr('observedRain.notRadarShort', {
+									km: observedRainMeta.km,
+									delay: observedRainMeta.delay
+								})}
+							{:else}
+								{tr('observedRain.notRadarShortPlain')}
+							{/if}
+						</span>
+					</div>
+				{/if}
+				{#if rainField.on && rainField.active}
+					<div class="rf-badge" role="status" data-testid="rain-field-badge">
+						<span class="eyebrow">
+							{tr('rainField.badge', {
+								model: rainField.active.level.model,
+								lead: rainField.active.frame.leadHours,
+								time: windTime(lang, rainField.active.frame.validUtc)
+							})}
+						</span>
+						<span class="rf-badge-note">{tr('rainField.notRadarShort')}</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -1525,10 +1704,29 @@
 	.swatch.rain-field {
 		background: var(--surf-q2);
 	}
+	.swatch.observed-rain {
+		background: var(--calm-ink);
+	}
+	.observed-frames .chip {
+		padding: 3px 8px;
+		font-size: 12px;
+		font-family: var(--font-data);
+	}
 	.rf-scale {
 		display: flex;
 		flex-direction: column;
 		gap: 3px;
+	}
+	.rf-scale-row {
+		display: grid;
+		grid-template-columns: 3.1rem minmax(0, 1fr);
+		align-items: center;
+		gap: 6px;
+	}
+	.rf-scale-label {
+		font-size: 11px;
+		color: var(--muted);
+		line-height: 1.2;
 	}
 	.rf-bar {
 		display: flex;
@@ -1551,12 +1749,17 @@
 		text-align: right;
 		white-space: nowrap;
 	}
-	.rf-badge {
+	.map-badges {
 		position: absolute;
 		left: 10px;
 		top: 10px;
 		z-index: 3;
 		max-width: calc(100% - 70px);
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.rf-badge {
 		padding: 6px 10px;
 		background: color-mix(in srgb, var(--surface) 93%, transparent);
 		border: 1px solid var(--line);

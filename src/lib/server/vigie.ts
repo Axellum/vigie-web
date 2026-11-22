@@ -30,6 +30,7 @@ import {
 	type RadarNowcast
 } from '#lib/radar.js';
 import { rainFieldFromApi, type RainField, type RainLevelId } from '#lib/rainField.js';
+import { observedRainFromApi, offObservedRain, type ObservedRain } from '#lib/observedRain.js';
 import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
@@ -163,7 +164,10 @@ export const TTL_S = {
 	windFieldImage: 86_400,
 	// Global/Europe/France forecast rain overlays (Météo-France ARPEGE/AROME): refreshed hourly; PNGs are immutable by stamp.
 	rainField: 300,
-	rainFieldImage: 86_400
+	rainFieldImage: 86_400,
+	// Global observed satellite precipitation (NASA GIBS IMERG 30-min, ADR 0043): list cached 5 min, tiles immutable by stamp.
+	observedRain: 300,
+	observedRainTile: 86_400
 } as const;
 
 const cache = new TtlCache();
@@ -175,6 +179,8 @@ const tideCache = new TtlCache(Date.now, 15_000, 2000);
 const windFieldImages = new TtlCache(Date.now, 15_000, 6);
 // Forecast rain overlays (9-23 kB each): keep up to 24 recent level/stamp images in memory.
 const rainFieldImages = new TtlCache(Date.now, 15_000, 24);
+// Global observed satellite precipitation tiles (256x256 PNG): keep up to 256 recent tiles in memory.
+const observedRainTiles = new TtlCache(Date.now, 15_000, 256);
 
 export class ApiError extends Error {
 	constructor(
@@ -785,6 +791,42 @@ export function getRainFieldImage(level: RainLevelId, stamp: string): Promise<Ca
 		if (response.status === 404) return null;
 		if (!response.ok)
 			throw new ApiError(`Vigie API answered ${response.status} for a rain field image`, response.status);
+		return new Uint8Array(await response.arrayBuffer());
+	});
+}
+
+/** Global observed satellite precipitation metadata (`/v1/rain/observed`, ADR 0043); older APIs without the route return `off`. */
+export function getObservedRain(): Promise<Cached<ObservedRain | null>> {
+	return cache.get('observed-rain', TTL_S.observedRain * 1000, async () => {
+		try {
+			return observedRainFromApi(await getJson('/v1/rain/observed', 15_000));
+		} catch (e) {
+			if (e instanceof ApiError && e.status === 404) return offObservedRain();
+			throw e;
+		}
+	});
+}
+
+/** One Web Mercator PNG tile of the global observed satellite precipitation layer, cached by stamp and z/x/y; null when unknown. */
+export function getObservedRainTile(
+	stamp: string,
+	z: number,
+	x: number,
+	y: number
+): Promise<Cached<Uint8Array | null>> {
+	return observedRainTiles.get(`${stamp}:${z}:${x}:${y}`, TTL_S.observedRainTile * 1000, async () => {
+		let response: Response;
+		try {
+			response = await fetch(apiUrl(`/v1/rain/observed/tiles/${stamp}/${z}/${x}/${y}.png`), {
+				headers: { accept: 'image/png' },
+				signal: AbortSignal.timeout(15_000)
+			});
+		} catch (error) {
+			throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+		}
+		if (response.status === 404) return null;
+		if (!response.ok)
+			throw new ApiError(`Vigie API answered ${response.status} for an observed rain tile`, response.status);
 		return new Uint8Array(await response.arrayBuffer());
 	});
 }

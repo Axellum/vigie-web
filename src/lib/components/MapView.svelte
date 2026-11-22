@@ -22,6 +22,7 @@
 	import type { Hazard } from '#lib/types.js';
 	import type { RadarOnMap } from '#lib/radar.js';
 	import type { RainFieldOnMap } from '#lib/rainField.js';
+	import type { ObservedRainOnMap } from '#lib/observedRain.js';
 	import { compass } from '#lib/surf.js';
 	import {
 		badgeRadius,
@@ -64,6 +65,8 @@
 		radar?: RadarOnMap | null;
 		/** Global/Europe/France forecast rain RGBA PNG overlay (ARPEGE/AROME), drawn above warnings and below radar & labels. Null: off. */
 		rainField?: RainFieldOnMap | null;
+		/** Global observed satellite precipitation raster tiles (NASA GIBS IMERG), drawn above warnings and below radar & labels. Null: off. */
+		observedRain?: ObservedRainOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
 		 * Null: no wind. */
 		wind?: WindOnMap | null;
@@ -95,6 +98,7 @@
 		tides = null,
 		radar = null,
 		rainField = null,
+		observedRain = null,
 		wind = null,
 		flow = null,
 		spots = null,
@@ -457,15 +461,50 @@
 	// the active one visible and the others transparent (they are only loaded, for the animation).
 	const radarIds = new Set<string>();
 	let rainFieldKey: string | null = null;
+	let observedRainKey: string | null = null;
 	let overlayAdded = false;
 	const RADAR_OPACITY = 0.85;
 	const RAIN_FIELD_OPACITY = 0.72;
+	const OBSERVED_RAIN_OPACITY = 0.72;
 
-	/** First radar layer currently on the map (or `labelsFrom` when none): forecast rain goes right under it. */
+	/** First radar layer currently on the map (or `labelsFrom` when none): global rain layers go right under it. */
 	function beforeRadarOrLabels(): string | undefined {
 		if (!map) return labelsFrom;
 		const firstRadar = map.getStyle().layers.find((l) => l.id.startsWith('radar-'))?.id;
 		return firstRadar ?? labelsFrom;
+	}
+
+	function syncObservedRain() {
+		if (!map || !overlayAdded) return;
+		const nextKey = observedRain ? `${observedRain.id}|${observedRain.tiles}` : null;
+		if (nextKey === observedRainKey) return;
+		if (map.getLayer('observed-rain')) map.removeLayer('observed-rain');
+		if (map.getSource('observed-rain')) map.removeSource('observed-rain');
+		observedRainKey = null;
+		if (!observedRain) return;
+		map.addSource('observed-rain', {
+			type: 'raster',
+			tiles: [observedRain.tiles],
+			tileSize: 256,
+			minzoom: observedRain.minZoom,
+			maxzoom: observedRain.maxZoom,
+			bounds: observedRain.bounds,
+			attribution: observedRain.attribution
+		});
+		map.addLayer(
+			{
+				id: 'observed-rain',
+				type: 'raster',
+				source: 'observed-rain',
+				paint: {
+					'raster-opacity': OBSERVED_RAIN_OPACITY,
+					'raster-opacity-transition': { duration: 0 },
+					'raster-fade-duration': 0
+				}
+			},
+			beforeRadarOrLabels()
+		);
+		observedRainKey = nextKey;
 	}
 
 	function syncRainField() {
@@ -544,9 +583,10 @@
 
 	function addOverlay() {
 		if (!map) return;
-		// A new style has none of the radar or forecast rain layers; the first label of the base map is where they go under.
+		// A new style has none of the radar or global rain layers; the first label of the base map is where they go under.
 		radarIds.clear();
 		rainFieldKey = null;
+		observedRainKey = null;
 		labelsFrom = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
 		// between them at world scale).
@@ -670,8 +710,9 @@
 			}
 		});
 		addForecastLayers();
-		// Forecast rain and radar after every warning: over them, under the labels of the base map.
+		// Global observed rain, forecast rain and radar after every warning: over them, under the labels of the base map.
 		overlayAdded = true;
+		syncObservedRain();
 		syncRainField();
 		syncRadar();
 		map.addLayer({
@@ -1104,6 +1145,10 @@
 	$effect(() => {
 		void rainField;
 		if (ready) syncRainField();
+	});
+	$effect(() => {
+		void observedRain;
+		if (ready) syncObservedRain();
 	});
 	$effect(() => {
 		void wind;

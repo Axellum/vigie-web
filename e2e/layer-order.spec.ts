@@ -67,6 +67,22 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 		.toBe(20);
 	await expectOrder(page, 20);
 
+	// Global observed satellite precipitation layer sits above warnings, below radar and below base map labels.
+	await page.getByTestId('observed-rain-toggle').check();
+	await expect
+		.poll(async () => (await layers(page)).ids.includes('observed-rain'), { timeout: 15_000 })
+		.toBe(true);
+	{
+		const { ids, firstLabel } = await layers(page);
+		const obs = ids.indexOf('observed-rain');
+		const maxWarn = Math.max(...WARNINGS.map((id) => ids.indexOf(id)));
+		const minRadar = Math.min(...ids.flatMap((id, i) => (id.startsWith('radar-') ? [i] : [])));
+		expect(obs).toBeGreaterThan(maxWarn);
+		expect(obs).toBeLessThan(minRadar);
+		expect(obs).toBeLessThan(firstLabel);
+	}
+	await page.getByTestId('observed-rain-toggle').uncheck();
+
 	// Global forecast rain layer sits above warnings, below radar and below base map labels.
 	await page.getByTestId('rain-field-toggle').check();
 	await expect
