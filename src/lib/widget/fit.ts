@@ -21,24 +21,38 @@ export function fitParts(node: HTMLElement): void {
 
 /** `use:fit` on the frame of the widget: fits again when its size, its content or its fonts change. */
 export const fit: Action<HTMLElement> = (node) => {
-	let frame = 0;
+	// Right after the change, not at the next frame: a page out of sight draws no frame, and would show its overflow for one.
+	let queued = false;
+	let live = true;
 	const later = () => {
-		if (!frame) frame = requestAnimationFrame(() => ((frame = 0), fitParts(node)));
+		if (queued) return;
+		queued = true;
+		queueMicrotask(() => {
+			queued = false;
+			if (live) fitParts(node);
+		});
 	};
 	const resize = new ResizeObserver(later);
 	resize.observe(node);
-	// Only what Svelte changes: the attribute set here is not watched, or the page would fit again for ever.
+	// Only what Svelte changes (parts, texts, classes such as the layout): the attribute set here is not watched, or the page
+	// would fit again for ever.
 	const changes = new MutationObserver(later);
-	changes.observe(node, { childList: true, subtree: true, characterData: true });
+	changes.observe(node, {
+		childList: true,
+		subtree: true,
+		characterData: true,
+		attributes: true,
+		attributeFilter: ['class']
+	});
 	document.fonts?.addEventListener('loadingdone', later);
 	void document.fonts?.ready.then(later);
 	fitParts(node);
 	return {
 		destroy() {
+			live = false;
 			resize.disconnect();
 			changes.disconnect();
 			document.fonts?.removeEventListener('loadingdone', later);
-			if (frame) cancelAnimationFrame(frame);
 		}
 	};
 };

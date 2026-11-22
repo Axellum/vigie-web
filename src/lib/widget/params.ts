@@ -29,6 +29,15 @@ export const WIDGET_DEFAULTS = { size: 'medium', theme: 'sky' } as const satisfi
 	'size' | 'theme'
 >;
 
+/**
+ * The layout for the height the Windows widgets board gives, its band of 48 pixels included. The board does not always give
+ * the size it was asked: on Windows 11 in November 2026 it gave a medium web widget the frame of a large one, 300 × 462
+ * (measured). From 360 pixels the large layout, which hides what does not fit, shows more than the medium one.
+ */
+export function boardSize(height: number): WidgetSize {
+	return height >= 360 ? 'large' : height >= 200 ? 'medium' : 'small';
+}
+
 /** The same shape as the API's spot ids: letters, digits and dashes. */
 const SPOT = /^[a-z0-9-]{1,80}$/;
 
