@@ -57,7 +57,7 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   is on and the unit stay in the browser (`localStorage`, `vigie-wind-map`). Measured wind, not a forecast.
 - **Forecast wind** (Météo-France's AROME and ARPEGE, through the API: `GET /v1/wind/field`, its ADR 0038), a layer of the map,
   off until the visitor turns it on (`src/lib/windField.ts`, `windFieldLayer.svelte.ts`, `windFlow.ts`): thin trails that follow
-  the wind at 10 m of the whole hour nearest to now, on a canvas of their own over MapLibre's and under its markers, about 30
+  the wind at 10 m of the whole hour nearest to now, on a canvas of their own over MapLibre's (see the order below), about 30
   images a second (one trail per 25 x 25 pixels, each a short line through the last positions of its head, faded with age),
   nothing drawn while the map moves, still trails with "reduce motion". The grids are images (red the east component, green the
   north one, blue where the model has a value): the world's (0.5°) always, Europe's (0.2°) from zoom 3, France's (AROME, 0.05°)
@@ -65,6 +65,13 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   `/data/wind-field.json` (kept 5 minutes, asked again every 10 minutes and when the hour turns); the images are relayed by
   `/data/wind-field/<level>/<hour>-<run>.png` (only those the list names; kept a day by browsers). The choice stays in the
   browser (`localStorage`, `vigie-wind-field`). A forecast, not a measure nor a warning.
+- **Order of the map's layers**, from the bottom: the base map; the warnings (zones, rivers, earthquakes, a cyclone's
+  forecast, with the aurora and the eclipse under them); the rain radar; the names of the base map, readable over the rain;
+  the site's other layers (fires, tides, surf spots, labels) and what the visitor picked; then, over MapLibre's canvas, the
+  warnings' markers, the forecast wind's trails, the measured wind's badges and their card (`MapView.svelte`: the warnings and
+  the radar go under the first label of the base map, the radar after them; z-index in the map's own container, isolated so
+  that MapLibre's buttons and the site's cards stay over it). `e2e/layer-order.spec.ts` checks it, reading the map through
+  `window.vigieMap`, set only in a browser driven by tests (`navigator.webdriver`).
 - **Covered countries.** Which countries have official warnings is the API's answer
   (`/v1/vigilances/countries`, cached 10 minutes), given with the pages that need it (the world map, near me,
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the

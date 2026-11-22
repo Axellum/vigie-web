@@ -79,7 +79,8 @@ export class WindFlow {
 		this.#ctx = ctx;
 		// A context the browser took back (memory, a long hidden tab) comes back blank, without its scale.
 		this.#canvas.addEventListener('contextrestored', this.#onResize);
-		// Right after the map's own canvas: the markers and popups, later in the same container, stay above the trails.
+		// Right after the map's own canvas, in the same container as the markers: what lies over or under the trails is
+		// set by z-index (MapView: the warnings' markers under, the measured wind's badges and their card over).
 		map.getCanvas().after(this.#canvas);
 		map.on('movestart', this.#onMoveStart);
 		map.on('moveend', this.#onMoveEnd);
