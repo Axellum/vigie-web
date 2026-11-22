@@ -22,7 +22,14 @@ import { droughtFromApi, type DroughtResponse } from '#lib/drought.js';
 import { avalanchesFromApi, type AvalanchesResponse } from '#lib/avalanches.js';
 import { catnatFromApi, type CatNatResponse } from '#lib/catnat.js';
 import { climateFromApi, type ClimateResponse } from '#lib/climate.js';
-import { radarFromApi, type Radar, type RadarArea } from '#lib/radar.js';
+import {
+	radarFromApi,
+	radarNowcastFromApi,
+	type Radar,
+	type RadarArea,
+	type RadarNowcast
+} from '#lib/radar.js';
+import { rainFieldFromApi, type RainField, type RainLevelId } from '#lib/rainField.js';
 import { pollensFromApi, type PollensResponse } from '#lib/pollens.js';
 import { spotStationFromApi, type SpotStationReading } from '#lib/stations.js';
 import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoys } from '#lib/activities.js';
@@ -145,13 +152,18 @@ export const TTL_S = {
 	seaPlaceIds: 21_600,
 	// The radar sends an image every 5 minutes; the list is not asked again before. A tile of an image never changes.
 	radar: 300,
+	radarNowcast: 60,
 	radarTile: 86_400,
+	radarNowcastTile: 3600,
 	// The stations' wind: a new 6-minute package; the whole list is read once for every visitor, and a view cut from it.
 	stationWind: 180,
 	// The forecast wind of the map: the API makes the images of a new hour at half past; an image never changes (its address
 	// holds its hour and its run).
 	windField: 300,
-	windFieldImage: 86_400
+	windFieldImage: 86_400,
+	// Global/Europe/France forecast rain overlays (Météo-France ARPEGE/AROME): refreshed hourly; PNGs are immutable by stamp.
+	rainField: 300,
+	rainFieldImage: 86_400
 } as const;
 
 const cache = new TtlCache();
@@ -161,6 +173,8 @@ const fireCache = new TtlCache(Date.now, 15_000, 400);
 const tideCache = new TtlCache(Date.now, 15_000, 2000);
 // The images of the forecast wind: three an hour, about 600 kB together; the last two hours kept.
 const windFieldImages = new TtlCache(Date.now, 15_000, 6);
+// Forecast rain overlays (9-23 kB each): keep up to 24 recent level/stamp images in memory.
+const rainFieldImages = new TtlCache(Date.now, 15_000, 24);
 
 export class ApiError extends Error {
 	constructor(
@@ -369,6 +383,7 @@ export function getPoint(
 			lon: String(cell.lon),
 			marine: String(marine),
 			device_type: 'web',
+			compact: 'false',
 			// The page finds the hazards itself; the API wants at least one.
 			max_hazards: '1',
 			radius_km: '1'
@@ -513,6 +528,40 @@ export async function getRadarTile(
 	if (response.status === 404) return null;
 	if (!response.ok)
 		throw new ApiError(`Vigie API answered ${response.status} for a radar tile`, response.status);
+	return new Uint8Array(await response.arrayBuffer());
+}
+
+/** PIAF +1h rain nowcast frames over metropolitan France (`/v1/radar/france/nowcast`); null when unavailable or absent. */
+export function getRadarNowcast(): Promise<Cached<RadarNowcast | null>> {
+	return cache.get('radar-nowcast:france', TTL_S.radarNowcast * 1000, async () => {
+		try {
+			return radarNowcastFromApi(await getJson('/v1/radar/france/nowcast', 15_000));
+		} catch (e) {
+			if (e instanceof ApiError && (e.status === 404 || e.status === 503)) return null;
+			throw e;
+		}
+	});
+}
+
+/** One Web Mercator PNG tile of the PIAF +1h rain nowcast; null when unknown or unavailable. */
+export async function getRadarNowcastTile(
+	epoch: number,
+	z: number,
+	x: number,
+	y: number
+): Promise<Uint8Array | null> {
+	let response: Response;
+	try {
+		response = await fetch(apiUrl(`/v1/radar/france/nowcast/tiles/${epoch}/${z}/${x}/${y}.png`), {
+			headers: { accept: 'image/png' },
+			signal: AbortSignal.timeout(15_000)
+		});
+	} catch (error) {
+		throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+	}
+	if (response.status === 404) return null;
+	if (!response.ok)
+		throw new ApiError(`Vigie API answered ${response.status} for a nowcast tile`, response.status);
 	return new Uint8Array(await response.arrayBuffer());
 }
 
@@ -700,6 +749,46 @@ export function getWindFieldImage(level: FieldLevelId, stamp: string): Promise<C
 	});
 }
 
+/** Global/Europe/France forecast rain overlays (`/v1/rain/field`, ADR 0041); older APIs without the route return `off`. */
+export function getRainField(): Promise<Cached<RainField | null>> {
+	return cache.get('rain-field', TTL_S.rainField * 1000, async () => {
+		try {
+			return rainFieldFromApi(await getJson('/v1/rain/field', 15_000));
+		} catch (e) {
+			if (e instanceof ApiError && e.status === 404)
+				return {
+					status: 'off',
+					baseUtc: null,
+					stale: false,
+					levels: [],
+					legend: [],
+					attribution: null,
+					note: null
+				};
+			throw e;
+		}
+	});
+}
+
+/** One RGBA PNG overlay of the forecast rain field, cached by level and stamp; null when unknown. */
+export function getRainFieldImage(level: RainLevelId, stamp: string): Promise<Cached<Uint8Array | null>> {
+	return rainFieldImages.get(`${level}:${stamp}`, TTL_S.rainFieldImage * 1000, async () => {
+		let response: Response;
+		try {
+			response = await fetch(apiUrl(`/v1/rain/field/${level}/${stamp}.png`), {
+				headers: { accept: 'image/png' },
+				signal: AbortSignal.timeout(15_000)
+			});
+		} catch (error) {
+			throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+		}
+		if (response.status === 404) return null;
+		if (!response.ok)
+			throw new ApiError(`Vigie API answered ${response.status} for a rain field image`, response.status);
+		return new Uint8Array(await response.arrayBuffer());
+	});
+}
+
 /** The ids of the places that have a name (the sitemap): every kind, page by page, or an error if one page cannot be read. */
 export function getNamedPlaceIds(): Promise<Cached<string[]>> {
 	return cache.get('sea-place-ids', TTL_S.seaPlaceIds * 1000, () =>
@@ -812,6 +901,7 @@ export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeathe
 			// With the sea: the temperature of the water is in the same answer, which the API keeps an hour.
 			marine: 'true',
 			device_type: 'web',
+			compact: 'false',
 			max_hazards: '1',
 			radius_km: '1'
 		});

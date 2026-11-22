@@ -5,13 +5,16 @@ import { geometryBox } from './geo';
 import { asLevel } from './levels';
 import { droughtStatusFromApi } from './drought';
 import type {
+	AirHourlyPoint,
 	Coverage,
 	Hazard,
 	HazardForecast,
+	HourlyWeatherPoint,
 	FireTile,
 	HazardsData,
 	NearPlace,
 	PointWeather,
+	PressureHistoryPoint,
 	ServedCountry,
 	UncoveredCountry,
 	WarningDetail,
@@ -313,6 +316,89 @@ function ensembleFromApi(p: Record<string, unknown> | null): PointWeather['proba
 	return { runUtc: num(short.run_utc), windows, attribution: str(p.attribution) };
 }
 
+/** Parses a timestamp given as Unix epoch seconds or ISO-8601 UTC string into epoch seconds; null otherwise. */
+function epochFromApi(v: unknown): number | null {
+	const n = num(v);
+	if (n != null) return Math.floor(n);
+	const s = str(v);
+	if (!s) return null;
+	const ms = Date.parse(s);
+	return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
+
+/** Optional hourly weather forecast series from `/v1/point`; null when absent or empty. */
+function hourlyFromApi(raw: unknown): HourlyWeatherPoint[] | null {
+	if (!Array.isArray(raw) || raw.length === 0) return null;
+	const out: HourlyWeatherPoint[] = [];
+	for (const item of raw) {
+		const h = obj(item);
+		const t = epochFromApi(h.time_utc);
+		if (t == null) continue;
+		out.push({
+			t,
+			tempC: num(h.temp_c),
+			feelsLikeC: num(h.feels_like_c),
+			dewPointC: num(h.dew_point_c),
+			precipMm: num(h.precipitation_mm),
+			precipProbPct: pct(h.precipitation_probability_pct),
+			windKmh: num(h.wind_kmh),
+			windGustKmh: num(h.wind_gust_kmh),
+			windDeg: num(h.wind_deg),
+			cloudCoverPct: pct(h.cloud_cover_pct),
+			cloudLowPct: pct(h.cloud_low_pct),
+			cloudMidPct: pct(h.cloud_mid_pct),
+			cloudHighPct: pct(h.cloud_high_pct),
+			pressureHpa: num(h.pressure_hpa),
+			uvIndex: num(h.uv_index),
+			shortwaveWm2: num(h.shortwave_wm2),
+			weatherCode: num(h.weather_code),
+			isDay: bool(h.is_day)
+		});
+	}
+	if (out.length === 0) return null;
+	out.sort((a, b) => a.t - b.t);
+	return out;
+}
+
+/** Optional past barometric pressure series from `/v1/point`; null when absent or empty. */
+function pressureHistoryFromApi(raw: unknown): PressureHistoryPoint[] | null {
+	if (!Array.isArray(raw) || raw.length === 0) return null;
+	const out: PressureHistoryPoint[] = [];
+	for (const item of raw) {
+		const p = obj(item);
+		const t = epochFromApi(p.time_utc);
+		const pressureHpa = num(p.pressure_hpa);
+		if (t == null || pressureHpa == null) continue;
+		out.push({ t, pressureHpa });
+	}
+	if (out.length === 0) return null;
+	out.sort((a, b) => a.t - b.t);
+	return out;
+}
+
+/** Optional hourly air quality forecast series from `/v1/point`; null when absent or empty. */
+function airHourlyFromApi(raw: unknown): AirHourlyPoint[] | null {
+	if (!Array.isArray(raw) || raw.length === 0) return null;
+	const out: AirHourlyPoint[] = [];
+	for (const item of raw) {
+		const a = obj(item);
+		const t = epochFromApi(a.time_utc);
+		if (t == null) continue;
+		out.push({
+			t,
+			pm25: num(a.pm2_5 ?? a.pm2_5_ugm3),
+			pm10: num(a.pm10 ?? a.pm10_ugm3),
+			ozone: num(a.ozone ?? a.ozone_ugm3),
+			nitrogenDioxide: num(a.nitrogen_dioxide ?? a.nitrogen_dioxide_ugm3),
+			dust: num(a.dust ?? a.dust_ugm3),
+			europeanAqi: num(a.european_aqi)
+		});
+	}
+	if (out.length === 0) return null;
+	out.sort((a, b) => a.t - b.t);
+	return out;
+}
+
 /** The weather of `/v1/point`, without the nearby hazards (the page has them) and without the radar fields. */
 export function pointFromApi(body: unknown): PointWeather {
 	const p = obj(body);
@@ -444,6 +530,9 @@ export function pointFromApi(body: unknown): PointWeather {
 			disclaimer: str(fires.disclaimer)
 		},
 		drought: droughtStatusFromApi(p.drought),
+		hourly: hourlyFromApi(p.hourly),
+		pressureHistory: pressureHistoryFromApi(p.pressure_history),
+		airHourly: airHourlyFromApi(p.air_hourly),
 		disclaimer: str(p.disclaimer)
 	};
 }

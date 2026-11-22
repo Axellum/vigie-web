@@ -1,0 +1,254 @@
+{
+  "status": "ok",
+  "base_utc": 1795352400,
+  "base_at": "2026-11-22T13:00:00Z",
+  "stale": false,
+  "projection": "mercator",
+  "levels": [
+    {
+      "id": "world",
+      "model": "ARPEGE",
+      "bounds": [
+        -180.0,
+        -85.0,
+        180.0,
+        85.0
+      ],
+      "width": 180,
+      "height": 90,
+      "min_zoom": 0.0,
+      "run_utc": 1795327200,
+      "run_at": "2026-11-22T06:00:00Z",
+      "frames": [
+        {
+          "stamp": "2026112214-2026112206",
+          "valid_utc": 1795356000,
+          "valid_at": "2026-11-22T14:00:00Z",
+          "lead_hours": 1,
+          "url": "/v1/rain/field/world/2026112214-2026112206.png",
+          "size_bytes": 831
+        },
+        {
+          "stamp": "2026112215-2026112206",
+          "valid_utc": 1795359600,
+          "valid_at": "2026-11-22T15:00:00Z",
+          "lead_hours": 2,
+          "url": "/v1/rain/field/world/2026112215-2026112206.png",
+          "size_bytes": 831
+        },
+        {
+          "stamp": "2026112216-2026112206",
+          "valid_utc": 1795363200,
+          "valid_at": "2026-11-22T16:00:00Z",
+          "lead_hours": 3,
+          "url": "/v1/rain/field/world/2026112216-2026112206.png",
+          "size_bytes": 831
+        },
+        {
+          "stamp": "2026112219-2026112206",
+          "valid_utc": 1795374000,
+          "valid_at": "2026-11-22T19:00:00Z",
+          "lead_hours": 6,
+          "url": "/v1/rain/field/world/2026112219-2026112206.png",
+          "size_bytes": 831
+        },
+        {
+          "stamp": "2026112301-2026112206",
+          "valid_utc": 1795395600,
+          "valid_at": "2026-11-23T01:00:00Z",
+          "lead_hours": 12,
+          "url": "/v1/rain/field/world/2026112301-2026112206.png",
+          "size_bytes": 831
+        },
+        {
+          "stamp": "2026112313-2026112206",
+          "valid_utc": 1795438800,
+          "valid_at": "2026-11-23T13:00:00Z",
+          "lead_hours": 24,
+          "url": "/v1/rain/field/world/2026112313-2026112206.png",
+          "size_bytes": 831
+        }
+      ]
+    },
+    {
+      "id": "europe",
+      "model": "ARPEGE",
+      "bounds": [
+        -32.0,
+        20.0,
+        42.0,
+        72.0
+      ],
+      "width": 160,
+      "height": 110,
+      "min_zoom": 3.0,
+      "run_utc": 1795327200,
+      "run_at": "2026-11-22T06:00:00Z",
+      "frames": [
+        {
+          "stamp": "2026112214-2026112206",
+          "valid_utc": 1795356000,
+          "valid_at": "2026-11-22T14:00:00Z",
+          "lead_hours": 1,
+          "url": "/v1/rain/field/europe/2026112214-2026112206.png",
+          "size_bytes": 615
+        },
+        {
+          "stamp": "2026112215-2026112206",
+          "valid_utc": 1795359600,
+          "valid_at": "2026-11-22T15:00:00Z",
+          "lead_hours": 2,
+          "url": "/v1/rain/field/europe/2026112215-2026112206.png",
+          "size_bytes": 615
+        },
+        {
+          "stamp": "2026112216-2026112206",
+          "valid_utc": 1795363200,
+          "valid_at": "2026-11-22T16:00:00Z",
+          "lead_hours": 3,
+          "url": "/v1/rain/field/europe/2026112216-2026112206.png",
+          "size_bytes": 615
+        },
+        {
+          "stamp": "2026112219-2026112206",
+          "valid_utc": 1795374000,
+          "valid_at": "2026-11-22T19:00:00Z",
+          "lead_hours": 6,
+          "url": "/v1/rain/field/europe/2026112219-2026112206.png",
+          "size_bytes": 615
+        },
+        {
+          "stamp": "2026112301-2026112206",
+          "valid_utc": 1795395600,
+          "valid_at": "2026-11-23T01:00:00Z",
+          "lead_hours": 12,
+          "url": "/v1/rain/field/europe/2026112301-2026112206.png",
+          "size_bytes": 615
+        },
+        {
+          "stamp": "2026112313-2026112206",
+          "valid_utc": 1795438800,
+          "valid_at": "2026-11-23T13:00:00Z",
+          "lead_hours": 24,
+          "url": "/v1/rain/field/europe/2026112313-2026112206.png",
+          "size_bytes": 615
+        }
+      ]
+    },
+    {
+      "id": "france",
+      "model": "AROME",
+      "bounds": [
+        -12.0,
+        37.5,
+        16.0,
+        55.4
+      ],
+      "width": 140,
+      "height": 120,
+      "min_zoom": 5.0,
+      "run_utc": 1795327200,
+      "run_at": "2026-11-22T06:00:00Z",
+      "frames": [
+        {
+          "stamp": "2026112214-2026112206",
+          "valid_utc": 1795356000,
+          "valid_at": "2026-11-22T14:00:00Z",
+          "lead_hours": 1,
+          "url": "/v1/rain/field/france/2026112214-2026112206.png",
+          "size_bytes": 812
+        },
+        {
+          "stamp": "2026112215-2026112206",
+          "valid_utc": 1795359600,
+          "valid_at": "2026-11-22T15:00:00Z",
+          "lead_hours": 2,
+          "url": "/v1/rain/field/france/2026112215-2026112206.png",
+          "size_bytes": 812
+        },
+        {
+          "stamp": "2026112216-2026112206",
+          "valid_utc": 1795363200,
+          "valid_at": "2026-11-22T16:00:00Z",
+          "lead_hours": 3,
+          "url": "/v1/rain/field/france/2026112216-2026112206.png",
+          "size_bytes": 812
+        },
+        {
+          "stamp": "2026112219-2026112206",
+          "valid_utc": 1795374000,
+          "valid_at": "2026-11-22T19:00:00Z",
+          "lead_hours": 6,
+          "url": "/v1/rain/field/france/2026112219-2026112206.png",
+          "size_bytes": 812
+        },
+        {
+          "stamp": "2026112301-2026112206",
+          "valid_utc": 1795395600,
+          "valid_at": "2026-11-23T01:00:00Z",
+          "lead_hours": 12,
+          "url": "/v1/rain/field/france/2026112301-2026112206.png",
+          "size_bytes": 812
+        },
+        {
+          "stamp": "2026112313-2026112206",
+          "valid_utc": 1795438800,
+          "valid_at": "2026-11-23T13:00:00Z",
+          "lead_hours": 24,
+          "url": "/v1/rain/field/france/2026112313-2026112206.png",
+          "size_bytes": 812
+        }
+      ]
+    }
+  ],
+  "legend": [
+    {
+      "min_mm_h": 0.1,
+      "color": "#a6cee3",
+      "alpha": 0.67
+    },
+    {
+      "min_mm_h": 0.5,
+      "color": "#60a5fa",
+      "alpha": 0.78
+    },
+    {
+      "min_mm_h": 1,
+      "color": "#2563eb",
+      "alpha": 0.84
+    },
+    {
+      "min_mm_h": 2,
+      "color": "#22c55e",
+      "alpha": 0.88
+    },
+    {
+      "min_mm_h": 4,
+      "color": "#facc15",
+      "alpha": 0.92
+    },
+    {
+      "min_mm_h": 8,
+      "color": "#f97316",
+      "alpha": 0.94
+    },
+    {
+      "min_mm_h": 16,
+      "color": "#dc2626",
+      "alpha": 0.96
+    },
+    {
+      "min_mm_h": 32,
+      "color": "#a21caf",
+      "alpha": 0.98
+    },
+    {
+      "min_mm_h": 64,
+      "color": "#581c87",
+      "alpha": 1
+    }
+  ],
+  "licence": "Licence Ouverte 2.0 (Etalab): name Météo-France and the run, do not alter the data",
+  "attribution": "Source: Météo-France, forecast models AROME (France) and ARPEGE (Europe, world), total precipitation (https://portail-api.meteofrance.fr, Licence Ouverte 2.0), dated by the run in the answer (run_at); rendered by Vigie at a reduced resolution",
+  "note": "A forecast, not a radar measure. One-hour model accumulation (mm/h) from AROME and ARPEGE. Not for safety."
+}

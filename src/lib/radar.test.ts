@@ -1,5 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { radarAreaFrom, radarAreaOf, radarFromApi, radarTiles, radarTime, rate, RADAR_FRAMES } from './radar';
+import {
+	radarAreaFrom,
+	radarAreaOf,
+	radarFromApi,
+	radarNowcastFromApi,
+	radarNowcastTiles,
+	radarTiles,
+	radarTime,
+	rate,
+	RADAR_FRAMES
+} from './radar';
 
 const body = (n: number) => ({
 	status: 'ok',
@@ -80,5 +92,19 @@ describe('radar', () => {
 		expect(rate('en', 64)).toBe('64');
 		expect(radarTime('fr', 1_794_993_000, 'Europe/Paris')).toBe('10:10');
 		expect(radarTime('fr', 1_794_993_000, 'UTC')).toBe('09:10');
+	});
+
+	it('parses PIAF +1h nowcast frames and ignores unavailable payloads', () => {
+		const raw = JSON.parse(
+			readFileSync(join(process.cwd(), 'e2e', 'fixtures', 'radar-france-nowcast.json'), 'utf-8')
+		);
+		const nc = radarNowcastFromApi(raw);
+		expect(nc?.frames).toHaveLength(12);
+		expect(nc?.frames[0].leadMinutes).toBe(5);
+		expect(nc?.frames.at(-1)?.leadMinutes).toBe(60);
+		expect(nc?.bounds).toEqual([-6, 41, 10.5, 51.5]);
+		expect(radarNowcastTiles(1794995700)).toBe('/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png');
+		expect(radarNowcastFromApi({ status: 'unavailable', frames: [] })).toBeNull();
+		expect(radarNowcastFromApi(null)).toBeNull();
 	});
 });

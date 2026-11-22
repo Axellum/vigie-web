@@ -1,6 +1,7 @@
 <script lang="ts">
-	// The rain radar's card over the map: the time of the image, a button that plays the last half hour, a slider, the legend.
-	// It folds into a small button. The images are drawn by the map (MapView), the state is the page's (RadarLayer).
+	// The rain radar's card over the map: the time of the image, a button that plays the last half hour (plus optional PIAF +1h
+	// rain nowcast on France), a slider, the legend. It folds into a small button. The images are drawn by the map (MapView),
+	// the state is the page's (RadarLayer).
 	import { translator, type Lang } from '#lib/i18n.js';
 	import { radarTime, rate } from '#lib/radar.js';
 	import type { RadarLayer } from '#lib/radarLayer.svelte.js';
@@ -9,7 +10,16 @@
 	const tr = $derived(translator(lang));
 
 	const data = $derived(radar.data);
+	const frame = $derived(radar.activeFrame);
+	const isNowcast = $derived(frame?.kind === 'nowcast');
 	const time = $derived(radar.epoch === null ? '' : radarTime(lang, radar.epoch));
+	const totalFrames = $derived(radar.timeline.length);
+	// Share of the slider occupied by observed frames (to position the Observed | PIAF boundary cleanly).
+	const splitPct = $derived(
+		totalFrames > 1 && radar.hasNowcast
+			? Math.round(((radar.observedCount - 1) / (totalFrames - 1)) * 100)
+			: 100
+	);
 	// The legend: a bar of the classes, and the rates under four of them (the first, and about each step of the scale).
 	const classes = $derived(data?.legend ?? []);
 	const marks = $derived.by(() => {
@@ -32,7 +42,13 @@
 	{:else if data}
 		<section class="card" aria-label={tr('radar.title')} data-testid="radar-card">
 			<div class="head">
-				<h2 class="eyebrow">{tr('radar.at', { time })}</h2>
+				<h2 class="eyebrow">
+					{#if isNowcast && frame?.leadMinutes != null}
+						{tr('radar.nowcastAt', { time, min: frame.leadMinutes })}
+					{:else}
+						{tr('radar.at', { time })}
+					{/if}
+				</h2>
 				<button
 					type="button"
 					class="close"
@@ -49,23 +65,57 @@
 					>
 				</button>
 			</div>
+			{#if radar.hasNowcast}
+				<div class="phase" data-testid="radar-phase">
+					<button
+						type="button"
+						class="phase-part"
+						class:active={!isNowcast}
+						onclick={() => {
+							radar.pause();
+							radar.choose(radar.observedCount - 1);
+						}}
+					>
+						{tr('radar.phaseObserved')}
+					</button>
+					<span class="phase-sep" aria-hidden="true">|</span>
+					<button
+						type="button"
+						class="phase-part fc"
+						class:active={isNowcast}
+						onclick={() => {
+							radar.pause();
+							radar.choose(radar.observedCount);
+						}}
+					>
+						{tr('radar.phaseNowcast')}
+					</button>
+				</div>
+			{/if}
 			<div class="controls">
 				<button type="button" class="play" onclick={() => radar.toggle()} aria-pressed={radar.playing}>
 					{radar.playing ? tr('radar.pause') : tr('radar.play')}
 				</button>
-				<input
-					type="range"
-					min="0"
-					max={data.frames.length - 1}
-					step="1"
-					value={radar.index}
-					aria-label={tr('radar.slider')}
-					aria-valuetext={time}
-					oninput={(e) => {
-						radar.pause();
-						radar.choose(Number(e.currentTarget.value));
-					}}
-				/>
+				<div class="slider-wrap">
+					<input
+						type="range"
+						min="0"
+						max={Math.max(0, totalFrames - 1)}
+						step="1"
+						value={radar.index}
+						aria-label={tr('radar.slider')}
+						aria-valuetext={isNowcast && frame?.leadMinutes != null
+							? `${time} (+${frame.leadMinutes} min)`
+							: time}
+						oninput={(e) => {
+							radar.pause();
+							radar.choose(Number(e.currentTarget.value));
+						}}
+					/>
+					{#if radar.hasNowcast}
+						<span class="split-mark" style:left="{splitPct}%" aria-hidden="true"></span>
+					{/if}
+				</div>
 			</div>
 			<div class="bar" role="img" aria-label={legendText}>
 				{#each classes as c (c.minMmH)}<i style:background={c.color}></i>{/each}
@@ -79,7 +129,7 @@
 					>
 				{/each}
 			</div>
-			<p class="note">{tr('radar.measured')}</p>
+			<p class="note">{tr(isNowcast ? 'radar.nowcastNote' : 'radar.measured')}</p>
 		</section>
 	{/if}
 {/if}
@@ -88,18 +138,23 @@
 	.card {
 		position: absolute;
 		left: 10px;
-		bottom: 26px;
+		bottom: 34px;
 		z-index: 3;
-		width: min(290px, calc(100% - 20px));
+		width: min(300px, calc(100% - 20px));
 		box-sizing: border-box;
-		padding: 8px 10px 8px;
+		padding: 7px 10px;
 		background: color-mix(in srgb, var(--surface) 93%, transparent);
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
 		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 5px;
+	}
+	@media (max-width: 520px) {
+		.card {
+			bottom: 54px;
+		}
 	}
 	.head {
 		display: flex;
@@ -110,15 +165,58 @@
 	.head .eyebrow {
 		margin: 0;
 	}
+	.phase {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 11.5px;
+	}
+	.phase-part {
+		border: 1px solid transparent;
+		background: none;
+		padding: 1px 6px;
+		border-radius: 999px;
+		color: var(--muted);
+		cursor: pointer;
+		font-size: 11.5px;
+	}
+	.phase-part.active {
+		background: var(--accent-soft);
+		border-color: var(--accent);
+		color: var(--accent);
+		font-weight: 600;
+	}
+	.phase-part.fc.active {
+		border-style: dashed;
+	}
+	.phase-sep {
+		color: var(--line);
+	}
 	.controls {
 		display: flex;
 		align-items: center;
 		gap: 10px;
 	}
-	.controls input {
+	.slider-wrap {
+		position: relative;
 		flex: 1;
 		min-width: 0;
+		display: flex;
+		align-items: center;
+	}
+	.slider-wrap input {
+		width: 100%;
+		min-width: 0;
 		accent-color: var(--accent);
+	}
+	.split-mark {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 2px;
+		background: var(--ink);
+		opacity: 0.45;
+		pointer-events: none;
 	}
 	.play {
 		min-width: 72px;
@@ -164,7 +262,10 @@
 	}
 	.note {
 		margin: 0;
-		font-size: 12px;
+		padding: 0;
+		background: none;
+		font-size: 11.5px;
+		line-height: 1.3;
 		color: var(--muted);
 	}
 	.fold {

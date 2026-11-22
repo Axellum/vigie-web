@@ -32,6 +32,8 @@ import { placeSentence, type OfficialState } from './sentence';
 import { spotsAround, type SurfOverview } from './surf';
 import { TideAt } from './tideAt.svelte';
 import { DEFAULT_UNITS, type Units } from './units';
+import type { WindMap } from './wind';
+import { nearestMeasuredFromWindMap } from './weatherCharts';
 import type { Hazard, Level, PointWeather as Weather, UncoveredCountry, WarningsData } from './types';
 
 /** What the state is made of: the place and its settings, and what every visitor loads with the page. */
@@ -137,6 +139,13 @@ export class PlaceState {
 	readonly cell = $derived(this.place ? snapToGrid(this.place) : null);
 	readonly withSea = $derived(this.marine || wantsSea(this.profile));
 	readonly w = $derived(this.weather?.status === 'ok' ? (this.weather.value ?? null) : null);
+	// Nearby measured station/buoy (from the site's cached `/data/wind.json`) for honest forecast-vs-measured comparison.
+	measuredState = $state<Loaded<WindMap>>(null);
+	readonly nearestMeasured = $derived(
+		this.place && this.measuredState?.status === 'ok'
+			? nearestMeasuredFromWindMap(this.place, this.measuredState.value, 30)
+			: null
+	);
 
 	// --- VigiEau drought restrictions (FR/DROM only, omitted outside covered zones) ------------------------
 	droughtState = $state<{
@@ -275,6 +284,7 @@ export class PlaceState {
 		this.pollens?.attribution ?? null,
 		this.skyCredit,
 		this.tide.value?.attribution ?? null,
+		this.nearestMeasured?.attribution ?? null,
 		this.withSurf && this.surfNear.length ? (this.surfAll?.value?.attribution ?? null) : null
 	]);
 
@@ -338,6 +348,11 @@ export class PlaceState {
 		$effect(() => {
 			const at = this.cell;
 			untrack(() => this.tide.follow(at));
+		});
+
+		$effect(() => {
+			const at = this.cell;
+			untrack(() => void this.#loadMeasured(at));
 		});
 
 		$effect(() => {
@@ -436,6 +451,28 @@ export class PlaceState {
 			if (this[field]?.key === key) this[field] = { key, status: 'ok', value };
 		} catch {
 			if (this[field]?.key === key) this[field] = { key, status: 'error' };
+		}
+	}
+
+	async #loadMeasured(at: Place | null) {
+		if (!at) {
+			if (this.measuredState) this.measuredState = null;
+			return;
+		}
+		const w = Math.max(-180, Math.floor(at.lon - 1));
+		const s = Math.max(-90, Math.floor(at.lat - 1));
+		const e = Math.min(180, Math.ceil(at.lon + 1));
+		const n = Math.min(90, Math.ceil(at.lat + 1));
+		const bbox = `${w},${s},${e},${n}`;
+		if (this.measuredState?.key === bbox) return;
+		this.measuredState = { key: bbox, status: 'loading' };
+		try {
+			const response = await fetch(`/data/wind.json?bbox=${bbox}`);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = (await response.json()) as WindMap;
+			if (this.measuredState?.key === bbox) this.measuredState = { key: bbox, status: 'ok', value };
+		} catch {
+			if (this.measuredState?.key === bbox) this.measuredState = { key: bbox, status: 'error' };
 		}
 	}
 

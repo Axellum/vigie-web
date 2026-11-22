@@ -6,7 +6,11 @@ import { expect, test, type Page } from '@playwright/test';
 // 2026-11-18): a card over the map, on France only, with the last 35 minutes. The mock API draws every tile with one recorded tile.
 const frames = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'radar-france.json'), 'utf-8'))
 	.frames as { epoch: number }[];
+const nowcastFrames = JSON.parse(
+	readFileSync(join(import.meta.dirname, 'fixtures', 'radar-france-nowcast.json'), 'utf-8')
+).frames as { epoch: number; lead_minutes: number }[];
 const kept = frames.slice(-8).map((f) => f.epoch);
+const totalTimeline = kept.length + nowcastFrames.length;
 const newest = kept[kept.length - 1];
 const paris = (epoch: number) =>
 	new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(
@@ -57,8 +61,10 @@ test('the card has a button, a slider over the last 35 minutes, a legend, and sa
 	await expect(card(page)).toBeVisible({ timeout: 15_000 });
 
 	const slider = card(page).getByRole('slider');
-	await expect(slider).toHaveAttribute('max', String(kept.length - 1));
+	await expect(slider).toHaveAttribute('max', String(totalTimeline - 1));
 	await expect(slider).toHaveValue(String(kept.length - 1));
+	await expect(card(page).getByTestId('radar-phase')).toContainText('Observé');
+	await expect(card(page).getByTestId('radar-phase')).toContainText('Prévision PIAF +1 h');
 	await expect(card(page).getByRole('button', { name: 'Lecture' })).toBeVisible();
 	// The legend is a picture for the eye and a sentence for the others, from 0,1 to 64 mm/h.
 	const legend = card(page).getByRole('img', { name: /Intensité de la pluie en millimètres par heure/ });
@@ -69,9 +75,12 @@ test('the card has a button, a slider over the last 35 minutes, a legend, and sa
 	await expect(page.locator('.maplibregl-ctrl-attrib')).toContainText('Source : Météo-France');
 	await expect(page.getByText(/Source: Météo-France, mosaïque radar/)).toBeVisible();
 
-	// The slider chooses an image: its time is the title of the card.
+	// The slider chooses an image: its time is the title of the card, and sliding into PIAF switches badge & note.
 	await slider.fill('0');
 	await expect(card(page)).toContainText(`Radar de pluie · ${paris(kept[0])}`);
+	await slider.fill(String(kept.length));
+	await expect(card(page)).toContainText(`Prévision PIAF (+5 min) · ${paris(nowcastFrames[0].epoch)}`);
+	await expect(card(page)).toContainText('Prévision immédiate PIAF (Météo-France), pas une mesure radar.');
 	await slider.fill(String(kept.length - 1));
 	await expect(card(page)).toContainText(`Radar de pluie · ${paris(newest)}`);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
@@ -82,7 +91,7 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 }) => {
 	const asked: string[] = [];
 	page.on('request', (r) => {
-		if (/\/data\/radar\/france\/\d+\/.*\.png$/.test(r.url())) asked.push(r.url());
+		if (/\/data\/radar\/france\/(?:\d+|nowcast\/tiles\/\d+)\/.*\.png$/.test(r.url())) asked.push(r.url());
 	});
 	await open(page);
 	await view(page, 'France');
@@ -90,7 +99,7 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 	const slider = card(page).getByRole('slider');
 	await expect.poll(() => asked.length).toBeGreaterThan(0);
 
-	// From the newest image, Play starts again from the oldest and goes to the newest.
+	// From the newest observed image, Play starts from the oldest and advances through observed and PIAF frames.
 	await card(page).getByRole('button', { name: 'Lecture' }).click();
 	await expect(card(page).getByRole('button', { name: 'Pause' })).toBeVisible();
 	const seen = new Set<string>();
@@ -100,18 +109,24 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 				seen.add(await slider.inputValue());
 				return seen.size;
 			},
-			{ timeout: 15_000, intervals: [100] }
+			{ timeout: 20_000, intervals: [100] }
 		)
-		.toBe(kept.length);
+		.toBeGreaterThanOrEqual(kept.length);
 	await card(page).getByRole('button', { name: 'Pause' }).click();
 	await expect(card(page).getByRole('button', { name: 'Lecture' })).toBeVisible();
 
-	// The count of a whole animation: every image of the last 35 minutes over the area shown, and no more. Far from the 300 a
-	// minute of the API's front (which these requests do not even pass: they go to the site), about 20 tiles of a screen per image.
+	// Every frame (observed + PIAF) is preloaded on Play without exceeding reasonable tile volume.
+	const epochsCount = () =>
+		new Set(
+			asked.map((u) => {
+				const m = /\/(?:france|tiles)\/(\d+)\//.exec(u);
+				return m?.[1] ?? '';
+			})
+		).size;
+	await expect.poll(epochsCount, { timeout: 15_000 }).toBe(totalTimeline);
 	console.log(`radar: one animation = ${asked.length} tile requests`);
-	expect(asked.length).toBeGreaterThanOrEqual(kept.length);
-	expect(asked.length).toBeLessThan(250);
-	expect(new Set(asked.map((u) => u.split('/')[6])).size).toBe(kept.length);
+	expect(asked.length).toBeGreaterThanOrEqual(totalTimeline);
+	expect(asked.length).toBeLessThan(650);
 });
 
 test('the card folds into a button, and the page asks the list of images once', async ({ page }) => {

@@ -21,6 +21,7 @@
 	import { circleRing, type Place } from '#lib/near.js';
 	import type { Hazard } from '#lib/types.js';
 	import type { RadarOnMap } from '#lib/radar.js';
+	import type { RainFieldOnMap } from '#lib/rainField.js';
 	import { compass } from '#lib/surf.js';
 	import {
 		badgeRadius,
@@ -61,6 +62,8 @@
 		/** The rain radar: the images to draw (only the active one, or all of them once `preload` is set, so that a slider and an
 		 * animation do not wait for tiles), drawn over the warnings and under the labels of the base map. Null: no radar. */
 		radar?: RadarOnMap | null;
+		/** Global/Europe/France forecast rain RGBA PNG overlay (ARPEGE/AROME), drawn above warnings and below radar & labels. Null: off. */
+		rainField?: RainFieldOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
 		 * Null: no wind. */
 		wind?: WindOnMap | null;
@@ -91,6 +94,7 @@
 		eclipse = null,
 		tides = null,
 		radar = null,
+		rainField = null,
 		wind = null,
 		flow = null,
 		spots = null,
@@ -452,8 +456,47 @@
 	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
 	// the active one visible and the others transparent (they are only loaded, for the animation).
 	const radarIds = new Set<string>();
+	let rainFieldKey: string | null = null;
 	let overlayAdded = false;
 	const RADAR_OPACITY = 0.85;
+	const RAIN_FIELD_OPACITY = 0.72;
+
+	/** First radar layer currently on the map (or `labelsFrom` when none): forecast rain goes right under it. */
+	function beforeRadarOrLabels(): string | undefined {
+		if (!map) return labelsFrom;
+		const firstRadar = map.getStyle().layers.find((l) => l.id.startsWith('radar-'))?.id;
+		return firstRadar ?? labelsFrom;
+	}
+
+	function syncRainField() {
+		if (!map || !overlayAdded) return;
+		const nextKey = rainField ? `${rainField.id}|${rainField.url}` : null;
+		if (nextKey === rainFieldKey) return;
+		if (map.getLayer('rain-field')) map.removeLayer('rain-field');
+		if (map.getSource('rain-field')) map.removeSource('rain-field');
+		rainFieldKey = null;
+		if (!rainField) return;
+		map.addSource('rain-field', {
+			type: 'image',
+			url: rainField.url,
+			coordinates: rainField.coordinates
+		});
+		map.addLayer(
+			{
+				id: 'rain-field',
+				type: 'raster',
+				source: 'rain-field',
+				paint: {
+					'raster-opacity': RAIN_FIELD_OPACITY,
+					'raster-opacity-transition': { duration: 0 },
+					'raster-fade-duration': 0,
+					'raster-resampling': 'linear'
+				}
+			},
+			beforeRadarOrLabels()
+		);
+		rainFieldKey = nextKey;
+	}
 
 	function syncRadar() {
 		if (!map || !overlayAdded) return;
@@ -477,9 +520,9 @@
 				type: 'raster',
 				tiles: [f.tiles],
 				tileSize: 256,
-				minzoom: radar.minZoom,
-				maxzoom: radar.maxZoom,
-				bounds: radar.bounds,
+				minzoom: f.minZoom ?? radar.minZoom,
+				maxzoom: f.maxZoom ?? radar.maxZoom,
+				bounds: f.bounds ?? radar.bounds,
 				attribution: radar.attribution
 			});
 			map.addLayer(
@@ -501,8 +544,9 @@
 
 	function addOverlay() {
 		if (!map) return;
-		// A new style has none of the radar's layers; the first label of the base map is where they go under.
+		// A new style has none of the radar or forecast rain layers; the first label of the base map is where they go under.
 		radarIds.clear();
+		rainFieldKey = null;
 		labelsFrom = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
 		// between them at world scale).
@@ -626,8 +670,9 @@
 			}
 		});
 		addForecastLayers();
-		// The radar after every warning: over them.
+		// Forecast rain and radar after every warning: over them, under the labels of the base map.
 		overlayAdded = true;
+		syncRainField();
 		syncRadar();
 		map.addLayer({
 			id: 'place-radius',
@@ -1055,6 +1100,10 @@
 	$effect(() => {
 		void radar;
 		if (ready) syncRadar();
+	});
+	$effect(() => {
+		void rainField;
+		if (ready) syncRainField();
 	});
 	$effect(() => {
 		void wind;

@@ -15,6 +15,8 @@
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
+	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
+	import { rate } from '#lib/radar.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
 	import { windTime, windValue } from '#lib/wind.js';
@@ -265,6 +267,25 @@
 		return () => clearInterval(timer);
 	});
 	$effect(() => () => radar.pause());
+
+	// --- the forecast rain (Météo-France ARPEGE/AROME overlays; off until the visitor turns it on) ------------------------------
+	const rainField = new RainFieldLayer();
+	onMount(() => rainField.restore());
+	$effect(() => rainField.move(view, zoom));
+	$effect(() => {
+		void rainField.on;
+		untrack(() => rainField.sync());
+	});
+	$effect(() => {
+		const timer = setInterval(() => rainField.sync(), 60_000);
+		return () => clearInterval(timer);
+	});
+	const rainFieldMarks = $derived.by(() => {
+		const classes = rainField.field?.legend ?? [];
+		const n = classes.length;
+		const picks = [0, 2, 5, n - 1].filter((i, k, all) => i >= 0 && i < n && all.indexOf(i) === k);
+		return picks.map((i) => ({ i, text: rate(lang, classes[i].minMmH) }));
+	});
 
 	// --- the measured wind (stations and buoys; off until the visitor turns it on, the choice kept in this browser) ----------
 	const wind = new WindLayer();
@@ -1005,6 +1026,65 @@
 					{/if}
 				{/if}
 				<label class="check">
+					<input type="checkbox" bind:checked={rainField.on} data-testid="rain-field-toggle" />
+					<span class="swatch rain-field" aria-hidden="true"></span>
+					{tr('rainField.toggle')}
+				</label>
+				{#if rainField.on}
+					{#if rainField.field?.status === 'off'}
+						<p class="hint">{tr('rainField.off')}</p>
+					{:else if rainField.field?.status === 'unavailable' || (rainField.status === 'failed' && !rainField.field)}
+						<p class="hint">{tr('rainField.failed')}</p>
+					{:else if rainField.active && rainField.field}
+						<div class="chips" role="group" aria-label={tr('rainField.leads')} data-testid="rain-field-leads">
+							{#each rainField.leads as h (h)}
+								<button
+									type="button"
+									class="chip"
+									aria-pressed={rainField.leadHours === h}
+									onclick={() => rainField.setLead(h)}
+								>
+									+{h} h
+								</button>
+							{/each}
+						</div>
+						<p class="hint" data-testid="rain-field-legend">
+							{tr('rainField.legend', {
+								model: rainField.active.level.model,
+								time: windTime(lang, rainField.active.frame.validUtc),
+								lead: rainField.active.frame.leadHours
+							})}
+						</p>
+						{#if rainField.field.legend.length}
+							<div class="rf-scale" data-testid="rain-field-scale">
+								<div
+									class="rf-bar"
+									role="img"
+									aria-label="{tr('radar.legend')}: {rainField.field.legend
+										.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+										.join(', ')}"
+								>
+									{#each rainField.field.legend as c (c.minMmH)}<i style:background={c.color}></i>{/each}
+								</div>
+								<div class="rf-marks" style:--n={rainField.field.legend.length} aria-hidden="true">
+									{#each rainFieldMarks as m (m.i)}
+										<span
+											class:last={m.i === rainField.field.legend.length - 1}
+											style:grid-column={m.i === rainField.field.legend.length - 1
+												? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
+												: m.i + 1}
+											>{m.text}{m.i === rainField.field.legend.length - 1 ? ` ${tr('radar.unit')}` : ''}</span
+										>
+									{/each}
+								</div>
+							</div>
+						{/if}
+						<p class="hint" data-testid="rain-field-disclaimer">{tr('rainField.notRadar')}</p>
+					{:else}
+						<p class="hint">{tr('rainField.loading')}</p>
+					{/if}
+				{/if}
+				<label class="check">
 					<input type="checkbox" bind:checked={flow.on} data-testid="flow-toggle" />
 					<span class="swatch flow" aria-hidden="true"></span>
 					{tr('flow.toggle')}
@@ -1074,10 +1154,16 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
+			{#if rainField.on && rainField.field?.attribution}<p class="credit">
+					{rainField.field.attribution}
+				</p>{/if}
 			{#if flow.on && flow.field?.attribution}<p class="credit">{flow.field.attribution}</p>{/if}
 			{#if wind.on && wind.data?.attribution}<p class="credit">{wind.data.attribution}</p>{/if}
 			{#if radar.open && radar.covered && radar.data?.attribution}<p class="credit">
 					{radar.data.attribution}
+				</p>{/if}
+			{#if radar.open && radar.covered && radar.nowcastAttribution}<p class="credit">
+					{radar.nowcastAttribution}
 				</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
@@ -1094,6 +1180,7 @@
 			{fires}
 			tides={tides.features}
 			radar={radar.onMap(tr('radar.credit'))}
+			rainField={rainField.onMap(tr('rainField.credit'))}
 			wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 			flow={flow.grids}
 			globe
@@ -1105,6 +1192,18 @@
 		/>
 		<RadarCard {lang} {radar} />
 		<WindCard {lang} {wind} />
+		{#if rainField.on && rainField.active && !wind.on}
+			<div class="rf-badge" role="status" data-testid="rain-field-badge">
+				<span class="eyebrow">
+					{tr('rainField.badge', {
+						model: rainField.active.level.model,
+						lead: rainField.active.frame.leadHours,
+						time: windTime(lang, rainField.active.frame.validUtc)
+					})}
+				</span>
+				<span class="rf-badge-note">{tr('rainField.notRadarShort')}</span>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -1422,6 +1521,54 @@
 	}
 	.swatch.flow {
 		background: var(--flow);
+	}
+	.swatch.rain-field {
+		background: var(--surf-q2);
+	}
+	.rf-scale {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	.rf-bar {
+		display: flex;
+		height: 9px;
+		border-radius: 5px;
+		overflow: hidden;
+		border: 1px solid var(--line);
+	}
+	.rf-bar i {
+		flex: 1;
+	}
+	.rf-marks {
+		display: grid;
+		grid-template-columns: repeat(var(--n, 9), 1fr);
+		font-size: 11px;
+		color: var(--muted);
+		line-height: 1.2;
+	}
+	.rf-marks .last {
+		text-align: right;
+		white-space: nowrap;
+	}
+	.rf-badge {
+		position: absolute;
+		left: 10px;
+		top: 10px;
+		z-index: 3;
+		max-width: calc(100% - 70px);
+		padding: 6px 10px;
+		background: color-mix(in srgb, var(--surface) 93%, transparent);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.rf-badge-note {
+		font-size: 11.5px;
+		color: var(--muted);
 	}
 	.flow-scale {
 		display: flex;

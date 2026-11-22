@@ -1,0 +1,1 @@
+- Complementary weather charts (hourly meteogram, barometer with past pressure and trend, UV and solar radiation, hourly air quality, and forecast vs nearest station comparison), PIAF +1h rain nowcast frames in the France radar player, and a global/Europe/France forecast rain map layer (ARPEGE/AROME, off by default, clearly marked as a forecast).

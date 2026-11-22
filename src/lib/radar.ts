@@ -40,6 +40,31 @@ export interface Radar {
 	attribution: string | null;
 }
 
+/** One +5..+60 min frame from Météo-France PIAF rain nowcast (`GET /v1/radar/france/nowcast`). */
+export interface RadarNowcastFrame {
+	epoch: number;
+	leadMinutes: number;
+}
+
+export interface RadarNowcast {
+	runUtc: number | null;
+	frames: RadarNowcastFrame[];
+	intervalMinutes: number;
+	minZoom: number;
+	maxZoom: number;
+	bounds: Box;
+	legend: RadarClass[];
+	attribution: string | null;
+	note: string | null;
+}
+
+/** Unified frame in the radar timeline (either observed mosaic or PIAF +1 h forecast). */
+export interface RadarTimelineFrame {
+	epoch: number;
+	kind: 'observed' | 'nowcast';
+	leadMinutes: number | null;
+}
+
 const obj = (v: unknown): Record<string, unknown> =>
 	typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -76,6 +101,43 @@ export function radarFromApi(body: unknown): Radar | null {
 	};
 }
 
+/** The answer of `GET /v1/radar/france/nowcast`; null when unavailable, unconfigured, or empty. */
+export function radarNowcastFromApi(body: unknown): RadarNowcast | null {
+	const raw = obj(body);
+	if (raw.status !== 'ok' || !Array.isArray(raw.frames)) return null;
+	const frames: RadarNowcastFrame[] = [];
+	for (const f of raw.frames) {
+		const item = obj(f);
+		const epoch = num(item.epoch);
+		const leadMinutes = num(item.lead_minutes);
+		if (epoch === null || leadMinutes === null || leadMinutes <= 0) continue;
+		frames.push({ epoch, leadMinutes: Math.round(leadMinutes) });
+	}
+	frames.sort((a, b) => a.epoch - b.epoch);
+	if (frames.length === 0) return null;
+	const legend: RadarClass[] = [];
+	for (const c of Array.isArray(raw.legend) ? raw.legend : []) {
+		const item = obj(c);
+		const minMmH = num(item.min_mm_h);
+		const alpha = num(item.alpha);
+		if (minMmH === null || typeof item.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(item.color)) continue;
+		legend.push({ minMmH, color: item.color, alpha: alpha ?? 1 });
+	}
+	const b = Array.isArray(raw.bounds) ? raw.bounds.map(num) : [];
+	const bounds: Box = b.length === 4 && b.every((x) => x !== null) ? (b as Box) : [-6, 41, 10.5, 51.5];
+	return {
+		runUtc: num(raw.run_utc),
+		frames,
+		intervalMinutes: num(raw.interval_minutes) ?? 5,
+		minZoom: num(raw.min_zoom) ?? 3,
+		maxZoom: num(raw.max_zoom) ?? 10,
+		bounds,
+		legend,
+		attribution: typeof raw.attribution === 'string' ? raw.attribution : null,
+		note: typeof raw.note === 'string' ? raw.note : null
+	};
+}
+
 /** A radar area of the API from the text of an address; null for an unknown one. */
 export const radarAreaFrom = (value: string): RadarArea | null =>
 	Object.hasOwn(RADAR_AREAS, value) ? (value as RadarArea) : null;
@@ -84,9 +146,20 @@ export const radarAreaFrom = (value: string): RadarArea | null =>
 export const radarTiles = (area: RadarArea, epoch: number): string =>
 	`/data/radar/${area}/${epoch}/{z}/{x}/{y}.png`;
 
+/** The address of the tiles of one PIAF nowcast image on the site. */
+export const radarNowcastTiles = (epoch: number): string =>
+	`/data/radar/france/nowcast/tiles/${epoch}/{z}/{x}/{y}.png`;
+
 /** What the map draws of the radar (`MapView`'s `radar` prop). */
 export interface RadarOnMap {
-	frames: { epoch: number; tiles: string }[];
+	frames: {
+		epoch: number;
+		tiles: string;
+		kind?: 'observed' | 'nowcast';
+		bounds?: Box;
+		minZoom?: number;
+		maxZoom?: number;
+	}[];
 	/** The epoch of the image shown. */
 	active: number;
 	/** Every image is loaded, not only the one shown. */
