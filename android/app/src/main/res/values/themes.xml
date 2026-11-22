@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark window in the sky's colour, so the app never flashes white before Compose draws. -->
+    <style name="Theme.Vigie" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sky_top</item>
+    </style>
+</resources>
