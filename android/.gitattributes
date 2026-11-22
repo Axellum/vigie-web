@@ -1,0 +1,5 @@
+# The repository keeps LF everywhere; the Gradle wrapper's Windows script needs CRLF to run under cmd.
+*.bat text eol=crlf
+gradlew text eol=lf
+*.jar binary
+*.webp binary

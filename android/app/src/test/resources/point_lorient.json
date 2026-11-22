@@ -1,0 +1,64 @@
+{
+ "version": "1.1",
+ "server_utc": 1795353506,
+ "utc_offset_s": 3600,
+ "weather_provider": "Météo-France (AROME, ARPEGE)",
+ "fallback_used": false,
+ "local_alert_level": "GREEN",
+ "current": {
+  "temp_c": 14.0,
+  "feels_like_c": 8.8,
+  "humidity_pct": 63,
+  "pressure_hpa": 1012.1,
+  "wind_kmh": 29.7,
+  "gust_kmh": 59.4,
+  "wind_deg": 287,
+  "rain_1h_mm": 0.0,
+  "weather_code": 0,
+  "uv_index": 0.9,
+  "aqi_eu": 30
+ },
+ "coordinates": {
+  "lat": 47.75,
+  "lon": -3.37
+ },
+ "daily": [
+  {
+   "date": "2026-11-22",
+   "code": 61,
+   "tmin": 10.4,
+   "tmax": 14.8,
+   "rain_mm": 5.0,
+   "rain_probability_pct": 100,
+   "wind_max": 33.7,
+   "uv_max": 1.0
+  },
+  {
+   "date": "2026-11-23",
+   "code": 3,
+   "tmin": 8.5,
+   "tmax": 14.2,
+   "rain_mm": 0.1,
+   "rain_probability_pct": 26,
+   "wind_max": 16.9,
+   "uv_max": 0.8
+  },
+  {
+   "date": "2026-11-24",
+   "code": 63,
+   "tmin": 8.4,
+   "tmax": 13.1,
+   "rain_mm": 15.3,
+   "rain_probability_pct": 87,
+   "wind_max": 25.6,
+   "uv_max": 0.2
+  }
+ ],
+ "an_unknown_field": {
+  "nested": [
+   1,
+   2,
+   3
+  ]
+ }
+}

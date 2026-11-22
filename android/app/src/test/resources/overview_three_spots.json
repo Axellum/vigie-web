@@ -1,0 +1,157 @@
+{
+ "generated_utc": 1795353329,
+ "count": 3,
+ "stale": false,
+ "spots": [
+  {
+   "id": "trevou-treguignec-plage-de-trestel",
+   "name": "Plage de Trestel",
+   "place": "Trévou-Tréguignec",
+   "lat": 48.8225,
+   "lon": -3.3552,
+   "activities": [
+    {
+     "id": "surf",
+     "available": true,
+     "verdict": "good",
+     "reason": null,
+     "best_slot": {
+      "start_utc": 1795431600,
+      "end_utc": 1795435200
+     },
+     "now": "poor"
+    },
+    {
+     "id": "kite",
+     "available": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty",
+     "best_slot": null,
+     "now": "poor"
+    },
+    {
+     "id": "boat",
+     "available": true,
+     "verdict": "good",
+     "reason": null,
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795438800
+     },
+     "now": "poor"
+    },
+    {
+     "id": "shore_fishing",
+     "available": true,
+     "verdict": "good",
+     "reason": null,
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795428000
+     },
+     "now": "poor"
+    }
+   ],
+   "warnings": "ok",
+   "coastal_level": null
+  },
+  {
+   "id": "le-pouldu-plage-du-kerou",
+   "name": "Plage du Kerou",
+   "place": "Le Pouldu",
+   "lat": 47.7678,
+   "lon": -3.5635,
+   "activities": [
+    {
+     "id": "surf",
+     "available": true,
+     "verdict": "possible",
+     "reason": "swell_period.short",
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795435200
+     },
+     "now": "possible"
+    },
+    {
+     "id": "kite",
+     "available": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty",
+     "best_slot": null,
+     "now": "poor"
+    },
+    {
+     "id": "boat",
+     "available": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate",
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795438800
+     },
+     "now": "poor"
+    },
+    {
+     "id": "shore_fishing",
+     "available": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window",
+     "best_slot": null,
+     "now": "poor"
+    }
+   ],
+   "warnings": "ok",
+   "coastal_level": null
+  },
+  {
+   "id": "plouharnel-la-grande-plage",
+   "name": "La Grande Plage",
+   "place": "Plouharnel",
+   "lat": 47.5832,
+   "lon": -3.1499,
+   "activities": [
+    {
+     "id": "surf",
+     "available": true,
+     "verdict": "good",
+     "reason": null,
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795438800
+     },
+     "now": "possible"
+    },
+    {
+     "id": "kite",
+     "available": true,
+     "verdict": "poor",
+     "reason": "gust_gap.very_gusty",
+     "best_slot": null,
+     "now": "poor"
+    },
+    {
+     "id": "boat",
+     "available": true,
+     "verdict": "possible",
+     "reason": "sea_height.moderate",
+     "best_slot": {
+      "start_utc": 1795420800,
+      "end_utc": 1795438800
+     },
+     "now": "poor"
+    },
+    {
+     "id": "shore_fishing",
+     "available": true,
+     "verdict": "poor",
+     "reason": "low_water.outside_window",
+     "best_slot": null,
+     "now": "poor"
+    }
+   ],
+   "warnings": "ok",
+   "coastal_level": null
+  }
+ ]
+}

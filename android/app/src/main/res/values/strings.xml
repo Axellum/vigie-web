@@ -1,0 +1,26 @@
+<resources>
+    <!-- French first (the family's frame: France first). Other languages come as values-xx folders. -->
+    <string name="app_name">Vigie</string>
+    <string name="tab_home">Accueil</string>
+    <string name="tab_hours">Heures</string>
+    <string name="tab_sea">Mer</string>
+    <string name="loading">Lecture des données de Vigie…</string>
+    <string name="retry">Réessayer</string>
+    <string name="refresh">Actualiser</string>
+    <string name="refreshing">Mise à jour…</string>
+    <string name="read_at">Relevé à %1$s</string>
+    <string name="old_data">Données de %1$s · %2$s</string>
+    <string name="feels_like">Ressenti %1$s</string>
+    <string name="wind">Vent</string>
+    <string name="gusts">Rafales</string>
+    <string name="rain_1h">Pluie (1 h)</string>
+    <string name="next_days">Prochains jours</string>
+    <string name="hours_title">Heure par heure</string>
+    <string name="hours_soon">La frise des prochaines heures (température, pluie, vent) arrive dans une prochaine version.</string>
+    <string name="sea_title">Les spots suivis</string>
+    <string name="sea_stale">Verdicts périmés : l\'API n\'a pas pu les recalculer.</string>
+    <string name="sea_rules">Règles de Vigie, pas pour la sécurité ni la navigation : regardez la mer sur place, les drapeaux et les consignes.</string>
+    <string name="sea_none">Aucun des spots suivis n\'a été trouvé.</string>
+    <string name="credits_weather">Météo : %1$s, lue par l\'API de Vigie.</string>
+    <string name="credits_sea">Verdicts : règles de Vigie, à partir des données de la houle, du vent et de la marée.</string>
+</resources>
