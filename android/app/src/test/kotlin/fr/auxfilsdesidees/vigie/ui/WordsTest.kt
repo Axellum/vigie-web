@@ -67,6 +67,18 @@ class WordsTest {
   }
 
   @Test
+  fun `the time of a read kept on the phone says its age`() {
+    assertEquals("de 14${nb}h${nb}18", Words.readTime(now, now, off))
+    assertEquals("de 13${nb}h${nb}53", Words.readTime(now - 25 * 60, now, off))
+    assertEquals("de 13${nb}h${nb}33, il y a 45${nb}min", Words.readTime(now - 45 * 60, now, off))
+    assertEquals("de 8${nb}h${nb}18, il y a 6${nb}h", Words.readTime(now - 6 * 3600, now, off))
+    assertEquals("d'hier 23${nb}h${nb}50", Words.readTime(now - (14 * 3600 + 28 * 60), now, off))
+    assertEquals("du ven. 20 nov., 14${nb}h${nb}18", Words.readTime(now - 2 * 86_400, now, off))
+    // A phone clock behind the server's: no negative age.
+    assertEquals("de 14${nb}h${nb}18", Words.readTime(now, now - 600, off))
+  }
+
+  @Test
   fun `a verdict says when to go, or why not`() {
     val surf = ActivityVerdict("surf", true, "good", "possible", null, 1795420800L, 1795438800L)
     assertEquals("Demain de 9${nb}h à 14${nb}h", Words.verdictLine(surf, now, off))

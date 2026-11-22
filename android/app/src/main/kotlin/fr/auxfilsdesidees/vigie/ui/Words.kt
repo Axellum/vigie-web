@@ -274,6 +274,34 @@ object Words {
     return "${s / 3600}${NBSP}h${NBSP}${(s % 3600 / 60).toString().padStart(2, '0')}"
   }
 
+  private val MONTHS = listOf("janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.")
+
+  /** « mar. 24 nov. » for a local day key. */
+  fun dateShort(key: Long): String = "${dayShort(key).lowercase()} ${dayOfMonth(key)} ${MONTHS[monthOf(key) - 1]}"
+
+  /** From this age on, a read is old: its time comes with its age, as [RainHour] no longer trusts it. */
+  const val OLD_READ_S = RainHour.MAX_AGE_S
+
+  /**
+   * When the data shown was read, after « Données »: « de 14 h 05 », « de 8 h 10, il y a 6 h », « d'hier 18 h 05 »,
+   * « du sam. 21 nov., 18 h 05 ». The day is the place's, as everywhere on the screen; [nowUtc] is the phone's clock.
+   */
+  fun readTime(t: Long, nowUtc: Long, offsetS: Int): String {
+    val key = dayKey(t, offsetS)
+    val time = clock(t, offsetS)
+    val age = nowUtc - t
+    return when (dayKey(nowUtc, offsetS) - key) {
+      in Long.MIN_VALUE..0L ->
+        when {
+          age >= 3600 -> "de $time, il y a ${age / 3600}${NBSP}h"
+          age >= OLD_READ_S -> "de $time, il y a ${age / 60}${NBSP}min"
+          else -> "de $time"
+        }
+      1L -> "d'hier $time"
+      else -> "du ${dateShort(key)}, $time"
+    }
+  }
+
   /** The best slot [start, end[ in French: « jusqu'à 14 h » or « demain de 9 h à 14 h ». */
   fun slot(start: Long?, end: Long?, nowUtc: Long, offsetS: Int): String? {
     if (start == null || end == null) return null

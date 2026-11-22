@@ -134,6 +134,33 @@ object VigieParser {
     return spots to (root["stale"].bool() ?: false)
   }
 
+  /** The overview cut down to the spots [ids] and its `stale` flag: what the copy of a place keeps of it. */
+  fun cutOverview(text: String, ids: List<String>): String {
+    val root = Json.parseToJsonElement(text).obj()
+    val wanted = ids.toSet()
+    val kept = root["spots"].arr().filter { it.objOrNull()?.get("id").str() in wanted }
+    return JsonObject(mapOf("stale" to (root["stale"] ?: JsonNull), "spots" to JsonArray(kept))).toString()
+  }
+
+  /**
+   * A place's whole read from the texts the API served ([RawRead]): the point is needed, the rest is a bonus that reads as
+   * null when its text is missing or unreadable. The favourite's hours count only for the spot that is still first.
+   */
+  fun snapshot(place: Place, spotIds: List<String>, raw: RawRead): Snapshot {
+    val point = point(raw.point)
+    val (spots, stale) = raw.overview?.takeIf { spotIds.isNotEmpty() }?.let { orNull { overview(it, spotIds) } } ?: (emptyList<Spot>() to false)
+    val favourite = raw.favourite?.let { orNull { spotHours(it) } }?.takeIf { it.id == spotIds.firstOrNull() }
+    val vigilances = raw.vigilances?.let { orNull { vigilances(it) } }
+    return Snapshot(place = place, point = point, spots = spots, spotsStale = stale, favourite = favourite, vigilances = vigilances)
+  }
+
+  private inline fun <T> orNull(read: () -> T): T? =
+    try {
+      read()
+    } catch (err: Exception) {
+      null
+    }
+
   /** Every spot of `/v1/activities/overview` that has coordinates (a spot without them cannot be offered by distance). */
   fun catalogue(text: String): List<CatalogueSpot> {
     val root = Json.parseToJsonElement(text).obj()

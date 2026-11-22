@@ -107,10 +107,7 @@ object Vigil {
     return if (m == 0L) "${s / 3600}${NBSP}h" else "${s / 3600}${NBSP}h${NBSP}${m.toString().padStart(2, '0')}"
   }
 
-  private val MONTHS = listOf("janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.")
-
-  /** « mar. 24 nov. » */
-  private fun dateShort(key: Long): String = "${Words.dayShort(key).lowercase()} ${Words.dayOfMonth(key)} ${MONTHS[Words.monthOf(key) - 1]}"
+  private fun dateShort(key: Long): String = Words.dateShort(key)
 
   /** « jusqu'à 16 h », « jusqu'à demain 16 h », « jusqu'au mar. 24 nov., 16 h » (the site's words). */
   fun until(t: Long, nowUtc: Long, offsetS: Int): String {

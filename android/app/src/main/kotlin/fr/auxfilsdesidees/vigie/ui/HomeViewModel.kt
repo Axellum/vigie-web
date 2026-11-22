@@ -76,6 +76,7 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
 
   init {
     _app.value.choices.currentPlace?.let(::load)
+    viewModelScope.launch { repository.keepOnly(_app.value.choices.places.map { it.place }) }
   }
 
   // ---------------------------------------------------------------------------------------------------- reading places
@@ -98,6 +99,8 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
     setState(key, if (previous == null) HomeState.Loading else HomeState.Ready(previous, refreshing = true))
     jobs[key] =
       viewModelScope.launch {
+        // The last good read kept on the phone shows at once while the network answers, and stays when it does not.
+        val shown = previous ?: repository.saved(place.place, place.spots)?.also { setState(key, HomeState.Ready(it, refreshing = true)) }
         val next =
           try {
             HomeState.Ready(repository.load(place.place, place.spots))
@@ -105,7 +108,7 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
             throw err
           } catch (err: Exception) {
             val message = describe(err)
-            if (previous != null) HomeState.Ready(previous, error = message) else HomeState.Failed(message)
+            if (shown != null) HomeState.Ready(shown, error = message) else HomeState.Failed(message)
           }
         setState(key, next)
       }
@@ -137,6 +140,7 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
     val next = choices.remove(index)
     save(next)
     _app.update { it.copy(states = it.states - gone.key) }
+    viewModelScope.launch { repository.forget(gone.place) }
     next.currentPlace?.let { if (it.key !in _app.value.states) load(it) }
   }
 

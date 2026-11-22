@@ -27,6 +27,12 @@ The user chooses the places and their spots; widgets come later. It is not on an
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
   follows the finger. Night hours are shaded and show no verdict.
+- Offline: the last good read of every followed place is kept on the phone (the texts the API served, the overview cut
+  down to the place's spots, in the app's folder that the phone's backup leaves out). It shows at once at the next
+  launch while the network answers, and stays when it does not, with when it was read: « Données d'hier 18 h 05 · Pas
+  de réponse du serveur… ». A failed or unreadable read never replaces it; a place no longer followed loses its copy.
+  The screen then reads as of that time (the frise, the days, the warnings); the rain of the hour to come, past 30
+  minutes, reads « non lue ».
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per
   meaning, a word always next to a colour).
 
@@ -69,6 +75,7 @@ not serve it).
 | `data/VigieRepository.kt` | the requests of a place's refresh, run together; the spot catalogue; the place search |
 | `data/VigieParser.kt` | JSON to models; an unknown field is ignored, a missing one stays null |
 | `data/PlacesStore.kt` | the followed places and their spots, and every change to them (tested on the JVM) |
+| `data/OfflineCopies.kt` | the last good read of each place, kept on the phone for the launch and the offline (tested on the JVM) |
 | `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
 | `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
 | `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |

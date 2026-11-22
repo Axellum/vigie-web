@@ -213,11 +213,15 @@ private fun Fact(label: String, value: String, color: Color, modifier: Modifier 
 @Composable
 internal fun Freshness(state: HomeState.Ready) {
   val p = state.snapshot.point
-  val time = Words.clock(p.serverUtc, p.utcOffsetS)
+  // The read kept on the phone says how old it is: « Données d'hier 18 h 05 · Pas de réponse du serveur… ».
+  val now = System.currentTimeMillis() / 1000
+  val readTime = Words.readTime(p.serverUtc, now, p.utcOffsetS)
+  val old = p.serverUtc > 0 && now - p.serverUtc >= Words.OLD_READ_S
   when {
-    state.error != null -> Text(stringResource(R.string.old_data, time, state.error), color = VigieColors.Warning, style = MaterialTheme.typography.labelMedium)
+    state.error != null -> Text(stringResource(R.string.old_data, readTime, state.error), color = VigieColors.Warning, style = MaterialTheme.typography.labelMedium)
+    state.refreshing && old -> Text(stringResource(R.string.old_data_refreshing, readTime), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
     state.refreshing -> Text(stringResource(R.string.refreshing), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    else -> Text(stringResource(R.string.read_at, time), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    else -> Text(stringResource(R.string.read_at, Words.clock(p.serverUtc, p.utcOffsetS)), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
   }
 }
 
