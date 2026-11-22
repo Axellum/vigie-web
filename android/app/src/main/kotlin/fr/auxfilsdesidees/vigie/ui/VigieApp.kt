@@ -254,14 +254,20 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
       Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.displayLarge)
       Spacer(Modifier.width(16.dp))
       Column {
-        Text(Words.weather(p.weatherCode), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+        // `current` has no day/night flag: the first hour of `hourly` (the hour under way) tells it.
+        Text(Words.weatherAt(p.weatherCode, p.hours.firstOrNull()?.isDay), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
         if (p.feelsLikeC != null) Text(stringResource(R.string.feels_like, Words.degrees(p.feelsLikeC)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
       }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       Fact(stringResource(R.string.wind), "${Words.kmh(p.windKmh)} ${Words.windFrom(p.windDeg)}".trim(), VigieColors.Wind, Modifier.weight(1.4f))
       Fact(stringResource(R.string.gusts), Words.kmh(p.gustKmh), VigieColors.Wind, Modifier.weight(1f))
-      Fact(stringResource(R.string.rain_1h), Words.mm(p.rain1hMm), VigieColors.Rain, Modifier.weight(1f))
+    }
+    // The rain of the hour to come in the site widget's words (`rain_nowcast`), no longer the millimetres of the last hour.
+    val rain = RainHour.view(p, System.currentTimeMillis() / 1000)
+    Column {
+      Text(RainHour.title(rain), color = if (rain.status == RainHour.Status.Unknown) VigieColors.Text3 else VigieColors.Rain, style = MaterialTheme.typography.titleMedium)
+      RainHour.detail(rain)?.let { Text(it, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
     }
   }
   if (p.days.isNotEmpty()) {
@@ -272,8 +278,9 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
           Text(name, color = if (i == 0) VigieColors.Accent else VigieColors.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1.1f))
           Text(Words.weather(d.code), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1.3f))
-          Text(Words.degrees(d.tminC), color = VigieColors.temperature(d.tminC), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
+          // the highest first, then the lowest, as the site's widget and the Home Assistant card write them
           Text(Words.degrees(d.tmaxC), color = VigieColors.temperature(d.tmaxC), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
+          Text(Words.degrees(d.tminC), color = VigieColors.temperature(d.tminC), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
           Text(Words.mm(d.rainMm), color = VigieColors.Rain, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(64.dp), textAlign = TextAlign.End)
         }
       }
@@ -290,7 +297,7 @@ private fun SeaTab(snap: Snapshot, noneFollowed: Boolean, onSettings: () -> Unit
     Text(snap.place.name, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
   }
   if (noneFollowed) {
-    Text(stringResource(R.string.sea_none_followed, snap.place.name), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
+    Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.name)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
   } else {
     if (snap.spotsStale) Text(stringResource(R.string.sea_stale), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
     if (snap.spots.isEmpty()) Text(stringResource(R.string.sea_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)

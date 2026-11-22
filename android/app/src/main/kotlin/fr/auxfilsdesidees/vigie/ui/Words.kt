@@ -13,7 +13,7 @@ object Words {
   fun weather(code: Int?): String =
     when {
       code == null -> "—"
-      code == 0 -> "Ciel dégagé"
+      code == 0 -> "Ciel clair"
       code == 1 -> "Peu nuageux"
       code == 2 -> "Éclaircies"
       code == 3 -> "Couvert"
@@ -59,6 +59,11 @@ object Words {
     val tenths = (d * 10).roundToInt()
     return if (tenths % 10 == 0) "${tenths / 10}${NBSP}km" else "${tenths / 10},${tenths % 10}${NBSP}km"
   }
+
+  private const val VOWELS = "aeiouyàâäéèêëîïôöùûüÿæœ"
+
+  /** « près d'Ajaccio », « près de Brest »: elided before a vowel (an initial « h » is left alone: muet or aspiré, unknown). */
+  fun near(name: String): String = if (name.firstOrNull()?.lowercaseChar()?.let { it in VOWELS } == true) "près d'$name" else "près de $name"
 
   /** A population with French grouping (« 58 112 hab. »), a narrow no-break space between the groups. */
   fun population(n: Long): String = "${n.toString().reversed().chunked(3).joinToString(" ").reversed()}${NBSP}hab."
@@ -213,8 +218,11 @@ object Words {
   /** « maintenant », « dans 7 h ». */
   fun fromNow(hours: Long): String = if (hours <= 0) "maintenant" else "dans $hours${NBSP}h"
 
-  /** « Ciel clair » for a clear night; otherwise the words of [weather]. */
-  fun weatherAt(code: Int?, day: Boolean): String = if (!day && code == 0) "Ciel clair" else weather(code)
+  /**
+   * « Nuit claire » for a clear night, as the Home Assistant card says it; otherwise the words of [weather]. [day] null
+   * (the API did not say) reads as day: « Ciel clair » is true at night too.
+   */
+  fun weatherAt(code: Int?, day: Boolean?): String = if (day == false && code == 0) "Nuit claire" else weather(code)
 
   /** « Éclaircies, de 8° à 13°, 4 mm. »: one day of `daily` (rain said from half a millimetre). */
   fun daySentence(d: fr.auxfilsdesidees.vigie.data.Day): String {

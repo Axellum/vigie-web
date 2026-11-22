@@ -42,6 +42,15 @@ class WordsTest {
   }
 
   @Test
+  fun `near a place, elided before a vowel`() {
+    assertEquals("près d'Ajaccio", Words.near("Ajaccio"))
+    assertEquals("près d'Étaples", Words.near("Étaples"))
+    assertEquals("près d'Yvetot", Words.near("Yvetot"))
+    assertEquals("près de Brest", Words.near("Brest"))
+    assertEquals("près de Hendaye", Words.near("Hendaye")) // « h » muet or aspiré: not guessed
+  }
+
+  @Test
   fun `the wind says where it comes from`() {
     assertEquals("d'ouest", Words.windFrom(287.0))
     assertEquals("du nord", Words.windFrom(359.0))
@@ -81,8 +90,11 @@ class WordsTest {
     assertEquals("Dimanche · 14${nb}h", Words.readoutTitle(now, off))
     assertEquals("maintenant", Words.fromNow(0))
     assertEquals("dans 7${nb}h", Words.fromNow(7))
-    assertEquals("Ciel clair", Words.weatherAt(0, day = false))
-    assertEquals("Ciel dégagé", Words.weatherAt(0, day = true))
+    // the words of the Home Assistant card and of the site's widget: « Nuit claire » at night, « Ciel clair » by day
+    assertEquals("Nuit claire", Words.weatherAt(0, day = false))
+    assertEquals("Ciel clair", Words.weatherAt(0, day = true))
+    assertEquals("Ciel clair", Words.weatherAt(0, day = null))
+    assertEquals("Couvert", Words.weatherAt(3, day = false))
     assertEquals("Pêche", Words.activityShort("shore_fishing"))
     assertEquals("orange", Words.warningLevel("ORANGE"))
     assertEquals("descend" to "basse mer 20${nb}h${nb}53", Words.tideTrend(TideExtreme(1795377180L, false, -1.84), off))

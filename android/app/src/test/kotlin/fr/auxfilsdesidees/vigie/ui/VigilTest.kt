@@ -39,6 +39,18 @@ class VigilTest {
   }
 
   @Test
+  fun `the issuers' credits are kept word for word, each once`() {
+    val ajaccio = Vigil.view(fixture("vigilances_ajaccio.json"), now).live
+    // two warnings of Météo-France carry the same credit: it is written once
+    assertEquals(1, Vigil.fullCredits(ajaccio, null).size)
+    assertTrue(Vigil.fullCredits(ajaccio, null).single().startsWith("Source: Météo-France"))
+    // a credit of two sources joined by « | » is cut in two; the disclaimer comes last
+    val joined = warning("ORANGE", null, null).copy(attribution = "Source: A. Licence Ouverte 2.0 | Source: B")
+    assertEquals(listOf("Source: A. Licence Ouverte 2.0", "Source: B", "Note"), Vigil.fullCredits(listOf(joined, joined), "Note"))
+    assertTrue(Vigil.fullCredits(emptyList(), null).isEmpty())
+  }
+
+  @Test
   fun `each warning says since or from when, and until when`() {
     val (wind, coast) = Vigil.view(fixture("vigilances_ajaccio.json"), now).live
     assertEquals("Depuis 17${nb}h · jusqu'à demain 16${nb}h", Vigil.period(wind, now, off))

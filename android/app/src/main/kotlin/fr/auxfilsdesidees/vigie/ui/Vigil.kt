@@ -179,4 +179,14 @@ object Vigil {
 
   /** « Météo-France, Vigicrues »: who issued the warnings shown. */
   fun issuers(live: List<Vigilance>): String = live.map { it.issuer ?: SOURCES[it.source] ?: it.source ?: "?" }.distinct().joinToString(", ")
+
+  /**
+   * The issuers' own credits, word for word, each once: the API joins several with « | » (« Source: Météo-France… |
+   * Source: Vigicrues… »), and the same one comes back on every warning of a source; then the API's disclaimer.
+   */
+  fun fullCredits(live: List<Vigilance>, disclaimer: String?): List<String> =
+    (live.mapNotNull { it.attribution }.flatMap { it.split(" | ") } + listOfNotNull(disclaimer))
+      .map { it.trim() }
+      .filter { it.isNotEmpty() }
+      .distinct()
 }

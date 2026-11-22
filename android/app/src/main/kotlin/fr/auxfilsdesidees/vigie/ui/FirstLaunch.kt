@@ -56,7 +56,7 @@ internal fun FirstLaunch(viewModel: HomeViewModel) {
       Spacer(Modifier.height(4.dp))
       MainButton(stringResource(R.string.first_next), enabled = place != null) { step = 2 }
     } else {
-      Text(stringResource(R.string.first_spots, place.name), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+      Text(stringResource(R.string.first_spots, Words.near(place.name)), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
       when (val c = catalogue) {
         CatalogueState.Idle,
         CatalogueState.Loading -> Text(stringResource(R.string.spots_loading), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
