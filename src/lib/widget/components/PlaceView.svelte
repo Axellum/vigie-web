@@ -2,9 +2,9 @@
 	// A place in a widget: its sky and temperature, the official warnings that hold it, the rain of the hour to come, the wind
 	// measured nearby; the large one adds the gusts AROME-PI forecasts, the days and, when the address names one, a surf spot. A
 	// block with nothing to say outside France (no measured wind, no AROME-PI) is left out rather than shown empty.
-	import { tOr, type Lang } from '../../i18n';
+	import type { Lang } from '../../i18n';
 	import { number } from '../../format';
-	import { untilPhrase, warningLabel } from '../../sentence';
+	import { untilPhrase } from '../../sentence';
 	import { sunWindows } from '../../tv/sun';
 	import type { TvScreen } from '../../tv/model';
 	import { compass, skyLabel } from '../../weather';
@@ -14,7 +14,6 @@
 		daysView,
 		gustForecast,
 		nearestWind,
-		phenomenonLabel,
 		rainView,
 		skyKind,
 		tempColour,
@@ -22,6 +21,7 @@
 	} from '../model';
 	import type { WidgetSize, WidgetTheme } from '../params';
 	import type { PlaceWidget } from '../placeWidget.svelte';
+	import { labelOf } from '../summary';
 	import { widgetText, type WidgetKey } from '../text';
 	import Arrow from './Arrow.svelte';
 	import Glyph from './Glyph.svelte';
@@ -56,19 +56,7 @@
 		return windows.length > 0 && !windows.some(([rise, set]) => now >= rise && now < set);
 	});
 	const rain = $derived(rainView(w, now));
-	const vigilance = $derived(
-		vigilanceView(
-			widget.official,
-			widget.here,
-			(x) =>
-				phenomenonLabel(
-					x,
-					(p) => tOr(lang, `phen.${p}`, ''),
-					(y) => warningLabel(y, lang)
-				),
-			now
-		)
-	);
+	const vigilance = $derived(vigilanceView(widget.official, widget.here, labelOf(lang), now));
 	const condition = $derived(
 		current
 			? [

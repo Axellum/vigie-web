@@ -5,7 +5,9 @@
 	import { creditOf } from '#lib/tv/model.js';
 	import PlaceView from '#lib/widget/components/PlaceView.svelte';
 	import SpotView from '#lib/widget/components/SpotView.svelte';
+	import { rainView, vigilanceView } from '#lib/widget/model.js';
 	import { parseWidgetPlace } from '#lib/widget/params.js';
+	import { labelOf, postToHost, widgetSummary } from '#lib/widget/summary.js';
 	import { PlaceWidget } from '#lib/widget/placeWidget.svelte.js';
 	import { widgetText } from '#lib/widget/text.js';
 	import type { PageProps } from './$types';
@@ -36,6 +38,23 @@
 			...(spot && (params.size === 'large' || !place) ? [spot.credit] : [])
 		])
 	);
+
+	// The desktop app that shows the page reads its icon and its notifications from this.
+	const summary = $derived(
+		widgetSummary({
+			lang,
+			now,
+			name: place ? name : null,
+			vigilance: place ? vigilanceView(widget.official, widget.here, labelOf(lang), now) : null,
+			rain: place ? rainView(widget.w, now) : null,
+			weatherLoading: place != null && (widget.weather == null || widget.weather.status === 'loading'),
+			tempC: widget.w?.current?.tempC ?? null,
+			spot
+		})
+	);
+	$effect(() => {
+		if (mounted) postToHost(summary);
+	});
 
 	let last = Date.now();
 	function refresh() {

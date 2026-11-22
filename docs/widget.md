@@ -38,3 +38,11 @@ countries around (`/data/warnings/<cc>.json`, the same for everybody) and asks t
 the query: the server draws it from its cache, as for a television.
 
 The page reads everything again every ten minutes, and when it comes back into view after five.
+
+## For the app that shows it
+
+Inside WebView2 (`window.chrome.webview`), the page posts a message each time what it shows changes: `type`
+(`vigie-summary`), `version`, `ready` (false while the warnings or the weather of the place still load), `name`,
+`vigilance` (`state`, `level`, `labels`, `until`), `rain` (`status`, `inMin`, `forMin`, `maxMmH`), `tempC`, `spot`
+(`name`, `activity`, `verdict`, `slot`) and `at`. The app colours its icon and writes its notifications from it, so
+that it never matches a place against the warnings itself. An ordinary browser has no such host and gets nothing.

@@ -71,6 +71,35 @@ for (const [size, [width, height]] of Object.entries(SIZES)) {
 	}
 }
 
+test('the desktop app that hosts the page gets a summary of it', async ({ page }) => {
+	// What WebView2 gives a page it shows: `window.chrome.webview.postMessage`.
+	await page.addInitScript(() => {
+		const got: unknown[] = [];
+		(window as unknown as { __got: unknown[] }).__got = got;
+		(window as unknown as { chrome: unknown }).chrome = {
+			webview: { postMessage: (m: unknown) => got.push(m) }
+		};
+	});
+	await page.setViewportSize({ width: SIZES.small[0], height: SIZES.small[1] });
+	await page.goto(`/widget?size=small&spot=tv-hossegor${PLACE}`);
+	await expect
+		.poll(() =>
+			page.evaluate(() => (window as unknown as { __got: { ready: boolean }[] }).__got.some((m) => m.ready))
+		)
+		.toBe(true);
+	const last = await page.evaluate(() => {
+		const got = (window as unknown as { __got: { ready: boolean }[] }).__got;
+		return got.filter((m) => m.ready).at(-1);
+	});
+	expect(last).toMatchObject({
+		type: 'vigie-summary',
+		name: 'Corte',
+		tempC: 16.6,
+		rain: { status: 'unknown' },
+		spot: { name: expect.any(String) }
+	});
+});
+
 test('without a place nor a spot, the widget says what to do', async ({ page }) => {
 	await page.setViewportSize({ width: SIZES.small[0], height: SIZES.small[1] });
 	await page.goto('/widget?size=small');
