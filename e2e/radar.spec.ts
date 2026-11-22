@@ -116,16 +116,17 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 	await expect(card(page).getByRole('button', { name: 'Lecture' })).toBeVisible();
 
 	// Every frame (observed + PIAF) is preloaded on Play without exceeding reasonable tile volume.
+	const epochsCount = () =>
+		new Set(
+			asked.map((u) => {
+				const m = /\/(?:france|tiles)\/(\d+)\//.exec(u);
+				return m?.[1] ?? '';
+			})
+		).size;
+	await expect.poll(epochsCount, { timeout: 15_000 }).toBe(totalTimeline);
 	console.log(`radar: one animation = ${asked.length} tile requests`);
 	expect(asked.length).toBeGreaterThanOrEqual(totalTimeline);
 	expect(asked.length).toBeLessThan(650);
-	const epochsAsked = new Set(
-		asked.map((u) => {
-			const m = /\/(?:france|tiles)\/(\d+)\//.exec(u);
-			return m?.[1] ?? '';
-		})
-	);
-	expect(epochsAsked.size).toBe(totalTimeline);
 });
 
 test('the card folds into a button, and the page asks the list of images once', async ({ page }) => {
