@@ -16,6 +16,9 @@
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
+	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
+	import { windTime, windValue } from '#lib/wind.js';
+	import { FLOW_STRONG_KMH } from '#lib/windField.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -277,6 +280,25 @@
 		const timer = setInterval(() => wind.sync(), 60_000);
 		return () => clearInterval(timer);
 	});
+	// --- the forecast wind (Météo-France's models, drawn as trails; off until the visitor turns it on, kept in this browser) -----
+	const flow = new WindFieldLayer();
+	onMount(() => flow.restore());
+	$effect(() => flow.move(view, zoom));
+	$effect(() => {
+		void flow.on;
+		void flow.wanted; // a finer grid needed by the view: its image is asked now
+		untrack(() => flow.sync());
+	});
+	// The list of the hour is asked again every 10 minutes and when the hour turns (`WindFieldLayer.sync` keeps the delays).
+	$effect(() => {
+		const timer = setInterval(() => flow.sync(), 60_000);
+		return () => clearInterval(timer);
+	});
+	const flowSpeed = (kmh: number) =>
+		tr('wind.speed', {
+			value: String(windValue(kmh, wind.unit)),
+			unit: tr(wind.unit === 'kn' ? 'wind.kn' : 'wind.kmh')
+		});
 	$effect(() => {
 		void tides.keys;
 		untrack(() => tides.sync());
@@ -983,6 +1005,44 @@
 					{/if}
 				{/if}
 				<label class="check">
+					<input type="checkbox" bind:checked={flow.on} data-testid="flow-toggle" />
+					<span class="swatch flow" aria-hidden="true"></span>
+					{tr('flow.toggle')}
+				</label>
+				{#if flow.on}
+					{#if flow.field?.status === 'off'}
+						<p class="hint">{tr('flow.off')}</p>
+					{:else if flow.field?.status === 'unavailable' || (flow.status === 'failed' && !flow.field)}
+						<p class="hint">{tr('flow.failed')}</p>
+					{:else if flow.valid !== null}
+						<p class="hint" data-testid="flow-legend">
+							{tr(
+								flow.field?.stale || flow.valid !== nearestHour(Date.now())
+									? 'flow.legendOld'
+									: 'flow.legend',
+								{
+									time: windTime(lang, flow.valid)
+								}
+							)}
+						</p>
+						<p class="hint flow-scale">
+							<span
+								><i class="ink strong" aria-hidden="true"></i>{tr('flow.strong', {
+									speed: flowSpeed(FLOW_STRONG_KMH[0])
+								})}</span
+							>
+							<span
+								><i class="ink stronger" aria-hidden="true"></i>{tr('flow.strong', {
+									speed: flowSpeed(FLOW_STRONG_KMH[1])
+								})}</span
+							>
+						</p>
+						<p class="hint">{tr('flow.note')}</p>
+					{:else}
+						<p class="hint">{tr('flow.loading')}</p>
+					{/if}
+				{/if}
+				<label class="check">
 					<input type="checkbox" bind:checked={wind.on} data-testid="wind-toggle" />
 					<span class="swatch wind" aria-hidden="true"></span>
 					{tr('wind.toggle')}
@@ -1014,6 +1074,7 @@
 				{/if}
 			{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
+			{#if flow.on && flow.field?.attribution}<p class="credit">{flow.field.attribution}</p>{/if}
 			{#if wind.on && wind.data?.attribution}<p class="credit">{wind.data.attribution}</p>{/if}
 			{#if radar.open && radar.covered && radar.data?.attribution}<p class="credit">
 					{radar.data.attribution}
@@ -1034,6 +1095,7 @@
 			tides={tides.features}
 			radar={radar.onMap(tr('radar.credit'))}
 			wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
+			flow={flow.grids}
 			globe
 			onselect={onMapSelect}
 			onmove={(v, z) => {
@@ -1357,6 +1419,28 @@
 	}
 	.swatch.wind {
 		background: var(--wind-3);
+	}
+	.swatch.flow {
+		background: var(--flow);
+	}
+	.flow-scale {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 14px;
+	}
+	.flow-scale span {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.ink {
+		width: 16px;
+		height: 2px;
+		border-radius: 1px;
+		background: var(--wind-4);
+	}
+	.ink.stronger {
+		background: var(--wind-5);
 	}
 	.list {
 		display: flex;

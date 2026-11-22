@@ -2,6 +2,7 @@
  "recorded_utc": 1792505613,
  "recorded": {
   "stations-wind.json": 1795299120,
+  "wind-field.json": 1795305662,
   "point.json": 1792528658,
   "vigilances-countries.json": 1792782589,
   "warnings-MX.json": 1792522808,
@@ -133,6 +134,7 @@
   "avalanches-chamonix.json": "Answer of vigie-api's branch that adds the Météo-France BRA (its pull request 84), produced on 2026-11-16 by its own test setup from the real bulletin of the Mont-Blanc massif read that day (tests/fixtures/avalanches/meteofrance_bra_mont_blanc.xml), for Chamonix; the public instance did not serve the BRA yet. The mock answers it around Chamonix (e2e/mock-api.mjs).",
   "sea-buoys.json": "Answer of vigie-api's branch that adds the offshore buoys of Météo-France (GET /v1/sea/buoys), produced on 2026-11-16 by its own code from the real buoy records read that evening (its tests/fixtures/meteofrance_buoys/bouees-2026-11-16.json), at 22:30 UTC; the public instance did not serve it yet.",
   "climate-corte.json": "Answer of the public Vigie API (vigie-api 6d26b38) read on 2026-11-17 for Corte's weather cell (42.3, 9.15) and the month of the recorded weather (October): the normals and records of the Météo-France station of Corte. The mock answers it for any position in France (e2e/mock-api.mjs).",
-  "radar-france.json, radar-tile.png": "Answer and one tile (z6, x32, y22: northern France) of the public Vigie API (vigie-api d497634, its pull request 94) read on 2026-11-18. The mock gives that one tile for every tile of every image the list names (e2e/mock-api.mjs), and counts the tiles asked."
+  "radar-france.json, radar-tile.png": "Answer and one tile (z6, x32, y22: northern France) of the public Vigie API (vigie-api d497634, its pull request 94) read on 2026-11-18. The mock gives that one tile for every tile of every image the list names (e2e/mock-api.mjs), and counts the tiles asked.",
+  "wind-field.json, wind-field-*.png": "Answer of GET /v1/wind/field and its three images, made on 2026-11-22 at 00:01 UTC by vigie-api's branch feat/wind-field (the pull request that adds the forecast wind of the map, its ADR 0038) reading the real Météo-France portal: ARPEGE (world, Europe) and AROME (France), run of 2026-11-21 18 UTC, valid at 2026-11-22 00 UTC. The mock serves an image only at the address the answer lists (e2e/mock-api.mjs)."
  }
 }

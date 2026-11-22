@@ -29,6 +29,7 @@ import { activitiesFromApi, buoysFromApi, type ActivitiesForecast, type SurfBuoy
 import { seaOverviewFromApi, type SeaOverview } from '#lib/sea/overview.js';
 import { seaBuoysFromApi, type SeaBuoys } from '#lib/sea/buoys.js';
 import { windStationsFromApi, type WindPoint } from '#lib/wind.js';
+import { windFieldFromApi, type FieldLevelId, type WindField } from '#lib/windField.js';
 import {
 	collectNamedIds,
 	isPlaceId,
@@ -146,7 +147,11 @@ export const TTL_S = {
 	radar: 300,
 	radarTile: 86_400,
 	// The stations' wind: a new 6-minute package; the whole list is read once for every visitor, and a view cut from it.
-	stationWind: 180
+	stationWind: 180,
+	// The forecast wind of the map: the API makes the images of a new hour at half past; an image never changes (its address
+	// holds its hour and its run).
+	windField: 300,
+	windFieldImage: 86_400
 } as const;
 
 const cache = new TtlCache();
@@ -154,6 +159,8 @@ const cache = new TtlCache();
 const pointCache = new TtlCache(Date.now, 15_000, 2000);
 const fireCache = new TtlCache(Date.now, 15_000, 400);
 const tideCache = new TtlCache(Date.now, 15_000, 2000);
+// The images of the forecast wind: three an hour, about 600 kB together; the last two hours kept.
+const windFieldImages = new TtlCache(Date.now, 15_000, 6);
 
 export class ApiError extends Error {
 	constructor(
@@ -655,6 +662,41 @@ export function getStationWind(): Promise<
 			if (e instanceof ApiError && e.status === 404) return null;
 			throw e;
 		}
+	});
+}
+
+/**
+ * The forecast wind of the map (`/v1/wind/field`): the grids of the hour, their images addressed on this site. An API without the
+ * route (an older one) answers as one without a key: `off`.
+ */
+export function getWindField(): Promise<Cached<WindField | null>> {
+	return cache.get('wind-field', TTL_S.windField * 1000, async () => {
+		try {
+			return windFieldFromApi(await getJson('/v1/wind/field', 15_000));
+		} catch (e) {
+			if (e instanceof ApiError && e.status === 404)
+				return { status: 'off', valid: null, stale: false, levels: [], attribution: null };
+			throw e;
+		}
+	});
+}
+
+/** One image of the forecast wind, relayed as the API sends it; null for one the API no longer keeps. */
+export function getWindFieldImage(level: FieldLevelId, stamp: string): Promise<Cached<Uint8Array | null>> {
+	return windFieldImages.get(`${level}:${stamp}`, TTL_S.windFieldImage * 1000, async () => {
+		let response: Response;
+		try {
+			response = await fetch(apiUrl(`/v1/wind/field/${level}/${stamp}.png`), {
+				headers: { accept: 'image/png' },
+				signal: AbortSignal.timeout(15_000)
+			});
+		} catch (error) {
+			throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+		}
+		if (response.status === 404) return null;
+		if (!response.ok)
+			throw new ApiError(`Vigie API answered ${response.status} for an image of the wind`, response.status);
+		return new Uint8Array(await response.arrayBuffer());
 	});
 }
 

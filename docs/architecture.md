@@ -55,6 +55,16 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   would touch, the strongest is kept (`declutter`, every station counts, summits too). The site reads the whole list once
   every 3 minutes for every visitor and serves a view from it (`/data/wind.json?bbox=` in whole degrees). Whether the layer
   is on and the unit stay in the browser (`localStorage`, `vigie-wind-map`). Measured wind, not a forecast.
+- **Forecast wind** (Météo-France's AROME and ARPEGE, through the API: `GET /v1/wind/field`, its ADR 0038), a layer of the map,
+  off until the visitor turns it on (`src/lib/windField.ts`, `windFieldLayer.svelte.ts`, `windFlow.ts`): thin trails that follow
+  the wind at 10 m of the whole hour nearest to now, on a canvas of their own over MapLibre's and under its markers, about 30
+  images a second (one trail per 25 x 25 pixels, each a short line through the last positions of its head, faded with age),
+  nothing drawn while the map moves, still trails with "reduce motion". The grids are images (red the east component, green the
+  north one, blue where the model has a value): the world's (0.5°) always, Europe's (0.2°) from zoom 3, France's (AROME, 0.05°)
+  from zoom 5, the finest that has a value winning and faded into the coarser one over its edge. The list is
+  `/data/wind-field.json` (kept 5 minutes, asked again every 10 minutes and when the hour turns); the images are relayed by
+  `/data/wind-field/<level>/<hour>-<run>.png` (only those the list names; kept a day by browsers). The choice stays in the
+  browser (`localStorage`, `vigie-wind-field`). A forecast, not a measure nor a warning.
 - **Covered countries.** Which countries have official warnings is the API's answer
   (`/v1/vigilances/countries`, cached 10 minutes), given with the pages that need it (the world map, near me,
   the list of countries): it depends on the API's settings. The site's own files only hold the boxes and the

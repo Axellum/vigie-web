@@ -110,6 +110,16 @@ const fr = {
 	'wind.buoy': 'Bouée au large · mesure de {time}',
 	'wind.noName': 'Station de Météo-France',
 	'wind.buoyName': 'Bouée {name}',
+	'flow.toggle': 'Vent prévu (animé)',
+	'flow.legend':
+		'Prévision de Météo-France pour {time} : le vent à 10 m d’AROME sur la France, d’ARPEGE ailleurs. Les traits filent avec le vent, plus vite et plus nets quand il souffle fort.',
+	'flow.legendOld':
+		'Prévision de Météo-France pour {time} (la suivante n’a pas encore pu être lue) : le vent à 10 m d’AROME sur la France, d’ARPEGE ailleurs.',
+	'flow.strong': '{speed} et plus',
+	'flow.note': 'Une prévision, pas une mesure ni une vigilance.',
+	'flow.loading': 'Chargement du vent prévu…',
+	'flow.failed': 'Le vent prévu n’a pas pu être chargé.',
+	'flow.off': 'Le vent prévu n’est pas disponible pour le moment.',
 	'wind.credit': 'Vent : Météo-France',
 	'tide.toggle': 'Marées (calculées)',
 	'tide.zoomIn': 'Rapprochez la carte pour voir la marée le long des côtes.',
@@ -1035,6 +1045,16 @@ const en: Record<Key, string> = {
 	'wind.buoy': 'Offshore buoy · measured at {time}',
 	'wind.noName': 'Météo-France station',
 	'wind.buoyName': 'Buoy {name}',
+	'flow.toggle': 'Forecast wind (animated)',
+	'flow.legend':
+		'Météo-France forecast for {time}: the wind at 10 m from AROME over France, ARPEGE elsewhere. The trails run with the wind, faster and sharper when it blows hard.',
+	'flow.legendOld':
+		'Météo-France forecast for {time} (the next one could not be read yet): the wind at 10 m from AROME over France, ARPEGE elsewhere.',
+	'flow.strong': '{speed} and more',
+	'flow.note': 'A forecast, not a measure nor a warning.',
+	'flow.loading': 'Loading the forecast wind…',
+	'flow.failed': 'The forecast wind could not be loaded.',
+	'flow.off': 'The forecast wind is not available at the moment.',
 	'wind.credit': 'Wind: Météo-France',
 	'tide.toggle': 'Tides (computed)',
 	'tide.zoomIn': 'Zoom in to see the tide along the coasts.',

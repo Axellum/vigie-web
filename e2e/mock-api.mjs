@@ -95,6 +95,23 @@ createServer((req, res) => {
 		res.end(readFileSync(join(dir, 'radar-tile.png')));
 		return;
 	}
+	// The forecast wind of the map (the API's ADR 0038): the answer recorded with its three images; an image it does not list is a 404.
+	if (url.pathname === '/v1/wind/field') {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(readFileSync(join(dir, 'wind-field.json')));
+		return;
+	}
+	if (url.pathname.startsWith('/v1/wind/field/')) {
+		const listed = read('wind-field.json').levels.find((l) => l.image === url.pathname);
+		if (!listed) {
+			res.writeHead(404, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'unknown image' }));
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'image/png' });
+		res.end(readFileSync(join(dir, `wind-field-${listed.id}.png`)));
+		return;
+	}
 	const key =
 		url.pathname === '/v1/sea/places'
 			? placesKey(url)
