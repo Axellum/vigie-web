@@ -17,9 +17,17 @@ export interface WidgetParams {
 	theme: WidgetTheme;
 	/** The surf spot (its id in the API, from `/surf`); null when the address does not name one. */
 	spot: string | null;
+	/**
+	 * `frame=board`: the page is a widget of the Windows widgets board, which writes the widget's name over its top 48 pixels
+	 * (the "attribution area" of Microsoft's web widgets): the page leaves that band empty.
+	 */
+	board: boolean;
 }
 
-export const WIDGET_DEFAULTS = { size: 'medium', theme: 'sky' } as const satisfies Omit<WidgetParams, 'spot'>;
+export const WIDGET_DEFAULTS = { size: 'medium', theme: 'sky' } as const satisfies Pick<
+	WidgetParams,
+	'size' | 'theme'
+>;
 
 /** The same shape as the API's spot ids: letters, digits and dashes. */
 const SPOT = /^[a-z0-9-]{1,80}$/;
@@ -34,7 +42,8 @@ export function parseWidgetParams(query: URLSearchParams): WidgetParams {
 	return {
 		size: oneOf(WIDGET_SIZES, query.get('size'), WIDGET_DEFAULTS.size),
 		theme: oneOf(WIDGET_THEMES, query.get('theme'), WIDGET_DEFAULTS.theme),
-		spot: SPOT.test(spot) ? spot : null
+		spot: SPOT.test(spot) ? spot : null,
+		board: query.get('frame')?.trim().toLowerCase() === 'board'
 	};
 }
 

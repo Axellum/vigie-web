@@ -5,6 +5,7 @@
 	import { creditOf } from '#lib/tv/model.js';
 	import PlaceView from '#lib/widget/components/PlaceView.svelte';
 	import SpotView from '#lib/widget/components/SpotView.svelte';
+	import { fit } from '#lib/widget/fit.js';
 	import { rainView, vigilanceView } from '#lib/widget/model.js';
 	import { parseWidgetPlace } from '#lib/widget/params.js';
 	import { labelOf, postToHost, widgetSummary } from '#lib/widget/summary.js';
@@ -92,6 +93,8 @@
 
 <div
 	class="widget {params.theme} {params.size}"
+	class:board={params.board}
+	use:fit
 	title={credit || undefined}
 	data-ready={mounted ? 'yes' : 'no'}
 >
@@ -140,6 +143,14 @@
 	.widget.large {
 		gap: 7px;
 		padding: 10px 14px 6px;
+	}
+	/* The widgets board of Windows writes the widget's name over the top 48 pixels of the page. */
+	.widget.board {
+		padding-top: 48px;
+	}
+	/* A part hidden because the host gives less height than the size says (fit.ts). */
+	.widget :global([data-dropped]) {
+		display: none !important;
 	}
 	.sky {
 		background: linear-gradient(#1f4477, #305783);

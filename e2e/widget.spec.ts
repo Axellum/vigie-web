@@ -71,6 +71,49 @@ for (const [size, [width, height]] of Object.entries(SIZES)) {
 	}
 }
 
+// What the Windows widgets board gives a web widget: a large one measured at 300 × 462 on screens at 150 % and 250 %, a
+// medium one 300 × 304 by Microsoft's documentation; the board writes the widget's name over the top 48 pixels.
+for (const [size, height] of [
+	['medium', 304],
+	['large', 462]
+] as const) {
+	test(`in the widgets board, the ${size} widget leaves the band of the name empty and hides what does not fit, whole`, async ({
+		page
+	}) => {
+		const errors = collectErrors(page);
+		await page.setViewportSize({ width: 300, height });
+		await page.goto(`/widget?size=${size}&frame=board&spot=tv-hossegor${PLACE}`);
+		await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+		await expect(page.getByText('Corte').first()).toBeVisible();
+		await expect(page.getByText('Vigilances…')).toHaveCount(0);
+		await expect.poll(() => overflow(page)).toBe(0);
+		const top = await page.locator('.widget > *').first().boundingBox();
+		expect(top?.y ?? 0).toBeGreaterThanOrEqual(48);
+		// Every part left is whole: none ends below the frame.
+		const bottoms = await page
+			.locator('.widget > *, .widget section')
+			.evaluateAll((all) =>
+				all.filter((e) => e.getClientRects().length > 0).map((e) => e.getBoundingClientRect().bottom)
+			);
+		expect(Math.max(...bottoms)).toBeLessThanOrEqual(height);
+		expect(errors).toEqual([]);
+	});
+}
+
+test('a part that does not fit goes whole, the five days before the spot', async ({ page }) => {
+	await page.setViewportSize({ width: 300, height: 462 });
+	await page.goto(`/widget?size=large&frame=board&spot=tv-hossegor${PLACE}`);
+	await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.getByText('Vigilances…')).toHaveCount(0);
+	await expect.poll(() => overflow(page)).toBe(0);
+	await expect(page.locator('.spot-rows')).toBeVisible();
+	await expect(page.locator('.days[data-dropped]')).toHaveCount(await page.locator('.days').count());
+	// Given the height of the large size and the band of the name, it hides nothing any more.
+	await page.setViewportSize({ width: SIZES.large[0], height: SIZES.large[1] + 48 });
+	await expect.poll(() => page.locator('[data-dropped]').count()).toBe(0);
+	expect(await overflow(page)).toBe(0);
+});
+
 test('the desktop app that hosts the page gets a summary of it', async ({ page }) => {
 	// What WebView2 gives a page it shows: `window.chrome.webview.postMessage`.
 	await page.addInitScript(() => {

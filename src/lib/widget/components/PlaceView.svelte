@@ -214,9 +214,9 @@
 	</section>
 {/snippet}
 
-{#snippet windRow()}
+{#snippet windRow(drop: boolean)}
 	{#if windLine}
-		<div class="row wind">
+		<div class="row wind" data-drop={drop ? 3 : undefined}>
 			{#if windLine.from != null}<Arrow from={windLine.from} size={22} />{:else}<Glyph
 					name="wind"
 					size={20}
@@ -255,16 +255,17 @@
 	{@render header(false)}
 	{@render alertCard()}
 	{@render rainCard(false)}
-	{@render windRow()}
+	{@render windRow(true)}
 {:else}
+	<!-- `data-drop`: what goes first when the host gives less height than the size says (fit.ts). -->
 	{@render header(true)}
 	{@render alertCard()}
 	{@render rainCard(true)}
 	{#if windLine || gust}
-		<section class="card wind-card">
-			{@render windRow()}
+		<section class="card wind-card" data-drop="3">
+			{@render windRow(false)}
 			{#if gust}
-				<div class="row t2 gust">
+				<div class="row t2 gust" data-drop="2">
 					<Glyph name="wind" size={13} colour="var(--wind)" />{tx('gustForecast', {
 						n: Math.round(gust.kmh),
 						time: clockLabel(lang, gust.at)
@@ -274,7 +275,7 @@
 		</section>
 	{/if}
 	{#if days.length}
-		<section class="card days" style:grid-template-columns="repeat({days.length}, 1fr)">
+		<section class="card days" style:grid-template-columns="repeat({days.length}, 1fr)" data-drop="1">
 			{#each days as d, i (d.date)}
 				<div>
 					<div class="j" style:color={i ? 'var(--t2)' : 'var(--accent)'}>{dayLabel(lang, d.date)}</div>
