@@ -28,6 +28,20 @@ class WordsTest {
   }
 
   @Test
+  fun `distances, populations and regions of the place choices`() {
+    assertEquals("15${nb}km", Words.km(14.62))
+    assertEquals("4,2${nb}km", Words.km(4.21))
+    assertEquals("3${nb}km", Words.km(3.04))
+    assertEquals("10${nb}km", Words.km(9.96))
+    assertEquals("58 112${nb}hab.", Words.population(58112))
+    assertEquals("5 430${nb}hab.", Words.population(5430))
+    assertEquals("812${nb}hab.", Words.population(812))
+    assertEquals("Brittany", Words.placeWhere("Brittany", "FR"))
+    assertEquals("Texas, US", Words.placeWhere("Texas", "US"))
+    assertEquals("", Words.placeWhere(null, "FR"))
+  }
+
+  @Test
   fun `the wind says where it comes from`() {
     assertEquals("d'ouest", Words.windFrom(287.0))
     assertEquals("du nord", Words.windFrom(359.0))

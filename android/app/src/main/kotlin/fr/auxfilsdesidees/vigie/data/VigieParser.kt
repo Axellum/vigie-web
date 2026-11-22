@@ -127,6 +127,30 @@ object VigieParser {
     return spots to (root["stale"].bool() ?: false)
   }
 
+  /** Every spot of `/v1/activities/overview` that has coordinates (a spot without them cannot be offered by distance). */
+  fun catalogue(text: String): List<CatalogueSpot> {
+    val root = Json.parseToJsonElement(text).obj()
+    return root["spots"].arr().mapNotNull { it.objOrNull() }.mapNotNull { s ->
+      val id = s["id"].str() ?: return@mapNotNull null
+      val lat = s["lat"].dbl() ?: return@mapNotNull null
+      val lon = s["lon"].dbl() ?: return@mapNotNull null
+      CatalogueSpot(id = id, name = s["name"].str() ?: id, place = s["place"].str(), lat = lat, lon = lon)
+    }
+  }
+
+  /** The answers of the site's place search, and the credit to show with them (GeoNames, CC BY 4.0). */
+  fun places(text: String): Pair<List<PlaceHit>, String?> {
+    val root = Json.parseToJsonElement(text).obj()
+    val hits =
+      root["places"].arr().mapNotNull { it.objOrNull() }.mapNotNull { p ->
+        val name = p["name"].str() ?: return@mapNotNull null
+        val lat = p["lat"].dbl() ?: return@mapNotNull null
+        val lon = p["lon"].dbl() ?: return@mapNotNull null
+        PlaceHit(name = name, region = p["region"].str(), country = p["cc"].str(), lat = lat, lon = lon, population = p["population"].long())
+      }
+    return hits to root["attribution"].str()
+  }
+
   private fun JsonElement.obj(): JsonObject = this as? JsonObject ?: JsonObject(emptyMap())
 
   private fun JsonElement?.objOrNull(): JsonObject? = this as? JsonObject

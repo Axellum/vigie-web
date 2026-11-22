@@ -69,7 +69,7 @@ import kotlin.math.sqrt
  * that follows the finger, and the reading of the hour under the cursor.
  */
 @Composable
-internal fun HoursTab(state: HomeState.Ready) {
+internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
   val snap = state.snapshot
   val p = snap.point
   val spot = snap.favourite
@@ -99,7 +99,11 @@ internal fun HoursTab(state: HomeState.Ready) {
   daySentence(p, starts, d)?.let { Text(it, color = VigieColors.Text, style = MaterialTheme.typography.bodyLarge) }
   FriseCard(hours, c, today = d == 0, spot = spot, offsetS = off) { cursor = it }
   Readout(hours[c], spot, now, off)
-  if (spot != null) Mention(stringResource(R.string.hours_drag, spot.name)) else Mention(stringResource(R.string.hours_sea_unread))
+  when {
+    spot != null -> Mention(stringResource(R.string.hours_drag, spot.name))
+    followsSpots -> Mention(stringResource(R.string.hours_sea_unread))
+    else -> Mention(stringResource(R.string.hours_no_spot))
+  }
   if (p.hours.isNotEmpty() && p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
   if (spot != null) Credits(stringResource(R.string.credits_sea))
 }

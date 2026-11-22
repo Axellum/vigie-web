@@ -39,4 +39,51 @@
     <string name="sea_none">Aucun des spots suivis n\'a été trouvé.</string>
     <string name="credits_weather">Météo : %1$s, lue par l\'API de Vigie.</string>
     <string name="credits_sea">Verdicts : règles de Vigie, à partir des données de la houle, du vent et de la marée.</string>
+    <string name="credits_places">Lieux : GeoNames (www.geonames.org), CC BY 4.0, par la recherche du site de Vigie.</string>
+    <string name="hours_no_spot">Aucun spot suivi ici : la frise montre seulement la météo.</string>
+    <string name="sea_none_followed">Aucun spot suivi près de %1$s.</string>
+    <string name="sea_choose">Choisir des spots</string>
+    <string name="page_of">Lieu %1$d sur %2$d</string>
+
+    <!-- The settings page: the followed places and their spots -->
+    <string name="settings_title">Mes lieux et mes spots</string>
+    <string name="back">Retour</string>
+    <string name="places_header">Lieux suivis</string>
+    <string name="places_hint">Le lieu touché est celui de l\'Accueil, des Heures et de la Mer. Sur l\'Accueil, glissez pour passer d\'un lieu à l\'autre.</string>
+    <string name="place_shown">affiché</string>
+    <string name="place_remove">Retirer %1$s</string>
+    <string name="place_add">Ajouter un lieu</string>
+    <string name="place_add_hint">Les spots les plus proches (moins de 60 km, trois au plus) le suivent d\'office ; changez-les ensuite ici.</string>
+    <string name="place_exists">Ce lieu est déjà suivi.</string>
+    <string name="spots_header">Spots suivis près de %1$s</string>
+    <string name="spots_star_hint">L\'étoile marque le spot dessiné dans la frise (onglet Heures).</string>
+    <string name="spots_none">Aucun spot suivi : la frise montre la météo seule.</string>
+    <string name="spots_add_header">Ajouter un spot près de %1$s</string>
+    <string name="spots_more">Plus loin</string>
+    <string name="spots_loading">Lecture des spots…</string>
+    <string name="spot_star">Dessiner %1$s dans la frise</string>
+    <string name="spot_starred">%1$s est dans la frise</string>
+    <string name="spot_remove">Ne plus suivre %1$s</string>
+    <string name="spot_add">Suivre %1$s</string>
+
+    <!-- The place search, shared by the settings and the first launch -->
+    <string name="search_hint">Ville ou village</string>
+    <string name="search_short">Deux lettres au moins.</string>
+    <string name="search_none">Aucun lieu trouvé.</string>
+    <string name="search_busy">Recherche…</string>
+    <string name="locate">Utiliser ma position (à 1 km près)</string>
+    <string name="locating">Position en cours…</string>
+    <string name="locate_denied">Position refusée : cherchez le lieu par son nom.</string>
+    <string name="locate_none">Position indisponible : la localisation du téléphone est-elle activée ?</string>
+    <string name="my_position">Ma position</string>
+
+    <!-- The first launch, in two steps -->
+    <string name="first_step">%1$d / 2</string>
+    <string name="first_where">Où regardez-vous le ciel ?</string>
+    <string name="first_where_text">Une ville ou un village. Seuls votre recherche et ce point partent vers Vigie ; vos choix restent sur le téléphone.</string>
+    <string name="first_next">Suivant</string>
+    <string name="first_spots">Vos spots, près de %1$s</string>
+    <string name="first_spots_text">Les spots à moins de 60 km sont cochés, trois au plus. Le premier coché va dans la frise.</string>
+    <string name="first_spots_far">Aucun spot à moins de 60 km : cochez-en un si la mer vous intéresse, ou passez.</string>
+    <string name="first_done">C\'est parti</string>
 </resources>

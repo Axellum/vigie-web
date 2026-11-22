@@ -53,6 +53,20 @@ object Words {
 
   fun kmh(v: Double?): String = if (v == null) "—" else "${v.roundToInt()}${NBSP}km/h"
 
+  /** A distance: one decimal under 10 km (« 4,2 km »), whole kilometres beyond. */
+  fun km(d: Double): String {
+    if (d >= 9.95) return "${d.roundToInt()}${NBSP}km"
+    val tenths = (d * 10).roundToInt()
+    return if (tenths % 10 == 0) "${tenths / 10}${NBSP}km" else "${tenths / 10},${tenths % 10}${NBSP}km"
+  }
+
+  /** A population with French grouping (« 58 112 hab. »), a narrow no-break space between the groups. */
+  fun population(n: Long): String = "${n.toString().reversed().chunked(3).joinToString(" ").reversed()}${NBSP}hab."
+
+  /** Where a place of the search is: its region, and its country code when it is not France. */
+  fun placeWhere(region: String?, country: String?): String =
+    listOfNotNull(region, country?.takeIf { it != "FR" }).joinToString(", ")
+
   /** « 0 mm », « 0,4 mm », « 12 mm »: French decimal comma, one decimal under 10 mm. */
   fun mm(v: Double?): String {
     if (v == null) return "—"

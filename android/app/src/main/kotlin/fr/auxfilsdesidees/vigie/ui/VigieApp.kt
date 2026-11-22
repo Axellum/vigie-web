@@ -15,12 +15,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,25 +34,29 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
 import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.Spot
-import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
@@ -58,12 +66,17 @@ private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
 }
 
 /**
- * The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste).
- * [baseUrl] is the public API, except in a debug build pointed at a local one (see `MainActivity`).
+ * The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste). No
+ * place followed yet: the first-launch steps instead. The Accueil swipes between the followed places; the Heures and
+ * Mer tabs show the place shown last. The gear of the Accueil and « Choisir des spots » open [onSettings].
  */
 @Composable
-fun VigieApp(baseUrl: String = VigieRepository.BASE_URL, viewModel: HomeViewModel = viewModel { HomeViewModel(VigieRepository(baseUrl)) }) {
-  val state by viewModel.state.collectAsStateWithLifecycle()
+fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit) {
+  val app by viewModel.app.collectAsStateWithLifecycle()
+  if (app.firstLaunch) {
+    FirstLaunch(viewModel)
+    return
+  }
   var tab by rememberSaveable { mutableIntStateOf(0) }
   Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(VigieColors.SkyTop, VigieColors.SkyBottom)))) {
     Scaffold(
@@ -89,23 +102,46 @@ fun VigieApp(baseUrl: String = VigieRepository.BASE_URL, viewModel: HomeViewMode
         }
       },
     ) { padding ->
-      when (val s = state) {
-        HomeState.Loading -> Centered(padding) { CircularProgressIndicator(color = VigieColors.Accent); Text(stringResource(R.string.loading), color = VigieColors.Text2) }
-        is HomeState.Failed ->
-          Centered(padding) {
-            Text(s.message, color = VigieColors.Text, textAlign = TextAlign.Center)
-            TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.retry), color = VigieColors.Accent) }
-          }
-        is HomeState.Ready ->
-          Refreshable(s, padding, viewModel::refresh) {
-            when (Tab.entries[tab]) {
-              Tab.Home -> HomeTab(s)
-              Tab.Hours -> HoursTab(s)
-              Tab.Sea -> SeaTab(s.snapshot)
-            }
-          }
+      val place = app.choices.currentPlace
+      if (place != null) {
+        when (Tab.entries[tab]) {
+          Tab.Home -> HomePager(app, viewModel, padding, onSettings)
+          Tab.Hours -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { HoursTab(it, followsSpots = place.spots.isNotEmpty()) }
+          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it.snapshot, place.spots.isEmpty(), onSettings) }
+        }
       }
     }
+  }
+}
+
+/**
+ * The Accueil: one page per followed place, swiped left and right. The pager starts on the place shown last and tells the
+ * view model which page settled; it is not restored from a saved state, so a place chosen in the settings wins.
+ */
+@Composable
+private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingValues, onSettings: () -> Unit) {
+  val places = app.choices.places
+  val count by rememberUpdatedState(places.size)
+  val pager = remember { PagerState(currentPage = app.choices.current) { count } }
+  LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { viewModel.select(it) } }
+  LaunchedEffect(app.choices.current) { if (pager.currentPage != app.choices.current) pager.scrollToPage(app.choices.current) }
+  HorizontalPager(pager, Modifier.fillMaxSize().padding(padding), key = { places.getOrNull(it)?.key ?: it }) { page ->
+    val f = places.getOrNull(page)
+    if (f != null) PlaceContent(app.stateOf(f), PaddingValues(0.dp), viewModel::refresh) { HomeTab(it, page, places.size, onSettings) }
+  }
+}
+
+/** What was read for a place: a wait, a failure with « Réessayer », or the [content] with « pull to refresh ». */
+@Composable
+private fun PlaceContent(state: HomeState, padding: PaddingValues, onRefresh: () -> Unit, content: @Composable (HomeState.Ready) -> Unit) {
+  when (state) {
+    HomeState.Loading -> Centered(padding) { CircularProgressIndicator(color = VigieColors.Accent); Text(stringResource(R.string.loading), color = VigieColors.Text2) }
+    is HomeState.Failed ->
+      Centered(padding) {
+        Text(state.message, color = VigieColors.Text, textAlign = TextAlign.Center)
+        TextButton(onClick = onRefresh) { Text(stringResource(R.string.retry), color = VigieColors.Accent) }
+      }
+    is HomeState.Ready -> Refreshable(state, padding, onRefresh) { content(state) }
   }
 }
 
@@ -184,12 +220,21 @@ internal fun Credits(text: String) {
 // ----------------------------------------------------------------------------------------------------------- the tabs
 
 @Composable
-private fun HomeTab(state: HomeState.Ready) {
+private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: () -> Unit) {
   val snap = state.snapshot
   val p = snap.point
-  Column {
-    Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-    Freshness(state)
+  Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.weight(1f)) {
+      Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+      Freshness(state)
+      if (pages > 1) {
+        val label = stringResource(R.string.page_of, page + 1, pages)
+        PageDots(page, pages, Modifier.padding(top = 6.dp).semantics { contentDescription = label })
+      }
+    }
+    IconButton(onClick = onSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.12f), CircleShape)) {
+      Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_title), tint = VigieColors.Text)
+    }
   }
   Glass {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -227,13 +272,23 @@ private fun HomeTab(state: HomeState.Ready) {
 }
 
 @Composable
-private fun SeaTab(snap: Snapshot) {
-  Text(stringResource(R.string.sea_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-  if (snap.spotsStale) Text(stringResource(R.string.sea_stale), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
-  if (snap.spots.isEmpty()) Text(stringResource(R.string.sea_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-  snap.spots.forEach { SpotCard(it, snap.point.serverUtc, snap.point.utcOffsetS) }
-  Text(stringResource(R.string.sea_rules), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
-  Credits(stringResource(R.string.credits_sea))
+private fun SeaTab(snap: Snapshot, noneFollowed: Boolean, onSettings: () -> Unit) {
+  Column {
+    Text(stringResource(R.string.sea_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+    Text(snap.place.name, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+  }
+  if (noneFollowed) {
+    Text(stringResource(R.string.sea_none_followed, snap.place.name), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
+  } else {
+    if (snap.spotsStale) Text(stringResource(R.string.sea_stale), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
+    if (snap.spots.isEmpty()) Text(stringResource(R.string.sea_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
+    snap.spots.forEach { SpotCard(it, snap.point.serverUtc, snap.point.utcOffsetS) }
+  }
+  AccentAction(R.drawable.ic_add, stringResource(R.string.sea_choose), onSettings)
+  if (!noneFollowed) {
+    Text(stringResource(R.string.sea_rules), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
+    Credits(stringResource(R.string.credits_sea))
+  }
 }
 
 @Composable
