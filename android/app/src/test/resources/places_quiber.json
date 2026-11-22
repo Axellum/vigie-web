@@ -1,0 +1,21 @@
+{
+ "places": [
+  {
+   "name": "Quiberon",
+   "region": "Brittany",
+   "cc": "FR",
+   "lat": 47.4837,
+   "lon": -3.1199,
+   "population": 5430
+  },
+  {
+   "name": "Saint-Pierre-Quiberon",
+   "region": "Brittany",
+   "cc": "FR",
+   "lat": 47.5207,
+   "lon": -3.1335,
+   "population": 2322
+  }
+ ],
+ "attribution": "Places: GeoNames (https://www.geonames.org/), CC BY 4.0"
+}

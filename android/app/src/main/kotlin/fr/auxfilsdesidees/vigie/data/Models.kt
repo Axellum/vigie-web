@@ -1,7 +1,20 @@
 package fr.auxfilsdesidees.vigie.data
 
-/** A place followed by the app: a name and coordinates (public places only). */
-data class Place(val name: String, val lat: Double, val lon: Double)
+/** A place: a name, coordinates and, from the place search, the region it is in. */
+data class Place(val name: String, val lat: Double, val lon: Double, val region: String? = null)
+
+/** A place the user follows, with the spots followed near it; the first spot is the one drawn in the frise. */
+data class FollowedPlace(val place: Place, val spots: List<String>) {
+  /** Two followed places never share a key: the app refuses a second place at the same point. */
+  val key: String
+    get() = "%.4f,%.4f".format(java.util.Locale.ROOT, place.lat, place.lon)
+}
+
+/** One answer of the place search (`/data/places.json` of the site, from GeoNames). */
+data class PlaceHit(val name: String, val region: String?, val country: String?, val lat: Double, val lon: Double, val population: Long?)
+
+/** One spot of the catalogue (`/v1/activities/overview`): its name and where it is. */
+data class CatalogueSpot(val id: String, val name: String, val place: String?, val lat: Double, val lon: Double)
 
 /** What `/v1/point` says about a place, reduced to what the screens show. A missing value stays null, never invented. */
 data class PointNow(

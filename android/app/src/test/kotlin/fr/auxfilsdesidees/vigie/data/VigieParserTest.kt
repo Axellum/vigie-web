@@ -112,7 +112,7 @@ class VigieParserTest {
           else -> fixture("activities_plouharnel.json")
         }
       }
-    val snap = repo.load()
+    val snap = repo.load(LORIENT, SPOTS)
     assertEquals("Lorient", snap.place.name)
     assertEquals(14.0, snap.point.tempC!!, 0.0)
     assertEquals(2, snap.spots.size)
@@ -132,8 +132,91 @@ class VigieParserTest {
           else -> throw ApiException(503)
         }
       }
-    val snap = repo.load()
+    val snap = repo.load(LORIENT, SPOTS)
     assertNull(snap.favourite)
     assertEquals(2, snap.spots.size)
+  }
+
+  @Test
+  fun `a place without spots asks the point only`() = runTest {
+    val asked = mutableListOf<String>()
+    val repo =
+      VigieRepository(baseUrl = "https://example.test") { url ->
+        asked += url
+        fixture("point_lorient.json")
+      }
+    val snap = repo.load(LORIENT, emptyList())
+    assertTrue(snap.spots.isEmpty())
+    assertNull(snap.favourite)
+    assertEquals(1, asked.size)
+  }
+
+  @Test
+  fun `the catalogue keeps every spot with its point`() {
+    val spots = VigieParser.catalogue(fixture("overview_three_spots.json"))
+    assertEquals(3, spots.size)
+    val kerou = spots.single { it.id == "le-pouldu-plage-du-kerou" }
+    assertEquals("Plage du Kerou", kerou.name)
+    assertEquals("Le Pouldu", kerou.place)
+    assertEquals(47.7678, kerou.lat, 0.0)
+  }
+
+  @Test
+  fun `the place search reads the site's answer and its credit`() {
+    val (hits, credit) = VigieParser.places(fixture("places_quiber.json"))
+    assertEquals(listOf("Quiberon", "Saint-Pierre-Quiberon"), hits.map { it.name })
+    assertEquals("Brittany", hits[0].region)
+    assertEquals("FR", hits[0].country)
+    assertEquals(5430L, hits[0].population)
+    assertTrue(credit!!.contains("GeoNames"))
+  }
+
+  @Test
+  fun `the place search waits for two letters and uses the site, whatever the API`() = runTest {
+    val asked = mutableListOf<String>()
+    val repo =
+      VigieRepository(baseUrl = "http://127.0.0.1:8080", siteUrl = "https://site.test") { url ->
+        asked += url
+        fixture("places_quiber.json")
+      }
+    assertTrue(repo.searchPlaces(" q ").first.isEmpty())
+    assertTrue(asked.isEmpty())
+    assertEquals(2, repo.searchPlaces("Saint Pierre").first.size)
+    assertEquals("https://site.test/data/places.json?q=Saint+Pierre", asked.single())
+  }
+
+  @Test
+  fun `the place search puts France first and keeps the site's order otherwise`() = runTest {
+    // The site's answer for « Brest » on 22/11/2026: Belarus first (larger population), then Brittany, then six others.
+    val repo = VigieRepository(baseUrl = "https://example.test") { fixture("places_brest.json") }
+    val hits = repo.searchPlaces("Brest").first
+    assertEquals(listOf("FR", "BY", "CZ", "DE", "SI", "SI", "SK", "HR"), hits.map { it.country })
+    assertEquals("Brittany", hits[0].region)
+  }
+
+  @Test
+  fun `the overview read by a refresh serves the spot choices for a while`() = runTest {
+    var now = 0L
+    val asked = mutableListOf<String>()
+    val repo =
+      VigieRepository(baseUrl = "https://example.test", clock = { now }) { url ->
+        asked += url
+        when {
+          "/v1/point" in url -> fixture("point_lorient.json")
+          "/v1/activities/overview" in url -> fixture("overview_three_spots.json")
+          else -> fixture("activities_plouharnel.json")
+        }
+      }
+    repo.load(LORIENT, SPOTS)
+    repo.catalogue()
+    assertEquals(1, asked.count { it.endsWith("/v1/activities/overview") })
+    now += 11 * 60_000L
+    repo.catalogue()
+    assertEquals(2, asked.count { it.endsWith("/v1/activities/overview") })
+  }
+
+  private companion object {
+    val LORIENT = Place("Lorient", 47.75, -3.37)
+    val SPOTS = listOf("plouharnel-la-grande-plage", "le-pouldu-plage-du-kerou", "portivy-plage-de-l-isthme", "beuzec-plage-de-la-torche")
   }
 }

@@ -1,0 +1,69 @@
+{
+ "places": [
+  {
+   "name": "Brest",
+   "region": "Brest",
+   "cc": "BY",
+   "lat": 52.1089,
+   "lon": 23.7175,
+   "population": 347138
+  },
+  {
+   "name": "Brest",
+   "region": "Brittany",
+   "cc": "FR",
+   "lat": 48.3903,
+   "lon": -4.4863,
+   "population": 144899
+  },
+  {
+   "name": "Břest",
+   "region": "Zlín",
+   "cc": "CZ",
+   "lat": 49.3511,
+   "lon": 17.4407,
+   "population": 954
+  },
+  {
+   "name": "Brest",
+   "region": "Lower Saxony",
+   "cc": "DE",
+   "lat": 53.4502,
+   "lon": 9.384,
+   "population": 827
+  },
+  {
+   "name": "Bresternica",
+   "region": "Urban Municipality of Maribor",
+   "cc": "SI",
+   "lat": 46.5697,
+   "lon": 15.575,
+   "population": 1377
+  },
+  {
+   "name": "Brestanica",
+   "region": "Urban Municipality of Krško",
+   "cc": "SI",
+   "lat": 45.9953,
+   "lon": 15.4775,
+   "population": 993
+  },
+  {
+   "name": "Brestovec",
+   "region": "Trenčín Region",
+   "cc": "SK",
+   "lat": 48.7941,
+   "lon": 17.5663,
+   "population": 949
+  },
+  {
+   "name": "Brestača",
+   "region": "Sisak-Moslavina",
+   "cc": "HR",
+   "lat": 45.3564,
+   "lon": 16.9586,
+   "population": 809
+  }
+ ],
+ "attribution": "Places: GeoNames (https://www.geonames.org/), CC BY 4.0"
+}

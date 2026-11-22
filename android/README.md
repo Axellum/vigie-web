@@ -1,13 +1,21 @@
 # Vigie for Android
 
-A first, small native app that reads the public Vigie API, in French. Three tabs: the weather of one town (home), a
-frise of the next 24 hours (hours), and the activity verdicts of four spots (sea). The place and the spots are fixed for
-now; choosing them, the official warnings of the place and widgets come later. It is not on any store.
+A first, small native app that reads the public Vigie API, in French. Three tabs: the weather of a place (home), a
+frise of the next 24 hours (hours), and the activity verdicts of the spots followed near it (sea). The user chooses the
+places and their spots; the official warnings of the place and widgets come later. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).
 - Data: `GET /v1/point`, `GET /v1/activities/overview` and `GET /v1/activities/{spot}?days=3` (the first spot) of
-  `https://vigie.auxfilsdesidees.fr`. Nothing is sent but the coordinates of the town; no account, no tracking.
+  `https://vigie.auxfilsdesidees.fr`, and the site's place search `GET /data/places.json?q=` (GeoNames, CC BY 4.0,
+  credited under the search). Nothing is sent but the search typed and the coordinates of the places; the choices stay
+  on the phone (the app's private preferences); no account, no tracking.
+- Places and spots: the first launch asks for a place (search, or the phone's approximate position rounded to about
+  1 km, asked only when touched), then offers the nearest spots, those within 60 km ticked (three at most). Later, the
+  gear of the home tab opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
+  following it, « Ajouter un lieu »), the spots of the shown place (the star puts one first: the frise draws it) and the
+  nearest other spots. The home tab swipes between the places; the hours and sea tabs show the place shown last. The
+  search puts the places of France first (the site ranks equal matches by population).
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), then
   the tide, the coastal warning and three activities of the first spot. Touch or drag it: the reading under it
@@ -44,17 +52,24 @@ adb shell am start -S -n fr.auxfilsdesidees.vigie/.MainActivity --es vigie_base_
 ```
 
 Only the loopback address is accepted, and plain HTTP is allowed for it in the debug build alone
-(`app/src/debug/res/xml/network_security_config.xml`).
+(`app/src/debug/res/xml/network_security_config.xml`). The place search still asks the public site (an API alone does
+not serve it).
 
 ## Layout
 
 | File | Role |
 |---|---|
-| `data/VigieRepository.kt` | the three requests of a refresh, run together; the first spot's hours may fail alone |
+| `data/VigieRepository.kt` | the requests of a place's refresh, run together; the spot catalogue; the place search |
 | `data/VigieParser.kt` | JSON to models; an unknown field is ignored, a missing one stays null |
+| `data/PlacesStore.kt` | the followed places and their spots, and every change to them (tested on the JVM) |
+| `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
+| `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
+| `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |
+| `ui/PlacesScreen.kt` | « Mes lieux et mes spots », and the place search shared with the first launch |
+| `ui/Locator.kt` | the phone's approximate position, from the system's own providers |
 | `ui/Words.kt` | the French words: weather, wind, verdicts, reasons, times, sentences (tested on the JVM) |
 | `ui/Frise.kt` | the frise's days and hours, tide between extremes (tested on the JVM) |
 | `ui/HoursTab.kt` | the hours tab: day pills, the frise drawn on a canvas, the reading of an hour |
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
-| `ui/VigieApp.kt` | the tabs and their cards |
+| `ui/VigieApp.kt` | the tabs, the pages of the home tab and their cards |
 | `ui/theme/` | the charter's « Ciel » colours and type scale |
