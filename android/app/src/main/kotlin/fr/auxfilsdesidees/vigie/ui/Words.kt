@@ -121,10 +121,15 @@ object Words {
       "vigilance.red" to "rouge", "vigilance.orange" to "orange",
     )
 
-  /** « Houle : trop petite » from `swell_height.too_small`; null for an unknown code (nothing is guessed). */
+  /** States that already name their criterion: written alone, « Rafales très marquées » rather than twice. */
+  private val SELF_CONTAINED =
+    setOf("gust_gap.gusty", "gust_gap.very_gusty", "low_water.in_window", "low_water.outside_window", "tide.right_stage", "tide.wrong_stage")
+
+  /** « Période de la houle : courte » from `swell_period.short`; null for an unknown code (nothing is guessed). */
   fun reason(code: String?): String? {
     if (code == null) return null
     val state = STATE[code] ?: return null
+    if (code in SELF_CONTAINED) return state.replaceFirstChar { it.uppercase() }
     val crit = CRITERION[code.substringBefore('.')] ?: return null
     return "$crit : $state"
   }

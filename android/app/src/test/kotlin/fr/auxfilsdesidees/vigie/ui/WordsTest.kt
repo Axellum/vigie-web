@@ -45,7 +45,7 @@ class WordsTest {
     val surf = ActivityVerdict("surf", true, "good", "possible", null, 1795420800L, 1795438800L)
     assertEquals("Demain de 9${nb}h à 14${nb}h", Words.verdictLine(surf, now, off))
     val fishing = ActivityVerdict("shore_fishing", true, "poor", "poor", "low_water.outside_window", null, null)
-    assertEquals("Avant la basse mer : hors des 2 h avant la basse mer", Words.verdictLine(fishing, now, off))
+    assertEquals("Hors des 2 h avant la basse mer", Words.verdictLine(fishing, now, off))
     val off24 = ActivityVerdict("kite", false, null, null, null, null, null)
     assertEquals("Pas de calcul ici.", Words.verdictLine(off24, now, off))
     assertEquals("Bon", Words.verdict("good"))
@@ -56,6 +56,7 @@ class WordsTest {
   @Test
   fun `an unknown reason code is not guessed`() {
     assertEquals("Période de la houle : courte", Words.reason("swell_period.short"))
+    assertEquals("Rafales très marquées", Words.reason("gust_gap.very_gusty"))
     assertNull(Words.reason("swell_period.new_state"))
     assertNull(Words.reason(null))
   }
