@@ -122,6 +122,21 @@ describe('the health answer', () => {
 	});
 });
 
+it('says why Smartraveller is not read on an instance that turns it off, in the page’s language', () => {
+	// The API's sentence when VIGIE_ENABLE_SMARTRAVELLER is not set (2026-11-22): its server refuses hosting providers.
+	const au = {
+		id: 'au',
+		whyNotRead:
+			'Its server refuses this service (its protection blocks hosting providers); its pages are linked, not read.'
+	};
+	expect(whyNotRead('fr', au)).toBe(
+		'Son serveur refuse ce service : sa protection bloque les hébergeurs. Lien seulement.'
+	);
+	expect(whyNotRead('en', au)).toBe(
+		'Its server refuses this service: its protection blocks hosting providers. Linked only.'
+	);
+});
+
 it('says a ministry that does not answer, without claiming a version is kept', () => {
 	expect(feedState('fr', 'ok')).toBeNull();
 	expect(feedState('fr', null)).toBeNull();

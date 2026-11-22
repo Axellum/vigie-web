@@ -587,6 +587,7 @@ const TEXT = {
 		'notRead.de':
 			"Son interface de données est donnée sur demande ; la demande n'a pas encore de réponse. Lien seulement.",
 		'notRead.fr': "Aucun flux vivant de ses conseils n'a été trouvé. Lien seulement.",
+		'notRead.au': 'Son serveur refuse ce service : sa protection bloque les hébergeurs. Lien seulement.',
 		history: 'Historique',
 		historyNote: 'Versions relues par Vigie depuis le {date} (archivées par Vigie, pas par les ministères).',
 		historyFirst: 'première version relue',
@@ -655,6 +656,7 @@ const TEXT = {
 		'notRead.de':
 			'Its data interface is given on request; the request has not been answered yet. Linked only.',
 		'notRead.fr': 'No live feed of its advice was found. Linked only.',
+		'notRead.au': 'Its server refuses this service: its protection blocks hosting providers. Linked only.',
 		history: 'History',
 		historyNote: 'Versions read by Vigie since {date} (archived by Vigie, not by the ministries).',
 		historyFirst: 'first version read',
