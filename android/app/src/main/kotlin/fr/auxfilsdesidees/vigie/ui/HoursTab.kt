@@ -1,0 +1,518 @@
+package fr.auxfilsdesidees.vigie.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import fr.auxfilsdesidees.vigie.R
+import fr.auxfilsdesidees.vigie.data.PointNow
+import fr.auxfilsdesidees.vigie.data.SpotHours
+import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
+import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
+
+/**
+ * The « Heures » tab: the frise of direction D, as in the clickable prototype. Day pills, one sentence for the day, a
+ * card of 24 hour columns (sky, temperature, rain, wind, tide, coastal warning, three activities) with an amber cursor
+ * that follows the finger, and the reading of the hour under the cursor.
+ */
+@Composable
+internal fun HoursTab(state: HomeState.Ready) {
+  val snap = state.snapshot
+  val p = snap.point
+  val spot = snap.favourite
+  val now = p.serverUtc
+  val off = p.utcOffsetS
+  val starts = remember(snap) { Frise.dayStarts(now, off, Frise.coverEnd(p, spot)) }
+  var dayIndex by rememberSaveable { mutableIntStateOf(0) }
+  var cursor by rememberSaveable { mutableIntStateOf(0) }
+  val d = dayIndex.coerceIn(0, starts.lastIndex)
+  val hours = remember(snap, d) { Frise.window(starts[d], p, spot) }
+  val firstHour = remember(snap) { Frise.window(starts[0], p, spot).first() }
+  val c = cursor.coerceIn(0, Frise.HOURS - 1)
+
+  Column {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+      Spacer(Modifier.width(10.dp))
+      WeatherIcon(p.weatherCode, !firstHour.night, 32.dp)
+      Spacer(Modifier.width(4.dp))
+      Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.headlineSmall)
+    }
+    Freshness(state)
+  }
+  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    starts.forEachIndexed { k, t -> DayChip(Words.dayPill(t, now, off), k == d) { dayIndex = k } }
+  }
+  daySentence(p, starts, d)?.let { Text(it, color = VigieColors.Text, style = MaterialTheme.typography.bodyLarge) }
+  FriseCard(hours, c, today = d == 0, spot = spot, offsetS = off) { cursor = it }
+  Readout(hours[c], spot, now, off)
+  if (spot != null) Mention(stringResource(R.string.hours_drag, spot.name)) else Mention(stringResource(R.string.hours_sea_unread))
+  if (p.hours.isNotEmpty() && p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
+  if (spot != null) Credits(stringResource(R.string.credits_sea))
+}
+
+/** Today: the next 12 hours when the hours are served, else the day's line; another day: its line of `daily`. */
+private fun daySentence(p: PointNow, starts: List<Long>, d: Int): String? {
+  val index = (Words.dayKey(starts[d], p.utcOffsetS) - Words.dayKey(p.serverUtc, p.utcOffsetS)).toInt()
+  val daily = p.days.getOrNull(index)?.let(Words::daySentence)
+  if (d != 0) return daily
+  return Words.next12Hours(p.hours.filter { it.timeUtc >= starts[0] }, p.utcOffsetS) ?: daily
+}
+
+@Composable
+private fun DayChip(text: String, selected: Boolean, onClick: () -> Unit) {
+  Box(Modifier.minimumInteractiveComponentSize(), contentAlignment = Alignment.Center) {
+    Text(
+      text,
+      color = if (selected) VigieColors.OnPill else VigieColors.Text,
+      style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+      modifier =
+        Modifier.clip(RoundedCornerShape(50))
+          .background(if (selected) VigieColors.Accent.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.12f))
+          .clickable(onClick = onClick)
+          .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+  }
+}
+
+@Composable
+private fun Mention(text: String) {
+  Text(text, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+}
+
+// --------------------------------------------------------------------------------------------------------- the frise
+
+/** The words drawn inside the frise, read once from the resources. */
+private class FriseWords(
+  val sky: String,
+  val temp: String,
+  val rain: String,
+  val wind: String,
+  val tide: String,
+  val vigil: String,
+  val dry: String,
+  val now: String,
+  val gusts: String,
+  val noAlert: String,
+  val unread: String,
+  val noTide: String,
+  val noWeather: String,
+)
+
+// The frise's geometry, in dp, from the prototype (a card of 446 dp; label column of 62 dp; rows at fixed heights).
+private const val LABEL_COLUMN = 62f
+private const val RIGHT_PAD = 12f
+private const val WEATHER_BLOCK = 210f
+private const val NO_WEATHER_BLOCK = 40f
+
+private fun PointerInputScope.hourAt(x: Float): Int {
+  val gx = LABEL_COLUMN.dp.toPx()
+  val step = (size.width - (LABEL_COLUMN + RIGHT_PAD).dp.toPx()) / Frise.HOURS
+  return floor((x - gx) / step).toInt().coerceIn(0, Frise.HOURS - 1)
+}
+
+@Composable
+private fun FriseCard(hours: List<FriseHour>, cursor: Int, today: Boolean, spot: SpotHours?, offsetS: Int, onCursor: (Int) -> Unit) {
+  val hasWeather = hours.any { it.weather != null }
+  // Without the hourly weather, its four rows give way to one line: everything under them moves up.
+  val shift = if (hasWeather) 0f else NO_WEATHER_BLOCK - WEATHER_BLOCK
+  val measurer = rememberTextMeasurer()
+  val words =
+    FriseWords(
+      sky = stringResource(R.string.frise_sky),
+      temp = stringResource(R.string.frise_temp),
+      rain = stringResource(R.string.frise_rain),
+      wind = stringResource(R.string.frise_wind),
+      tide = stringResource(R.string.frise_tide),
+      vigil = stringResource(R.string.frise_vigil),
+      dry = stringResource(R.string.frise_dry),
+      now = stringResource(R.string.frise_now),
+      gusts = stringResource(R.string.frise_gusts),
+      noAlert = stringResource(R.string.frise_no_alert),
+      unread = stringResource(R.string.frise_unread),
+      noTide = stringResource(R.string.frise_no_tide),
+      noWeather = stringResource(R.string.hours_no_weather),
+    )
+  val description = stringResource(R.string.frise_description)
+  val update by rememberUpdatedState(onCursor)
+  val shape = RoundedCornerShape(22.dp)
+  Canvas(
+    Modifier.fillMaxWidth()
+      .height((446f + shift).dp)
+      .background(VigieColors.Glass, shape)
+      .border(1.5.dp, VigieColors.GlassBorder, shape)
+      .semantics { contentDescription = description }
+      .pointerInput(Unit) { detectTapGestures { update(hourAt(it.x)) } }
+      .pointerInput(Unit) {
+        detectHorizontalDragGestures(onDragStart = { update(hourAt(it.x)) }) { change, _ ->
+          change.consume()
+          update(hourAt(change.position.x))
+        }
+      }
+  ) {
+    drawFrise(hours, cursor, today, spot, offsetS, hasWeather, shift, measurer, words)
+  }
+}
+
+private enum class Anchor { Start, Middle, End }
+
+private fun DrawScope.text(
+  measurer: TextMeasurer,
+  s: String,
+  x: Float,
+  baseline: Float,
+  color: Color,
+  anchor: Anchor = Anchor.Start,
+  size: Float = 12f,
+  bold: Boolean = false,
+) {
+  val r = measurer.measure(s, TextStyle(color = color, fontSize = size.sp, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal))
+  val left =
+    when (anchor) {
+      Anchor.Start -> x
+      Anchor.Middle -> x - r.size.width / 2f
+      Anchor.End -> x - r.size.width
+    }
+  drawText(r, topLeft = Offset(left, baseline - r.firstBaseline))
+}
+
+private fun DrawScope.drawFrise(
+  hours: List<FriseHour>,
+  cursor: Int,
+  today: Boolean,
+  spot: SpotHours?,
+  offsetS: Int,
+  hasWeather: Boolean,
+  shift: Float,
+  measurer: TextMeasurer,
+  w: FriseWords,
+) {
+  val k = density
+  val width = size.width
+  val gx = LABEL_COLUMN * k
+  val gw = width - (LABEL_COLUMN + RIGHT_PAD) * k
+  val step = gw / Frise.HOURS
+  fun xC(i: Int) = gx + step * (i + 0.5f)
+  fun y(v: Float) = v * k // the top band and the weather rows
+  fun yb(v: Float) = (v + shift) * k // the rows under the weather
+  val gridTop = y(32f)
+  val gridBottom = yb(428f)
+  val t0 = hours.first().timeUtc
+  val t1 = t0 + Frise.HOURS * 3600L
+  fun xT(t: Long) = gx + gw * ((t - t0).toFloat() / (t1 - t0))
+  fun rowName(word: String, baseline: Float) = text(measurer, word, 12 * k, baseline, VigieColors.Text2)
+
+  // nights
+  hours.forEachIndexed { i, h ->
+    if (h.night) drawRect(Color.Black.copy(alpha = 0.16f), Offset(gx + step * i, gridTop), Size(step + 0.4f * k, gridBottom - gridTop))
+  }
+
+  // hours of the top band, change of day
+  class Tag(val x: Float, val s: String, val day: Boolean)
+  val tags = mutableListOf<Tag>()
+  hours.forEachIndexed { i, h ->
+    if (i > 0 && Math.floorMod(h.timeUtc + offsetS, 86_400L) < 3600) {
+      val x = gx + step * i
+      drawLine(Color.White.copy(alpha = 0.25f), Offset(x, y(30f)), Offset(x, gridBottom), k, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2 * k, 4 * k)))
+      tags += Tag(x + 2 * k, Words.dayShort(Words.dayKey(h.timeUtc, offsetS)), true)
+    }
+  }
+  val xc = xC(cursor)
+  for (i in 0 until Frise.HOURS step 4) {
+    val x = xC(i)
+    if (tags.any { it.day && abs(it.x + 14 * k - x) < 30 * k }) continue
+    if (abs(x - xc) < 40 * k) continue // the cursor's pill takes the place
+    tags += Tag(x, Words.hour(hours[i].timeUtc, offsetS), false)
+  }
+  for (tag in tags) {
+    if (tag.day && abs(tag.x + 14 * k - xc) < 34 * k) continue
+    if (tag.day) text(measurer, tag.s, tag.x, y(22f), VigieColors.Accent) else text(measurer, tag.s, tag.x, y(22f), VigieColors.Text3, Anchor.Middle)
+  }
+
+  if (hasWeather) {
+    // sky: one icon every three hours
+    rowName(w.sky, y(54f))
+    for (i in 0 until Frise.HOURS step 3) {
+      val h = hours[i + 1]
+      val sky = skyOf(h.weather?.weatherCode, !h.night) ?: continue
+      weatherIcon(sky, gx + step * (i + 1.5f), y(48f), 28 * k)
+    }
+
+    // temperature: the curve coloured by the charter's ramp, on at least 4 °C so a flat day stays flat
+    rowName(w.temp, y(106f))
+    val temps = hours.mapIndexedNotNull { i, h -> h.weather?.tempC?.let { i to it } }
+    if (temps.size >= 2) {
+      var lo = temps.minOf { it.second }
+      var hi = temps.maxOf { it.second }
+      if (hi - lo < 4) {
+        val mid = (hi + lo) / 2
+        lo = mid - 2
+        hi = mid + 2
+      }
+      val top = y(82f)
+      val hh = 38 * k
+      val pts = temps.map { (i, v) -> Offset(xC(i), top + hh - ((v - lo) / (hi - lo)).toFloat() * hh) }
+      val mean = VigieColors.temperature(temps.map { it.second }.average())
+      val fill = smoothPath(pts).apply {
+        lineTo(pts.last().x, y(128f))
+        lineTo(pts.first().x, y(128f))
+        close()
+      }
+      drawPath(fill, Brush.verticalGradient(listOf(mean.copy(alpha = 0.34f), mean.copy(alpha = 0f)), startY = top, endY = y(128f)))
+      val span = (pts.last().x - pts.first().x).coerceAtLeast(1f)
+      val stops = temps.mapIndexed { j, (_, v) -> ((pts[j].x - pts.first().x) / span) to VigieColors.temperature(v) }.toTypedArray()
+      drawPath(
+        smoothPath(pts),
+        Brush.horizontalGradient(*stops, startX = pts.first().x, endX = pts.last().x),
+        style = Stroke(3.5f * k, cap = StrokeCap.Round, join = StrokeJoin.Round),
+      )
+      val jMax = temps.indices.maxBy { temps[it].second }
+      val jMin = temps.indices.minBy { temps[it].second }
+      text(measurer, Words.degrees(temps[jMax].second), pts[jMax].x, pts[jMax].y - 8 * k, VigieColors.temperature(temps[jMax].second), Anchor.Middle)
+      if (jMin != jMax) text(measurer, Words.degrees(temps[jMin].second), pts[jMin].x, pts[jMin].y + 18 * k, VigieColors.temperature(temps[jMin].second), Anchor.Middle)
+    }
+
+    // rain: pill bars on a square-root scale, the day's total; « sec » only when every hour is known and dry
+    rowName(w.rain, y(166f))
+    drawRect(Color.White.copy(alpha = 0.1f), Offset(gx, y(179f)), Size(gw, 1.5f * k))
+    val rains = hours.map { it.weather?.rainMm }
+    val known = rains.filterNotNull()
+    if (known.isNotEmpty()) {
+      val total = known.sum()
+      if (total > 0) {
+        val mMax = max(2.0, known.max())
+        val lw = 7 * k
+        rains.forEachIndexed { i, mm ->
+          if (mm == null || mm <= 0) return@forEachIndexed
+          val hp = (6 + (34 - 6) * sqrt(min(mm, mMax) / mMax)).toFloat() * k
+          val col = if (mm < 1) VigieColors.RainLight else if (mm < 3) VigieColors.Rain else VigieColors.RainHeavy
+          drawRoundRect(col, Offset(xC(i) - lw / 2, y(180f) - hp), Size(lw, hp), CornerRadius(lw / 2))
+        }
+        text(measurer, Words.mm(total), gx + gw, y(146f), VigieColors.Rain, Anchor.End)
+      } else if (known.size == rains.size) {
+        text(measurer, w.dry, gx + gw / 2, y(170f), VigieColors.Text3, Anchor.Middle)
+      }
+    }
+
+    // wind: the mean wind's curve from 0, the strongest gust, an arrow every three hours (pointing where it goes)
+    rowName(w.wind, y(214f))
+    val winds = hours.mapIndexedNotNull { i, h -> h.weather?.windKmh?.let { i to it } }
+    if (winds.size >= 2) {
+      val hi = max(1.0, winds.maxOf { it.second } * 1.05)
+      val top = y(196f)
+      val hh = 22 * k
+      val pts = winds.map { (i, v) -> Offset(xC(i), top + hh - (v / hi).toFloat() * hh) }
+      val fill = smoothPath(pts).apply {
+        lineTo(pts.last().x, y(222f))
+        lineTo(pts.first().x, y(222f))
+        close()
+      }
+      drawPath(fill, Brush.verticalGradient(listOf(VigieColors.Wind.copy(alpha = 0.34f), VigieColors.Wind.copy(alpha = 0f)), startY = top, endY = y(222f)))
+      drawPath(smoothPath(pts), VigieColors.Wind, style = Stroke(3 * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+    val gusts = hours.mapIndexedNotNull { i, h -> h.weather?.gustKmh?.let { i to it } }
+    if (gusts.isNotEmpty()) {
+      val (iG, g) = gusts.maxBy { it.second }
+      val xr = xC(iG).coerceIn(gx + 34 * k, gx + gw - 34 * k)
+      text(measurer, String.format(w.gusts, Words.kmh(g)), xr, y(190f), VigieColors.Text, Anchor.Middle)
+    }
+    for (i in 1 until Frise.HOURS step 3) {
+      val deg = hours[i].weather?.windDeg ?: continue
+      windArrow(xC(i), y(236f), 12 * k, deg, VigieColors.Wind)
+    }
+  } else {
+    val r =
+      measurer.measure(
+        w.noWeather,
+        TextStyle(color = VigieColors.Text3, fontSize = 12.sp),
+        constraints = Constraints(maxWidth = (width - 24 * k).toInt().coerceAtLeast(1)),
+      )
+    drawText(r, topLeft = Offset(12 * k, y(36f)))
+  }
+
+  // tide of the favourite spot: half cosine between the API's extremes, their times written
+  rowName(w.tide, yb(276f))
+  val extremes = spot?.tide.orEmpty()
+  val tidePts =
+    if (extremes.size >= 2) {
+      val lo = extremes.minOf { it.heightM }
+      val hi = extremes.maxOf { it.heightM }
+      val top = yb(258f)
+      val hh = 32 * k
+      fun yT(m: Double) = top + hh - ((m - lo) / (if (hi > lo) hi - lo else 1.0)).toFloat() * hh
+      val pts = (0..72).mapNotNull { j -> val t = t0 + (t1 - t0) * j / 72; Frise.tideHeight(extremes, t)?.let { Offset(xT(t), yT(it)) } }
+      if (pts.size >= 2) {
+        val fill = smoothPath(pts).apply {
+          lineTo(pts.last().x, top + hh)
+          lineTo(pts.first().x, top + hh)
+          close()
+        }
+        drawPath(fill, Brush.verticalGradient(listOf(VigieColors.Water.copy(alpha = 0.42f), VigieColors.Water.copy(alpha = 0.04f)), startY = top, endY = top + hh))
+        drawPath(smoothPath(pts), VigieColors.Water, style = Stroke(2.5f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        for (e in extremes) {
+          if (e.timeUtc < t0 || e.timeUtc > t1) continue
+          val xe = xT(e.timeUtc).coerceIn(gx + 16 * k, gx + gw - 16 * k)
+          val ye = yT(e.heightM)
+          text(measurer, Words.clock(e.timeUtc, offsetS), xe, if (e.high) ye - 8 * k else ye + 18 * k, VigieColors.Text, Anchor.Middle)
+        }
+      }
+      pts
+    } else emptyList()
+  if (tidePts.size < 2) text(measurer, if (spot == null) w.unread else w.noTide, gx, yb(276f), VigieColors.Text3)
+
+  // official coastal warning over the spot: a bar per warning, its colour word written on it
+  rowName(w.vigil, yb(332f))
+  when {
+    spot == null || !spot.vigilanceKnown -> text(measurer, w.unread, gx, yb(332f), VigieColors.Text3)
+    spot.alerts.isEmpty() -> text(measurer, w.noAlert, gx, yb(332f), VigieColors.Text3)
+    else ->
+      for (a in spot.alerts) {
+        val s = max(a.startUtc ?: t0, t0)
+        val e = min(a.endUtc ?: t1, t1)
+        if (e <= s) continue
+        drawRoundRect(VigieColors.warning(a.level), Offset(xT(s), yb(320f)), Size(xT(e) - xT(s), 16 * k), CornerRadius(6 * k))
+        text(measurer, Words.warningLevel(a.level), xT(s) + 6 * k, yb(332f), VigieColors.OnPill, size = 11f)
+      }
+  }
+
+  // the three activities of the favourite spot, one cell per hour (night and unknown in grey)
+  Frise.ACTIVITIES.forEachIndexed { r, id ->
+    rowName(Words.activityShort(id), yb(362f + 28 * r))
+    hours.forEachIndexed { i, h ->
+      val v = h.verdicts[id]
+      val col = if (v == null) VigieColors.Rule.copy(alpha = 0.55f) else VigieColors.verdict(v)
+      drawRoundRect(col, Offset(gx + i * step + 0.75f * k, yb(350f + 28 * r)), Size(step - 1.5f * k, 15 * k), CornerRadius(4 * k))
+    }
+  }
+  for (i in 0 until Frise.HOURS step 4) text(measurer, Words.hour(hours[i].timeUtc, offsetS), xC(i), yb(440f), VigieColors.Text3, Anchor.Middle)
+
+  // the cursor and its pill
+  drawLine(VigieColors.Accent, Offset(xc, y(30f)), Offset(xc, gridBottom), 2 * k)
+  val word = if (today && cursor == 0) w.now else Words.hour(hours[cursor].timeUtc, offsetS)
+  val r = measurer.measure(word, TextStyle(color = VigieColors.OnPill, fontSize = 12.sp, fontWeight = FontWeight.SemiBold))
+  val cw = r.size.width + 16 * k
+  val xl = (xc - cw / 2).coerceIn(6 * k, width - cw - 6 * k)
+  drawRoundRect(VigieColors.Accent, Offset(xl, y(6f)), Size(cw, 22 * k), CornerRadius(11 * k))
+  drawText(r, topLeft = Offset(xl + 8 * k, y(6f) + (22 * k - r.size.height) / 2))
+}
+
+// -------------------------------------------------------------------------------------------- the reading of an hour
+
+@Composable
+private fun Readout(h: FriseHour, spot: SpotHours?, nowUtc: Long, offsetS: Int) {
+  val wx = h.weather
+  Glass {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+      Text(Words.readoutTitle(h.timeUtc, offsetS), color = VigieColors.Accent, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+      Text(Words.fromNow(Frise.hoursFromNow(h.timeUtc, nowUtc)), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+    }
+    Row(Modifier.fillMaxWidth()) {
+      Column(Modifier.weight(1.1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          WeatherIcon(wx?.weatherCode, !h.night, 36.dp)
+          Spacer(Modifier.width(4.dp))
+          Text(Words.degrees(wx?.tempC), color = VigieColors.temperature(wx?.tempC), fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+        }
+        val rain = wx?.rainMm
+        when {
+          rain != null && rain > 0 -> Small(stringResource(R.string.readout_rain, Words.mm(rain)), VigieColors.Rain)
+          wx?.weatherCode != null -> Small(Words.weatherAt(wx.weatherCode, !h.night), VigieColors.Text2)
+        }
+      }
+      Column(Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(36.dp)) {
+          WindArrow(wx?.windDeg, 16.dp, VigieColors.Wind)
+          Spacer(Modifier.width(6.dp))
+          Text(Words.kmh(wx?.windKmh), color = VigieColors.Text, fontSize = 20.sp)
+        }
+        val parts = listOfNotNull(wx?.gustKmh?.let { "raf. ${it.roundToInt()}" }, Words.windFrom(wx?.windDeg).ifEmpty { null })
+        if (parts.isNotEmpty()) Small(parts.joinToString(" · "), VigieColors.Text2)
+      }
+      Column(Modifier.weight(1f)) {
+        val next = spot?.let { Frise.nextExtreme(it.tide, h.timeUtc + 1800) }
+        Box(Modifier.height(36.dp), contentAlignment = Alignment.CenterStart) {
+          Text(next?.let { Words.tideTrend(it, offsetS).first } ?: "—", color = VigieColors.Text, fontSize = 20.sp)
+        }
+        if (next != null) Small(Words.tideTrend(next, offsetS).second, VigieColors.Text2)
+      }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+    Row(Modifier.fillMaxWidth()) {
+      Frise.ACTIVITIES.forEach { id ->
+        val v = h.verdicts[id]
+        val color = if (v == null) VigieColors.Text3 else VigieColors.verdict(v)
+        Column(Modifier.weight(1f)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            ActivityGlyph(id, color, 15.dp)
+            Spacer(Modifier.width(6.dp))
+            Small(Words.activityShort(id), VigieColors.Text2)
+          }
+          Text(
+            if (v != null) Words.verdict(v) else if (h.night) stringResource(R.string.readout_night) else "—",
+            color = color,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun Small(text: String, color: Color) {
+  Text(text, color = color, fontSize = 12.5.sp)
+}

@@ -17,9 +17,23 @@ data class PointNow(
   val rain1hMm: Double?,
   val weatherCode: Int?,
   val days: List<Day>,
+  /** The hour-by-hour forecast (`hourly`, up to 72 hours); empty while the API does not serve it. */
+  val hours: List<HourWeather> = emptyList(),
 )
 
 data class Day(val date: String, val code: Int?, val tminC: Double?, val tmaxC: Double?, val rainMm: Double?)
+
+/** One hour of `hourly`, starting at [timeUtc]. */
+data class HourWeather(
+  val timeUtc: Long,
+  val tempC: Double?,
+  val rainMm: Double?,
+  val windKmh: Double?,
+  val gustKmh: Double?,
+  val windDeg: Double?,
+  val weatherCode: Int?,
+  val isDay: Boolean?,
+)
 
 /** One spot of `/v1/activities/overview` with its verdicts for the next 24 hours. */
 data class Spot(val id: String, val name: String, val place: String?, val activities: List<ActivityVerdict>)
@@ -38,5 +52,33 @@ data class ActivityVerdict(
   val bestEndUtc: Long?,
 )
 
-/** Everything one refresh reads, with the time it was read. */
-data class Snapshot(val place: Place, val point: PointNow, val spots: List<Spot>, val spotsStale: Boolean)
+/** A high or low water of the spot, from the API's tide model. */
+data class TideExtreme(val timeUtc: Long, val high: Boolean, val heightM: Double)
+
+/** The verdict of one activity for the hour starting at [timeUtc]; [daylight] false = a night hour (no verdict shown). */
+data class HourVerdict(val timeUtc: Long, val daylight: Boolean?, val verdict: String?)
+
+/** An official coastal warning over the spot: its level (`YELLOW`, `ORANGE`, `RED`…) and when it applies, when known. */
+data class CoastAlert(val level: String?, val startUtc: Long?, val endUtc: Long?)
+
+/**
+ * The hours of one spot from `/v1/activities/{spot}`: the verdict of each activity hour by hour, the tide, the coastal
+ * warnings. [vigilanceKnown] false = the warnings could not be read (an empty list then means nothing).
+ */
+data class SpotHours(
+  val id: String,
+  val name: String,
+  val activities: Map<String, List<HourVerdict>>,
+  val tide: List<TideExtreme>,
+  val vigilanceKnown: Boolean,
+  val alerts: List<CoastAlert>,
+)
+
+/** Everything one refresh reads. [favourite] is null when its hours could not be read (the rest still shows). */
+data class Snapshot(
+  val place: Place,
+  val point: PointNow,
+  val spots: List<Spot>,
+  val spotsStale: Boolean,
+  val favourite: SpotHours? = null,
+)

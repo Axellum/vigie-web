@@ -30,6 +30,20 @@ object VigieColors {
 
   val Wind = Color(0xFF8FD6FF)
   val Rain = Color(0xFF5CB8FF)
+  /** Rain bars by intensity, as the Tab5: under 1 mm, under 3 mm, more. */
+  val RainLight = Color(0xFF8FD6FF)
+  val RainHeavy = Color(0xFF3A8CF0)
+  val Water = Color(0xFF62BCFF)
+
+  /** Colour of an official warning level; the word is always written with it. */
+  fun warning(level: String?): Color =
+    when (level) {
+      "GREEN" -> Good
+      "YELLOW" -> Possible
+      "ORANGE" -> Orange
+      "RED" -> Poor
+      else -> Rule
+    }
 
   /** Verdict colour; an unknown verdict takes the rule colour, never a verdict colour. */
   fun verdict(v: String?): Color =

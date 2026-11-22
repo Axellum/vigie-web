@@ -48,6 +48,7 @@ import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
 import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.Spot
+import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
@@ -56,9 +57,12 @@ private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
   Sea(R.string.tab_sea, R.drawable.ic_tab_sea),
 }
 
-/** The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste). */
+/**
+ * The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste).
+ * [baseUrl] is the public API, except in a debug build pointed at a local one (see `MainActivity`).
+ */
 @Composable
-fun VigieApp(viewModel: HomeViewModel = viewModel { HomeViewModel() }) {
+fun VigieApp(baseUrl: String = VigieRepository.BASE_URL, viewModel: HomeViewModel = viewModel { HomeViewModel(VigieRepository(baseUrl)) }) {
   val state by viewModel.state.collectAsStateWithLifecycle()
   var tab by rememberSaveable { mutableIntStateOf(0) }
   Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(VigieColors.SkyTop, VigieColors.SkyBottom)))) {
@@ -96,7 +100,7 @@ fun VigieApp(viewModel: HomeViewModel = viewModel { HomeViewModel() }) {
           Refreshable(s, padding, viewModel::refresh) {
             when (Tab.entries[tab]) {
               Tab.Home -> HomeTab(s)
-              Tab.Hours -> HoursTab()
+              Tab.Hours -> HoursTab(s)
               Tab.Sea -> SeaTab(s.snapshot)
             }
           }
@@ -133,7 +137,7 @@ private fun Refreshable(state: HomeState.Ready, padding: PaddingValues, onRefres
 // ------------------------------------------------------------------------------------------------------------ pieces
 
 @Composable
-private fun Glass(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun Glass(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
   val shape = RoundedCornerShape(22.dp)
   Column(
     modifier.fillMaxWidth().background(VigieColors.Glass, shape).border(1.5.dp, VigieColors.GlassBorder, shape).padding(16.dp),
@@ -162,7 +166,7 @@ private fun Fact(label: String, value: String, color: Color, modifier: Modifier 
 }
 
 @Composable
-private fun Freshness(state: HomeState.Ready) {
+internal fun Freshness(state: HomeState.Ready) {
   val p = state.snapshot.point
   val time = Words.clock(p.serverUtc, p.utcOffsetS)
   when {
@@ -173,7 +177,7 @@ private fun Freshness(state: HomeState.Ready) {
 }
 
 @Composable
-private fun Credits(text: String) {
+internal fun Credits(text: String) {
   Text(text, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
 }
 
@@ -220,14 +224,6 @@ private fun HomeTab(state: HomeState.Ready) {
     }
   }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
-}
-
-@Composable
-private fun HoursTab() {
-  Glass {
-    Text(stringResource(R.string.hours_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-    Text(stringResource(R.string.hours_soon), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-  }
 }
 
 @Composable

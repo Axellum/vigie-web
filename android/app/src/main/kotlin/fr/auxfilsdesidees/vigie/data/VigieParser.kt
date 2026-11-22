@@ -30,6 +30,21 @@ object VigieParser {
           rainMm = d["rain_mm"].dbl(),
         )
       }
+    // `hourly` is absent from the compact payload and from an API older than ADR 0040: the list then stays empty.
+    val hours =
+      root["hourly"].arr().mapNotNull { it.objOrNull() }.mapNotNull { h ->
+        val t = h["time_utc"].long() ?: return@mapNotNull null
+        HourWeather(
+          timeUtc = t,
+          tempC = h["temp_c"].dbl(),
+          rainMm = h["precipitation_mm"].dbl(),
+          windKmh = h["wind_kmh"].dbl(),
+          gustKmh = h["wind_gust_kmh"].dbl(),
+          windDeg = h["wind_deg"].dbl(),
+          weatherCode = h["weather_code"].int(),
+          isDay = h["is_day"].bool(),
+        )
+      }
     return PointNow(
       serverUtc = root["server_utc"].long() ?: 0L,
       utcOffsetS = root["utc_offset_s"].int() ?: 0,
@@ -43,6 +58,42 @@ object VigieParser {
       rain1hMm = current?.get("rain_1h_mm").dbl(),
       weatherCode = current?.get("weather_code").int(),
       days = days,
+      hours = hours.sortedBy { it.timeUtc },
+    )
+  }
+
+  /** The hours of one spot from `/v1/activities/{spot}`: verdicts hour by hour, tide extremes, coastal warnings. */
+  fun spotHours(text: String): SpotHours {
+    val root = Json.parseToJsonElement(text).obj()
+    val spot = root["spot"].objOrNull()
+    val id = spot?.get("id").str() ?: ""
+    val activities =
+      root["activities"].arr().mapNotNull { it.objOrNull() }.associate { a ->
+        val hours =
+          a["hours"].arr().mapNotNull { it.objOrNull() }.mapNotNull { h ->
+            val t = h["time_utc"].long() ?: return@mapNotNull null
+            HourVerdict(timeUtc = t, daylight = h["daylight"].bool(), verdict = h["verdict"].str())
+          }
+        (a["id"].str() ?: "") to hours
+      }
+    val tide =
+      root["tide"].objOrNull()?.get("extremes").arr().mapNotNull { it.objOrNull() }.mapNotNull { e ->
+        val t = e["time_utc"].long() ?: return@mapNotNull null
+        val h = e["height_m"].dbl() ?: return@mapNotNull null
+        TideExtreme(timeUtc = t, high = e["kind"].str() == "high", heightM = h)
+      }
+    val vigilance = root["vigilance"].objOrNull()
+    val alerts =
+      vigilance?.get("alerts").arr().mapNotNull { it.objOrNull() }.map { a ->
+        CoastAlert(level = a["level"].str(), startUtc = a["onset_utc"].long(), endUtc = a["ends_utc"].long() ?: a["expires_utc"].long())
+      }
+    return SpotHours(
+      id = id,
+      name = spot?.get("name").str() ?: id,
+      activities = activities,
+      tide = tide.sortedBy { it.timeUtc },
+      vigilanceKnown = vigilance?.get("status").str() == "ok",
+      alerts = alerts,
     )
   }
 
