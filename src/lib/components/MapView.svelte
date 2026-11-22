@@ -59,11 +59,13 @@
 		/** The tide now along the coasts, computed by the API (`TideTile.features`: `up` 1 rising, 0 falling). */
 		tides?: FeatureCollection | null;
 		/** The rain radar: the images to draw (only the active one, or all of them once `preload` is set, so that a slider and an
-		 * animation do not wait for tiles), drawn under the labels of the base map. Null: no radar. */
+		 * animation do not wait for tiles), drawn over the warnings and under the labels of the base map. Null: no radar. */
 		radar?: RadarOnMap | null;
-		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch. Null: no wind. */
+		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
+		 * Null: no wind. */
 		wind?: WindOnMap | null;
-		/** The forecast wind, the finest grid first: thin trails that follow it, under the markers. Null: none. */
+		/** The forecast wind, the finest grid first: thin trails that follow it, over the rain and the warnings' markers, under
+		 * the badges of the measured wind. Null: none. */
 		flow?: FieldGrid[] | null;
 		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
 		spots?: FeatureCollection | null;
@@ -225,14 +227,14 @@
 	function addForecastLayers() {
 		if (!map) return;
 		const ink = css('--ink');
-		map.addLayer({
+		addUnderRain({
 			id: 'fc-cone',
 			type: 'fill',
 			source: 'forecast',
 			filter: kindIs('cone'),
 			paint: { 'fill-color': ink, 'fill-opacity': 0.12 }
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'fc-cone-edge',
 			type: 'line',
 			source: 'forecast',
@@ -240,7 +242,7 @@
 			paint: { 'line-color': ink, 'line-width': 1.2, 'line-dasharray': [2, 2] }
 		});
 		// The NHC's own colours for its coastal watches and warnings.
-		map.addLayer({
+		addUnderRain({
 			id: 'fc-warning',
 			type: 'line',
 			source: 'forecast',
@@ -263,14 +265,14 @@
 				'line-width': 5
 			}
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'fc-track',
 			type: 'line',
 			source: 'forecast',
 			filter: kindIs('track'),
 			paint: { 'line-color': ink, 'line-width': 2 }
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'fc-point',
 			type: 'circle',
 			source: 'forecast',
@@ -439,10 +441,17 @@
 		}
 	}
 
+	// The order of the map, from the bottom: the base map, the warnings (zones, rivers, earthquakes, a cyclone's forecast, with
+	// the aurora and the eclipse under them as before), the rain radar, the names of the base map (readable over the rain), the
+	// site's other layers and selections; then the forecast wind's canvas and, on top, the badges of the measured wind (z-index
+	// in the styles below). The warnings and the radar both go under the first label of the base map: the warnings when the
+	// overlay is added, the radar after them (`syncRadar` last in `addOverlay`, and later on the same spot), so it lies over them.
+	let labelsFrom: string | undefined;
+	const addUnderRain = (layer: Parameters<MlMap['addLayer']>[0]) => map?.addLayer(layer, labelsFrom);
+
 	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
 	// the active one visible and the others transparent (they are only loaded, for the animation).
 	const radarIds = new Set<string>();
-	let radarAnchor: string | undefined;
 	let overlayAdded = false;
 	const RADAR_OPACITY = 0.85;
 
@@ -484,7 +493,7 @@
 						'raster-fade-duration': 0
 					}
 				},
-				radarAnchor
+				labelsFrom
 			);
 			radarIds.add(id);
 		}
@@ -494,7 +503,7 @@
 		if (!map) return;
 		// A new style has none of the radar's layers; the first label of the base map is where they go under.
 		radarIds.clear();
-		radarAnchor = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+		labelsFrom = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
 		// between them at world scale).
 		if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', css('--map-land'));
@@ -506,7 +515,7 @@
 		map.addSource('fires', { type: 'geojson', data: fireData() });
 		map.addSource('aurora', { type: 'geojson', data: auroraData() });
 		// The aurora bands, from faint green to red as NOAA's maps do; the levels of the bands are the API's.
-		map.addLayer({
+		addUnderRain({
 			id: 'aurora-fill',
 			type: 'fill',
 			source: 'aurora',
@@ -530,7 +539,7 @@
 		});
 		map.addSource('eclipse', { type: 'geojson', data: eclipseData() });
 		// The share of the Sun hidden, darker as it grows; the path of totality (or of the ring) dark, its central line dashed.
-		map.addLayer({
+		addUnderRain({
 			id: 'eclipse-band',
 			type: 'fill',
 			source: 'eclipse',
@@ -541,14 +550,14 @@
 				'fill-antialias': false
 			}
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'eclipse-path',
 			type: 'fill',
 			source: 'eclipse',
 			filter: ['==', ['get', 'kind'], 'path'],
 			paint: { 'fill-color': '#1d1640', 'fill-opacity': 0.7 }
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'eclipse-line',
 			type: 'line',
 			source: 'eclipse',
@@ -557,21 +566,21 @@
 		});
 		map.addSource('tides', { type: 'geojson', data: tideData() });
 		map.addSource('spots', { type: 'geojson', data: spotData() });
-		map.addLayer({
+		addUnderRain({
 			id: 'zone-fill',
 			type: 'fill',
 			source: 'zones',
 			filter: isArea,
 			paint: { 'fill-color': levelColor('level'), 'fill-opacity': 0.4 }
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'zone-outline',
 			type: 'line',
 			source: 'zones',
 			filter: isArea,
 			paint: { 'line-color': levelColor('level'), 'line-width': 0.9 }
 		});
-		map.addLayer({
+		addUnderRain({
 			id: 'zone-river',
 			type: 'line',
 			source: 'zones',
@@ -592,9 +601,7 @@
 		addFireLayers();
 		addTideLayers();
 		addSpotLayers();
-		overlayAdded = true;
-		syncRadar();
-		map.addLayer({
+		addUnderRain({
 			id: 'quake',
 			type: 'circle',
 			source: 'quakes',
@@ -619,6 +626,9 @@
 			}
 		});
 		addForecastLayers();
+		// The radar after every warning: over them.
+		overlayAdded = true;
+		syncRadar();
 		map.addLayer({
 			id: 'place-radius',
 			type: 'line',
@@ -907,6 +917,8 @@
 						'AttributionControl.ToggleAttribution': tr('map.attribution')
 					}
 				});
+				// For the end-to-end tests only (a browser driven by them says so): the map, to read the order of its layers.
+				if (navigator.webdriver) (window as unknown as { vigieMap?: MlMap }).vigieMap = map;
 				map.touchZoomRotate.disableRotation();
 				map.addControl(new ml.NavigationControl({ showCompass: false }), 'top-right');
 				const first = frame ?? given;
@@ -1160,8 +1172,14 @@
 		color: var(--accent);
 		border-color: var(--accent);
 	}
-	/* The forecast wind: over the map's canvas, under its markers, never in the way of a click. */
+	/* The stacking of the map's own container: the warnings' markers (no z-index), the forecast wind's canvas, the measured
+	   wind's badges, their card. Isolated, so that MapLibre's buttons and the site's cards stay over all of it, as before. */
+	:global(.maplibregl-canvas-container) {
+		isolation: isolate;
+	}
+	/* The forecast wind: over the map's canvas and the warnings' markers, under the measured wind, never in the way of a click. */
 	:global(.vigie-flow) {
+		z-index: 1;
 		position: absolute;
 		left: 0;
 		top: 0;
@@ -1169,8 +1187,9 @@
 		height: 100%;
 		pointer-events: none;
 	}
-	/* No `position` here: the marker of MapLibre is absolute, which also places the gust. */
+	/* No `position` here: the marker of MapLibre is absolute, which also places the gust. Over the forecast wind's trails. */
 	:global(.vigie-wind) {
+		z-index: 2;
 		display: block;
 		padding: 0;
 		border: 0;
@@ -1201,6 +1220,9 @@
 		outline: 2px solid var(--accent);
 		outline-offset: 1px;
 		border-radius: 50%;
+	}
+	:global(.vigie-wind-popup) {
+		z-index: 3;
 	}
 	:global(.vigie-wind-popup .maplibregl-popup-content) {
 		display: flex;
