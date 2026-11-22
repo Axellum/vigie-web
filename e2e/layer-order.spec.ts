@@ -52,6 +52,8 @@ async function expectOrder(page: Page, radarLayers: number) {
 }
 
 test('warnings under the rain, the forecast wind over both, the measured wind on top', async ({ page }) => {
+	// Twenty radar frames, two rain layers and a second map style: 28 s of the default 30 on the CI's desktop run.
+	test.setTimeout(60_000);
 	await open(page);
 	// The warnings' markers are there on the world.
 	await expect(page.locator('.vigie-marker').first()).toBeAttached({ timeout: 15_000 });
@@ -139,7 +141,22 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 			);
 		})
 	).toBe(true);
-	await page.getByTestId('wind-badge').first().click();
+	// On a phone the radar card covers the bottom of the map, and which badge comes first depends on the data: click the first
+	// badge that nothing covers, as a visitor would (a trial click scrolls to it and checks that it would get the click).
+	const badges = page.getByTestId('wind-badge');
+	let free = -1;
+	for (let i = 0, n = await badges.count(); i < n && free < 0; i++) {
+		const clickable = await badges
+			.nth(i)
+			.click({ trial: true, timeout: 1_000 })
+			.then(
+				() => true,
+				() => false
+			);
+		if (clickable) free = i;
+	}
+	expect(free).toBeGreaterThanOrEqual(0);
+	await badges.nth(free).click();
 	await expect(page.locator('.vigie-wind-popup')).toBeVisible();
 	expect(await z('.vigie-wind-popup')).toBeGreaterThan(badge!);
 });
