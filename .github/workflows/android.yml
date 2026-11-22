@@ -1,0 +1,56 @@
+name: Android
+
+# The native app of android/: its unit tests and a debug build, on every change to it. Not a required check: a pull
+# request that does not touch android/ does not run it.
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Android app, unit tests and debug build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The build needs a JDK 17 or newer; the bytecode is Java 17 whatever runs Gradle.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Checks the wrapper's checksum and caches Gradle's downloads between runs.
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The platform and build tools of android/README.md, on the runner's SDK (no-op when already there).
+      - name: Android SDK platform 37 and build tools 36
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Unit tests and debug build
+        run: ./gradlew --console=plain testDebugUnitTest assembleDebug
+
+      - name: Keep the test reports when a test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: android/app/build/reports/tests/
+          retention-days: 7
