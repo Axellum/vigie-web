@@ -13,10 +13,16 @@ https://<the site>/widget?size=medium&theme=sky&spot=anglet-plage-de-la-madrague
 | `size`        | `small`, `medium`, `large`    | `medium`  | About 300 × 100, 300 × 256 and 300 × 572 pixels.               |
 | `theme`       | `sky`, `dark`, `light`        | `sky`     | The three themes of the family's common charter.               |
 | `spot`        | an id of the surf spots       | none      | `/surf` and `/v1/surf/spots` give the ids.                     |
+| `frame`       | `board`                       | none      | In the Windows widgets board: the top 48 pixels stay empty.    |
 | `lang`        | `fr`, `en`                    | browser's | The language of the page, as everywhere on the site.           |
 | after the `#` | `lat,lon` then `/` and a name | none      | The place, and the name to show for it (the name is optional). |
 
 A value that makes no sense is replaced by its default, never by an error.
+
+A host may give the page less height than its size says: the Windows widgets board gives a large web widget about
+300 × 462 pixels and writes the widget's name over the top 48 of them (`frame=board`). The page never cuts a part in the
+middle: it hides whole parts until the rest fits, the five days first, then the gusts forecast, the wind, and the spot
+last. The warnings, the rain of the hour and the header always stay.
 
 ## What it shows
 

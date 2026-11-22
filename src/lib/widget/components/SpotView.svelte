@@ -61,7 +61,7 @@
 {/snippet}
 
 {#if inside}
-	<section class="card spot-rows">
+	<section class="card spot-rows" data-drop="4">
 		<div class="row title">
 			<Glyph name="waves" size={15} />
 			<span class="ellipsis">{screen.spot.name}</span>
@@ -120,7 +120,7 @@
 		{/each}
 	</div>
 	{#if screen.tide}
-		<div class="card tide">
+		<div class="card tide" data-drop="1">
 			{@render tideLine('tide-head')}
 			{#if screen.tide.curve}
 				<svg class="curve" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">

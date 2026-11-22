@@ -248,16 +248,20 @@ describe('the surf spot', () => {
 });
 
 describe('the address of the widget', () => {
-	it('reads the size, the theme and the spot, with defaults for anything else', () => {
-		expect(parseWidgetParams(new URLSearchParams('size=LARGE&theme=light&spot=Anglet-Plage'))).toEqual({
+	it('reads the size, the theme, the spot and the frame, with defaults for anything else', () => {
+		expect(
+			parseWidgetParams(new URLSearchParams('size=LARGE&theme=light&spot=Anglet-Plage&frame=Board'))
+		).toEqual({
 			size: 'large',
 			theme: 'light',
-			spot: 'anglet-plage'
+			spot: 'anglet-plage',
+			board: true
 		});
-		expect(parseWidgetParams(new URLSearchParams('size=huge&theme=pink&spot=../x'))).toEqual({
+		expect(parseWidgetParams(new URLSearchParams('size=huge&theme=pink&spot=../x&frame=window'))).toEqual({
 			size: 'medium',
 			theme: 'sky',
-			spot: null
+			spot: null,
+			board: false
 		});
 	});
 
