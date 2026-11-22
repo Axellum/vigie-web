@@ -138,6 +138,50 @@ object VigieParser {
     }
   }
 
+  /**
+   * The official warnings of a point (`/v1/vigilances?lat&lon&lang=fr,en`). The text kept is the first in French, else
+   * the first in English, else the first one. A link that points at a data file (a feed) is not offered to read.
+   */
+  fun vigilances(text: String): Vigilances {
+    val root = Json.parseToJsonElement(text).obj()
+    val statuses = root["coverage"].arr().mapNotNull { it.objOrNull()?.get("status").str() }
+    val items =
+      root["vigilances"].arr().mapNotNull { it.objOrNull() }.map { v ->
+        val texts = v["texts"].arr().mapNotNull { it.objOrNull() }
+        val lang = { t: JsonObject -> t["language"].str().orEmpty().lowercase() }
+        val chosen = texts.firstOrNull { lang(it).startsWith("fr") } ?: texts.firstOrNull { lang(it).startsWith("en") } ?: texts.firstOrNull()
+        val area = v["area"].objOrNull()
+        val link = v["link"].str()?.takeUnless { DATA_FILE.containsMatchIn(it) }
+        Vigilance(
+          id = v["id"].str() ?: "",
+          source = v["source"].str(),
+          issuer = v["issuer"].str() ?: chosen?.get("sender_name").str(),
+          level = v["level"].str(),
+          phenomenon = v["phenomenon"].str(),
+          event = chosen?.get("event").str() ?: v["event"].str(),
+          area = area?.get("description").str(),
+          river = area?.get("localization").str() == "line",
+          distanceKm = v["distance_km"].dbl(),
+          onsetUtc = v["onset_utc"].long(),
+          endUtc = v["ends_utc"].long() ?: v["expires_utc"].long(),
+          sentUtc = v["sent_utc"].long(),
+          headline = chosen?.get("headline").str(),
+          description = chosen?.get("description").str(),
+          instruction = chosen?.get("instruction").str(),
+          web = chosen?.get("web").str() ?: link,
+          attribution = v["attribution"].str(),
+        )
+      }
+    return Vigilances(
+      covered = root["countries"].arr().isNotEmpty(),
+      unavailable = statuses.isNotEmpty() && statuses.all { it == "unavailable" },
+      items = items,
+      disclaimer = root["disclaimer"].str(),
+    )
+  }
+
+  private val DATA_FILE = Regex("""\.(geo)?json(\?|$)|\.xml(\?|$)""", RegexOption.IGNORE_CASE)
+
   /** The answers of the site's place search, and the credit to show with them (GeoNames, CC BY 4.0). */
   fun places(text: String): Pair<List<PlaceHit>, String?> {
     val root = Json.parseToJsonElement(text).obj()

@@ -1,0 +1,25 @@
+{
+ "version": "1.0",
+ "server_utc": 1795373157,
+ "query": {
+  "lat": 34.0209,
+  "lon": -6.8416,
+  "country": null,
+  "river_radius_km": 5.0
+ },
+ "countries": [],
+ "vigilances": [],
+ "coverage": [],
+ "uncovered": [
+  {
+   "country": "MA",
+   "name": "Morocco",
+   "covered": false,
+   "reason_code": "no_source",
+   "reason": "No official warning feed is read by this instance for this country."
+  }
+ ],
+ "attribution": null,
+ "disclaimer": null,
+ "note": "Morocco (MA): No official warning feed is read by this instance for this country. The countries this instance reads: GET /v1/vigilances/countries."
+}

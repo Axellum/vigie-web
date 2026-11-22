@@ -1,0 +1,90 @@
+{
+ "version": "1.0",
+ "server_utc": 1795373157,
+ "query": {
+  "lat": 50.4639,
+  "lon": 1.7631,
+  "country": null,
+  "river_radius_km": 5.0
+ },
+ "countries": [
+  "FR"
+ ],
+ "vigilances": [
+  {
+   "id": "vigicrues:AP16",
+   "source": "vigicrues",
+   "country": "FR",
+   "attribution": "Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0 | Last update of the flow: 2026-11-22T14:56:29+00:00",
+   "identifier": "22112026_16:AP16",
+   "sent_utc": 1795359389,
+   "effective_utc": null,
+   "onset_utc": null,
+   "expires_utc": null,
+   "ends_utc": null,
+   "message_type": null,
+   "status": null,
+   "level": "ORANGE",
+   "level_original": "3",
+   "phenomenon": "flood",
+   "phenomenon_original": null,
+   "event": null,
+   "issuer": null,
+   "texts": [],
+   "area": {
+    "description": "Canche",
+    "geocodes": [
+     {
+      "scheme": "VIGICRUES_SECTION",
+      "value": "AP16"
+     },
+     {
+      "scheme": "VIGICRUES_TERRITORY",
+      "value": "29"
+     },
+     {
+      "scheme": "VIGICRUES_BASIN",
+      "value": "TCC28"
+     }
+    ],
+    "has_polygon": false,
+    "localization": "line"
+   },
+   "distance_km": 0.56,
+   "link": "https://www.vigicrues.gouv.fr/services/InfoVigiCru.geojson",
+   "web": "https://www.vigicrues.gouv.fr/bulletin_local/29#AP16",
+   "derived": [
+    "level",
+    "phenomenon"
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "source": "meteofrance",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 70,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795359712,
+   "fetched_age_s": 0,
+   "note": null
+  },
+  {
+   "source": "vigicrues",
+   "source_id": null,
+   "country": "FR",
+   "status": "ok",
+   "warnings_in_feed": 15,
+   "warnings_not_matchable": 0,
+   "feed_updated_utc": 1795359389,
+   "fetched_age_s": 255,
+   "note": "15 of the 337 river sections are above green; a position gets those within its river radius (`river_radius_km`), with their distance."
+  }
+ ],
+ "uncovered": [],
+ "attribution": "Source: Météo-France, Vigilance météorologique (https://vigilance.meteofrance.fr). Licence Ouverte 2.0 | Source: Vigicrues, Service central d'hydrométéorologie et d'appui à la prévision des inondations (SCHAPI), https://www.vigicrues.gouv.fr. Licence Ouverte 2.0",
+ "disclaimer": null,
+ "note": null
+}

@@ -31,6 +31,23 @@
     <string name="frise_no_alert">aucune en cours</string>
     <string name="frise_unread">non lue</string>
     <string name="frise_no_tide">pas de marée calculée ici</string>
+    <string name="frise_coast">Côte</string>
+    <string name="frise_vigil_unread">non lues</string>
+    <string name="frise_vigil_nosource">pas de source officielle ici</string>
+    <string name="frise_vigil_not_here">aucune sur ces heures</string>
+    <string name="frise_vigil_untimed">%1$s, sans heure</string>
+    <!-- Official warnings: the words of the site's widget (vigie-web src/lib/widget/text.ts), so the family says the same. -->
+    <string name="vigil_none">Aucune vigilance en cours</string>
+    <string name="vigil_nosource">Pas de vigilance officielle lue ici</string>
+    <string name="vigil_unread">Vigilances non lues</string>
+    <string name="vigil_no_end">sans heure de fin</string>
+    <string name="vigil_open">Voir les vigilances en détail</string>
+    <string name="vigil_title">Vigilances à %1$s</string>
+    <string name="vigil_read">Lire le bulletin</string>
+    <string name="vigil_fold">Replier le bulletin</string>
+    <string name="vigil_advice">Conseils</string>
+    <string name="vigil_sources">Sources</string>
+    <string name="credits_vigil">Vigilances : %1$s, lues par l\'API de Vigie.</string>
     <string name="readout_rain">pluie %1$s</string>
     <string name="readout_night">nuit</string>
     <string name="sea_title">Les spots suivis</string>

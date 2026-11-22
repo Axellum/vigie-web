@@ -175,6 +175,17 @@ object Words {
   /** « Lun. » … « Dim. » for a local day key. */
   fun dayShort(key: Long): String = DAYS_SHORT[Math.floorMod(key + 3, 7L).toInt()]
 
+  /** Month (1 to 12) of a local day key, same civil calendar as [dayOfMonth]. */
+  fun monthOf(key: Long): Int {
+    val z = key + 719_468
+    val era = Math.floorDiv(z, 146_097L)
+    val doe = z - era * 146_097
+    val yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365
+    val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+    val mp = (5 * doy + 2) / 153
+    return (if (mp < 10) mp + 3 else mp - 9).toInt()
+  }
+
   /** Day of the month of a local day key (civil calendar, without java.time: the app runs from Android 7). */
   fun dayOfMonth(key: Long): Int {
     val z = key + 719_468
