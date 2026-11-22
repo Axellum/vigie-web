@@ -16,8 +16,9 @@
 	const other = $derived(data.lang === 'fr' ? 'en' : 'fr');
 	const path = $derived(page.url.pathname);
 	const isMap = $derived(path === '/');
-	// The screens for televisions (/tv) are a page of their own: nothing of the site around them, nothing to click.
-	const isTv = $derived(path === '/tv' || path.startsWith('/tv/'));
+	// The screens for televisions (/tv) and the widgets (/widget, shown by a desktop app) are pages of their own: nothing of the
+	// site around them.
+	const isBare = $derived(path === '/tv' || path.startsWith('/tv/') || path === '/widget');
 
 	// On a phone the map's tab takes its short name (`short`); the tabs then hold on two lines, at 320 px too.
 	const nav = [
@@ -40,8 +41,8 @@
 	}
 </script>
 
-{#if !isTv}<a class="skip" href="#main">{tr('nav.skip')}</a>{/if}
-<div class="shell" class:map-shell={isMap} class:bare={isTv}>
+{#if !isBare}<a class="skip" href="#main">{tr('nav.skip')}</a>{/if}
+<div class="shell" class:map-shell={isMap} class:bare={isBare}>
 	<header class="top">
 		<a class="brand" href="/" aria-label="Vigie">
 			<img src="/favicon.svg" alt="" width="30" height="30" />
