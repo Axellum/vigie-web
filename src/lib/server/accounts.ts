@@ -146,5 +146,6 @@ export async function cleanUp(sql: Sql): Promise<void> {
 	await sql`delete from invitations where expires_at < now() - interval '30 days'`;
 	await sql`delete from recovery_codes where used_at < now() - interval '30 days'`;
 	await sql`delete from tv_pairing where expires_at < now()`;
+	await sql`delete from app_link_codes where expires_at < now()`;
 	await sql`delete from users where last_seen_at < now() - interval '2 years'`;
 }

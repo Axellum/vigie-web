@@ -11,6 +11,7 @@ import personalPage from './migrations/006_personal_page.sql?raw';
 import recoveryCodes from './migrations/007_recovery_codes.sql?raw';
 import tvPairing from './migrations/008_tv_pairing.sql?raw';
 import appDevices from './migrations/009_app_devices.sql?raw';
+import appLinks from './migrations/010_app_links.sql?raw';
 
 const MIGRATIONS = [
 	{ id: '001_accounts', sql: accounts },
@@ -21,7 +22,8 @@ const MIGRATIONS = [
 	{ id: '006_personal_page', sql: personalPage },
 	{ id: '007_recovery_codes', sql: recoveryCodes },
 	{ id: '008_tv_pairing', sql: tvPairing },
-	{ id: '009_app_devices', sql: appDevices }
+	{ id: '009_app_devices', sql: appDevices },
+	{ id: '010_app_links', sql: appLinks }
 ];
 
 export type Sql = postgres.Sql;

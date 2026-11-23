@@ -1404,3 +1404,80 @@ test('the app without an account: a device, its places, a test, an alert told on
 		await sql.end();
 	}
 });
+
+// The app linked to an account by a code (/account/app/link): the app asks a code with its token, the person enters
+// it on the account page (the app opens it with the code after `#link=`), the app picks up its secret once, reads the
+// account's name and zones, gets a test through FCM, gives a new token and unlinks itself.
+test('the app linked to an account: a code entered on the account page, a secret once, the zones, unlinked', async ({
+	page,
+	request
+}) => {
+	const token = `link:APA91b${randomBytes(48).toString('base64url')}`;
+	const auth = (secret: string) => ({
+		...PROXY,
+		'content-type': 'application/json',
+		authorization: `Bearer ${secret}`
+	});
+
+	expect((await request.post('/account/app/link', { data: { token: 'no' }, headers: PROXY })).status()).toBe(
+		400
+	);
+	const asked = await request.post('/account/app/link', { data: { token }, headers: PROXY });
+	expect(asked.status()).toBe(201);
+	expect(asked.headers()['cache-control']).toContain('no-store');
+	const { code, wait, expiresAt } = (await asked.json()) as { code: string; wait: string; expiresAt: number };
+	expect(code).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+	expect(expiresAt * 1000 - Date.now()).toBeGreaterThan(14 * 60_000);
+	const poll = async () =>
+		(await (
+			await request.post('/account/app/link/poll', { data: { wait, code }, headers: PROXY })
+		).json()) as {
+			status: string;
+			secret?: string;
+		};
+	expect(await poll()).toEqual({ status: 'pending' });
+
+	// The person, signed in, opens the account page with a code in its address; a wrong one is refused.
+	await authenticator(page);
+	const name = unique('Lou');
+	await createAccount(page, name);
+	await page.goto('about:blank');
+	await page.goto('/account#link=ZZZZ-ZZZZ');
+	const field = page.getByLabel('Code affiché par l’appli');
+	await expect(field).toHaveValue('ZZZZ-ZZZZ');
+	await page.getByRole('button', { name: 'Relier', exact: true }).click();
+	await expect(page.getByText('Code inconnu ou expiré')).toBeVisible();
+	await field.fill(code.toLowerCase());
+	await page.getByRole('button', { name: 'Relier', exact: true }).click();
+	await expect(page.getByText('L’appli est reliée')).toBeVisible();
+	await expect(page.locator('#notifications .keys li')).toContainText('Appli Android, ajoutée le');
+
+	// The secret comes once.
+	const ready = await poll();
+	expect(ready).toEqual({ status: 'ready', secret: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) });
+	expect(await poll()).toEqual({ status: 'expired' });
+	const secret = ready.secret!;
+
+	// What the app shows: the account's name, its quiet hours and its zones (none yet).
+	const account = '/account/app/account';
+	expect((await request.get(account, { headers: PROXY })).status()).toBe(401);
+	expect(await (await request.get(account, { headers: auth(secret) })).json()).toEqual({
+		name,
+		quietHours: false,
+		zones: []
+	});
+
+	// A test through FCM, in the words of the account's notifications.
+	const tested = await request.post(`${account}/test`, { headers: auth(secret) });
+	expect(await tested.json()).toEqual({ sent: 1, failed: 0 });
+	const [test] = await messages(request, token);
+	expect(test.notification.body).toBe('Les alertes de vos zones arriveront comme celle-ci.');
+
+	// A new token, then unlinked by the app: gone from the account page too.
+	const fresh = `link:APA91b${randomBytes(48).toString('base64url')}`;
+	expect((await request.put(account, { data: { token: fresh }, headers: auth(secret) })).ok()).toBe(true);
+	expect((await request.delete(account, { headers: auth(secret) })).status()).toBe(200);
+	expect((await request.get(account, { headers: auth(secret) })).status()).toBe(401);
+	await page.goto('/account');
+	await expect(page.getByText('Aucun appareil pour l’instant.')).toBeVisible();
+});
