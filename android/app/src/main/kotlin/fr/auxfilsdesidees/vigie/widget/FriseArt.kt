@@ -219,7 +219,9 @@ object FriseArt {
     fun sea() =
       with(scope) {
         val y = weatherBottom
-        text(labels.tide, gx + 2 * k, y + 12 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
+        // The names of the rows start after the line of now, which always stands in the first hour.
+        val lineX = maxOf(gx + 2 * k, xNow + 5 * k)
+        text(labels.tide, lineX, y + 12 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
         val extremes = strip.tide
         val curveTop = y + 22 * k
         val curveH = 20 * k
@@ -234,7 +236,7 @@ object FriseArt {
               lineTo(pts.first().x, curveTop + curveH + 6 * k)
               close()
             }
-            drawPath(fill, Brush.verticalGradient(listOf(VigieColors.Water.copy(alpha = 0.38f), VigieColors.Water.copy(alpha = 0.04f)), startY = curveTop, endY = curveTop + curveH + 6 * k))
+            drawPath(fill, Brush.verticalGradient(listOf(VigieColors.Water.copy(alpha = 0.38f), VigieColors.Water.copy(alpha = 0f)), startY = curveTop, endY = curveTop + curveH + 6 * k))
             drawPath(smoothPath(pts), VigieColors.Water, style = Stroke(2.5f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
             for (e in strip.extremes) {
               val word = (if (e.high) "PM " else "BM ") + Words.clock(e.timeUtc, strip.offsetS)
@@ -243,10 +245,10 @@ object FriseArt {
             }
           }
         } else {
-          text(labels.noTide, gx + 2 * k, curveTop + curveH / 2 + 4 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
+          text(labels.noTide, lineX, curveTop + curveH / 2 + 4 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
         }
         val surfY = y + 60 * k
-        text("${Words.activity(FriseModel.SEA_ACTIVITY)} · ${strip.spot}", gx + 2 * k, surfY + 10 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
+        text("${Words.activity(FriseModel.SEA_ACTIVITY)} · ${strip.spot}", lineX, surfY + 10 * k, VigieColors.Text3, 11f, Paint.Align.LEFT)
         strip.sea.forEachIndexed { i, v ->
           val col = if (v == null) VigieColors.Rule.copy(alpha = 0.55f) else VigieColors.verdict(v)
           drawRoundRect(col, Offset(gx + i * step + 0.75f * k, surfY + 14 * k), Size(step - 1.5f * k, 10 * k), CornerRadius(3 * k))
@@ -256,7 +258,6 @@ object FriseArt {
     /** The hours under the frise, « Maint. » under the line of now, in the accent colour. */
     fun axis() =
       with(scope) {
-        val xNow = gx + step * strip.nowFrac
         drawLine(VigieColors.Accent, Offset(xNow, top), Offset(xNow, height - axisH), 2 * k)
         val baseline = height - 5 * k
         val nowWidth = paint(11f, true).measureText(labels.now)
@@ -269,10 +270,14 @@ object FriseArt {
         }
       }
 
-    /** A value written on a curve, kept inside the frise. */
+    val xNow = gx + step * strip.nowFrac
+
+    /** A value written on a curve, kept inside the frise; one the line of now would cross moves beside it, to the right. */
     fun label(s: String, x: Float, baseline: Float, color: Color) {
       val half = paint(11f, false).measureText(s) / 2
-      text(s, x.coerceIn(gx + half, gx + gw - half), baseline, color, 11f, Paint.Align.CENTER)
+      var c = x.coerceIn(gx + half, gx + gw - half)
+      if (xNow > c - half - 3 * k && xNow < c + half + 3 * k) c = (xNow + 5 * k + half).coerceAtMost(gx + gw - half)
+      text(s, c, baseline, color, 11f, Paint.Align.CENTER)
     }
 
     fun paint(sizeSp: Float, bold: Boolean) =

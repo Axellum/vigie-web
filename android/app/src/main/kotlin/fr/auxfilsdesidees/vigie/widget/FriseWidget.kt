@@ -68,7 +68,8 @@ class FriseWidget : GlanceAppWidget() {
   }
 
   /** The widget list's picture: the same code on made-up hours (Android 15 and later; see [WidgetRefresh.publishPreview]). */
-  override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 290.dp)))
+  // The size the widget list shows it at (four cells by two): the frise alone, the sea rows would be cut.
+  override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 200.dp)))
 
   override suspend fun providePreview(context: Context, widgetCategory: Int) {
     val now = System.currentTimeMillis() / 1000
