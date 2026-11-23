@@ -34,7 +34,8 @@ export interface PairingSession {
 
 export type PollResult = { status: 'pending' } | { status: 'expired' } | { status: 'ready'; token: string };
 
-function newPairingCode(): string {
+/** A new code: 8 characters of Crockford's base32 (no I, L, O or U), 40 bits. */
+export function newPairingCode(): string {
 	let out = '';
 	for (const byte of randomBytes(LENGTH)) out += ALPHABET[byte & 31];
 	return out;
@@ -49,26 +50,29 @@ export function normalizePairingCode(input: unknown): string | null {
 	return SHAPE.test(code) ? code : null;
 }
 
-function cipherKey(rawCode: string): Buffer {
-	return createHash('sha256').update(`vigie-tv-pair:${rawCode}`).digest();
+/** The key a code gives; [purpose] keeps the keys of the screens and of the app apart. */
+function cipherKey(rawCode: string, purpose: string): Buffer {
+	return createHash('sha256').update(`${purpose}:${rawCode}`).digest();
 }
 
-function encryptToken(rawCode: string, token: string): string {
+/** A secret encrypted with a code (AES-256-GCM), until the device that shows the code picks it up. */
+export function encryptToken(rawCode: string, token: string, purpose = 'vigie-tv-pair'): string {
 	const iv = randomBytes(12);
-	const cipher = createCipheriv('aes-256-gcm', cipherKey(rawCode), iv);
+	const cipher = createCipheriv('aes-256-gcm', cipherKey(rawCode, purpose), iv);
 	const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
 	const tag = cipher.getAuthTag();
 	return `${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
 }
 
-function decryptToken(rawCode: string, packed: string): string | null {
+/** The secret back, or null when the code or the purpose is not the one it was encrypted with. */
+export function decryptToken(rawCode: string, packed: string, purpose = 'vigie-tv-pair'): string | null {
 	const parts = packed.split('.');
 	if (parts.length !== 3) return null;
 	try {
 		const iv = Buffer.from(parts[0], 'base64url');
 		const tag = Buffer.from(parts[1], 'base64url');
 		const encrypted = Buffer.from(parts[2], 'base64url');
-		const decipher = createDecipheriv('aes-256-gcm', cipherKey(rawCode), iv);
+		const decipher = createDecipheriv('aes-256-gcm', cipherKey(rawCode, purpose), iv);
 		decipher.setAuthTag(tag);
 		const plain = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
 		return TOKEN.test(plain) ? plain : null;

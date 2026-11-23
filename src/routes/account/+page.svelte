@@ -65,6 +65,22 @@
 	const turnOff = () => pushAction(async () => (await disablePush(), null));
 	const sendTest = () => pushAction(async () => ((await testPush()) ? 'push.testSent' : 'push.testFailed'));
 
+	// The code the Android app shows, filled in when the app opened this page (`#link=XXXX-XXXX`): the address part
+	// after `#` never reaches the server.
+	let appCode = $state('');
+	onMount(() => {
+		const m = /^#link=([0-9A-Za-z-]+)$/.exec(window.location.hash);
+		if (m) {
+			appCode = m[1];
+			document.getElementById('app')?.scrollIntoView({ block: 'center' });
+		}
+	});
+	const appLinked = $derived((form as { appLinked?: boolean } | null)?.appLinked ?? false);
+	const appLinkError = $derived.by((): Key | null => {
+		const code = (form as { appLinkError?: string } | null)?.appLinkError;
+		return code === 'rate' ? 'push.app.rate' : code === 'invalid' ? 'push.app.invalid' : null;
+	});
+
 	const formError = $derived.by((): Key | null => {
 		const code = (form as { error?: string } | null)?.error;
 		if (code === 'confirm') return 'account.deleteMissing';
@@ -152,28 +168,65 @@
 
 	<section class="card stack" id="notifications">
 		<h2>{tr('push.title')}</h2>
-		{#if !data.push.publicKey}
+		{#if !data.push.publicKey && !data.push.appLink}
 			<p class="muted">{tr('push.off')}</p>
 		{:else}
-			<p>{tr('push.intro')}</p>
-			{#if !canPush}
-				<p class="note">{tr('push.unsupported')}</p>
-			{:else}
-				{#if deviceId}<p role="status">{tr('push.enabled')}</p>{/if}
-				<div class="btn-row">
-					{#if deviceId}
-						<button type="button" class="btn" onclick={sendTest} disabled={pushBusy}>{tr('push.test')}</button
-						>
-						<button type="button" class="btn quiet" onclick={turnOff} disabled={pushBusy}
-							>{tr('push.disable')}</button
-						>
-					{:else}
-						<button type="button" class="btn" onclick={turnOn} disabled={pushBusy}
-							>{pushBusy ? tr('join.busy') : tr('push.enable')}</button
-						>
-					{/if}
-				</div>
-				{#if pushNote}<p role={pushNote === 'push.testSent' ? 'status' : 'alert'}>{tr(pushNote)}</p>{/if}
+			{#if data.push.publicKey}
+				<p>{tr('push.intro')}</p>
+				{#if !canPush}
+					<p class="note">{tr('push.unsupported')}</p>
+				{:else}
+					{#if deviceId}<p role="status">{tr('push.enabled')}</p>{/if}
+					<div class="btn-row">
+						{#if deviceId}
+							<button type="button" class="btn" onclick={sendTest} disabled={pushBusy}
+								>{tr('push.test')}</button
+							>
+							<button type="button" class="btn quiet" onclick={turnOff} disabled={pushBusy}
+								>{tr('push.disable')}</button
+							>
+						{:else}
+							<button type="button" class="btn" onclick={turnOn} disabled={pushBusy}
+								>{pushBusy ? tr('join.busy') : tr('push.enable')}</button
+							>
+						{/if}
+					</div>
+					{#if pushNote}<p role={pushNote === 'push.testSent' ? 'status' : 'alert'}>{tr(pushNote)}</p>{/if}
+				{/if}
+			{/if}
+			{#if data.push.appLink}
+				<form
+					method="POST"
+					action="?/linkApp"
+					class="stack"
+					id="app"
+					use:enhance={() =>
+						async ({ result, update }) => {
+							await update();
+							if (result.type === 'success') appCode = '';
+						}}
+				>
+					<h3>{tr('push.app.title')}</h3>
+					<p class="small">{tr('push.app.intro')}</p>
+					<label class="form-field">
+						<span>{tr('push.app.code')}</span>
+						<input
+							class="input"
+							type="text"
+							name="code"
+							bind:value={appCode}
+							maxlength="24"
+							placeholder="XXXX-XXXX"
+							autocomplete="off"
+							autocapitalize="characters"
+							spellcheck="false"
+							required
+						/>
+					</label>
+					<div><button type="submit" class="btn">{tr('push.app.link')}</button></div>
+				</form>
+				{#if appLinked}<p role="status">{tr('push.app.linked')}</p>{/if}
+				{#if appLinkError}<p role="alert">{tr(appLinkError)}</p>{/if}
 			{/if}
 			<h3>{tr('push.devices')}</h3>
 			{#if data.push.devices.length}

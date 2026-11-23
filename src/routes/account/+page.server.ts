@@ -1,6 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { closeSession, deleteUser, sessionUser } from '#lib/server/accounts.js';
+import { AppLinkError, claimAppLink, linkTries } from '#lib/server/appLinks.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
+import { fcmEnabled } from '#lib/server/fcm.js';
 import { listZoneAlerts } from '#lib/server/notify.js';
 import { PasskeyError, removePasskey } from '#lib/server/passkeys.js';
 import { listDevices, vapidPublicKey } from '#lib/server/push.js';
@@ -47,7 +49,9 @@ export const load: PageServerLoad = async ({ cookies, url, setHeaders }) => {
 				createdAt: unix(d.created_at),
 				lastSentAt: unix(d.last_sent_at)
 			})),
-			quietHours: settings?.quiet_hours ?? false
+			quietHours: settings?.quiet_hours ?? false,
+			// The Android app can be linked by a code when the server sends through Firebase.
+			appLink: fcmEnabled()
 		},
 		alerts: (await listZoneAlerts(sql, user.id)).map((a) => ({ ...a, matchedAt: unix(a.matched_at) })),
 		now: Math.floor(Date.now() / 1000)
@@ -106,6 +110,19 @@ export const actions: Actions = {
 		if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/.test(id)) return fail(400, { error: 'unknown' });
 		await sql`delete from push_subscriptions where id = ${id} and user_id = ${user.id}`;
 		return { deviceRemoved: true };
+	},
+	// The code the Android app shows (appLinks.ts): the phone becomes a device of this account.
+	linkApp: async ({ cookies, url, request }) => {
+		if (!accountsEnabled() || !fcmEnabled()) error(404);
+		const { sql, user } = await signedIn(cookies, url);
+		if (!linkTries.take(user.id)) return fail(429, { appLinkError: 'rate' });
+		try {
+			await claimAppLink(sql, user.id, (await request.formData()).get('code'));
+		} catch (e) {
+			if (e instanceof AppLinkError) return fail(400, { appLinkError: 'invalid' });
+			throw e;
+		}
+		return { appLinked: true };
 	},
 	quiet: async ({ cookies, url, request }) => {
 		if (!accountsEnabled()) error(404);

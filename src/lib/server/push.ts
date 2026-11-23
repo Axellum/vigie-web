@@ -100,7 +100,7 @@ function byDevice(sql: Query, device: Device) {
 	return 'endpoint' in device ? sql`endpoint = ${device.endpoint}` : sql`fcm_token = ${device.token}`;
 }
 
-async function keepLatest(tx: Query, userId: string): Promise<void> {
+export async function keepLatest(tx: Query, userId: string): Promise<void> {
 	await tx`
 		delete from push_subscriptions where user_id = ${userId} and id not in (
 			select id from push_subscriptions where user_id = ${userId} order by created_at desc limit ${MAX_DEVICES})`;

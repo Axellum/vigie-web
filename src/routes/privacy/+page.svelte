@@ -51,8 +51,11 @@
 			<li>
 				<b>Vos appareils qui reçoivent les notifications</b> : pour un navigateur, l'adresse que son service de
 				notification lui a donnée et les clés qui chiffrent les messages pour lui ; pour l'appli Android, son jeton
-				Firebase Cloud Messaging. Pour chacun, ses dates d'ajout et de dernier envoi, et le nombre d'envois échoués
-				de suite. Le fuseau horaire de l'appareil et votre choix d'heures calmes, pour ne pas vous réveiller.
+				Firebase Cloud Messaging et, si vous l'avez reliée au compte par un code, une empreinte (SHA-256) du secret
+				qu'elle a reçu (le secret reste dans l'appli). Pour chacun, ses dates d'ajout et de dernier envoi, et le
+				nombre d'envois échoués de suite. Le fuseau horaire de l'appareil et votre choix d'heures calmes, pour ne
+				pas vous réveiller. Le code qui relie l'appli vit 15 minutes au plus : son empreinte, le jeton de l'appli
+				et son secret chiffré par le code, effacés dès que l'appli a repris son secret.
 			</li>
 			<li>
 				<b>Les alertes de vos zones</b> : pour chaque alerte qui a touché une de vos zones, son titre, son niveau,
@@ -189,8 +192,11 @@
 			<li>
 				<b>Your devices that receive the notifications</b>: for a browser, the address its notification
 				service gave it and the keys that encrypt the messages for it; for the Android app, its Firebase Cloud
-				Messaging token. For each, the dates it was added and last sent to, and the number of failed sendings
-				in a row. The device's time zone and your choice of quiet hours, so as not to wake you up.
+				Messaging token and, if you linked it to the account by a code, a fingerprint (SHA-256) of the secret
+				it was given (the secret stays in the app). For each, the dates it was added and last sent to, and the
+				number of failed sendings in a row. The device's time zone and your choice of quiet hours, so as not
+				to wake you up. The code that links the app lives 15 minutes at most: its fingerprint, the app's token
+				and its secret encrypted with the code, erased as soon as the app has picked up its secret.
 			</li>
 			<li>
 				<b>The alerts of your zones</b>: for each alert that fell in one of your zones, its title, its level,

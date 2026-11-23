@@ -154,3 +154,24 @@ alert but the solar storms; the notification's text is the name of the place, an
 that moved or changed level is compared again without notifying. One address may register 30 new phones an hour;
 `VIGIE_MAX_APP_DEVICES` caps them all. A phone the app has not shown for 60 days is forgotten with its places: the
 app sends its places again at least once a day.
+
+### The app linked to an account
+
+With the same two variables, the app can also be linked to an account by a code, as a screen is (`/tv/pair`), the
+other way round: the app asks a code with its FCM token and shows it; the signed-in person enters it on the account
+page, part Notifications (the app opens `/account#link=XXXX-XXXX`, the code after `#` never reaches the server); the
+phone becomes one of the account's devices and gets the alerts of its zones; the app then picks up a secret of its
+own, once. The code (8 characters, 15 minutes, one use), the app's waiting token and its secret are kept as SHA-256;
+the secret waits encrypted with the code until the app picks it up (`src/lib/server/appLinks.ts`).
+
+| Request                          | What it does                                                                                              |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST /account/app/link`         | `{token}`: answers `{code, wait, expiresAt}` (201); a new code drops the one the same token asked before. |
+| `POST /account/app/link/poll`    | `{wait, code}`: `{status: "pending"}`, `{status: "expired"}`, or `{status: "ready", secret}` once.        |
+| `GET /account/app/account`       | With `Authorization: Bearer <secret>`: `{name, quietHours, zones: [{name, minLevel}]}` of the account.    |
+| `PUT /account/app/account`       | `{token}`: a new FCM token for the phone.                                                                 |
+| `DELETE /account/app/account`    | Unlinks the phone. Removing it from the account page does the same: the secret then answers 401.          |
+| `POST /account/app/account/test` | A test notification (10 an hour for a phone).                                                             |
+
+One address may ask 20 codes every 5 minutes; an account may enter 10 codes every 15 minutes. A code not used is
+forgotten by the daily clean-up once expired.
