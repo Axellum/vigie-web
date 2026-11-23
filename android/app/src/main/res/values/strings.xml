@@ -121,4 +121,40 @@
     <string name="widget_frise_label">Vigie · la frise</string>
     <string name="widget_frise_description">Les prochaines heures d\'un lieu suivi en frise ; la marée et le surf de son spot étoilé quand le widget est assez haut.</string>
     <string name="widget_frise_picture">Frise des prochaines heures : ciel, température, vent et pluie.</string>
+
+    <!-- The notifications: the two categories the person sets in Android (sound, vibration) -->
+    <string name="notify_channel_red">Alertes rouges</string>
+    <string name="notify_channel_red_description">Les vigilances et alertes rouges des lieux et zones suivis.</string>
+    <string name="notify_channel_alerts">Autres alertes</string>
+    <string name="notify_channel_alerts_description">Les vigilances jaunes et orange des lieux et zones suivis, et les essais.</string>
+
+    <!-- The bell of each place (sketch B), without an account -->
+    <string name="bell_yellow">dès le jaune</string>
+    <string name="bell_orange">orange et rouge</string>
+    <string name="bell_red">rouge seulement</string>
+    <string name="bell_never">jamais</string>
+    <!-- %1$s = the place's name, %2$s = one of the four levels above -->
+    <string name="bell_of">Prévenir pour %1$s : %2$s</string>
+    <string name="bell_title">Prévenir pour %1$s</string>
+    <string name="bell_choice_yellow">Dès le jaune</string>
+    <string name="bell_choice_orange">Orange et rouge</string>
+    <string name="bell_choice_red">Rouge seulement</string>
+    <string name="bell_choice_never">Jamais</string>
+    <string name="bell_circle">Les alertes qui touchent un cercle de 10 km autour du lieu.</string>
+    <string name="bell_close">Fermer</string>
+    <string name="notify_header">Notifications</string>
+    <string name="notify_none">Touchez la cloche d\'un lieu pour être prévenu de ses vigilances et alertes.</string>
+    <string name="notify_busy">Envoi des cloches à Vigie…</string>
+    <plurals name="notify_on">
+        <item quantity="one">Vigie prévient ce téléphone pour %1$d lieu.</item>
+        <item quantity="other">Vigie prévient ce téléphone pour %1$d lieux.</item>
+    </plurals>
+    <string name="notify_blocked">Android bloque les notifications de Vigie : touchez « Son et vibreur » pour les autoriser.</string>
+    <string name="notify_denied">Notifications refusées : la cloche reste sur « jamais ». Touchez « Son et vibreur » pour les autoriser.</string>
+    <string name="notify_test">Envoyer un essai</string>
+    <string name="notify_settings">Son et vibreur</string>
+    <string name="notify_test_sent">Essai envoyé : il arrive dans quelques secondes.</string>
+    <string name="notify_test_none">Le serveur n\'a rien pu envoyer à ce téléphone. Nouvel essai plus tard.</string>
+    <string name="notify_test_forgotten">Vigie ne connaissait plus ce téléphone : les cloches sont envoyées de nouveau.</string>
+    <string name="notify_privacy">Sans compte : le téléphone envoie à Vigie le nom et le point (à 1 km près) des lieux qui ont une cloche, avec son adresse de notification. Vigie l\'oublie quand plus aucun lieu n\'a de cloche, ou après 60 jours sans nouvelles.</string>
 </resources>

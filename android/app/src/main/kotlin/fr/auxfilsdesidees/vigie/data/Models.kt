@@ -3,11 +3,25 @@ package fr.auxfilsdesidees.vigie.data
 /** A place: a name, coordinates and, from the place search, the region it is in. */
 data class Place(val name: String, val lat: Double, val lon: Double, val region: String? = null)
 
-/** A place the user follows, with the spots followed near it; the first spot is the one drawn in the frise. */
-data class FollowedPlace(val place: Place, val spots: List<String>) {
+/**
+ * A place the user follows, with the spots followed near it; the first spot is the one drawn in the frise. [bell] is the
+ * lowest level of alert Vigie sends a notification for at this place; null, none (the bell is off).
+ */
+data class FollowedPlace(val place: Place, val spots: List<String>, val bell: Bell? = null) {
   /** Two followed places never share a key: the app refuses a second place at the same point. */
   val key: String
     get() = "%.4f,%.4f".format(java.util.Locale.ROOT, place.lat, place.lon)
+}
+
+/** The lowest level a place's bell rings for, as the server names it (`minLevel` of `/account/app/device`). */
+enum class Bell {
+  YELLOW,
+  ORANGE,
+  RED;
+
+  companion object {
+    fun of(name: String?): Bell? = entries.firstOrNull { it.name == name }
+  }
 }
 
 /** One answer of the place search (`/data/places.json` of the site, from GeoNames). */

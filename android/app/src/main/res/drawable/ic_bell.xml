@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A bell: the place warns this phone (sketch B of the notifications). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12,3 A6,6 0 0,0 6,9 L6,12.6 L4.3,16 L19.7,16 L18,12.6 L18,9 A6,6 0 0,0 12,3 Z M9.8,18.5 A2.3,2.3 0 0,0 14.2,18.5"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
