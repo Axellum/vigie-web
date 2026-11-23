@@ -20,12 +20,19 @@ const open = async (page: Page) => {
 	await page.goto('/');
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 };
-/** The pixels the trails cover now (-1: no canvas), and a print of where they are. */
+/** The pixels the trails cover now (-1: no canvas), a print of where they are, and whether WebGL draws them. */
 const trails = (page: Page) =>
 	page.evaluate(() => {
 		const c = document.querySelector<HTMLCanvasElement>('canvas.vigie-flow');
-		if (!c) return { inked: -1, print: 0 };
-		const data = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+		if (!c) return { inked: -1, print: 0, webgl: false };
+		// WebGL draws the trails, or a 2D canvas without it: copied on a 2D canvas to be read either way (what WebGL drew stays
+		// readable in a browser driven by tests, $lib/windFlowGl).
+		const copy = document.createElement('canvas');
+		copy.width = c.width;
+		copy.height = c.height;
+		const ctx = copy.getContext('2d')!;
+		ctx.drawImage(c, 0, 0);
+		const data = ctx.getImageData(0, 0, c.width, c.height).data;
 		let inked = 0;
 		let print = 0;
 		for (let i = 3; i < data.length; i += 4)
@@ -33,7 +40,8 @@ const trails = (page: Page) =>
 				inked++;
 				print = (print * 31 + i) % 1_000_000_007;
 			}
-		return { inked, print };
+		// A canvas that has a WebGL context gives no 2D one.
+		return { inked, print, webgl: c.getContext('2d') === null };
 	});
 
 test('off at first, then moving trails over the world with the hour and the credit, finer grids close in', async ({
@@ -54,6 +62,7 @@ test('off at first, then moving trails over the world with the hour and the cred
 	await expect(page.locator('.credits')).toContainText('forecast models AROME (France) and ARPEGE');
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
 	expect(images).toEqual(['/data/wind-field/world/2026112200-2026112118.png']);
+	expect((await trails(page)).webgl).toBe(true);
 
 	// The trails move, and lie over the map's canvas, under its markers (which come after them in the page).
 	const before = await trails(page);
@@ -100,6 +109,29 @@ test('"on" is kept for the next visit, and with reduced motion the trails are dr
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	await expect(toggle(page)).toBeChecked();
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
+});
+
+test('without WebGL 2, the trails are drawn on a 2D canvas, and move', async ({ page }) => {
+	const errors = collectErrors(page);
+	await page.addInitScript(() => {
+		const get = HTMLCanvasElement.prototype.getContext;
+		HTMLCanvasElement.prototype.getContext = function (
+			this: HTMLCanvasElement,
+			type: string,
+			...rest: unknown[]
+		) {
+			if (type === 'webgl2' && this.classList.contains('vigie-flow')) return null;
+			return (get as (this: HTMLCanvasElement, ...args: unknown[]) => unknown).call(this, type, ...rest);
+		} as typeof get;
+	});
+	await open(page);
+	await toggle(page).check();
+	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
+	const before = await trails(page);
+	expect(before.webgl).toBe(false);
+	await page.waitForTimeout(400);
+	expect((await trails(page)).print).not.toBe(before.print);
+	expect(errors).toEqual([]);
 });
 
 test('an image the site does not list is not relayed', async ({ request }) => {

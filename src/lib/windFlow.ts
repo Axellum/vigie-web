@@ -4,17 +4,22 @@
 // A trail is a short line through the last positions of its head, fainter with age, drawn again whole at each image: nothing is
 // left behind on the canvas. While the map moves the canvas is empty (no trail lags behind the base map), and the trails grow
 // again from where they are once it stops. With "reduce motion", the trails are drawn once, still, and again after each move.
+// The segments are drawn by the graphics card ($lib/windFlowGl); a browser without WebGL 2 strokes them on a 2D canvas, as
+// before, which costs much more on a large screen.
 import type { Map as MlMap } from 'maplibre-gl';
 import { FLOW_PX_PER_S, flowAlpha, flowClass, flowCount, sampleWind, type FieldGrid } from './windField';
+import { SEGMENT_FLOATS, TrailPainter } from './windFlowGl';
 
 /** Positions kept per trail: at 30 images a second, 0.4 s of its way. */
 const HISTORY = 12;
 const FRAME_MS = 1000 / 30;
 const LIFE_MIN = 45;
 const LIFE_SPREAD = 60;
-/** Opacities are drawn in this many steps (one stroke per step and colour, not one per segment). */
+/** On a 2D canvas, opacities are drawn in this many steps (one stroke per step and colour, not one per segment). */
 const ALPHA_STEPS = 6;
 const ALPHA_MAX = 0.66;
+/** The width of a trail in CSS pixels: the quiet ink, then the colours of a strong wind. */
+const WIDTHS: [number, number] = [1.1, 1.5];
 const MAX_DPR = 2;
 const DEG = Math.PI / 180;
 /** In globe view, a trail further than about 75° from the centre is on the edge of the Earth: it starts again elsewhere. */
@@ -32,7 +37,9 @@ const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 export class WindFlow {
 	readonly #map: MlMap;
 	readonly #canvas: HTMLCanvasElement;
-	readonly #ctx: CanvasRenderingContext2D;
+	/** The graphics card's painter, or the 2D context of a browser without WebGL 2: one of the two. */
+	readonly #painter: TrailPainter | null;
+	readonly #ctx: CanvasRenderingContext2D | null;
 	readonly #still: boolean;
 	#colors: FlowColors;
 	#grids: FieldGrid[] = [];
@@ -46,6 +53,8 @@ export class WindFlow {
 	#hy = new Float32Array(0);
 	#len = new Uint8Array(0);
 	#head = new Uint8Array(0);
+	/** The segments of an image, as the painter takes them. */
+	#segments = new Float32Array(0);
 	#w = 0;
 	#h = 0;
 	#raf = 0;
@@ -70,15 +79,28 @@ export class WindFlow {
 		this.#map = map;
 		this.#colors = colors;
 		this.#still = still;
-		this.#canvas = document.createElement('canvas');
-		this.#canvas.className = 'vigie-flow';
-		this.#canvas.setAttribute('aria-hidden', 'true');
-		this.#canvas.dataset.testid = 'wind-flow';
-		const ctx = this.#canvas.getContext('2d');
-		if (!ctx) throw new Error('no 2D canvas');
-		this.#ctx = ctx;
+		const blank = () => {
+			const canvas = document.createElement('canvas');
+			canvas.className = 'vigie-flow';
+			canvas.setAttribute('aria-hidden', 'true');
+			canvas.dataset.testid = 'wind-flow';
+			return canvas;
+		};
 		// A context the browser took back (memory, a long hidden tab) comes back blank, without its scale.
-		this.#canvas.addEventListener('contextrestored', this.#onResize);
+		let canvas = blank();
+		this.#painter = TrailPainter.make(canvas, this.#onResize);
+		if (this.#painter) {
+			this.#ctx = null;
+			this.#painter.look([colors.quiet, colors.strong, colors.stronger], WIDTHS);
+		} else {
+			// A canvas that was asked for WebGL gives no 2D context: another one.
+			canvas = blank();
+			const ctx = canvas.getContext('2d');
+			if (!ctx) throw new Error('no canvas to draw the wind on');
+			this.#ctx = ctx;
+			canvas.addEventListener('contextrestored', this.#onResize);
+		}
+		this.#canvas = canvas;
 		// Right after the map's own canvas, in the same container as the markers: what lies over or under the trails is
 		// set by z-index (MapView: the warnings' markers under, the measured wind's badges and their card over).
 		map.getCanvas().after(this.#canvas);
@@ -103,6 +125,7 @@ export class WindFlow {
 
 	recolor(colors: FlowColors) {
 		this.#colors = colors;
+		this.#painter?.look([colors.quiet, colors.strong, colors.stronger], WIDTHS);
 		if (this.#still) this.#drawStill();
 	}
 
@@ -112,6 +135,7 @@ export class WindFlow {
 		this.#map.off('movestart', this.#onMoveStart);
 		this.#map.off('moveend', this.#onMoveEnd);
 		this.#map.off('resize', this.#onResize);
+		this.#painter?.destroy();
 		this.#canvas.remove();
 	}
 
@@ -124,7 +148,8 @@ export class WindFlow {
 		this.#h = h;
 		this.#canvas.width = Math.max(1, Math.round(w * dpr));
 		this.#canvas.height = Math.max(1, Math.round(h * dpr));
-		this.#ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		this.#painter?.resize(w, h, dpr);
+		this.#ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 		const n = flowCount(w, h);
 		if (n === this.#n) return;
 		this.#n = n;
@@ -137,10 +162,12 @@ export class WindFlow {
 		this.#hy = new Float32Array(n * HISTORY);
 		this.#len = new Uint8Array(n);
 		this.#head = new Uint8Array(n);
+		if (this.#painter) this.#segments = new Float32Array(n * (HISTORY - 1) * SEGMENT_FLOATS);
 	}
 
 	#clear() {
-		this.#ctx.clearRect(0, 0, this.#w, this.#h);
+		this.#painter?.clear();
+		this.#ctx?.clearRect(0, 0, this.#w, this.#h);
 	}
 
 	readonly #frame = (now: number) => {
@@ -258,7 +285,43 @@ export class WindFlow {
 	}
 
 	#draw() {
-		const ctx = this.#ctx;
+		if (this.#painter) this.#drawSegments(this.#painter);
+		else if (this.#ctx) this.#stroke(this.#ctx);
+	}
+
+	/** Every segment of every trail in one list for the graphics card, its opacity running evenly from head to tail. */
+	#drawSegments(painter: TrailPainter) {
+		const out = this.#segments;
+		let m = 0;
+		for (let i = 0; i < this.#n; i++) {
+			const len = this.#len[i];
+			if (len < 2) continue;
+			const speed = this.#speed[i];
+			const base = flowAlpha(speed);
+			const ink = flowClass(speed);
+			let at = this.#head[i];
+			let x = this.#hx[i * HISTORY + at];
+			let y = this.#hy[i * HISTORY + at];
+			for (let k = 0; k < len - 1; k++) {
+				at = (at + HISTORY - 1) % HISTORY;
+				const px = this.#hx[i * HISTORY + at];
+				const py = this.#hy[i * HISTORY + at];
+				out[m++] = x;
+				out[m++] = y;
+				out[m++] = px;
+				out[m++] = py;
+				out[m++] = base * (1 - k / (HISTORY - 1));
+				out[m++] = base * (1 - (k + 1) / (HISTORY - 1));
+				out[m++] = ink;
+				x = px;
+				y = py;
+			}
+		}
+		painter.draw(out, m / SEGMENT_FLOATS);
+	}
+
+	/** The same trails stroked on a 2D canvas. */
+	#stroke(ctx: CanvasRenderingContext2D) {
 		ctx.clearRect(0, 0, this.#w, this.#h);
 		const paths: (Path2D | undefined)[] = new Array(3 * ALPHA_STEPS);
 		for (let i = 0; i < this.#n; i++) {
@@ -291,7 +354,7 @@ export class WindFlow {
 			const cls = Math.floor(p / ALPHA_STEPS);
 			ctx.strokeStyle = inks[cls];
 			ctx.globalAlpha = (((p % ALPHA_STEPS) + 0.5) / ALPHA_STEPS) * ALPHA_MAX;
-			ctx.lineWidth = cls ? 1.5 : 1.1;
+			ctx.lineWidth = WIDTHS[cls ? 1 : 0];
 			ctx.stroke(path);
 		}
 		ctx.globalAlpha = 1;
