@@ -81,7 +81,7 @@ describe('warmPass', () => {
 			[1, 1]
 		]);
 		expect(warm.mock.calls[0][2]).toBe(WARM_REFRESH_MS);
-		expect(WARM_REFRESH_MS).toBe(840_000);
+		expect(WARM_REFRESH_MS).toBe(900_000);
 	});
 
 	it('skips a cell that is still fresh without a pause', async () => {

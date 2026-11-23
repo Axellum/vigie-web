@@ -962,7 +962,7 @@ export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeathe
 
 /**
  * The warming of the places the server knows (`warm.ts`) has a budget of its own, `VIGIE_WARM_LOOKUPS_PER_DAY` (2,200 by default:
- * about 103 a day for each of 20 cells, one every 14 minutes), so that it never takes a lookup from a visitor's `/near` or `/me`,
+ * about 96 a day for each of 20 cells, one every 15 minutes), so that it never takes a lookup from a visitor's `/near` or `/me`,
  * and a visitor never takes one from it.
  */
 export const WARM_LOOKUPS_DEFAULT = 2200;

@@ -3,7 +3,7 @@
 //
 // Which places: the circles that accounts and the app's devices follow (`zones`, the bells and the linked app) and the places an
 // account keeps (`places`). Several of them in the same cell of the weather grid (0.05°, `snapToGrid`) are one cell. At most
-// `VIGIE_WARM_MAX_CELLS` cells, the most followed first. Each cell is asked again just before the site's answer expires (900 s),
+// `VIGIE_WARM_MAX_CELLS` cells, the most followed first. Each cell is asked again once the site's answer has expired (900 s),
 // one at a time, from a budget of its own (`vigie.ts`, `VIGIE_WARM_LOOKUPS_PER_DAY`). Off unless `VIGIE_WARM_PLACES=1`.
 // No position is written in a log: only counts.
 import { VIGIE_WARM_MAX_CELLS, VIGIE_WARM_PLACES } from '$app/env/private';
@@ -11,8 +11,13 @@ import { snapToGrid } from '#lib/near.js';
 import type { Query } from './db';
 import { TTL_S, warmPoint, type WarmResult } from './vigie';
 
-/** A cell is asked again when the site's answer is this old: a minute before it expires. */
-export const WARM_REFRESH_MS = (TTL_S.point - 60) * 1000;
+/**
+ * A cell is asked again once the site's answer has expired. The API keeps the answer of the cell as long (15 minutes) and filled it
+ * a moment before the site did, so by then it has expired too and the request renews both: the Android app, which reads the API's
+ * cache, finds it warm as well. Asked a minute earlier, the request got the API's own copy back and left the app's reads cold until
+ * the next pass.
+ */
+export const WARM_REFRESH_MS = TTL_S.point * 1000;
 /** The pause between two cells of a pass, so that a pass is not a burst. */
 export const WARM_GAP_MS = 250;
 export const WARM_MAX_CELLS_DEFAULT = 20;

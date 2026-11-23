@@ -57,9 +57,9 @@ by place is paused; the warnings and hazards are not affected. The count is in m
 With `VIGIE_WARM_PLACES=1` the server asks the API ahead of time for the weather of the places it knows, so that the first opening of
 one is quick, on the site and in the Android app (which reads the API's own cache of the same cell): the circle zones that accounts
 and the app's devices follow (the bells, the linked app) and the places an account keeps. Places in the same cell of the weather grid
-(0.05°) are one cell; at most `VIGIE_WARM_MAX_CELLS` cells are kept, the most followed first. A cell is asked again when the site's
-answer is 14 minutes old (it is kept 15), one cell at a time, in the same cache entry as a visitor's lookup (so a visitor who asks first
-makes it fresh and no request is made). The cost is at most 103 requests to the API a day for each cell, 2,058 for the default 20 cells;
+(0.05°) are one cell; at most `VIGIE_WARM_MAX_CELLS` cells are kept, the most followed first. A cell is asked again once the site's
+answer has expired (it is kept 15 minutes, as long as the API keeps its own, so the request renews both), one cell at a time, in the same cache entry as a visitor's lookup (so a visitor who asks first
+makes it fresh and no request is made). The cost is at most 96 requests to the API a day for each cell, 1,920 for the default 20 cells;
 `VIGIE_WARM_LOOKUPS_PER_DAY` (2,200) caps them in a budget of its own, so the warming never uses the lookups of `/near` or `/me`, and
 they never use its. The count is in memory: a restart starts it again. No position is written in a log.
 
