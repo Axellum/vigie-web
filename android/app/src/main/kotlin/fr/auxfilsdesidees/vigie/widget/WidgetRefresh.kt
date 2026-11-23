@@ -1,6 +1,7 @@
 package fr.auxfilsdesidees.vigie.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.os.Build
 import androidx.core.content.edit
@@ -19,6 +20,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import fr.auxfilsdesidees.vigie.data.AppData
 import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -42,21 +44,38 @@ object WidgetRefresh {
     WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<RefreshWorker>().build())
   }
 
-  fun cancel(context: Context) {
-    WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
+  /** Stop the half-hourly read once no Vigie widget of either kind is left on the home screen. */
+  fun cancelIfNone(context: Context) {
+    val manager = AppWidgetManager.getInstance(context)
+    val left = RECEIVERS.sumOf { manager.getAppWidgetIds(ComponentName(context, it.java)).size }
+    if (left == 0) WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
+  }
+
+  /** The two kinds of widget: the place ([PlaceWidget]) and the frise ([FriseWidget]). */
+  private val RECEIVERS: List<KClass<out GlanceAppWidgetReceiver>> = listOf(PlaceWidgetReceiver::class, FriseWidgetReceiver::class)
+
+  private fun widgets(): List<GlanceAppWidget> = listOf(PlaceWidget(), FriseWidget())
+
+  /** The widget behind a home screen's widget id: the frise or the place. */
+  fun widgetOf(context: Context, appWidgetId: Int): GlanceAppWidget {
+    val provider = AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId)?.provider?.className
+    return if (provider == FriseWidgetReceiver::class.java.name) FriseWidget() else PlaceWidget()
   }
 
   /**
-   * Give the home screen's widget list its picture of the place widget (Android 15 and later), once per install or
-   * update of the app: the system limits how often an app may do it.
+   * Give the home screen's widget list its pictures of the widgets (Android 15 and later), once per install or update
+   * of the app and per widget: the system limits how often an app may do it.
    */
   suspend fun publishPreview(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
     val installed = context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)).lastUpdateTime
     val prefs = context.getSharedPreferences(PREVIEW_PREFS, Context.MODE_PRIVATE)
-    if (prefs.getLong(PREVIEW_DONE, 0L) == installed) return
-    val result = GlanceAppWidgetManager(context).setWidgetPreviews(PlaceWidgetReceiver::class)
-    if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS) prefs.edit { putLong(PREVIEW_DONE, installed) }
+    for (receiver in RECEIVERS) {
+      val done = "$PREVIEW_DONE:${receiver.java.simpleName}"
+      if (prefs.getLong(done, 0L) == installed) continue
+      val result = GlanceAppWidgetManager(context).setWidgetPreviews(receiver)
+      if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS) prefs.edit { putLong(done, installed) }
+    }
   }
 
   private const val PREVIEW_PREFS = "widgets"
@@ -73,9 +92,11 @@ object WidgetRefresh {
     }
     val manager = GlanceAppWidgetManager(context)
     val stamp = System.currentTimeMillis()
-    for (id in manager.getGlanceIds(PlaceWidget::class.java)) {
-      updateAppWidgetState(context, id) { it[PlaceWidget.STAMP] = stamp }
-      PlaceWidget().update(context, id)
+    for (widget in widgets()) {
+      for (id in manager.getGlanceIds(widget.javaClass)) {
+        updateAppWidgetState(context, id) { it[PlaceWidget.STAMP] = stamp }
+        widget.update(context, id)
+      }
     }
   }
 
@@ -83,7 +104,10 @@ object WidgetRefresh {
   internal suspend fun refresh(context: Context) {
     val manager = GlanceAppWidgetManager(context)
     val keys =
-      manager.getGlanceIds(PlaceWidget::class.java).mapNotNull { getAppWidgetState(context, PreferencesGlanceStateDefinition, it)[PlaceWidget.PLACE] }.toSet()
+      widgets()
+        .flatMap { manager.getGlanceIds(it.javaClass) }
+        .mapNotNull { getAppWidgetState(context, PreferencesGlanceStateDefinition, it)[PlaceWidget.PLACE] }
+        .toSet()
     if (keys.isEmpty()) return
     val repository = AppData.repository(context)
     val now = System.currentTimeMillis() / 1000
@@ -109,10 +133,11 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
   }
 }
 
-/** The home screen's door to the place widget: it starts and stops the half-hourly refresh with the first and last widget. */
-class PlaceWidgetReceiver : GlanceAppWidgetReceiver() {
-  override val glanceAppWidget: GlanceAppWidget = PlaceWidget()
-
+/**
+ * The home screen's door to a Vigie widget: it starts the half-hourly refresh with the first widget and stops it with
+ * the last one, of either kind.
+ */
+abstract class VigieWidgetReceiver : GlanceAppWidgetReceiver() {
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
     super.onUpdate(context, appWidgetManager, appWidgetIds)
     WidgetRefresh.schedule(context)
@@ -125,6 +150,14 @@ class PlaceWidgetReceiver : GlanceAppWidgetReceiver() {
 
   override fun onDisabled(context: Context) {
     super.onDisabled(context)
-    WidgetRefresh.cancel(context)
+    WidgetRefresh.cancelIfNone(context)
   }
+}
+
+class PlaceWidgetReceiver : VigieWidgetReceiver() {
+  override val glanceAppWidget: GlanceAppWidget = PlaceWidget()
+}
+
+class FriseWidgetReceiver : VigieWidgetReceiver() {
+  override val glanceAppWidget: GlanceAppWidget = FriseWidget()
 }

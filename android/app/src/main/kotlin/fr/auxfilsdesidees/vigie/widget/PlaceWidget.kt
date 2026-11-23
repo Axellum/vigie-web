@@ -59,6 +59,7 @@ import androidx.glance.unit.ColorProvider
 import fr.auxfilsdesidees.vigie.MainActivity
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.AppData
+import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.ui.RainHour
 import fr.auxfilsdesidees.vigie.ui.Vigil
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
@@ -84,7 +85,7 @@ class PlaceWidget : GlanceAppWidget() {
       val key = prefs[PLACE]
       val stamp = prefs[STAMP] ?: 0L
       LaunchedEffect(key, stamp) { if (content.key != key || content.stamp != stamp) content = load(context, prefs) }
-      Widget(content, appWidgetId)
+      Frame(content, appWidgetId) { Ready(it.view, it.pictures) }
     }
   }
 
@@ -92,9 +93,10 @@ class PlaceWidget : GlanceAppWidget() {
   override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 200.dp)))
 
   override suspend fun providePreview(context: Context, widgetCategory: Int) {
-    val view = WidgetModel.sample(System.currentTimeMillis() / 1000, java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000)
+    val now = System.currentTimeMillis() / 1000
+    val view = WidgetModel.sample(now, phoneOffsetS())
     val pictures = Pictures.of(context, view)
-    provideContent { Widget(Content.Ready("", 0L, view, pictures), AppWidgetManager.INVALID_APPWIDGET_ID) }
+    provideContent { Frame(Content.Ready("", 0L, view, pictures, null, now), AppWidgetManager.INVALID_APPWIDGET_ID) { Ready(it.view, it.pictures) } }
   }
 
   companion object {
@@ -111,11 +113,15 @@ class PlaceWidget : GlanceAppWidget() {
       if (key == null) return Content.NoPlace(stamp)
       val followed = AppData.places(context).load().places.firstOrNull { it.key == key } ?: return Content.Gone(key, stamp, prefs[NAME])
       val snapshot = AppData.repository(context).saved(followed.place, followed.spots) ?: return Content.Waiting(key, stamp, followed.place.name)
-      val view = WidgetModel.view(followed.place.name, snapshot, System.currentTimeMillis() / 1000)
-      return Content.Ready(key, stamp, view, Pictures.of(context, view))
+      val now = System.currentTimeMillis() / 1000
+      val view = WidgetModel.view(followed.place.name, snapshot, now)
+      return Content.Ready(key, stamp, view, Pictures.of(context, view), snapshot, now)
     }
   }
 }
+
+/** The phone's offset from UTC now, in seconds: the made-up examples of the widget list are in the phone's time. */
+internal fun phoneOffsetS(): Int = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000
 
 /** What a widget shows; [key] and [stamp] are those of the state it was read for. */
 internal sealed interface Content {
@@ -130,7 +136,15 @@ internal sealed interface Content {
 
   data class Waiting(override val key: String, override val stamp: Long, val name: String) : Content
 
-  data class Ready(override val key: String, override val stamp: Long, val view: WidgetModel.View, val pictures: Pictures) : Content
+  /** [snapshot] is the read the view comes from (null for the widget list's example), read at [nowUtc]. */
+  data class Ready(
+    override val key: String,
+    override val stamp: Long,
+    val view: WidgetModel.View,
+    val pictures: Pictures,
+    val snapshot: Snapshot?,
+    val nowUtc: Long,
+  ) : Content
 }
 
 /** The bitmaps of one view, drawn once for every size. */
@@ -148,18 +162,22 @@ internal class Pictures(val skyBig: Bitmap?, val skySmall: Bitmap?, val arrow: B
 
 // ------------------------------------------------------------------------------------------------------------- the frame
 
-private fun color(c: Color) = ColorProvider(c)
+internal fun color(c: Color) = ColorProvider(c)
 
-private val TEXT = color(VigieColors.Text)
-private val TEXT2 = color(VigieColors.Text2)
-private val TEXT3 = color(VigieColors.Text3)
-private val AGE = color(VigieColors.Warning)
+internal val TEXT = color(VigieColors.Text)
+internal val TEXT2 = color(VigieColors.Text2)
+internal val TEXT3 = color(VigieColors.Text3)
+internal val AGE = color(VigieColors.Warning)
 
-private fun style(size: TextUnit, c: ColorProvider = TEXT, weight: FontWeight = FontWeight.Normal, align: TextAlign = TextAlign.Start) =
+internal fun style(size: TextUnit, c: ColorProvider = TEXT, weight: FontWeight = FontWeight.Normal, align: TextAlign = TextAlign.Start) =
   TextStyle(color = c, fontSize = size, fontWeight = weight, textAlign = align)
 
+/**
+ * What every Vigie widget shares: the sky, the touch (the app on the place, or the choice of a place) and the messages
+ * of a widget without its read; [ready] draws the read.
+ */
 @Composable
-private fun Widget(content: Content, appWidgetId: Int) {
+internal fun Frame(content: Content, appWidgetId: Int, ready: @Composable (Content.Ready) -> Unit) {
   val context = androidx.glance.LocalContext.current
   val open =
     when (content) {
@@ -176,7 +194,7 @@ private fun Widget(content: Content, appWidgetId: Int) {
       .padding(horizontal = 14.dp, vertical = 10.dp)
   ) {
     when (content) {
-      is Content.Ready -> Ready(content.view, content.pictures)
+      is Content.Ready -> ready(content)
       is Content.Waiting -> Message(content.name, context.getString(R.string.loading))
       is Content.Gone -> Message(content.name, context.getString(R.string.widget_gone))
       is Content.NoPlace -> Message(null, context.getString(R.string.widget_no_place))
@@ -210,7 +228,7 @@ private fun Message(name: String?, text: String) {
 }
 
 @Composable
-private fun PlaceName(name: String, size: TextUnit, icon: Dp, c: ColorProvider, modifier: GlanceModifier = GlanceModifier) {
+internal fun PlaceName(name: String, size: TextUnit, icon: Dp, c: ColorProvider, modifier: GlanceModifier = GlanceModifier) {
   Row(modifier, verticalAlignment = Alignment.CenterVertically) {
     Glyph(R.drawable.ic_location, icon, VigieColors.Text2)
     Spacer(GlanceModifier.width(5.dp))
@@ -219,12 +237,12 @@ private fun PlaceName(name: String, size: TextUnit, icon: Dp, c: ColorProvider, 
 }
 
 @Composable
-private fun Glyph(res: Int, size: Dp, tint: Color) {
+internal fun Glyph(res: Int, size: Dp, tint: Color) {
   Image(ImageProvider(res), contentDescription = null, modifier = GlanceModifier.size(size), colorFilter = ColorFilter.tint(color(tint)))
 }
 
 @Composable
-private fun Picture(bitmap: Bitmap?, size: Dp) {
+internal fun Picture(bitmap: Bitmap?, size: Dp) {
   if (bitmap != null) Image(ImageProvider(bitmap), contentDescription = null, modifier = GlanceModifier.size(size))
   else Spacer(GlanceModifier.size(size))
 }
@@ -382,7 +400,7 @@ private fun pillShape(level: String?): Int =
 
 /** « Orange » on its colour, with the warning sign: the small size's warning. */
 @Composable
-private fun Pill(level: String) {
+internal fun Pill(level: String) {
   Row(
     GlanceModifier.background(ImageProvider(pillShape(level))).padding(start = 6.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
     verticalAlignment = Alignment.CenterVertically,
