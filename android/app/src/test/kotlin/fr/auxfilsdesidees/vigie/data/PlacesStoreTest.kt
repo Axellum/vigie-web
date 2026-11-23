@@ -70,4 +70,23 @@ class PlacesStoreTest {
     assertEquals(listOf("plouharnel-la-grande-plage"), c.unfollow(0, "le-pouldu-plage-du-kerou").places[0].spots)
     assertEquals(lorient, c.unfollow(1, "x").places[0])
   }
+
+  @Test
+  fun `a bell is kept with its place and only the places with one are told`() {
+    val kv = Memory()
+    val c = Choices(listOf(lorient, quiberon, paris), 0).bell(1, Bell.ORANGE).bell(2, Bell.RED)
+    assertEquals(listOf("Quiberon", "Paris"), c.belled.map { it.place.name })
+    PlacesStore(kv).save(c)
+    assertEquals(c, PlacesStore(kv).load())
+    assertEquals(listOf("Paris"), c.bell(1, null).belled.map { it.place.name })
+    assertEquals(c, c.bell(9, Bell.YELLOW))
+  }
+
+  @Test
+  fun `a bell the app does not know reads as none, and a text from before the bells reads the same`() {
+    val text = """{"current":0,"places":[{"name":"Lorient","lat":47.75,"lon":-3.37,"spots":[],"bell":"PURPLE"}]}"""
+    assertNull(PlacesStore.decode(text)!!.places[0].bell)
+    val before = """{"current":0,"places":[{"name":"Lorient","lat":47.75,"lon":-3.37,"spots":[]}]}"""
+    assertNull(PlacesStore.decode(before)!!.places[0].bell)
+  }
 }

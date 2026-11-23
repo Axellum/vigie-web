@@ -1,5 +1,7 @@
 package fr.auxfilsdesidees.vigie.ui
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
@@ -57,11 +59,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.auxfilsdesidees.vigie.R
+import fr.auxfilsdesidees.vigie.data.Bell
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Geo
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
+import fr.auxfilsdesidees.vigie.notify.PhoneAccount
+import fr.auxfilsdesidees.vigie.notify.VigieNotifications
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import kotlinx.coroutines.launch
 
@@ -74,10 +80,65 @@ import kotlinx.coroutines.launch
 internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
   val app by viewModel.app.collectAsStateWithLifecycle()
   val catalogue by viewModel.catalogue.collectAsStateWithLifecycle()
-  LaunchedEffect(Unit) { viewModel.loadCatalogue() }
+  val bells by viewModel.bells.collectAsStateWithLifecycle()
+  val context = LocalContext.current
+  // A build without a Firebase config (the CI's) has no bell at all.
+  val canNotify = remember { VigieNotifications.available(context) }
+  LaunchedEffect(Unit) {
+    viewModel.loadCatalogue()
+    if (canNotify) viewModel.openBells()
+  }
   var adding by rememberSaveable { mutableStateOf(false) }
   var exists by remember { mutableStateOf(false) }
   val choices = app.choices
+
+  // The bells: the window of a place's bell, then Android's permission (Android 13 and later) when a bell turns on.
+  var bellFor by rememberSaveable { mutableStateOf<Int?>(null) }
+  var waiting by remember { mutableStateOf<Pair<Int, Bell>?>(null) }
+  var denied by rememberSaveable { mutableStateOf(false) }
+  val askPermission =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+      val (index, bell) = waiting ?: return@rememberLauncherForActivityResult
+      waiting = null
+      denied = !ok
+      if (ok) viewModel.setBell(index, bell)
+    }
+
+  fun chooseBell(index: Int, bell: Bell?) {
+    bellFor = null
+    if (bell != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !VigieNotifications.allowed(context)) {
+      waiting = index to bell
+      askPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+      denied = false
+      viewModel.setBell(index, bell)
+    }
+  }
+
+  // The account: the same permission before a code is asked.
+  val account: AccountViewModel? =
+    if (canNotify) viewModel { AccountViewModel(PhoneAccount.linking(context.applicationContext), PhoneAccount::describe) } else null
+  val accountUi = account?.ui?.collectAsStateWithLifecycle()
+  var accountDenied by rememberSaveable { mutableStateOf(false) }
+  val askForAccount =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+      accountDenied = !ok
+      if (ok) {
+        VigieNotifications.makeChannels(context)
+        account?.begin()
+      }
+    }
+  LaunchedEffect(account) { account?.open() }
+
+  fun link() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !VigieNotifications.allowed(context)) {
+      askForAccount.launch(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+      accountDenied = false
+      VigieNotifications.makeChannels(context)
+      account?.begin()
+    }
+  }
 
   SkyPage {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -102,6 +163,7 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
             val where = listOfNotNull(f.place.region, if (shown) stringResource(R.string.place_shown) else null).joinToString(" · ")
             if (where.isNotEmpty()) Text(where, color = if (shown) VigieColors.Accent else VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
           }
+          if (canNotify) BellPill(f.bell, f.place.name) { bellFor = i }
           if (choices.places.size > 1) {
             IconButton(onClick = { viewModel.removePlace(i) }) {
               Icon(painterResource(R.drawable.ic_close), stringResource(R.string.place_remove, f.place.name), tint = VigieColors.Text3)
@@ -128,6 +190,24 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
         }
         if (exists) Text(stringResource(R.string.place_exists), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.place_add_hint), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+      }
+    }
+
+    if (canNotify) {
+      NotificationsSection(bells, choices.belled.size, denied, viewModel::testBell)
+      if (account != null && accountUi != null) {
+        AccountSection(
+          accountUi.value,
+          accountDenied,
+          onLink = ::link,
+          onPoll = account::poll,
+          onCancel = account::cancel,
+          onUnlink = account::unlink,
+          onTest = account::test,
+        )
+      }
+      bellFor?.let { i ->
+        choices.places.getOrNull(i)?.let { f -> BellDialog(f.place.name, f.bell, onChoose = { chooseBell(i, it) }, onClose = { bellFor = null }) }
       }
     }
 
@@ -309,7 +389,7 @@ private fun Hint(text: String, color: Color = VigieColors.Text3) {
 }
 
 @Composable
-private fun Section(text: String) {
+internal fun Section(text: String) {
   Text(text, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 6.dp))
 }
 

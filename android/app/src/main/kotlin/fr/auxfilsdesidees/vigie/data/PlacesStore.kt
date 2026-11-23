@@ -48,6 +48,13 @@ data class Choices(val places: List<FollowedPlace>, val current: Int) {
   /** [spot] first: the one the frise draws. */
   fun star(index: Int, spot: String): Choices = spots(index) { listOf(spot) + (it - spot) }
 
+  /** The bell of the place at [index]: the lowest level it rings for, null for none. */
+  fun bell(index: Int, bell: Bell?): Choices = copy(places = places.mapIndexed { k, f -> if (k == index) f.copy(bell = bell) else f })
+
+  /** The places with a bell, the ones the server is told about. */
+  val belled: List<FollowedPlace>
+    get() = places.filter { it.bell != null }
+
   private fun spots(index: Int, change: (List<String>) -> List<String>): Choices =
     copy(places = places.mapIndexed { k, f -> if (k == index) f.copy(spots = change(f.spots).distinct()) else f })
 
@@ -82,6 +89,7 @@ class PlacesStore(private val kv: KeyValue) {
                     put("lon", f.place.lon)
                     f.place.region?.let { put("region", it) }
                     put("spots", JsonArray(f.spots.map(::JsonPrimitive)))
+                    f.bell?.let { put("bell", it.name) }
                   }
                 )
               }
@@ -101,7 +109,8 @@ class PlacesStore(private val kv: KeyValue) {
             val lon = o["lon"]?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
             val region = (o["region"] as? JsonPrimitive)?.contentOrNull
             val spots = (o["spots"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-            FollowedPlace(Place(name, lat, lon, region), spots)
+            val bell = Bell.of((o["bell"] as? JsonPrimitive)?.contentOrNull)
+            FollowedPlace(Place(name, lat, lon, region), spots, bell)
           }
         val current = root["current"]?.jsonPrimitive?.intOrNull ?: 0
         Choices(places, current.coerceIn(0, (places.size - 1).coerceAtLeast(0)))

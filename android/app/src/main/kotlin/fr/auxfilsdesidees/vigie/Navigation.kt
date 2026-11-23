@@ -13,6 +13,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import fr.auxfilsdesidees.vigie.data.AppData
+import fr.auxfilsdesidees.vigie.notify.PhoneBells
+import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
@@ -25,22 +27,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * of the place shown ([WarningsPage]). One view model for all, held by the activity, so a choice made in the settings is
  * on the tabs when the user comes back. Instant, by taste.
  *
- * [placeAsked] is the place a widget was touched for (its key): the tabs come back and show it, then it is cleared.
+ * [placeAsked] is the place a widget or a notification was touched for: the tabs come back and show it (with its warnings
+ * for a notification), then it is cleared.
  */
 @Composable
-fun MainNavigation(baseUrl: String, placeAsked: MutableStateFlow<String?>) {
+fun MainNavigation(baseUrl: String, placeAsked: MutableStateFlow<Asked?>) {
   val context = LocalContext.current.applicationContext
   val viewModel: HomeViewModel = viewModel {
-    // The widgets show what the app reads: a new read or a place removed redraws them.
-    HomeViewModel(AppData.repository(context, baseUrl), AppData.places(context), onChange = { WidgetRefresh.redraw(context) })
+    HomeViewModel(
+      AppData.repository(context, baseUrl),
+      AppData.places(context),
+      // The widgets show what the app reads: a new read or a place removed redraws them.
+      onChange = { WidgetRefresh.redraw(context) },
+      bellLink = BellLink({ PhoneBells.run(context) }, { PhoneBells.test(context) }),
+    )
   }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }
   val asked by placeAsked.collectAsStateWithLifecycle()
   LaunchedEffect(asked) {
-    val key = asked ?: return@LaunchedEffect
-    viewModel.show(key)
+    val place = asked ?: return@LaunchedEffect
+    viewModel.show(place.key)
     while (backStack.size > 1) backStack.removeLastOrNull()
+    if (place.warnings) backStack.add(WarningsPage)
     placeAsked.value = null
   }
 

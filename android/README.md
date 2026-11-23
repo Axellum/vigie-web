@@ -9,7 +9,9 @@ The user chooses the places and their spots; two home screen widgets show one of
 - Data: `GET /v1/point`, `GET /v1/vigilances?lat&lon&lang=fr,en`, `GET /v1/activities/overview` and
   `GET /v1/activities/{spot}?days=3` (the first spot) of `https://vigie.auxfilsdesidees.fr`, and the site's place search
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search). Nothing is sent but the search typed and the coordinates of the places; the choices stay
-  on the phone (the app's private preferences); no account, no tracking.
+  on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
+  exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
+  (below) is the other: the site keeps its notification address with the account.
 - Places and spots: the first launch asks for a place (search, or the phone's approximate position rounded to about
   1 km, asked only when touched), then offers the nearest spots, those within 60 km ticked (three at most). Later, the
   gear of the home tab opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
@@ -47,6 +49,25 @@ The user chooses the places and their spots; two home screen widgets show one of
   every two hours, temperature, wind and its strongest gust, rain bars, « Maint. » under the line of now. With three
   rows or more, the tide (high and low waters written) and the surf of the favourite spot, hour by hour, come under
   it. Same choice of place, refresh, age and touch as « Vigie · mon lieu ».
+- Notifications, without an account: in « Mes lieux et mes spots », each place has a bell (« dès le jaune », « orange
+  et rouge », « rouge seulement », « jamais »). The first bell asks Android's permission (Android 13 and later), then
+  the phone registers with the site (`/account/app/device`, see the site's `docs/configuration.md`) with its Firebase
+  Cloud Messaging token, and gets a secret it keeps in its private preferences. Each change sends every place with a
+  bell (its name, its point, a circle of 10 km, the lowest level); no bell left makes the site forget the phone. The
+  site sends a warning that touches a place once, red ones in their own category; touched, the notification opens the
+  warnings of that place. A failed sync is tried again in the background (WorkManager), and the places are sent again
+  once a day while a bell is on (the site forgets a phone it has not heard of for 60 days). The part « Notifications »
+  of the same page says what the site keeps, sends a test and opens Android's settings of the app's notifications
+  (sound, vibration, each category).
+- Linked to an account: the part « Compte Vigie » of the same page links the app to an account of the site, so the
+  phone also gets the alerts of the account's zones. « Relier à mon compte » asks the permission, then a code
+  (`/account/app/link` with the Firebase token, see the site's `docs/configuration.md`) and shows it; the person enters
+  it on the account page, part Notifications, from any device, or « Ouvrir la page du compte » opens
+  `/account#link=CODE`, which fills it in. While the code is shown and the page is on screen, the app asks every 3
+  seconds whether it was entered, and picks up its own secret once it is. Then the part shows the account's name, its
+  zones and their lowest level, the quiet hours, a test and « Délier ». The account is read again when the page opens;
+  a phone removed on the account page shows unlinked. A new Firebase token is given to the site in the background
+  (WorkManager).
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per
   meaning, a word always next to a colour).
 
@@ -68,6 +89,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 On Windows, `gradlew.bat` instead of `./gradlew`.
+
+### Notifications need a Firebase config
+
+The notifications go through a Firebase project, whose config file (`google-services.json`) is not in the repository.
+Name its path in `local.properties` (`vigie.firebase.config=/path/to/google-services.json`) or in the environment
+(`VIGIE_FIREBASE_CONFIG`); the build turns its values into string resources. Without it (the CI's builds), the app
+builds and runs the same, without any bell.
+
+A debug build can send its bells to a site run on the computer (here on port 4174, with accounts and Firebase sending
+turned on, see the site's `docs/configuration.md`):
+
+```sh
+adb reverse tcp:4174 tcp:4174
+adb shell am start -S -n fr.auxfilsdesidees.vigie/.MainActivity --es vigie_site_url http://127.0.0.1:4174
+```
+
+The bells and the account link go there until the next start without the extra. `--ez vigie_debug_token true` asks the permission and
+writes the phone's token in the log (tag `VigieNotify`), to send it a message by hand.
 
 ### Trying an API that is not deployed
 
@@ -103,6 +142,15 @@ not serve it).
 | `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
 | `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |
 | `ui/PlacesScreen.kt` | « Mes lieux et mes spots », and the place search shared with the first launch |
+| `ui/BellsSection.kt` | the bell of each place, its four choices, and the part « Notifications » of that page |
+| `notify/Bells.kt` | what the site is told about the bells, the requests, the sync; the place a notification names (tested on the JVM) |
+| `notify/BellWork.kt` | the sync run by the page, again in the background when it failed, and once a day |
+| `ui/AccountSection.kt` | the part « Compte Vigie »: the code, the account's name and zones, a test, « Délier » |
+| `ui/AccountViewModel.kt` | the link seen from that part: one talk with the site at a time, what to say after each action |
+| `notify/AccountLink.kt` | the link to an account: the requests, the code, the secret and the last account kept (tested on the JVM) |
+| `notify/AccountWork.kt` | the link over the app's preferences; a new token given to the site in the background |
+| `notify/VigieNotifications.kt` | the two categories, the Firebase token, a message shown while the app is open |
+| `notify/VigieMessagingService.kt` | the messages and the new tokens of Firebase Cloud Messaging |
 | `ui/Locator.kt` | the phone's approximate position, from the system's own providers |
 | `ui/Words.kt` | the French words: weather, wind, verdicts, reasons, times, sentences (tested on the JVM) |
 | `ui/Vigil.kt` | the official warnings read and worded as the site's widget: banner, periods, frise lanes (tested on the JVM) |

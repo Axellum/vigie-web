@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- « Utiliser ma position »: approximate only, asked when touched, rounded to about 1 km before it leaves the phone. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- The notifications (Android 13 and later): asked when the person turns them on, never at first launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -46,6 +48,29 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_frise_info" />
         </receiver>
+        <!-- The notifications (Firebase Cloud Messaging): no registration token is made before the person turns
+             them on (auto-init off, analytics off as the docs ask), and Android shows a message the app did not
+             name a category for in « Autres alertes ». -->
+        <service
+            android:name=".notify.VigieMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="vigie-alerts" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:excludeFromRecents="true"

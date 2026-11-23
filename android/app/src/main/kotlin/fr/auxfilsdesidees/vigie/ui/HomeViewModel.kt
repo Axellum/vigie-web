@@ -3,6 +3,7 @@ package fr.auxfilsdesidees.vigie.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.auxfilsdesidees.vigie.data.ApiException
+import fr.auxfilsdesidees.vigie.data.Bell
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Choices
 import fr.auxfilsdesidees.vigie.data.FollowedPlace
@@ -11,6 +12,7 @@ import fr.auxfilsdesidees.vigie.data.PlaceHit
 import fr.auxfilsdesidees.vigie.data.PlacesStore
 import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.VigieRepository
+import fr.auxfilsdesidees.vigie.notify.BellState
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed interface HomeState {
   data object Loading : HomeState
@@ -57,16 +61,41 @@ data class SearchState(
   val error: String? = null,
 )
 
+/** What a test notification gave, for the page of the places. */
+sealed interface TestNote {
+  data object Sent : TestNote
+
+  /** The server knew the phone but could not send (Firebase refused): tried again later. */
+  data object NotSent : TestNote
+
+  /** The server no longer knew the phone: the bells are sent again. */
+  data object Forgotten : TestNote
+
+  data class Failed(val message: String) : TestNote
+}
+
+/** The bells seen from the page of the places: [state] after the last sync (null before the first one). */
+data class BellsUi(val state: BellState? = null, val busy: Boolean = false, val testing: Boolean = false, val test: TestNote? = null)
+
+/** The bells' server seen from the view model: [fr.auxfilsdesidees.vigie.notify.PhoneBells] in the app, a fake in the tests. */
+class BellLink(val sync: suspend () -> BellState, val test: suspend () -> Result<Int?>) {
+  companion object {
+    val NONE = BellLink({ BellState.Off }, { Result.success(null) })
+  }
+}
+
 /**
  * The app's state, shared by the tabs, the settings page and the first-launch steps. The choices are saved on the phone
  * at every change; each place is read on its own, when it is first shown and on « pull to refresh ».
  *
  * [onChange] runs after a new read is kept and after a place is removed: the home-screen widgets show the same data.
+ * [bellLink] tells the site's server which places have a bell, after each change of a bell.
  */
 class HomeViewModel(
   private val repository: VigieRepository,
   private val store: PlacesStore,
   private val onChange: suspend () -> Unit = {},
+  private val bellLink: BellLink = BellLink.NONE,
 ) : ViewModel() {
   private val _app = MutableStateFlow(AppState(store.load()))
   val app: StateFlow<AppState> = _app.asStateFlow()
@@ -77,8 +106,15 @@ class HomeViewModel(
   private val _search = MutableStateFlow(SearchState())
   val search: StateFlow<SearchState> = _search.asStateFlow()
 
+  private val _bells = MutableStateFlow(BellsUi())
+  val bells: StateFlow<BellsUi> = _bells.asStateFlow()
+
   private val jobs = mutableMapOf<String, Job>()
   private var searchJob: Job? = null
+
+  /** One talk with the bells' server at a time, in the order asked: the last change is the one the server keeps. */
+  private val bellTalk = Mutex()
+  private var syncsWaiting = 0
 
   init {
     _app.value.choices.currentPlace?.let(::load)
@@ -169,6 +205,7 @@ class HomeViewModel(
       tell()
     }
     next.currentPlace?.let { if (it.key !in _app.value.states) load(it) }
+    if (gone.bell != null) syncBells()
   }
 
   fun follow(spot: String) = changeSpots { c, i -> c.follow(i, spot) }
@@ -184,6 +221,71 @@ class HomeViewModel(
     if (next == choices) return
     save(next)
     next.currentPlace?.let(::load)
+  }
+
+  // ------------------------------------------------------------------------------------------------------- the bells
+
+  /** The bell of the place at [index] (null: « jamais »), then the server is told. */
+  fun setBell(index: Int, bell: Bell?) {
+    val choices = _app.value.choices
+    val next = choices.bell(index, bell)
+    if (next == choices) return
+    save(next)
+    _bells.update { it.copy(test = null) }
+    syncBells()
+  }
+
+  /** The page of the places opens: the server is asked once what it keeps, when a bell is on. */
+  fun openBells() {
+    if (_bells.value.state == null && _app.value.choices.belled.isNotEmpty()) syncBells()
+  }
+
+  /** Tells the server the bells of now; a failure is tried again in the background by [BellLink.sync]. */
+  fun syncBells() {
+    syncsWaiting++
+    _bells.update { it.copy(busy = true) }
+    viewModelScope.launch {
+      val state =
+        try {
+          bellTalk.withLock { bellLink.sync() }
+        } catch (err: CancellationException) {
+          throw err
+        } catch (err: Exception) {
+          BellState.Failed(describe(err))
+        } finally {
+          syncsWaiting--
+        }
+      _bells.update { it.copy(state = state, busy = syncsWaiting > 0) }
+    }
+  }
+
+  /** A test notification to this phone. */
+  fun testBell() {
+    if (_bells.value.testing) return
+    _bells.update { it.copy(testing = true, test = null) }
+    viewModelScope.launch {
+      val result =
+        try {
+          bellTalk.withLock { bellLink.test() }
+        } catch (err: CancellationException) {
+          throw err
+        } catch (err: Exception) {
+          Result.failure(err)
+        }
+      val note =
+        result.fold(
+          { sent ->
+            when (sent) {
+              null -> TestNote.Forgotten
+              0 -> TestNote.NotSent
+              else -> TestNote.Sent
+            }
+          },
+          { TestNote.Failed(it.message ?: "Pas de réponse du serveur de Vigie. Vérifiez la connexion.") },
+        )
+      _bells.update { it.copy(testing = false, test = note) }
+      if (note == TestNote.Forgotten) syncBells()
+    }
   }
 
   // ------------------------------------------------------------------------------------------ the spots and the search
