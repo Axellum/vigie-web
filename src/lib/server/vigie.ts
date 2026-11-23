@@ -181,6 +181,14 @@ const windFieldImages = new TtlCache(Date.now, 15_000, 6);
 const rainFieldImages = new TtlCache(Date.now, 15_000, 24);
 // Global observed satellite precipitation tiles (256x256 PNG): keep up to 256 recent tiles in memory.
 const observedRainTiles = new TtlCache(Date.now, 15_000, 256);
+/**
+ * An image the API answers 404 for is asked again after this delay, not after the day an image is kept: the API holds its
+ * images in memory, so one it lists may be missing for a moment (the API was just restarted, or is still making it). Kept as
+ * long as an image, that absence took the forecast wind and rain off the map until their addresses changed.
+ */
+const MISSING_IMAGE_TTL_MS = 20_000;
+const imageTtl = (seconds: number) => (image: Uint8Array | null) =>
+	image ? seconds * 1000 : MISSING_IMAGE_TTL_MS;
 
 export class ApiError extends Error {
 	constructor(
@@ -738,7 +746,7 @@ export function getWindField(): Promise<Cached<WindField | null>> {
 
 /** One image of the forecast wind, relayed as the API sends it; null for one the API no longer keeps. */
 export function getWindFieldImage(level: FieldLevelId, stamp: string): Promise<Cached<Uint8Array | null>> {
-	return windFieldImages.get(`${level}:${stamp}`, TTL_S.windFieldImage * 1000, async () => {
+	return windFieldImages.get(`${level}:${stamp}`, imageTtl(TTL_S.windFieldImage), async () => {
 		let response: Response;
 		try {
 			response = await fetch(apiUrl(`/v1/wind/field/${level}/${stamp}.png`), {
@@ -778,7 +786,7 @@ export function getRainField(): Promise<Cached<RainField | null>> {
 
 /** One RGBA PNG overlay of the forecast rain field, cached by level and stamp; null when unknown. */
 export function getRainFieldImage(level: RainLevelId, stamp: string): Promise<Cached<Uint8Array | null>> {
-	return rainFieldImages.get(`${level}:${stamp}`, TTL_S.rainFieldImage * 1000, async () => {
+	return rainFieldImages.get(`${level}:${stamp}`, imageTtl(TTL_S.rainFieldImage), async () => {
 		let response: Response;
 		try {
 			response = await fetch(apiUrl(`/v1/rain/field/${level}/${stamp}.png`), {
@@ -814,7 +822,7 @@ export function getObservedRainTile(
 	x: number,
 	y: number
 ): Promise<Cached<Uint8Array | null>> {
-	return observedRainTiles.get(`${stamp}:${z}:${x}:${y}`, TTL_S.observedRainTile * 1000, async () => {
+	return observedRainTiles.get(`${stamp}:${z}:${x}:${y}`, imageTtl(TTL_S.observedRainTile), async () => {
 		let response: Response;
 		try {
 			response = await fetch(apiUrl(`/v1/rain/observed/tiles/${stamp}/${z}/${x}/${y}.png`), {

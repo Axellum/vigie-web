@@ -7,6 +7,7 @@ import {
 	grow,
 	hasBox,
 	pointInBox,
+	sameGeometry,
 	type Box
 } from './geo';
 
@@ -69,6 +70,30 @@ describe('countries', () => {
 				]
 			})
 		).toEqual([-1, 0, 3, 5]);
+	});
+
+	it('tells whether two geometries are the same shape, point for point', () => {
+		const ring = (x: number) => [
+			[
+				[x, 0],
+				[1, 0],
+				[1, 1],
+				[x, 0]
+			]
+		];
+		const a = { type: 'Polygon', coordinates: ring(0) };
+		expect(sameGeometry(a, a)).toBe(true);
+		expect(sameGeometry(a, { type: 'Polygon', coordinates: ring(0) })).toBe(true);
+		expect(sameGeometry(a, { type: 'Polygon', coordinates: ring(0.5) })).toBe(false);
+		expect(sameGeometry(a, { type: 'Polygon', coordinates: [ring(0)[0].slice(0, 3)] })).toBe(false);
+		expect(sameGeometry(a, { type: 'MultiLineString', coordinates: ring(0) })).toBe(false);
+		expect(sameGeometry(a, undefined)).toBe(false);
+		expect(
+			sameGeometry(
+				{ type: 'GeometryCollection', geometries: [a, { type: 'Point', coordinates: [1, 2] }] },
+				{ type: 'GeometryCollection', geometries: [a, { type: 'Point', coordinates: [1, 3] }] }
+			)
+		).toBe(false);
 	});
 });
 

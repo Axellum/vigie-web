@@ -29,7 +29,11 @@ export class TtlCache {
 		private readonly maxEntries = 200
 	) {}
 
-	get<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<Cached<T>> {
+	/**
+	 * The value of a key, asked for when it is missing or older than its TTL. The TTL may depend on the value: an answer that
+	 * says "nothing yet" (an image the API has not made) is kept less long than the thing itself.
+	 */
+	get<T>(key: string, ttlMs: number | ((value: T) => number), load: () => Promise<T>): Promise<Cached<T>> {
 		const now = this.now();
 		let entry = this.entries.get(key) as Entry<T> | undefined;
 		if (entry?.value !== undefined && now < entry.expiresAt) {
@@ -49,7 +53,7 @@ export class TtlCache {
 			(value) => {
 				current.value = value;
 				current.fetchedAt = this.now();
-				current.expiresAt = current.fetchedAt + ttlMs;
+				current.expiresAt = current.fetchedAt + (typeof ttlMs === 'function' ? ttlMs(value) : ttlMs);
 				current.stale = false;
 				current.error = undefined;
 				current.errorUntil = undefined;

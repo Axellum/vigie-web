@@ -64,9 +64,10 @@
 	import { fireLevel, tilesInView } from '#lib/fires.js';
 	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '#lib/geo.js';
 	import { countryName, t, tOr, translator, type Key } from '#lib/i18n.js';
-	import { byLevelThenTime, LEVELS, maxLevel } from '#lib/levels.js';
+	import { byLevelThenTime, LEVELS } from '#lib/levels.js';
 	import { hazardHref, hazardRow, warningHref, warningRow, warningTitle, type Row } from '#lib/rows.js';
 	import type { FireTile, Hazard, HazardForecast, Level, WarningDetail, WarningsData } from '#lib/types.js';
+	import { zoneFeatures } from '#lib/zoneFeatures.js';
 
 	let { data } = $props();
 	const lang = $derived(data.lang);
@@ -353,9 +354,13 @@
 	});
 
 	// --- warnings of the countries in view -------------------------------------------------------------
-	const visibleCountries = $derived(
-		view && zoom >= WARNINGS_MIN_ZOOM ? coveredInView(view, data.served) : []
-	);
+	// The same list as long as the same countries are in view: a move of the map inside them starts nothing again.
+	let visibleLast: string[] = [];
+	const visibleCountries = $derived.by(() => {
+		const next = view && zoom >= WARNINGS_MIN_ZOOM ? coveredInView(view, data.served) : [];
+		if (next.length !== visibleLast.length || next.some((cc, i) => cc !== visibleLast[i])) visibleLast = next;
+		return visibleLast;
+	});
 
 	async function loadCountry(cc: string) {
 		const previous = countries.get(cc);
@@ -478,31 +483,33 @@
 	const mapHazards = $derived(
 		hazards.filter((h) => !hidden.has(h.category) && levels.has(levelKey(h.level)))
 	);
+	// The zones of every country read so far, not only of those in view: a move of the map then changes nothing in this list,
+	// and the map (which draws them from `WARNINGS_MIN_ZOOM`, highest level on top) is sent a country's zones once. A zone that
+	// did not change is the same object from one list to the next, and the list itself is the same when no zone changed.
+	const NO_ZONES: FeatureCollection = { type: 'FeatureCollection', features: [] };
+	const zoneParts = new Map<string, { data: WarningsData; shown: string; features: Feature[] }>();
+	let zonesLast = NO_ZONES;
 	const zones = $derived.by((): FeatureCollection => {
+		if (hidden.has('VIGILANCE')) return NO_ZONES;
+		const shown = [...levels].sort().join();
 		const features: Feature[] = [];
-		if (hidden.has('VIGILANCE')) return { type: 'FeatureCollection', features };
-		for (const cc of visibleCountries) {
-			const state = countries.get(cc);
-			if (!state?.data) continue;
-			const byShape = new Map<string, Level[]>();
-			for (const w of state.data.warnings) {
-				if (!w.shape || !levels.has(levelKey(w.level))) continue;
-				const list = byShape.get(w.shape) ?? [];
-				list.push(w.level as Level);
-				byShape.set(w.shape, list);
+		for (const [cc, state] of countries) {
+			if (!state.data) continue;
+			let part = zoneParts.get(cc);
+			if (part?.data !== state.data || part.shown !== shown) {
+				part = {
+					data: state.data,
+					shown,
+					features: zoneFeatures(cc, state.data, (l) => levels.has(levelKey(l)), part?.features)
+				};
+				zoneParts.set(cc, part);
 			}
-			for (const [shape, list] of byShape) {
-				features.push({
-					type: 'Feature',
-					geometry: state.data.shapes[shape],
-					properties: { key: `${cc}|${shape}`, level: maxLevel(list) ?? 'NONE', n: list.length }
-				});
-			}
+			for (const f of part.features) features.push(f);
 		}
-		// Highest levels drawn last, on top.
-		const rank = (f: Feature) => LEVELS.length - LEVELS.indexOf(f.properties?.level as Level);
-		features.sort((a, b) => rank(a) - rank(b));
-		return { type: 'FeatureCollection', features };
+		const last = zonesLast.features;
+		if (features.length !== last.length || features.some((f, i) => f !== last[i]))
+			zonesLast = { type: 'FeatureCollection', features };
+		return zonesLast;
 	});
 	const mapSelected = $derived.by((): Selection | null => {
 		if (!selection) return null;
@@ -1330,6 +1337,7 @@
 			{lang}
 			hazards={mapHazards}
 			{zones}
+			zonesFrom={WARNINGS_MIN_ZOOM}
 			selected={mapSelected}
 			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
 			{fires}

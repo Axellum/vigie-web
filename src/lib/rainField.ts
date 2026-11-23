@@ -37,13 +37,15 @@ export interface RainField {
 	note: string | null;
 }
 
-/** What MapView draws for the forecast rain overlay. */
+/** What MapView draws for the forecast rain overlay: one level of it. */
 export interface RainFieldOnMap {
 	id: string;
 	level: RainLevelId;
 	url: string;
 	/** Four [lon, lat] corners for MapLibre `image` source: [NW, NE, SE, SW]. */
 	coordinates: [[number, number], [number, number], [number, number], [number, number]];
+	/** The box of the image, its latitudes clamped as `coordinates`. */
+	bounds: Box;
 	attribution: string;
 }
 
@@ -144,13 +146,21 @@ export function availableLeadHours(field: RainField | null): number[] {
 	return [...set].sort((a, b) => a - b);
 }
 
+const MERCATOR_LAT = 85.051129;
+const clampLat = (lat: number) => Math.max(-MERCATOR_LAT, Math.min(MERCATOR_LAT, lat));
+const mercatorY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (clampLat(lat) * Math.PI) / 360));
+const latitudeOf = (y: number) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
+
+/** A box with its latitudes clamped to Web Mercator limits, as the image is drawn. */
+export function mercatorBounds(bounds: Box): Box {
+	return [bounds[0], clampLat(bounds[1]), bounds[2], clampLat(bounds[3])];
+}
+
 /** Clamps latitudes to Web Mercator limits and returns MapLibre `image` source corners `[NW, NE, SE, SW]`. */
 export function imageCoordinates(
 	bounds: Box
 ): [[number, number], [number, number], [number, number], [number, number]] {
-	const [west, southRaw, east, northRaw] = bounds;
-	const south = Math.max(-85.051129, Math.min(85.051129, southRaw));
-	const north = Math.max(-85.051129, Math.min(85.051129, northRaw));
+	const [west, south, east, north] = mercatorBounds(bounds);
 	return [
 		[west, north],
 		[east, north],
@@ -200,9 +210,179 @@ export function pickRainOverlay(
 				level: level.id,
 				url: frame.url,
 				coordinates: imageCoordinates(level.bounds),
+				bounds: mercatorBounds(level.bounds),
 				attribution: credit
 			}
 		};
 	}
 	return null;
+}
+
+const contains = (outer: Box, inner: Box) =>
+	inner[0] >= outer[0] && inner[2] <= outer[2] && inner[1] >= outer[1] && inner[3] <= outer[3];
+
+/**
+ * The levels the map stacks for `view` at `zoom`, the coarsest first: every level that offers `leadHours`, reaches this zoom and
+ * touches the view, from the finest down to the first one that holds the whole view, its fading band included. A view wider
+ * than the Europe or the France grid thus shows the coarser grid around it, instead of rain that stops on a straight line. Each
+ * place is drawn by one level only (`rainPieces`); on a thin band inside a finer level, its image fades into the coarser one
+ * (`featherInto`).
+ */
+export function pickRainStack(
+	field: RainField | null,
+	view: Box | null,
+	zoom: number,
+	leadHours: number,
+	credit: string
+): RainFieldOnMap[] {
+	if (!field || field.status !== 'ok') return [];
+	const stack: RainFieldOnMap[] = [];
+	for (const level of [...field.levels].sort((a, b) => FINEST_FIRST[a.id] - FINEST_FIRST[b.id])) {
+		const frame = level.frames.find((f) => f.leadHours === leadHours);
+		if (!frame) continue;
+		if (level.id !== 'world' && (zoom < level.minZoom || !view || !boxesOverlap(view, level.bounds)))
+			continue;
+		const bounds = mercatorBounds(level.bounds);
+		stack.unshift({
+			id: `rain-field-${level.id}-${frame.stamp}`,
+			level: level.id,
+			url: frame.url,
+			coordinates: imageCoordinates(level.bounds),
+			bounds,
+			attribution: credit
+		});
+		if (view && contains(featherCore(bounds), view)) break;
+	}
+	return stack;
+}
+
+/**
+ * Two models do not agree everywhere (AROME dry where ARPEGE drizzles): side by side, they would meet on a straight line. On a
+ * band inside the finer level's box, this share of its width and of its height, its image fades into the coarser one drawn on
+ * the same pixels (`featherInto`): the finer model alone inside the band, the coarser one alone at the edge.
+ */
+export const FEATHER_SHARE = 0.02;
+
+/** West, south, east, north. */
+export type Edges = [boolean, boolean, boolean, boolean];
+
+/** The edges of `box` beyond which `under` goes on: the finer level fades there. */
+export function fadingEdges(box: Box, under: Box): Edges {
+	return [box[0] > under[0], box[1] > under[1], box[2] < under[2], box[3] < under[3]];
+}
+
+/**
+ * The weight of the finer image at each of `size` pixels along one axis: 0 on a fading edge (`low`: the first pixel's side,
+ * `high`: the last one's), 1 from the band inside, smooth in between.
+ */
+export function featherWeights(size: number, low: boolean, high: boolean): Float32Array {
+	const band = Math.max(1, FEATHER_SHARE * size);
+	const out = new Float32Array(size);
+	for (let i = 0; i < size; i++) {
+		let k = 1;
+		if (low) k = Math.min(k, (i + 0.5) / band);
+		if (high) k = Math.min(k, (size - i - 0.5) / band);
+		out[i] = k * k * (3 - 2 * k);
+	}
+	return out;
+}
+
+/**
+ * Fades the finer image `fine` into `coarse` (the coarser level drawn on the same pixels) on its band, in place. Both are RGBA,
+ * `width` x `height`, rows from the north, colours not premultiplied (`getImageData`). The colours are mixed weighted by their
+ * alpha, so a dry pixel lowers the rain's alpha without greying its colour.
+ */
+export function featherInto(
+	fine: Uint8ClampedArray,
+	coarse: Uint8ClampedArray,
+	width: number,
+	height: number,
+	edges: Edges
+) {
+	const cols = featherWeights(width, edges[0], edges[2]);
+	const rows = featherWeights(height, edges[3], edges[1]);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const w = Math.min(rows[y], cols[x]);
+			if (w >= 1) continue;
+			const i = (y * width + x) * 4;
+			const f = fine[i + 3] * w;
+			const c = coarse[i + 3] * (1 - w);
+			const a = f + c;
+			if (a > 0) for (let k = 0; k < 3; k++) fine[i + k] = (fine[i + k] * f + coarse[i + k] * c) / a;
+			fine[i + 3] = a;
+		}
+	}
+}
+
+/** The part of a level's box its band leaves alone, on every side: a view inside it does not see the fade. */
+export function featherCore(bounds: Box): Box {
+	const [w, s, e, n] = bounds;
+	const dx = (e - w) * FEATHER_SHARE;
+	const top = mercatorY(n);
+	const bottom = mercatorY(s);
+	const dy = (top - bottom) * FEATHER_SHARE;
+	return [w + dx, latitudeOf(bottom + dy), e - dx, latitudeOf(top - dy)];
+}
+
+/**
+ * The rectangles of `bounds` that none of `cuts` covers, as few as a grid of their edges allows (cells merged along a row, then
+ * rows of the same width one under the other). Each is drawn as its own image whose corners lie exactly on the cuts, so the
+ * coarser level stops where it should, which a cut on its own pixels does not (a line as wide as one of them, a few pixels of
+ * the screen).
+ */
+export function rainPieces(bounds: Box, cuts: readonly Box[]): Box[] {
+	const [w, s, e, n] = bounds;
+	const inside = cuts
+		.map((c): Box => [Math.max(w, c[0]), Math.max(s, c[1]), Math.min(e, c[2]), Math.min(n, c[3])])
+		.filter((c) => c[0] < c[2] && c[1] < c[3]);
+	if (!inside.length) return [bounds];
+	const edges = (a: number, b: number, more: number[]) => [...new Set([a, b, ...more])].sort((p, q) => p - q);
+	const xs = edges(
+		w,
+		e,
+		inside.flatMap((c) => [c[0], c[2]])
+	);
+	const ys = edges(
+		s,
+		n,
+		inside.flatMap((c) => [c[1], c[3]])
+	);
+	const rows: Box[] = [];
+	for (let j = 0; j < ys.length - 1; j++) {
+		let run: Box | null = null;
+		for (let i = 0; i < xs.length - 1; i++) {
+			const cell: Box = [xs[i], ys[j], xs[i + 1], ys[j + 1]];
+			if (inside.some((c) => c[0] <= cell[0] && c[2] >= cell[2] && c[1] <= cell[1] && c[3] >= cell[3])) {
+				if (run) rows.push(run);
+				run = null;
+			} else if (run) run[2] = cell[2];
+			else run = cell;
+		}
+		if (run) rows.push(run);
+	}
+	const pieces: Box[] = [];
+	for (const r of rows.sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1])) {
+		const last = pieces.at(-1);
+		if (last && last[0] === r[0] && last[2] === r[2] && last[3] === r[1]) last[3] = r[3];
+		else pieces.push([...r]);
+	}
+	return pieces;
+}
+
+/**
+ * Where the box `cut` falls on an image of `width` x `height` pixels that covers `bounds`: `[x, y, width, height]` in pixels, not
+ * rounded. The columns of the image are evenly spaced in longitude and its rows in Web Mercator Y (vigie-api, ADR 0041).
+ */
+export function cutPixels(
+	bounds: Box,
+	cut: Box,
+	width: number,
+	height: number
+): [number, number, number, number] {
+	const [w, s, e, n] = bounds;
+	const x = (lon: number) => ((lon - w) / (e - w)) * width;
+	const top = mercatorY(n);
+	const y = (lat: number) => ((top - mercatorY(lat)) / (top - mercatorY(s))) * height;
+	return [x(cut[0]), y(cut[3]), x(cut[2]) - x(cut[0]), y(cut[1]) - y(cut[3])];
 }
