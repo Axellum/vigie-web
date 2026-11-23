@@ -108,4 +108,14 @@
     <string name="first_spots_text">Les spots à moins de 60 km sont cochés, trois au plus. Le premier coché va dans la frise.</string>
     <string name="first_spots_far">Aucun spot à moins de 60 km : cochez-en un si la mer vous intéresse, ou passez.</string>
     <string name="first_done">C\'est parti</string>
+
+    <!-- The place widget of the home screen (the three sizes of the site's /widget page) -->
+    <string name="widget_place_label">Vigie · mon lieu</string>
+    <string name="widget_place_description">Le temps, les vigilances et la pluie de l\'heure d\'un lieu suivi.</string>
+    <string name="widget_choose">Quel lieu pour ce widget ?</string>
+    <string name="widget_choose_hint">Le widget montre ce lieu, même sans réseau (avec l\'heure de ses données). Touchez-le pour ouvrir l\'appli sur ce lieu.</string>
+    <string name="widget_choose_none">Ajoutez d\'abord un lieu dans l\'appli.</string>
+    <string name="widget_open_app">Ouvrir Vigie</string>
+    <string name="widget_gone">Ce lieu n\'est plus suivi dans l\'appli. Touchez pour en choisir un autre.</string>
+    <string name="widget_no_place">Touchez pour choisir le lieu de ce widget.</string>
 </resources>

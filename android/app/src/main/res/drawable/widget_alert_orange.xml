@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A warning card: the glass, tinted with its level's colour at 22 %, bordered with it at 65 % (the site's widget). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#700A1220" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#38FFA24D" />
+            <stroke android:width="1.5dp" android:color="#A6FFA24D" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</layer-list>

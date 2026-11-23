@@ -2,7 +2,7 @@
 
 A first, small native app that reads the public Vigie API, in French. Three tabs: the weather and the official warnings
 of a place (home), a frise of the next 24 hours (hours), and the activity verdicts of the spots followed near it (sea).
-The user chooses the places and their spots; widgets come later. It is not on any store.
+The user chooses the places and their spots; a home screen widget shows one of them. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).
@@ -33,6 +33,15 @@ The user chooses the places and their spots; widgets come later. It is not on an
   d'hier 18 h 05 · Pas de réponse du serveur… ». A failed or unreadable read never replaces it; a place no longer followed loses its copy.
   The screen then reads as of that time (the frise, the days, the warnings); the rain of the hour to come, past 30
   minutes, reads « non lue ».
+- The home screen widget « Vigie · mon lieu » (Glance): its place is chosen among the followed places when it is
+  placed (« Paramètres » of the widget changes it). It says what the site's widget says (`/widget`, same blocks, same
+  words), in three sizes picked from the room the home screen gives it: small (temperature, rain of the hour, the
+  warning's level), medium (the sky, the warnings, the rain of the hour with its bars, the wind) and large (the same,
+  then five days). Touched, it opens the app on its place. It reads only the copies the app keeps: every half hour
+  (WorkManager), and at once when it is placed, the places shown by a widget are read again when their copy is older
+  than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then « non lue ». The
+  app redraws it after each read it keeps. From Android 15, the widget list shows it drawn by the same code from
+  made-up values (« Mon lieu »).
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per
   meaning, a word always next to a colour).
 
@@ -77,6 +86,12 @@ not serve it).
 | `data/PlacesStore.kt` | the followed places and their spots, and every change to them (tested on the JVM) |
 | `data/OfflineCopies.kt` | the last good read of each place, kept on the phone for the launch and the offline (tested on the JVM) |
 | `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
+| `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget |
+| `widget/WidgetModel.kt` | what the widget shows, read from a place's copy as the site's widget reads it (tested on the JVM) |
+| `widget/PlaceWidget.kt` | the widget drawn in its three sizes (Glance), and its preview in the widget list |
+| `widget/WidgetArt.kt` | the sky and the wind arrow drawn to pictures, which a home screen can show |
+| `widget/WidgetRefresh.kt` | the half-hourly read and the redraw of the widgets; the widget's receiver |
+| `widget/WidgetConfigActivity.kt` | the choice of the widget's place, when it is placed or reconfigured |
 | `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
 | `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |
 | `ui/PlacesScreen.kt` | « Mes lieux et mes spots », and the place search shared with the first launch |
