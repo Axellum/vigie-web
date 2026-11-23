@@ -8,6 +8,7 @@
 #   <token> | VIGIE_HOST=<address> deploy/vps/deploy.sh admin-token  # the API's admin token, read on stdin
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh vapid-public   # the notifications' keys (web-push), on stdin
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh vapid-private
+#   <file> | VIGIE_HOST=<address> deploy/vps/deploy.sh fcm-key   # optional: the Firebase service account (JSON), on stdin
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh api [ref]       # the vigie-api repository (VIGIE_API_REPO), origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh web [ref]       # this repository, origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh caddy [ref]     # Caddy with the rate limit module (caddy/Containerfile)
@@ -16,7 +17,7 @@
 # Images are tagged with the commit and with :current; the previous one stays for a rollback.
 set -euo pipefail
 
-component=${1:?"setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, api, web or caddy"}
+component=${1:?"setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web or caddy"}
 ref=${2:-origin/main}
 host=${VIGIE_HOST:?"set VIGIE_HOST to the server's address"}
 server=vigie@$host
@@ -75,6 +76,28 @@ secret() {
 		&& systemctl --user try-restart $service.service && echo '$name stored'"
 }
 
+# The Firebase service account that sends the Android app's notifications (its JSON key), read on stdin. Optional, so
+# vigie-web.container does not name it: a drop-in made here mounts the secret as a file and points
+# VIGIE_FCM_SERVICE_ACCOUNT at it. The line breaks of the file go (the JSON stays the same: its key keeps its \n).
+fcm_key() {
+	local value
+	value=$(tr -d '\r\n')
+	if [ -z "$value" ]; then
+		echo "nothing on stdin" >&2
+		exit 2
+	fi
+	printf %s "$value" | remote 'set -e
+		podman secret create --replace vigie_fcm_service_account - >/dev/null
+		mkdir -p ~/.config/containers/systemd/vigie-web.container.d
+		printf "%s\n" "# Made by deploy.sh fcm-key: the Firebase service account, mounted as a file." "[Container]" \
+			"Secret=vigie_fcm_service_account,type=mount,target=/run/secrets/vigie_fcm_service_account" \
+			"Environment=VIGIE_FCM_SERVICE_ACCOUNT=/run/secrets/vigie_fcm_service_account" \
+			>~/.config/containers/systemd/vigie-web.container.d/fcm.conf
+		systemctl --user daemon-reload
+		systemctl --user try-restart vigie-web.service
+		echo "vigie_fcm_service_account stored"'
+}
+
 build() {
 	local repo=$1 image=$2 file=$3 service=${4:-$2}
 	git -C "$repo" fetch -q origin
@@ -103,12 +126,13 @@ firms-key) secret vigie_firms_map_key vigie-api ;;
 admin-token) secret vigie_admin_token vigie-api ;;
 vapid-public) secret vigie_vapid_public_key vigie-web ;;
 vapid-private) secret vigie_vapid_private_key vigie-web ;;
+fcm-key) fcm_key ;;
 web) build "$(cd "$here/../.." && pwd)" vigie-web Containerfile ;;
 api) build "${VIGIE_API_REPO:-$(cd "$here/../../../vigie_api" && pwd)}" vigie-api Dockerfile ;;
 # Before the first "files" that needs it: the Caddyfile uses the module, caddy.container this image.
 caddy) build "$(cd "$here/../.." && pwd)" vigie-caddy deploy/vps/caddy/Containerfile caddy ;;
 *)
-	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, api, web or caddy)" >&2
+	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web or caddy)" >&2
 	exit 2
 	;;
 esac

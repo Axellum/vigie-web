@@ -66,6 +66,22 @@ ssh vigie@<address> 'podman exec vigie-web node scripts/invite.mjs "note"'
 3. `~/vigie/sites/public.caddy` from `public.caddy.example`, with the real name; `ORIGIN=https://<name>` in
    `~/vigie/web.env`; then `systemctl --user restart vigie-web caddy`. Caddy gets the certificate by itself.
 
+## Notifications of the Android app (optional)
+
+The app's notifications go through Firebase Cloud Messaging, with the JSON key of a Firebase service account allowed
+to send only (see the site's `docs/configuration.md`). Without it, the site runs the same and sends nothing to the
+app (its routes `/account/app/...` answer 404).
+
+```
+deploy/vps/deploy.sh fcm-key < <the service account's JSON file>
+```
+
+It stores the key as the Podman secret `vigie_fcm_service_account`, writes the drop-in
+`~/.config/containers/systemd/vigie-web.container.d/fcm.conf` that mounts it as a file and sets
+`VIGIE_FCM_SERVICE_ACCOUNT`, then restarts the site. Run it again with a new key to replace it. To turn it off: remove
+`fcm.conf`, `systemctl --user daemon-reload`, `systemctl --user restart vigie-web`, then
+`podman secret rm vigie_fcm_service_account`.
+
 ## The public API
 
 The API's reads are open to everybody at `https://<name>/v1/...` (the site's own domain; the site has no `/v1`
