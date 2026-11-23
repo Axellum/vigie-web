@@ -34,6 +34,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_place_info" />
         </receiver>
+        <!-- « Vigie · la frise », the next hours of a place drawn as the hours tab; same choice of place. -->
+        <receiver
+            android:name=".widget.FriseWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_frise_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_frise_info" />
+        </receiver>
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:excludeFromRecents="true"

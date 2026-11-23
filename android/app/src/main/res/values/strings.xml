@@ -118,4 +118,7 @@
     <string name="widget_open_app">Ouvrir Vigie</string>
     <string name="widget_gone">Ce lieu n\'est plus suivi dans l\'appli. Touchez pour en choisir un autre.</string>
     <string name="widget_no_place">Touchez pour choisir le lieu de ce widget.</string>
+    <string name="widget_frise_label">Vigie · la frise</string>
+    <string name="widget_frise_description">Les prochaines heures d\'un lieu suivi en frise ; la marée et le surf de son spot étoilé quand le widget est assez haut.</string>
+    <string name="widget_frise_picture">Frise des prochaines heures : ciel, température, vent et pluie.</string>
 </resources>

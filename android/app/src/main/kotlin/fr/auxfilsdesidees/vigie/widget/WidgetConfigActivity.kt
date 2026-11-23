@@ -76,7 +76,7 @@ class WidgetConfigActivity : ComponentActivity() {
         it[PlaceWidget.NAME] = followed.place.name
         it[PlaceWidget.STAMP] = System.currentTimeMillis()
       }
-      PlaceWidget().update(applicationContext, id)
+      WidgetRefresh.widgetOf(applicationContext, appWidgetId).update(applicationContext, id)
       WidgetRefresh.schedule(applicationContext)
       WidgetRefresh.now(applicationContext)
       setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))

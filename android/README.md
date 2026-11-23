@@ -2,7 +2,7 @@
 
 A first, small native app that reads the public Vigie API, in French. Three tabs: the weather and the official warnings
 of a place (home), a frise of the next 24 hours (hours), and the activity verdicts of the spots followed near it (sea).
-The user chooses the places and their spots; a home screen widget shows one of them. It is not on any store.
+The user chooses the places and their spots; two home screen widgets show one of them. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).
@@ -42,6 +42,11 @@ The user chooses the places and their spots; a home screen widget shows one of t
   than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then « non lue ». The
   app redraws it after each read it keeps. From Android 15, the widget list shows it drawn by the same code from
   made-up values (« Mon lieu »).
+- The widget « Vigie · la frise »: the hours tab in small. A header (the place, its sky and temperature, the warnings
+  in a few words), then the next 14 hours drawn into a picture (a home screen cannot draw a curve): night shade, sky
+  every two hours, temperature, wind and its strongest gust, rain bars, « Maint. » under the line of now. With three
+  rows or more, the tide (high and low waters written) and the surf of the favourite spot, hour by hour, come under
+  it. Same choice of place, refresh, age and touch as « Vigie · mon lieu ».
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per
   meaning, a word always next to a colour).
 
@@ -88,9 +93,12 @@ not serve it).
 | `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
 | `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget |
 | `widget/WidgetModel.kt` | what the widget shows, read from a place's copy as the site's widget reads it (tested on the JVM) |
-| `widget/PlaceWidget.kt` | the widget drawn in its three sizes (Glance), and its preview in the widget list |
+| `widget/PlaceWidget.kt` | the widget drawn in its three sizes (Glance), and its preview in the widget list; the frame both widgets share |
+| `widget/FriseModel.kt` | the hours of the frise widget, read as the hours tab reads them (tested on the JVM) |
+| `widget/FriseArt.kt` | the frise drawn into a picture: weather, then the tide and the surf when there is room |
+| `widget/FriseWidget.kt` | the frise widget: its header and its picture (Glance) |
 | `widget/WidgetArt.kt` | the sky and the wind arrow drawn to pictures, which a home screen can show |
-| `widget/WidgetRefresh.kt` | the half-hourly read and the redraw of the widgets; the widget's receiver |
+| `widget/WidgetRefresh.kt` | the half-hourly read and the redraw of the widgets; their receivers |
 | `widget/WidgetConfigActivity.kt` | the choice of the widget's place, when it is placed or reconfigured |
 | `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
 | `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |

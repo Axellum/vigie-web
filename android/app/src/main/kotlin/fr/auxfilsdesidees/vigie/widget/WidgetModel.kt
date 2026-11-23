@@ -29,7 +29,17 @@ object WidgetModel {
   data class Rain(val status: RainHour.Status, val title: String, val short: String, val detail: String?, val bars: List<Bar>)
 
   /** The official warnings: a level and its words when there are some, else one quiet line. */
-  data class Warnings(val state: Vigil.State, val level: String?, val title: String, val until: String?, val detail: String, val more: Int)
+  data class Warnings(val state: Vigil.State, val level: String?, val title: String, val until: String?, val detail: String, val more: Int) {
+    /** The few words of the frise's header, beside the place: « Aucune vigilance », « Vigilances non lues »… */
+    val short: String
+      get() =
+        when (state) {
+          Vigil.State.None -> "Aucune vigilance"
+          Vigil.State.NoSource -> "Pas de vigilance lue ici"
+          Vigil.State.Unread -> "Vigilances non lues"
+          Vigil.State.Warnings -> title
+        }
+  }
 
   /** The wind of the forecast: « 37 km/h O · rafales 63 », « prévision du modèle ». */
   data class Wind(val kmh: Int, val fromDeg: Double?, val dir: String, val gust: Int?, val note: String)

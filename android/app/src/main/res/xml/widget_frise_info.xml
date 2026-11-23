@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  « Vigie · la frise »: four cells by two when placed (the frise alone), three rows or more for the tide and the surf of
+  the favourite spot. Never narrower than three cells: a frise needs its width. Redrawn as the place widget
+  (WidgetRefresh); the place is chosen when it is placed, and again later.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="fr.auxfilsdesidees.vigie.widget.WidgetConfigActivity"
+    android:description="@string/widget_frise_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="200dp"
+    android:minResizeHeight="110dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />
