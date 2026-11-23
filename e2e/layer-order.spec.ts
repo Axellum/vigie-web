@@ -85,19 +85,21 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 	}
 	await page.getByTestId('observed-rain-toggle').uncheck();
 
-	// Global forecast rain layer sits above warnings, below radar and below base map labels.
+	// Global forecast rain layers (one per level drawn) sit above warnings, below radar and below base map labels.
 	await page.getByTestId('rain-field-toggle').check();
 	await expect
-		.poll(async () => (await layers(page)).ids.includes('rain-field'), { timeout: 15_000 })
+		.poll(async () => (await layers(page)).ids.some((id) => id.startsWith('rain-field-')), {
+			timeout: 15_000
+		})
 		.toBe(true);
 	{
 		const { ids, firstLabel } = await layers(page);
-		const rf = ids.indexOf('rain-field');
+		const rf = ids.flatMap((id, i) => (id.startsWith('rain-field-') ? [i] : []));
 		const maxWarn = Math.max(...WARNINGS.map((id) => ids.indexOf(id)));
 		const minRadar = Math.min(...ids.flatMap((id, i) => (id.startsWith('radar-') ? [i] : [])));
-		expect(rf).toBeGreaterThan(maxWarn);
-		expect(rf).toBeLessThan(minRadar);
-		expect(rf).toBeLessThan(firstLabel);
+		expect(Math.min(...rf)).toBeGreaterThan(maxWarn);
+		expect(Math.max(...rf)).toBeLessThan(minRadar);
+		expect(Math.max(...rf)).toBeLessThan(firstLabel);
 	}
 	await page.getByTestId('rain-field-toggle').uncheck();
 

@@ -1,10 +1,11 @@
 // The "Forecast rain (world)" layer of a map ($lib/rainField): off by default until the visitor turns it on.
-// Fetches `/data/rain-field` (cached 5 min on the server) and picks the finest available model (AROME France /
-// ARPEGE Europe / ARPEGE World) for the current zoom, view, and chosen lead time (+1 h .. +24 h).
+// Fetches `/data/rain-field` (cached 5 min on the server) and stacks the models (ARPEGE World, ARPEGE Europe, AROME France)
+// that reach the current zoom and view for the chosen lead time (+1 h .. +24 h); the legend names the finest of them.
 import type { Box } from './geo';
 import {
 	availableLeadHours,
 	pickRainOverlay,
+	pickRainStack,
 	type RainField,
 	type RainFieldFrame,
 	type RainFieldLevel,
@@ -67,9 +68,9 @@ export class RainFieldLayer {
 		return pickRainOverlay(this.field, this.#view, this.#zoom, this.leadHours, '');
 	});
 
-	onMap(credit: string): RainFieldOnMap | null {
+	onMap(credit: string): RainFieldOnMap[] | null {
 		if (!this.#on) return null;
-		return pickRainOverlay(this.field, this.#view, this.#zoom, this.leadHours, credit)?.overlay ?? null;
+		return pickRainStack(this.field, this.#view, this.#zoom, this.leadHours, credit);
 	}
 
 	restore() {

@@ -12,7 +12,13 @@
 	// MapLibre (code and stylesheet) is loaded after the page is shown, so that the text of the page comes first.
 	import { onDestroy, onMount } from 'svelte';
 	import type { Feature, FeatureCollection } from 'geojson';
-	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
+	import type {
+		CanvasSource,
+		Map as MlMap,
+		Marker,
+		GeoJSONSource,
+		ExpressionSpecification
+	} from 'maplibre-gl';
 	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 	import { localizedTextField } from '#lib/basemap.js';
@@ -22,6 +28,7 @@
 	import type { Hazard } from '#lib/types.js';
 	import type { RadarOnMap } from '#lib/radar.js';
 	import type { RainFieldOnMap } from '#lib/rainField.js';
+	import { RainFieldPainter, type PaintedRain } from '#lib/rainFieldPainter.js';
 	import type { ObservedRainOnMap } from '#lib/observedRain.js';
 	import { compass } from '#lib/surf.js';
 	import {
@@ -66,8 +73,9 @@
 		/** The rain radar: the images to draw (only the active one, or all of them once `preload` is set, so that a slider and an
 		 * animation do not wait for tiles), drawn over the warnings and under the labels of the base map. Null: no radar. */
 		radar?: RadarOnMap | null;
-		/** Global/Europe/France forecast rain RGBA PNG overlay (ARPEGE/AROME), drawn above warnings and below radar & labels. Null: off. */
-		rainField?: RainFieldOnMap | null;
+		/** Global/Europe/France forecast rain RGBA PNG overlays (ARPEGE/AROME), the coarsest first (`pickRainStack`), drawn above
+		 * warnings and below radar & labels. Null or empty: off. */
+		rainField?: RainFieldOnMap[] | null;
 		/** Global observed satellite precipitation raster tiles (NASA GIBS IMERG), drawn above warnings and below radar & labels. Null: off. */
 		observedRain?: ObservedRainOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
@@ -479,7 +487,10 @@
 	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
 	// the active one visible and the others transparent (they are only loaded, for the animation).
 	const radarIds = new Set<string>();
-	let rainFieldKey: string | null = null;
+	// The forecast rain: canvas layers (`rain-field-<level>-<n>`), a coarser level in pieces around a finer one ($lib/rainFieldPainter).
+	const rainLevels = new Set<string>();
+	const rainPainter = new RainFieldPainter(drawRain);
+	let rainAgain = false;
 	let observedRainKey: string | null = null;
 	let overlayAdded = false;
 	const RADAR_OPACITY = 0.85;
@@ -544,32 +555,53 @@
 
 	function syncRainField() {
 		if (!map || !overlayAdded) return;
-		const nextKey = rainField ? `${rainField.id}|${rainField.url}` : null;
-		if (nextKey === rainFieldKey) return;
-		if (map.getLayer('rain-field')) map.removeLayer('rain-field');
-		if (map.getSource('rain-field')) map.removeSource('rain-field');
-		rainFieldKey = null;
-		if (!rainField) return;
-		map.addSource('rain-field', {
-			type: 'image',
-			url: rainField.url,
-			coordinates: rainField.coordinates
-		});
-		map.addLayer(
-			{
-				id: 'rain-field',
-				type: 'raster',
-				source: 'rain-field',
-				paint: {
-					'raster-opacity': RAIN_FIELD_OPACITY,
-					'raster-opacity-transition': { duration: 0 },
-					'raster-fade-duration': 0,
-					'raster-resampling': 'linear'
+		rainPainter.want(rainField ?? [], rainAgain);
+		rainAgain = false;
+	}
+
+	/** Draws the levels the painter made ready, all in the same image: the rain of the previous stack stays until then. */
+	function drawRain(pieces: PaintedRain[]) {
+		if (!map || !overlayAdded) return;
+		const keep = new Set(pieces.map((p) => p.id));
+		for (const id of [...rainLevels]) {
+			if (keep.has(id)) continue;
+			if (map.getLayer(id)) map.removeLayer(id);
+			if (map.getSource(id)) map.removeSource(id);
+			rainLevels.delete(id);
+		}
+		for (const l of pieces) {
+			const id = l.id;
+			const source = map.getSource(id) as CanvasSource | undefined;
+			if (source) {
+				if (source.coordinates.join() !== l.coordinates.join()) source.setCoordinates(l.coordinates);
+				// A canvas that does not play is read once; playing it for one image reads it again.
+				if (l.changed) {
+					source.play();
+					map.once('render', () => source.pause());
 				}
-			},
-			beforeRadarOrLabels()
-		);
-		rainFieldKey = nextKey;
+				continue;
+			}
+			map.addSource(id, { type: 'canvas', canvas: l.canvas, coordinates: l.coordinates, animate: false });
+			map.addLayer(
+				{
+					id,
+					type: 'raster',
+					source: id,
+					paint: {
+						'raster-opacity': RAIN_FIELD_OPACITY,
+						'raster-opacity-transition': { duration: 0 },
+						'raster-fade-duration': 0,
+						'raster-resampling': 'linear'
+					}
+				},
+				beforeRadarOrLabels()
+			);
+			rainLevels.add(id);
+		}
+		// The coarsest level at the bottom, even when a finer one came first (drawn alone while the coarser one was loading).
+		const order = map.getLayersOrder().filter((id) => keep.has(id));
+		if (order.join() !== pieces.map((p) => p.id).join())
+			for (const p of pieces) map.moveLayer(p.id, beforeRadarOrLabels());
 	}
 
 	function syncRadar() {
@@ -620,7 +652,8 @@
 		if (!map) return;
 		// A new style has none of the radar or global rain layers; the first label of the base map is where they go under.
 		radarIds.clear();
-		rainFieldKey = null;
+		rainLevels.clear();
+		rainAgain = true;
 		observedRainKey = null;
 		labelsFrom = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
@@ -1136,6 +1169,7 @@
 	});
 
 	onDestroy(() => {
+		rainPainter.destroy();
 		observer?.disconnect();
 		media?.removeEventListener('change', onThemeChange);
 		flowEngine?.destroy();
