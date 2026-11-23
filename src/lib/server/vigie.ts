@@ -4,7 +4,8 @@ import {
 	VIGIE_API_URL,
 	VIGIE_ME_POINT_LOOKUPS_PER_DAY,
 	VIGIE_POINT_LOOKUPS_PER_DAY,
-	VIGIE_TV_POINT_LOOKUPS_PER_DAY
+	VIGIE_TV_POINT_LOOKUPS_PER_DAY,
+	VIGIE_WARM_LOOKUPS_PER_DAY
 } from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
@@ -957,6 +958,50 @@ export function getTvPoint(lat: number, lon: number): Promise<Cached<PointWeathe
 		});
 		return pointFromApi(await getJson(`/v1/point?${query}`, 30_000));
 	});
+}
+
+/**
+ * The warming of the places the server knows (`warm.ts`) has a budget of its own, `VIGIE_WARM_LOOKUPS_PER_DAY` (2,200 by default:
+ * about 103 a day for each of 20 cells, one every 14 minutes), so that it never takes a lookup from a visitor's `/near` or `/me`,
+ * and a visitor never takes one from it.
+ */
+export const WARM_LOOKUPS_DEFAULT = 2200;
+let warmBudgetCount: SlidingBudget | null = null;
+function warmBudget(): SlidingBudget {
+	if (!warmBudgetCount) {
+		const value = Number(VIGIE_WARM_LOOKUPS_PER_DAY || WARM_LOOKUPS_DEFAULT);
+		warmBudgetCount = new SlidingBudget(
+			Number.isFinite(value) && value >= 0 ? Math.floor(value) : WARM_LOOKUPS_DEFAULT
+		);
+	}
+	return warmBudgetCount;
+}
+
+/** What `warmPoint` did: asked the API, found the cell fresh enough, or was stopped by its budget. */
+export type WarmResult = 'fetched' | 'fresh' | 'budget';
+
+/**
+ * Ask the API for the weather of a grid cell ahead of the expiry of what the site holds, so that the next visitor (the site, or the
+ * Android app, which reads the API's own cache of the same cell) finds it warm. Same request as `getPoint` (land, not marine): the
+ * answer goes into the same cache entry. Nothing is asked while the entry is younger than `maxAgeMs`. A failure of the API goes up.
+ */
+export async function warmPoint(lat: number, lon: number, maxAgeMs: number): Promise<WarmResult> {
+	const cell = snapToGrid({ lat, lon });
+	const key = `point:${cell.lat},${cell.lon}:land`;
+	const held = pointCache.peek<PointWeather>(key);
+	if (held && !held.stale && Date.now() - held.fetchedAt < maxAgeMs) return 'fresh';
+	if (!warmBudget().take()) return 'budget';
+	const query = new URLSearchParams({
+		lat: String(cell.lat),
+		lon: String(cell.lon),
+		marine: 'false',
+		device_type: 'web',
+		compact: 'false',
+		max_hazards: '1',
+		radius_km: '1'
+	});
+	pointCache.put(key, pointFromApi(await getJson(`/v1/point?${query}`, 30_000)), TTL_S.point * 1000);
+	return 'fetched';
 }
 
 /**

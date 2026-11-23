@@ -1,0 +1,1 @@
+- Optional warming of the weather of the places the server knows (accounts' zones and places, the Android app's bells): with `VIGIE_WARM_PLACES=1` each grid cell is asked again just before its answer expires, within a budget of its own, so that the first opening of a known place is quick.

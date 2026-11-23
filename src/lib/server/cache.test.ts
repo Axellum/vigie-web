@@ -86,3 +86,27 @@ describe('TtlCache', () => {
 		expect(calls).toBe(2);
 	});
 });
+
+describe('TtlCache.put', () => {
+	it('serves a value put in as a fresh load, until its TTL', async () => {
+		let t = 1000;
+		const cache = new TtlCache(() => t);
+		cache.put('k', 'warm', 900);
+		let loads = 0;
+		const load = async () => (++loads, 'loaded');
+		expect((await cache.get('k', 900, load)).value).toBe('warm');
+		expect(cache.peek('k')?.fetchedAt).toBe(1000);
+		t += 901;
+		expect((await cache.get('k', 900, load)).value).toBe('loaded');
+		expect(loads).toBe(1);
+	});
+
+	it('counts toward the limit of entries, keeping the one put last', () => {
+		const cache = new TtlCache(() => 0, 15_000, 2);
+		cache.put('a', 1, 10);
+		cache.put('b', 2, 10);
+		cache.put('c', 3, 10);
+		expect(cache.peek('a')).toBeNull();
+		expect(cache.peek('c')?.value).toBe(3);
+	});
+});
