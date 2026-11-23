@@ -26,6 +26,9 @@ export interface PushMessage {
 	tag: string;
 	/** The alert's level, for the app's notification channel (a test has none). */
 	level?: Level;
+	/** For a place of the app without an account: its point (`lat,lon`, two decimals), so that the app opens its
+	 *  warnings when the notification is touched. */
+	place?: string;
 }
 
 // The push services of the browsers. A subscription is a URL the server will POST to: only these hosts are

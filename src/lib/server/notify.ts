@@ -1,6 +1,7 @@
-// Matches the alerts in force with the zones of the accounts, keeps what matched (the account's history) and
-// sends a push notification for what is new. It runs on the data the site already caches: the requests to the
-// API depend on the countries of the zones, not on the number of accounts or visitors.
+// Matches the alerts in force with the zones of the accounts and the places of the app's devices (appDevices.ts),
+// keeps what matched (the history) and sends a push notification for what is new. It runs on the data the site
+// already caches: the requests to the API depend on the countries of the zones, not on the number of accounts,
+// devices or visitors.
 //
 // - A zone is compared once without notifying (`baseline_done`): what is in force when it is made is not news.
 // - An alert is told once per zone and level; it is told again only when its level rises.
@@ -13,6 +14,7 @@ import { countryAt, type Borders } from '#lib/near.js';
 import { hazardHref, warningHref, warningTitle } from '#lib/rows.js';
 import { slug } from '#lib/transform.js';
 import type { Level, WarningSummary } from '#lib/types.js';
+import { sendToDevice } from './appDevices';
 import type { Query, Sql } from './db';
 import { sendToUser } from './push';
 import { getHazards, getWarnings, servedCodes } from './vigie';
@@ -35,9 +37,14 @@ export interface Alert {
 
 export interface ZoneRow {
 	id: string;
-	user_id: string;
+	/** The zone's owner: an account, or a device of the app (one of the two, never both). */
+	user_id: string | null;
+	device_id: string | null;
 	name: string;
 	kind: 'circle' | 'polygon' | 'country' | 'area';
+	/** The centre of a circle. */
+	lat: number | null;
+	lon: number | null;
 	country: string | null;
 	area: string | null;
 	min_level: Notifiable;
@@ -184,12 +191,16 @@ export async function matchAndNotify(
 		>`select pg_try_advisory_xact_lock(20261026) as locked`;
 		if (!locked) return { zones: 0, alerts: 0, matched: 0, sent: 0 };
 		const zones = await tx<ZoneRow[]>`
-			select z.id, z.user_id, z.name, z.kind, z.country, z.area, z.min_level, z.kinds, z.baseline_done,
+			select z.id, z.user_id, z.device_id, z.name, z.kind, z.lat, z.lon, z.country, z.area, z.min_level, z.kinds,
+				z.baseline_done,
 				case when z.geom is null then null else array[
 					st_xmin(z.geom::geometry), st_ymin(z.geom::geometry), st_xmax(z.geom::geometry), st_ymax(z.geom::geometry)
 				] end as box,
-				u.lang, u.quiet_hours, u.time_zone
-			from zones z join users u on u.id = z.user_id`;
+				coalesce(u.lang, d.lang) as lang, coalesce(u.quiet_hours, d.quiet_hours) as quiet_hours,
+				coalesce(u.time_zone, d.time_zone) as time_zone
+			from zones z
+			left join users u on u.id = z.user_id
+			left join app_devices d on d.id = z.device_id`;
 		if (!zones.length) return { zones: 0, alerts: 0, matched: 0, sent: 0 };
 		const served = await servedCodes();
 		const countries = new Set<string>();
@@ -210,10 +221,11 @@ export async function matchAndNotify(
 		}
 		const fresh = pairs.filter(([z, a]) => (told.get(`${z.id}|${a.key}`) ?? -1) < rank(a.level));
 
-		// One notification per person and alert, naming every zone it falls in.
+		// One notification per person (an account, or a device of the app) and alert, naming every zone it falls in.
+		const owner = (z: ZoneRow) => z.user_id ?? `device:${z.device_id}`;
 		const byPerson = new Map<string, { zone: ZoneRow; alert: Alert }[]>();
 		for (const [zone, alert] of fresh) {
-			const k = `${zone.user_id}|${alert.key}|${alert.level}`;
+			const k = `${owner(zone)}|${alert.key}|${alert.level}`;
 			byPerson.set(k, [...(byPerson.get(k) ?? []), { zone, alert }]);
 		}
 		let sent = 0;
@@ -228,21 +240,29 @@ export async function matchAndNotify(
 					outcome = 'quiet';
 				else {
 					const lang = person.lang;
-					const result = await sendToUser(tx, person.user_id, {
+					const names = news.map((g) => g.zone.name).join(', ');
+					const first = news[0].zone;
+					const message = {
 						title: `${t(lang, `level.${alert.level}` as Key)} · ${alert.title(lang)}`,
-						body: t(lang, 'notify.body', { zones: news.map((g) => g.zone.name).join(', ') }),
+						// An account's zones are named « Zone : … »; the app's places by their names alone.
+						body: person.user_id ? t(lang, 'notify.body', { zones: names }) : names,
 						url: alert.url,
 						tag: alert.key,
-						level: alert.level
-					});
+						level: alert.level,
+						// The app opens the warnings of its first place the alert falls in.
+						place: !person.user_id && first.lat != null ? `${first.lat},${first.lon}` : undefined
+					};
+					const result = person.user_id
+						? await sendToUser(tx, person.user_id, message)
+						: await sendToDevice(tx, person.device_id!, message);
 					outcome = !result || result.sent + result.failed === 0 ? 'none' : result.sent ? 'sent' : 'failed';
 					if (result?.sent) sent++;
 				}
 			}
 			for (const { zone } of group) {
 				await tx`
-					insert into zone_alerts (user_id, zone_id, alert_key, kind, level, title, url, outcome)
-					values (${zone.user_id}, ${zone.id}, ${alert.key}, ${alert.kind}, ${alert.level},
+					insert into zone_alerts (user_id, device_id, zone_id, alert_key, kind, level, title, url, outcome)
+					values (${zone.user_id}, ${zone.device_id}, ${zone.id}, ${alert.key}, ${alert.kind}, ${alert.level},
 						${alert.title(zone.lang)}, ${alert.url}, ${zone.baseline_done ? outcome : 'baseline'})
 					on conflict do nothing`;
 			}

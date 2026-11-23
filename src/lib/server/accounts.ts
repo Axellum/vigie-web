@@ -137,8 +137,10 @@ export async function deleteUser(sql: Sql, userId: string): Promise<void> {
 	await sql`delete from users where id = ${userId}`;
 }
 
-/** Removes what has expired (the history of the zones after 30 days), and the accounts unused for two years. */
+/** Removes what has expired (the history of the zones after 30 days), the accounts unused for two years, and the
+ *  devices of the app silent for 60 days, with their places (appDevices.ts). */
 export async function cleanUp(sql: Sql): Promise<void> {
+	await sql`delete from app_devices where seen_at < now() - interval '60 days'`;
 	await sql`delete from sessions where expires_at < now()`;
 	await sql`delete from challenges where expires_at < now()`;
 	await sql`delete from invitations where expires_at < now() - interval '30 days'`;

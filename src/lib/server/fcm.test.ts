@@ -118,6 +118,17 @@ describe('fcmMessage', () => {
 		expect(channel(fcmMessage(TOKEN, { ...MESSAGE, level: 'ORANGE' }))).toBe(CHANNEL_OTHER);
 		expect(channel(fcmMessage(TOKEN, MESSAGE))).toBe(CHANNEL_OTHER);
 	});
+
+	it('names the place of the app the alert fell in, when there is one', () => {
+		const data = (m: Record<string, unknown>) =>
+			(m as { message: { data: Record<string, string> } }).message.data;
+		expect(data(fcmMessage(TOKEN, { ...MESSAGE, place: '42.31,9.15' }))).toEqual({
+			url: MESSAGE.url,
+			tag: MESSAGE.tag,
+			place: '42.31,9.15'
+		});
+		expect(data(fcmMessage(TOKEN, MESSAGE))).not.toHaveProperty('place');
+	});
 });
 
 describe('sendFcm', () => {
