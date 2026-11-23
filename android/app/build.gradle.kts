@@ -85,4 +85,8 @@ dependencies {
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
   implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+  // Home-screen widgets (Glance) and their refresh every half hour (WorkManager)
+  implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.work.runtime.ktx)
 }

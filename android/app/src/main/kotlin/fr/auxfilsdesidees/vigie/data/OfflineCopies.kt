@@ -72,13 +72,16 @@ class OfflineCopies(private val shelf: Shelf) {
   }
 }
 
-/** A folder of the app on the phone, one file per name, each written whole before it replaces the old one. */
+/**
+ * A folder of the app on the phone, one file per name, each written whole before it replaces the old one. The app and
+ * its widgets' refresh may write the same place at the same time: each write has its own temporary file.
+ */
 class FolderShelf(private val dir: File) : Shelf {
   override fun read(name: String): String? = file(name).takeIf { it.isFile }?.readText(Charsets.UTF_8)
 
   override fun write(name: String, text: String) {
     dir.mkdirs()
-    val tmp = File(dir, "$name$SUFFIX.tmp")
+    val tmp = File.createTempFile("$name-", ".tmp", dir)
     tmp.writeText(text, Charsets.UTF_8)
     if (!tmp.renameTo(file(name))) {
       tmp.delete()

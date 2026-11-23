@@ -60,8 +60,14 @@ data class SearchState(
 /**
  * The app's state, shared by the tabs, the settings page and the first-launch steps. The choices are saved on the phone
  * at every change; each place is read on its own, when it is first shown and on « pull to refresh ».
+ *
+ * [onChange] runs after a new read is kept and after a place is removed: the home-screen widgets show the same data.
  */
-class HomeViewModel(private val repository: VigieRepository, private val store: PlacesStore) : ViewModel() {
+class HomeViewModel(
+  private val repository: VigieRepository,
+  private val store: PlacesStore,
+  private val onChange: suspend () -> Unit = {},
+) : ViewModel() {
   private val _app = MutableStateFlow(AppState(store.load()))
   val app: StateFlow<AppState> = _app.asStateFlow()
 
@@ -88,6 +94,12 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
     _app.value.choices.currentPlace?.let { if (it.key !in _app.value.states) load(it) }
   }
 
+  /** Show the followed place of this [key] (a widget touched); nothing when it is no longer followed. */
+  fun show(key: String) {
+    val index = _app.value.choices.places.indexOfFirst { it.key == key }
+    if (index >= 0) select(index)
+  }
+
   fun refresh() {
     _app.value.choices.currentPlace?.let(::load)
   }
@@ -111,7 +123,19 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
             if (shown != null) HomeState.Ready(shown, error = message) else HomeState.Failed(message)
           }
         setState(key, next)
+        if (next.isFresh()) tell()
       }
+  }
+
+  private fun HomeState.isFresh(): Boolean = this is HomeState.Ready && error == null
+
+  /** The widgets redraw; their failure never reaches the app's screens. */
+  private suspend fun tell() {
+    try {
+      onChange()
+    } catch (err: CancellationException) {
+      throw err
+    } catch (_: Exception) {}
   }
 
   private fun setState(key: String, state: HomeState) {
@@ -140,7 +164,10 @@ class HomeViewModel(private val repository: VigieRepository, private val store: 
     val next = choices.remove(index)
     save(next)
     _app.update { it.copy(states = it.states - gone.key) }
-    viewModelScope.launch { repository.forget(gone.place) }
+    viewModelScope.launch {
+      repository.forget(gone.place)
+      tell()
+    }
     next.currentPlace?.let { if (it.key !in _app.value.states) load(it) }
   }
 
