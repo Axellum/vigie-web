@@ -1,0 +1,1 @@
+- Map: on a computer without a graphics card, where WebGL runs on the processor, the forecast wind is drawn on a 2D canvas again, which is four times faster there and leaves the processor to the map.

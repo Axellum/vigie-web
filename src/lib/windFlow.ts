@@ -5,7 +5,8 @@
 // left behind on the canvas. While the map moves the canvas is empty (no trail lags behind the base map), and the trails grow
 // again from where they are once it stops. With "reduce motion", the trails are drawn once, still, and again after each move.
 // The segments are drawn by the graphics card ($lib/windFlowGl); a browser without WebGL 2 strokes them on a 2D canvas, as
-// before, which costs much more on a large screen.
+// before, which costs much more on a large screen. So does a computer without a graphics card, where WebGL runs on the processor
+// and the 2D canvas is the faster one.
 import type { Map as MlMap } from 'maplibre-gl';
 import { FLOW_PX_PER_S, flowAlpha, flowClass, flowCount, sampleWind, type FieldGrid } from './windField';
 import { SEGMENT_FLOATS, TrailPainter } from './windFlowGl';

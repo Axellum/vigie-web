@@ -7,6 +7,24 @@
 /** Numbers per segment: head x, y, tail x, y (CSS pixels), opacity at the head and at the tail, colour (0, 1 or 2). */
 export const SEGMENT_FLOATS = 7;
 
+/** The names of WebGL renderers that run on the processor: a computer without a graphics card, or one the browser does not
+ * trust. There the 2D canvas, drawn by the processor too, is the faster one (1,400 trails at 1280 x 720 without a graphics card:
+ * 60 images a second on a 2D canvas, 15 with WebGL), and it leaves the processor to the map. */
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+
+/** Whether a WebGL renderer, as the browser names it, runs on the processor. */
+export function softwareRenderer(name: string): boolean {
+	return SOFTWARE.test(name);
+}
+
+/** The name of the renderer behind a context: Chrome answers "WebKit WebGL" and gives the real one through an extension. */
+function rendererName(gl: WebGL2RenderingContext): string {
+	const named = String(gl.getParameter(gl.RENDERER) ?? '');
+	if (named && named !== 'WebKit WebGL') return named;
+	const info = gl.getExtension('WEBGL_debug_renderer_info');
+	return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) ?? '') : named;
+}
+
 const VERTEX = `#version 300 es
 precision highp float;
 layout(location = 0) in vec2 corner; // x: 0 at the head, 1 at the tail; y: -1 or 1, a side of the line
@@ -82,7 +100,8 @@ export class TrailPainter {
 		this.#onRestore();
 	};
 
-	/** A painter for this canvas, or null when the browser gives no WebGL 2 (the caller then draws on a 2D canvas). */
+	/** A painter for this canvas, or null when the browser gives no WebGL 2, or one that runs on the processor (the caller then
+	 * draws on a 2D canvas). */
 	static make(canvas: HTMLCanvasElement, onRestore: () => void): TrailPainter | null {
 		try {
 			const gl = canvas.getContext('webgl2', {
@@ -95,6 +114,10 @@ export class TrailPainter {
 				preserveDrawingBuffer: navigator.webdriver === true
 			});
 			if (!gl) return null;
+			if (softwareRenderer(rendererName(gl))) {
+				gl.getExtension('WEBGL_lose_context')?.loseContext();
+				return null;
+			}
 			const painter = new TrailPainter(canvas, gl, onRestore);
 			return painter.#build() ? painter : null;
 		} catch {
