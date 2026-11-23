@@ -80,3 +80,61 @@ describe('weather point and TV budgets', () => {
 		expect(fetches).toHaveLength(2);
 	});
 });
+
+describe('radar tile cache', () => {
+	let fetches: string[];
+	let status: number;
+
+	beforeEach(() => {
+		vi.resetModules();
+		fetches = [];
+		status = 200;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: string | URL) => {
+				fetches.push(String(input));
+				return new Response(status === 200 ? new Uint8Array([137, 80, 78, 71]) : null, { status });
+			})
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('asks the API once for the same tile and again for another area, image or position', async () => {
+		const { getRadarTile } = await import('./vigie');
+		const a = await getRadarTile('france', 1000, 6, 33, 22);
+		const b = await getRadarTile('france', 1000, 6, 33, 22);
+		expect(Array.from(a ?? [])).toEqual([137, 80, 78, 71]);
+		expect(b).toEqual(a);
+		expect(fetches).toHaveLength(1);
+		await getRadarTile('antilles', 1000, 6, 33, 22);
+		await getRadarTile('france', 1300, 6, 33, 22);
+		await getRadarTile('france', 1000, 6, 34, 22);
+		expect(fetches).toHaveLength(4);
+	});
+
+	it('answers null for a tile the API does not list, and asks again after a short delay', async () => {
+		vi.useFakeTimers();
+		try {
+			const { getRadarTile } = await import('./vigie');
+			status = 404;
+			expect(await getRadarTile('france', 1, 5, 1, 1)).toBeNull();
+			expect(await getRadarTile('france', 1, 5, 1, 1)).toBeNull();
+			expect(fetches).toHaveLength(1);
+			vi.advanceTimersByTime(21_000);
+			status = 200;
+			expect(await getRadarTile('france', 1, 5, 1, 1)).not.toBeNull();
+			expect(fetches).toHaveLength(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not keep a failure as a tile', async () => {
+		const { ApiError, getRadarTile } = await import('./vigie');
+		status = 500;
+		await expect(getRadarTile('france', 2, 5, 1, 1)).rejects.toBeInstanceOf(ApiError);
+	});
+});

@@ -7,14 +7,12 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ setHeaders }) => {
 	let hazards: HazardsData | null = null;
 	let stale = false;
-	try {
-		const result = await getHazards();
+	// Both are asked together; a failure of the hazards leaves the page without them, a failure of the list of countries goes up.
+	const [result, served] = await Promise.all([getHazards().catch(() => null), servedCodes()]);
+	if (result) {
 		hazards = result.value;
 		stale = result.stale;
-	} catch {
-		hazards = null;
 	}
-	const served = await servedCodes();
 	// The world in events as last read (null before the first reading: the page then asks for it itself).
 	const events = eventsNow();
 	setHeaders({ 'cache-control': 'public, max-age=30, s-maxage=60' });

@@ -14,6 +14,7 @@
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
+	import { pollWhileVisible } from '#lib/pollVisible.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
 	import { ObservedRainLayer } from '#lib/observedRainLayer.svelte.js';
@@ -265,10 +266,7 @@
 		untrack(() => radar.sync());
 	});
 	// An image comes every 5 minutes: the list is asked again then, not before (`RadarLayer.sync` keeps the delay).
-	$effect(() => {
-		const timer = setInterval(() => radar.sync(), 60_000);
-		return () => clearInterval(timer);
-	});
+	$effect(() => pollWhileVisible(() => radar.sync(), 60_000));
 	$effect(() => () => radar.pause());
 
 	// --- the forecast rain (Météo-France ARPEGE/AROME overlays; off until the visitor turns it on) ------------------------------
@@ -279,10 +277,7 @@
 		void rainField.on;
 		untrack(() => rainField.sync());
 	});
-	$effect(() => {
-		const timer = setInterval(() => rainField.sync(), 60_000);
-		return () => clearInterval(timer);
-	});
+	$effect(() => pollWhileVisible(() => rainField.sync(), 60_000));
 	const rainFieldMarks = $derived.by(() => {
 		const classes = rainField.field?.legend ?? [];
 		const n = classes.length;
@@ -297,10 +292,7 @@
 		void observedRain.on;
 		untrack(() => observedRain.sync());
 	});
-	$effect(() => {
-		const timer = setInterval(() => observedRain.sync(), 60_000);
-		return () => clearInterval(timer);
-	});
+	$effect(() => pollWhileVisible(() => observedRain.sync(), 60_000));
 	const observedRainMarks = $derived.by(() => {
 		const classes = observedRain.data?.legend ?? [];
 		const n = classes.length;
@@ -325,10 +317,7 @@
 		untrack(() => wind.sync());
 	});
 	// A new observation comes every 6 minutes: `WindLayer.sync` asks again then, not before.
-	$effect(() => {
-		const timer = setInterval(() => wind.sync(), 60_000);
-		return () => clearInterval(timer);
-	});
+	$effect(() => pollWhileVisible(() => wind.sync(), 60_000));
 	// --- the forecast wind (Météo-France's models, drawn as trails; off until the visitor turns it on, kept in this browser) -----
 	const flow = new WindFieldLayer();
 	onMount(() => flow.restore());
@@ -339,10 +328,7 @@
 		untrack(() => flow.sync());
 	});
 	// The list of the hour is asked again every 10 minutes and when the hour turns (`WindFieldLayer.sync` keeps the delays).
-	$effect(() => {
-		const timer = setInterval(() => flow.sync(), 60_000);
-		return () => clearInterval(timer);
-	});
+	$effect(() => pollWhileVisible(() => flow.sync(), 60_000));
 	const flowSpeed = (kmh: number) =>
 		tr('wind.speed', {
 			value: String(windValue(kmh, wind.unit)),
@@ -660,7 +646,8 @@
 		if (!world) void loadWorld();
 		void loadPlaces();
 		const tick = setInterval(() => (now = Math.floor(Date.now() / 1000)), 60_000);
-		const refresh = setInterval(async () => {
+		// Only while the tab is on screen; back from the background, the list is asked at once if it is a minute old.
+		const stopRefresh = pollWhileVisible(async () => {
 			try {
 				const r = await fetch('/data/hazards.json');
 				if (!r.ok) return;
@@ -675,7 +662,7 @@
 		}, 60_000);
 		return () => {
 			clearInterval(tick);
-			clearInterval(refresh);
+			stopRefresh();
 		};
 	});
 </script>

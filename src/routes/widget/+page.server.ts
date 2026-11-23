@@ -12,6 +12,7 @@ import {
 	getTides,
 	servedCodes
 } from '#lib/server/vigie.js';
+import type { Lang } from '#lib/i18n.js';
 import type { PageServerLoad } from './$types';
 
 export interface WidgetPageData {
@@ -38,25 +39,32 @@ async function settled<T>(call: Promise<T>): Promise<T | undefined> {
 export const load: PageServerLoad = async ({ url, locals, setHeaders }): Promise<WidgetPageData> => {
 	const params = parseWidgetParams(url.searchParams);
 	setHeaders({ 'cache-control': 'no-cache', 'x-robots-tag': 'noindex, nofollow' });
-	const served = (await settled(servedCodes())) ?? [];
-	if (!params.spot) return { params, served, spot: { status: 'none', screen: null } };
+	// The list of countries and the spot's data do not wait for each other.
+	const [served, spot] = await Promise.all([
+		settled(servedCodes()).then((codes) => codes ?? []),
+		params.spot
+			? widgetSpot(params.spot, locals.lang)
+			: Promise.resolve({ status: 'none' as const, screen: null })
+	]);
+	return { params, served, spot };
+};
 
+async function widgetSpot(spotId: string, lang: Lang): Promise<WidgetPageData['spot']> {
 	const [activities, forecast] = await Promise.all([
-		settled(getActivities(params.spot)),
-		settled(getSurfForecast(params.spot))
+		settled(getActivities(spotId)),
+		settled(getSurfForecast(spotId))
 	]);
 	// null is the API saying that it does not know the spot; undefined is the API not answering.
-	if (activities === null || forecast === null)
-		return { params, served, spot: { status: 'unknown', screen: null } };
+	if (activities === null || forecast === null) return { status: 'unknown', screen: null };
 	const spot: SurfSpot | undefined = activities?.value.spot ?? forecast?.value.spot;
-	if (!spot) return { params, served, spot: { status: 'unavailable', screen: null } };
+	if (!spot) return { status: 'unavailable', screen: null };
 	const [tide, sky] = await Promise.all([
 		settled(getTides(spot.lat, spot.lon)),
 		settled(getPoint(spot.lat, spot.lon, true))
 	]);
 	const screen = buildScreen({
 		now: Math.floor(Date.now() / 1000),
-		lang: locals.lang,
+		lang,
 		params: { ...TV_DEFAULTS, panels: [...TV_DEFAULTS.panels], spot: spot.id },
 		spot,
 		activities: activities ?? null,
@@ -64,9 +72,9 @@ export const load: PageServerLoad = async ({ url, locals, setHeaders }): Promise
 		tide: tide ?? null,
 		sky: sky ?? null
 	});
-	if (locals.lang === 'fr') {
+	if (lang === 'fr') {
 		for (const a of screen.activities) a.slot = a.slot && frenchClock(a.slot);
 		for (const e of screen.tide?.next ?? []) e.time = frenchClock(e.time);
 	}
-	return { params, served, spot: { status: 'ok', screen } };
-};
+	return { status: 'ok', screen };
+}

@@ -19,23 +19,27 @@ export async function placeContext(): Promise<PlaceContext> {
 	let hazardsAttribution: string | null = null;
 	let hazardsDisclaimer: string | null = null;
 	let apiDown = false;
-	try {
-		const { value } = await getHazards();
-		hazards = value.items;
-		hazardsAttribution = value.attribution;
-		hazardsDisclaimer = value.disclaimer;
-	} catch (e) {
-		if (!(e instanceof ApiError)) throw e;
-		apiDown = true;
-	}
-	const served = await servedCodes();
-	// Why a country has no source, as the API says it (none when it cannot tell).
 	let uncovered: UncoveredCountry[] = [];
-	try {
-		uncovered = (await getUncovered()).value;
-	} catch (e) {
-		if (!(e instanceof ApiError)) throw e;
-	}
+	// The three calls do not depend on each other: they go together. An API that does not answer is handled for
+	// the hazards and for the reasons (the page says so); any other error goes up, as before.
+	const [hazardsResult, served, uncoveredResult] = await Promise.all([
+		getHazards().catch((e: unknown) => {
+			if (!(e instanceof ApiError)) throw e;
+			return null;
+		}),
+		servedCodes(),
+		// Why a country has no source, as the API says it (none when it cannot tell).
+		getUncovered().catch((e: unknown) => {
+			if (!(e instanceof ApiError)) throw e;
+			return null;
+		})
+	]);
+	if (hazardsResult) {
+		hazards = hazardsResult.value.items;
+		hazardsAttribution = hazardsResult.value.attribution;
+		hazardsDisclaimer = hazardsResult.value.disclaimer;
+	} else apiDown = true;
+	if (uncoveredResult) uncovered = uncoveredResult.value;
 	return {
 		hazards,
 		hazardsAttribution,
