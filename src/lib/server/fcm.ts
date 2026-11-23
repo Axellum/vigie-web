@@ -109,7 +109,7 @@ export function fcmMessage(token: string, message: PushMessage): Record<string, 
 		message: {
 			token,
 			notification: { title: message.title, body: message.body },
-			data: { url: message.url, tag: message.tag },
+			data: { url: message.url, tag: message.tag, ...(message.place ? { place: message.place } : {}) },
 			android: {
 				// An alert that waited a day on a phone that was off is no longer news (as for Web Push).
 				ttl: '86400s',

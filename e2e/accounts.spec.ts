@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createECDH, randomBytes, type ECDH } from 'node:crypto';
 import { createRequire } from 'node:module';
 import postgres from 'postgres';
-import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 
 // Accounts: invitation, passkey, sign-in, export, deletion, notifications. The passkeys are made by Chromium's
 // virtual authenticator; the invitations by the script the owner uses (scripts/invite.mjs), on the test
@@ -1257,4 +1257,150 @@ test('"My page" on a screen: a private link is made and shown once, opens the pa
 	await expect(page.getByText('Lien révoqué.')).toBeVisible();
 	const gone = await page.request.get(address);
 	expect(gone.status()).toBe(404);
+});
+
+// The bells of the Android app, without an account (/account/app/device): a device registers with its places and
+// gets a secret, a test reaches it through FCM (e2e/mock-push.mjs), an alert in force at one of its places is kept as
+// the baseline and then told once, the device changes its places with its secret, and it is forgotten when it asks or
+// when FCM no longer knows it. The red warning of the recorded answers is over Haute-Corse: the place is Corte. In this
+// file, so that it runs one at a time with the other specs that write to the test database.
+const corte = { name: 'Corte', lat: 42.3061, lon: 9.1503, radiusKm: 10, minLevel: 'RED' };
+const lorient = { name: 'Lorient', lat: 47.7483, lon: -3.3702, minLevel: 'RED' };
+type FcmMessage = {
+	token: string;
+	notification: { title: string; body: string };
+	data: { url: string; tag: string; place?: string };
+	android: { notification: { tag: string; channel_id: string } };
+};
+
+async function messages(request: APIRequestContext, token: string): Promise<FcmMessage[]> {
+	const all = (await (await request.get(`${PUSH}/received`)).json()) as Received[];
+	return all
+		.filter((r) => r.path === `/fcm/${token}`)
+		.map((r) => JSON.parse(Buffer.from(r.body, 'base64').toString('utf-8')).message as FcmMessage);
+}
+
+test('the app without an account: a device, its places, a test, an alert told once, then forgotten', async ({
+	request
+}) => {
+	const device = '/account/app/device';
+	const token = `app:APA91b${randomBytes(48).toString('base64url')}`;
+	// The app always says it sends JSON, a body or not: SvelteKit refuses a write without a type from elsewhere.
+	const auth = (secret: string) => ({
+		...PROXY,
+		'content-type': 'application/json',
+		authorization: `Bearer ${secret}`
+	});
+
+	// Only a registration token and places the server can keep.
+	expect((await request.post(device, { data: { token: 'not a token' }, headers: PROXY })).status()).toBe(400);
+	const many = Array.from({ length: 11 }, (_, i) => ({ ...lorient, lat: 40 + i }));
+	expect((await request.post(device, { data: { token, places: many }, headers: PROXY })).status()).toBe(400);
+
+	const registered = await request.post(device, {
+		data: { token, lang: 'fr', timeZone: 'Europe/Paris', places: [corte, lorient] },
+		headers: PROXY
+	});
+	expect(registered.status()).toBe(201);
+	expect(registered.headers()['cache-control']).toContain('no-store');
+	const { secret } = (await registered.json()) as { secret: string };
+	expect(secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+	// Nothing changes without the secret.
+	expect((await request.put(device, { data: { token, places: [] }, headers: PROXY })).status()).toBe(401);
+	expect(
+		(await request.put(device, { data: { token, places: [] }, headers: auth('x'.repeat(43)) })).status()
+	).toBe(401);
+
+	// The test notification: shown by Android, on the channel of the other alerts.
+	const tested = await request.post(`${device}/test`, { headers: auth(secret) });
+	expect(await tested.json()).toEqual({ sent: 1, failed: 0 });
+	const [first] = await messages(request, token);
+	expect(first.notification).toEqual({
+		title: 'Vigie · notification d’essai',
+		body: 'Les alertes de vos lieux arriveront comme celle-ci.'
+	});
+	expect(first.data).toEqual({ url: '/', tag: 'test' });
+	expect(first.android.notification.channel_id).toBe('vigie-alerts');
+
+	const sql = postgres(DATABASE_URL, { max: 1 });
+	try {
+		const [{ id }] = await sql`select id from app_devices where fcm_token = ${token}`;
+		const places =
+			await sql`select name, lat, lon, radius_km from zones where device_id = ${id} order by name`;
+		// The points are kept to about 1 km.
+		expect(places.map((p) => ({ ...p }))).toEqual([
+			{ name: 'Corte', lat: 42.31, lon: 9.15, radius_km: 10 },
+			{ name: 'Lorient', lat: 47.75, lon: -3.37, radius_km: 10 }
+		]);
+
+		// The first comparison is the baseline: the red warning over Corte is kept, not sent.
+		const baselined = async () =>
+			(await sql`select bool_and(baseline_done) as done from zones where device_id = ${id}`)[0].done;
+		await expect.poll(baselined, { timeout: 20_000 }).toBe(true);
+		const baseline = await sql`
+			select a.outcome, a.level, z.name from zone_alerts a join zones z on z.id = a.zone_id
+			where a.device_id = ${id}`;
+		expect(baseline.length).toBeGreaterThan(0);
+		expect(baseline.every((a) => a.outcome === 'baseline' && a.level === 'RED' && a.name === 'Corte')).toBe(
+			true
+		);
+		expect(await messages(request, token)).toHaveLength(1);
+
+		// An alert the place was not told about yet (here, by forgetting the baseline) is sent once, red.
+		await sql`delete from zone_alerts where device_id = ${id}`;
+		const count = async () => (await messages(request, token)).length;
+		await expect.poll(count, { timeout: 20_000 }).toBe(1 + baseline.length);
+		const alert = (await messages(request, token))[1];
+		expect(alert.notification.title).toMatch(/^Rouge · /);
+		expect(alert.notification.body).toBe('Corte');
+		expect(alert.data.url).toMatch(/^\//);
+		expect(alert.data.tag).toMatch(/^w:FR:/);
+		// The place it fell in, for the app to open its warnings.
+		expect(alert.data.place).toBe('42.31,9.15');
+		expect(alert.android.notification.channel_id).toBe('vigie-red');
+		const outcomes = async () =>
+			(await sql`select outcome from zone_alerts where device_id = ${id}`).map((a) => a.outcome);
+		await expect.poll(outcomes).toEqual(baseline.map(() => 'sent'));
+
+		// Not twice: the next runs find nothing new.
+		await new Promise((resolve) => setTimeout(resolve, 6_000));
+		expect(await count()).toBe(1 + baseline.length);
+
+		// Corte taken away: its zone and what it was told go, Lorient stays.
+		const changed = await request.put(device, {
+			data: { token, lang: 'fr', places: [lorient] },
+			headers: auth(secret)
+		});
+		expect(await changed.json()).toEqual({ ok: true });
+		expect((await sql`select name from zones where device_id = ${id}`).map((z) => z.name)).toEqual([
+			'Lorient'
+		]);
+		expect(await sql`select 1 from zone_alerts where device_id = ${id}`).toHaveLength(0);
+
+		// Forgotten when it asks: its secret no longer works. Without a type, the write is refused as a form would be.
+		const untyped = { ...PROXY, authorization: `Bearer ${secret}` };
+		expect((await request.delete(device, { headers: untyped })).status()).toBe(403);
+		expect((await request.delete(device, { headers: auth(secret) })).status()).toBe(200);
+		expect(await sql`select 1 from app_devices where id = ${id}`).toHaveLength(0);
+		expect((await request.delete(device, { headers: auth(secret) })).status()).toBe(401);
+
+		// A token FCM no longer knows (404, UNREGISTERED) is forgotten with its device.
+		const gone = `gone:APA91b${randomBytes(48).toString('base64url')}`;
+		const goneSecret = (
+			(await (
+				await request.post(device, { data: { token: gone, places: [lorient] }, headers: PROXY })
+			).json()) as { secret: string }
+		).secret;
+		expect(await (await request.post(`${device}/test`, { headers: auth(goneSecret) })).json()).toEqual({
+			sent: 0,
+			failed: 1
+		});
+		expect(await sql`select 1 from app_devices where fcm_token = ${gone}`).toHaveLength(0);
+		expect(
+			(await request.put(device, { data: { token: gone, places: [] }, headers: auth(goneSecret) })).status()
+		).toBe(401);
+	} finally {
+		await sql.end();
+	}
 });

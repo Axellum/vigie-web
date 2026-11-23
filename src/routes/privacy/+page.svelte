@@ -13,7 +13,8 @@
 	<h1>{tr('privacy.title')}</h1>
 	{#if lang === 'fr'}
 		<p>
-			Sans compte, Vigie ne garde rien sur vous : voir <a href="/about">À propos</a>. Cette page dit ce que le
+			Sans compte, Vigie ne garde rien sur vous (voir <a href="/about">À propos</a>), sauf si vous allumez la
+			cloche d'un lieu dans l'appli Android : voir <a href="#appli">plus bas</a>. Cette page dit ce que le
 			site garde sur les personnes qui ont un compte. Un compte se crée avec une passkey, sur invitation ou,
 			quand le site est ouvert, sans.
 		</p>
@@ -92,6 +93,22 @@
 			de vous si cela vous gêne. Vous pouvez arrêter les notifications de l'appli depuis votre compte ou dans les
 			réglages d'Android.
 		</p>
+		<h2 id="appli">L'appli Android sans compte</h2>
+		<p>
+			Dans l'appli, la cloche d'un lieu demande les alertes de ce lieu sans compte. Quand une cloche est
+			allumée, le site garde pour votre téléphone : son jeton Firebase Cloud Messaging ; une empreinte
+			(SHA-256) du secret que l'appli a reçu (le secret lui-même reste dans l'appli) ; pour chaque lieu à
+			cloche, son nom, son point arrondi à environ un kilomètre, un rayon et le niveau le plus bas voulu ; la
+			langue, le fuseau horaire et le choix d'heures calmes ; les dates d'ajout, de dernier passage de l'appli
+			et de dernier envoi, et le nombre d'envois échoués de suite ; les alertes qui ont touché ces lieux, 30
+			jours. Rien qui dise qui vous êtes : ni nom, ni compte, ni adresse IP. Les notifications passent par
+			Google comme ci-dessus, avec les noms de vos lieux.
+		</p>
+		<p>
+			Éteindre toutes les cloches efface tout cela tout de suite. Sinon, le téléphone est oublié avec ses
+			lieux quand Google dit que l'appli n'y est plus, après 5 envois échoués de suite, ou après 60 jours sans
+			que l'appli se manifeste.
+		</p>
 		<h2>Combien de temps</h2>
 		<ul>
 			<li>Le compte : jusqu'à ce que vous le supprimiez, ou deux ans sans aucune utilisation.</li>
@@ -134,9 +151,10 @@
 		</p>
 	{:else}
 		<p>
-			Without an account, Vigie keeps nothing about you: see <a href="/about">About</a>. This page says what
-			the site keeps about the people who have an account. An account is made with a passkey, by invitation
-			or, when the site is open, without.
+			Without an account, Vigie keeps nothing about you (see <a href="/about">About</a>), unless you turn on
+			the bell of a place in the Android app: see <a href="#app">below</a>. This page says what the site keeps
+			about the people who have an account. An account is made with a passkey, by invitation or, when the site
+			is open, without.
 		</p>
 		<h2>What is kept</h2>
 		<ul>
@@ -211,6 +229,22 @@
 			app, and it is <b>not</b> encrypted for your device: Google sees its title (the level and title of the alert)
 			and its text (the names of your zones). Choose zone names that say nothing about you if that bothers you.
 			You can stop the app's notifications from your account or in Android's settings.
+		</p>
+		<h2 id="app">The Android app without an account</h2>
+		<p>
+			In the app, the bell of a place asks for the alerts of that place without an account. While a bell is
+			on, the site keeps for your phone: its Firebase Cloud Messaging token; a fingerprint (SHA-256) of the
+			secret the app was given (the secret itself stays in the app); for each place with a bell, its name, its
+			point rounded to about a kilometre, a radius and the lowest level wanted; the language, the time zone
+			and the choice of quiet hours; the dates it was added, last seen from the app and last sent to, and the
+			number of failed sendings in a row; the alerts that fell in these places, 30 days. Nothing that says who
+			you are: no name, no account, no IP address. The notifications go through Google as above, with the
+			names of your places.
+		</p>
+		<p>
+			Turning every bell off erases all this at once. Otherwise the phone is forgotten with its places when
+			Google says the app is no longer there, after 5 failed sendings in a row, or after 60 days without a
+			sign from the app.
 		</p>
 		<h2>For how long</h2>
 		<ul>

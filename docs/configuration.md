@@ -22,6 +22,7 @@ password), `VIGIE_VAPID_PRIVATE_KEY` and the file `VIGIE_FCM_SERVICE_ACCOUNT` na
 | `VIGIE_VAPID_PRIVATE_KEY`        | –                                  | Notifications: the private key that signs them. Secret. Changing the pair makes every device turn notifications on again.                                                    |
 | `VIGIE_VAPID_SUBJECT`            | `ORIGIN` if https                  | Notifications: how a push service can reach the sender (`mailto:` or `https:`); else the project's page.                                                                     |
 | `VIGIE_FCM_SERVICE_ACCOUNT`      | –                                  | Notifications of the Android app: the path of the JSON key of a Firebase service account (Firebase Cloud Messaging). Secret. Unset: nothing is sent to the app.              |
+| `VIGIE_MAX_APP_DEVICES`          | `5000`                             | The phones of the Android app that may follow places without an account (the bells, see below); at the ceiling a new one is refused (503).                                   |
 | `VIGIE_MATCH_INTERVAL_S`         | `120`                              | Seconds between two comparisons of the zones with the alerts in force (5 at least).                                                                                          |
 | `VIGIE_PUSH_EXTRA_HOSTS`         | –                                  | Tests only: hosts (`host:port`, comma-separated) accepted as push services besides the browsers' (the end-to-end tests' mock).                                               |
 | `VIGIE_FCM_BASE_URL`             | `https://fcm.googleapis.com`       | Tests only: where the messages to the app are posted (the end-to-end tests' mock).                                                                                           |
@@ -130,3 +131,26 @@ For the app: in the Firebase console of the project, Project settings, Service a
 key". Keep the file outside the repository, mount it in the container as a secret, and point
 `VIGIE_FCM_SERVICE_ACCOUNT` at it. The server signs a JWT with it and trades it for an access token of one hour
 (`src/lib/server/fcm.ts`, without the Firebase SDK).
+
+### The app's bells, without an account
+
+With `DATABASE_URL` and `VIGIE_FCM_SERVICE_ACCOUNT`, the Android app can also follow its own places without an
+account: the bell of a place. The app registers its FCM token and its places at `/account/app/device` (JSON; under
+`/account` because the proxy lets only that path write) and gets a secret back, shown once and kept as a SHA-256.
+Every request says `Content-Type: application/json`, even without a body (a test, a removal): SvelteKit refuses a
+write from another origin without a type, as it would a form.
+
+| Request                         | What it does                                                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /account/app/device`      | Registers `{token, lang, timeZone, quietHours, places}` and answers `{secret}` (201). The same token again replaces the phone it was. |
+| `PUT /account/app/device`       | The same body, with `Authorization: Bearer <secret>`: the places now (401 when the secret is unknown: register again).                |
+| `DELETE /account/app/device`    | Forgets the phone, its places and their history (when every bell is off).                                                             |
+| `POST /account/app/device/test` | A test notification (10 an hour for a phone).                                                                                         |
+
+A place is `{name, lat, lon, radiusKm?, minLevel?}`: the point is kept to two decimals (about 1 km), the radius is
+one of the zones' (10 km when none is given), the level `YELLOW` by default; 10 places at most. Each place is a
+circle zone of the phone, compared and told like the zones of an account (the same rules as above; every kind of
+alert but the solar storms; the notification's text is the name of the place, and its data names the place's point, `place: "lat,lon"`, for the app to open its warnings). A place kept as it was keeps its baseline; one
+that moved or changed level is compared again without notifying. One address may register 30 new phones an hour;
+`VIGIE_MAX_APP_DEVICES` caps them all. A phone the app has not shown for 60 days is forgotten with its places: the
+app sends its places again at least once a day.

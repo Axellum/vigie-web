@@ -10,6 +10,7 @@ import zoneProfile from './migrations/005_zone_profile.sql?raw';
 import personalPage from './migrations/006_personal_page.sql?raw';
 import recoveryCodes from './migrations/007_recovery_codes.sql?raw';
 import tvPairing from './migrations/008_tv_pairing.sql?raw';
+import appDevices from './migrations/009_app_devices.sql?raw';
 
 const MIGRATIONS = [
 	{ id: '001_accounts', sql: accounts },
@@ -19,7 +20,8 @@ const MIGRATIONS = [
 	{ id: '005_zone_profile', sql: zoneProfile },
 	{ id: '006_personal_page', sql: personalPage },
 	{ id: '007_recovery_codes', sql: recoveryCodes },
-	{ id: '008_tv_pairing', sql: tvPairing }
+	{ id: '008_tv_pairing', sql: tvPairing },
+	{ id: '009_app_devices', sql: appDevices }
 ];
 
 export type Sql = postgres.Sql;

@@ -22,5 +22,6 @@ export const variables = defineEnvVars({
 	VIGIE_TV_POINT_LOOKUPS_PER_DAY: { schema: (input) => input },
 	VIGIE_SIGNUP: { schema: (input) => input },
 	VIGIE_MAX_ACCOUNTS: { schema: (input) => input },
-	VIGIE_SIGNUPS_PER_DAY: { schema: (input) => input }
+	VIGIE_SIGNUPS_PER_DAY: { schema: (input) => input },
+	VIGIE_MAX_APP_DEVICES: { schema: (input) => input }
 });
