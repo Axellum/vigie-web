@@ -80,6 +80,7 @@ export class WindLayer {
 	/** Ask the view's list when it is missing, when the map left the box read, or when it is old. Call it from an effect. */
 	sync() {
 		if (!this.#on || !this.#view || this.status === 'loading') return;
+		if (typeof document !== 'undefined' && document.hidden) return;
 		const now = Date.now();
 		if (this.status === 'failed' && now - this.#failedAt < RETRY_MS) return;
 		const loaded = this.#loaded;

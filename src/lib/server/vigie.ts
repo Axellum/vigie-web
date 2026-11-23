@@ -179,6 +179,9 @@ const tideCache = new TtlCache(Date.now, 15_000, 2000);
 const windFieldImages = new TtlCache(Date.now, 15_000, 6);
 // Forecast rain overlays (9-23 kB each): keep up to 24 recent level/stamp images in memory.
 const rainFieldImages = new TtlCache(Date.now, 15_000, 24);
+// Tiles of the rain radar (256x256 PNG, a few kB each): a tile of an image never changes, and every visitor on the same
+// area asks for the same ones; the 400 most recent are kept (a few MB at most).
+const radarTiles = new TtlCache(Date.now, 15_000, 400);
 // Global observed satellite precipitation tiles (256x256 PNG): keep up to 256 recent tiles in memory.
 const observedRainTiles = new TtlCache(Date.now, 15_000, 256);
 /**
@@ -530,19 +533,27 @@ export async function getRadarTile(
 	x: number,
 	y: number
 ): Promise<Uint8Array | null> {
-	let response: Response;
-	try {
-		response = await fetch(apiUrl(`/v1/radar/${area}/tiles/${epoch}/${z}/${x}/${y}.png`), {
-			headers: { accept: 'image/png' },
-			signal: AbortSignal.timeout(15_000)
-		});
-	} catch (error) {
-		throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
-	}
-	if (response.status === 404) return null;
-	if (!response.ok)
-		throw new ApiError(`Vigie API answered ${response.status} for a radar tile`, response.status);
-	return new Uint8Array(await response.arrayBuffer());
+	// The whole address is the key; a tile the API does not list (404) is asked again after a short delay, not kept a day.
+	const cached = await radarTiles.get(
+		`${area}:${epoch}:${z}:${x}:${y}`,
+		imageTtl(TTL_S.radarTile),
+		async () => {
+			let response: Response;
+			try {
+				response = await fetch(apiUrl(`/v1/radar/${area}/tiles/${epoch}/${z}/${x}/${y}.png`), {
+					headers: { accept: 'image/png' },
+					signal: AbortSignal.timeout(15_000)
+				});
+			} catch (error) {
+				throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+			}
+			if (response.status === 404) return null;
+			if (!response.ok)
+				throw new ApiError(`Vigie API answered ${response.status} for a radar tile`, response.status);
+			return new Uint8Array(await response.arrayBuffer());
+		}
+	);
+	return cached.value;
 }
 
 /** PIAF +1h rain nowcast frames over metropolitan France (`/v1/radar/france/nowcast`); null when unavailable or absent. */

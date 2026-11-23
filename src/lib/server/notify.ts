@@ -67,6 +67,26 @@ const notifiable = (level: unknown): Notifiable | null => {
 	return l && l !== 'GREEN' ? l : null;
 };
 
+const COUNTRY_CONCURRENCY = 4;
+
+/** `fn` on every item, at most `limit` at a time; the results come back in the order of the items. */
+export async function mapLimit<T, R>(
+	items: readonly T[],
+	limit: number,
+	fn: (item: T) => Promise<R>
+): Promise<R[]> {
+	const out = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			out[i] = await fn(items[i]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return out;
+}
+
 /** The alerts in force, as the site's cache has them; `complete` is false when a source could not be read. */
 export async function collectAlerts(countries: string[]): Promise<{ alerts: Alert[]; complete: boolean }> {
 	const alerts: Alert[] = [];
@@ -91,16 +111,18 @@ export async function collectAlerts(countries: string[]): Promise<{ alerts: Aler
 	} catch {
 		complete = false;
 	}
-	for (const cc of countries) {
+	// The countries go together, a few at a time (the API answers each from its own cache); the alerts keep the order of `countries`.
+	const perCountry = await mapLimit(countries, COUNTRY_CONCURRENCY, async (cc) => {
+		const found: Alert[] = [];
 		try {
 			const result = await getWarnings(cc);
-			if (!result) continue;
+			if (!result) return { found, ok: true };
 			const { shapes, warnings } = result.value.data;
 			for (const w of warnings as WarningSummary[]) {
 				const level = notifiable(w.level);
 				if (!level) continue;
 				const geometry = w.shape ? (shapes[w.shape] ?? null) : null;
-				alerts.push({
+				found.push({
 					key: `w:${w.cc}:${w.id}`,
 					kind: 'VIGILANCE',
 					level,
@@ -112,9 +134,14 @@ export async function collectAlerts(countries: string[]): Promise<{ alerts: Aler
 					title: (lang) => warningTitle(w, lang)
 				});
 			}
+			return { found, ok: true };
 		} catch {
-			complete = false;
+			return { found: [], ok: false };
 		}
+	});
+	for (const r of perCountry) {
+		alerts.push(...r.found);
+		if (!r.ok) complete = false;
 	}
 	return { alerts, complete };
 }
