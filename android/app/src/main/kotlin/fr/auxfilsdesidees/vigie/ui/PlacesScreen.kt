@@ -59,12 +59,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.Bell
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Geo
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
+import fr.auxfilsdesidees.vigie.notify.PhoneAccount
 import fr.auxfilsdesidees.vigie.notify.VigieNotifications
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import kotlinx.coroutines.launch
@@ -110,6 +112,31 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
     } else {
       denied = false
       viewModel.setBell(index, bell)
+    }
+  }
+
+  // The account: the same permission before a code is asked.
+  val account: AccountViewModel? =
+    if (canNotify) viewModel { AccountViewModel(PhoneAccount.linking(context.applicationContext), PhoneAccount::describe) } else null
+  val accountUi = account?.ui?.collectAsStateWithLifecycle()
+  var accountDenied by rememberSaveable { mutableStateOf(false) }
+  val askForAccount =
+    rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+      accountDenied = !ok
+      if (ok) {
+        VigieNotifications.makeChannels(context)
+        account?.begin()
+      }
+    }
+  LaunchedEffect(account) { account?.open() }
+
+  fun link() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !VigieNotifications.allowed(context)) {
+      askForAccount.launch(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+      accountDenied = false
+      VigieNotifications.makeChannels(context)
+      account?.begin()
     }
   }
 
@@ -168,6 +195,17 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
 
     if (canNotify) {
       NotificationsSection(bells, choices.belled.size, denied, viewModel::testBell)
+      if (account != null && accountUi != null) {
+        AccountSection(
+          accountUi.value,
+          accountDenied,
+          onLink = ::link,
+          onPoll = account::poll,
+          onCancel = account::cancel,
+          onUnlink = account::unlink,
+          onTest = account::test,
+        )
+      }
       bellFor?.let { i ->
         choices.places.getOrNull(i)?.let { f -> BellDialog(f.place.name, f.bell, onChoose = { chooseBell(i, it) }, onClose = { bellFor = null }) }
       }

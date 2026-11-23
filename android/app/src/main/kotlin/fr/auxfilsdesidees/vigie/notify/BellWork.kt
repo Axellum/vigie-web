@@ -33,7 +33,7 @@ object PhoneBells {
   private const val NOW = "vigie-bells"
   private const val DAILY = "vigie-bells-daily"
 
-  private fun prefs(context: Context): KeyValue {
+  internal fun prefs(context: Context): KeyValue {
     val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     return object : KeyValue {
       override fun read(key: String): String? = p.getString(key, null)
@@ -43,7 +43,7 @@ object PhoneBells {
   }
 
   /** The site that keeps the bells: the public one, or a local one a debug build was started with (loopback only). */
-  private fun siteUrl(context: Context): String {
+  internal fun siteUrl(context: Context): String {
     val debug = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     return prefs(context).read(KEY_SITE)?.takeIf { debug && it.isNotEmpty() } ?: VigieRepository.BASE_URL
   }

@@ -9,8 +9,9 @@ The user chooses the places and their spots; two home screen widgets show one of
 - Data: `GET /v1/point`, `GET /v1/vigilances?lat&lon&lang=fr,en`, `GET /v1/activities/overview` and
   `GET /v1/activities/{spot}?days=3` (the first spot) of `https://vigie.auxfilsdesidees.fr`, and the site's place search
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search). Nothing is sent but the search typed and the coordinates of the places; the choices stay
-  on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is the one
-  exception: its name and point go to the site, with the phone's notification address.
+  on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
+  exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
+  (below) is the other: the site keeps its notification address with the account.
 - Places and spots: the first launch asks for a place (search, or the phone's approximate position rounded to about
   1 km, asked only when touched), then offers the nearest spots, those within 60 km ticked (three at most). Later, the
   gear of the home tab opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
@@ -58,6 +59,15 @@ The user chooses the places and their spots; two home screen widgets show one of
   once a day while a bell is on (the site forgets a phone it has not heard of for 60 days). The part « Notifications »
   of the same page says what the site keeps, sends a test and opens Android's settings of the app's notifications
   (sound, vibration, each category).
+- Linked to an account: the part « Compte Vigie » of the same page links the app to an account of the site, so the
+  phone also gets the alerts of the account's zones. « Relier à mon compte » asks the permission, then a code
+  (`/account/app/link` with the Firebase token, see the site's `docs/configuration.md`) and shows it; the person enters
+  it on the account page, part Notifications, from any device, or « Ouvrir la page du compte » opens
+  `/account#link=CODE`, which fills it in. While the code is shown and the page is on screen, the app asks every 3
+  seconds whether it was entered, and picks up its own secret once it is. Then the part shows the account's name, its
+  zones and their lowest level, the quiet hours, a test and « Délier ». The account is read again when the page opens;
+  a phone removed on the account page shows unlinked. A new Firebase token is given to the site in the background
+  (WorkManager).
 - Colours and words follow the visual charter shared by the Vigie tools (sky gradient, dark glass cards, one colour per
   meaning, a word always next to a colour).
 
@@ -95,7 +105,7 @@ adb reverse tcp:4174 tcp:4174
 adb shell am start -S -n fr.auxfilsdesidees.vigie/.MainActivity --es vigie_site_url http://127.0.0.1:4174
 ```
 
-The bells go there until the next start without the extra. `--ez vigie_debug_token true` asks the permission and
+The bells and the account link go there until the next start without the extra. `--ez vigie_debug_token true` asks the permission and
 writes the phone's token in the log (tag `VigieNotify`), to send it a message by hand.
 
 ### Trying an API that is not deployed
@@ -135,6 +145,10 @@ not serve it).
 | `ui/BellsSection.kt` | the bell of each place, its four choices, and the part « Notifications » of that page |
 | `notify/Bells.kt` | what the site is told about the bells, the requests, the sync; the place a notification names (tested on the JVM) |
 | `notify/BellWork.kt` | the sync run by the page, again in the background when it failed, and once a day |
+| `ui/AccountSection.kt` | the part « Compte Vigie »: the code, the account's name and zones, a test, « Délier » |
+| `ui/AccountViewModel.kt` | the link seen from that part: one talk with the site at a time, what to say after each action |
+| `notify/AccountLink.kt` | the link to an account: the requests, the code, the secret and the last account kept (tested on the JVM) |
+| `notify/AccountWork.kt` | the link over the app's preferences; a new token given to the site in the background |
 | `notify/VigieNotifications.kt` | the two categories, the Firebase token, a message shown while the app is open |
 | `notify/VigieMessagingService.kt` | the messages and the new tokens of Firebase Cloud Messaging |
 | `ui/Locator.kt` | the phone's approximate position, from the system's own providers |

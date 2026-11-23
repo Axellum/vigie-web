@@ -15,6 +15,8 @@ class VigieMessagingService : FirebaseMessagingService() {
     VigieNotifications.remember(this, token)
     // A new token: the server of the bells must send to it from now on.
     if (AppData.places(this).load().belled.isNotEmpty()) PhoneBells.later(this)
+    // And the account the phone is linked to, if it is.
+    if (PhoneAccount.linked(this)) PhoneAccount.later(this)
   }
 
   override fun onMessageReceived(message: RemoteMessage) {

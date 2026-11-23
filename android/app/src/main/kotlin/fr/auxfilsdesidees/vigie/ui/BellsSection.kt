@@ -185,13 +185,13 @@ internal fun NotificationsSection(bells: BellsUi, belled: Int, denied: Boolean, 
 }
 
 @Composable
-private fun Line(text: String, color: Color) {
+internal fun Line(text: String, color: Color) {
   Text(text, color = color, style = MaterialTheme.typography.bodyMedium)
 }
 
 /** A round outlined button of the sketch (« Envoyer un essai », « Son et vibreur »), 48 dp high. */
 @Composable
-private fun GhostButton(label: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun GhostButton(label: String, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
   val shape = RoundedCornerShape(50)
   Box(
     modifier
