@@ -76,6 +76,16 @@ export class TtlCache {
 		return current.pending;
 	}
 
+	/** Put a value read elsewhere in the cache, as if `get` had loaded it now (a refresh made ahead of the expiry). */
+	put<T>(key: string, value: T, ttlMs: number): void {
+		const now = this.now();
+		const entry: Entry<T> = { value, fetchedAt: now, expiresAt: now + ttlMs, stale: false };
+		// Re-inserted last, so that the eviction (oldest first) keeps what was just refreshed.
+		this.entries.delete(key);
+		this.entries.set(key, entry as Entry<unknown>);
+		this.evict();
+	}
+
 	/** The last value of a key, however old, without asking for it again; null when there is none. */
 	peek<T>(key: string): Cached<T> | null {
 		const entry = this.entries.get(key) as Entry<T> | undefined;

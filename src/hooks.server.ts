@@ -5,6 +5,7 @@ import { VIGIE_MATCH_INTERVAL_S } from '$app/env/private';
 import { cleanUp } from '#lib/server/accounts.js';
 import { accountsEnabled, db } from '#lib/server/db.js';
 import { matchAndNotify } from '#lib/server/notify.js';
+import { startWarming } from '#lib/server/warm.js';
 import { allow } from '#lib/server/ratelimit.js';
 import { applySecurityHeaders } from '#lib/server/securityHeaders.js';
 import { lowerCasePath } from '#lib/seo.js';
@@ -45,6 +46,9 @@ export const init: ServerInit = async () => {
 	};
 	setInterval(match, matchInterval()).unref();
 	setTimeout(match, 5_000).unref();
+
+	// The weather of the places the server knows, kept warm (off unless VIGIE_WARM_PLACES=1; one pass at a time).
+	startWarming(db);
 };
 
 function chooseLang(event: Parameters<Handle>[0]['event']): Lang {

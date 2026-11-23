@@ -17,6 +17,9 @@ password), `VIGIE_VAPID_PRIVATE_KEY` and the file `VIGIE_FCM_SERVICE_ACCOUNT` na
 | `DATABASE_POOL_MAX`              | `5`                                | Connections the site keeps open to the database.                                                                                                                             |
 | `VIGIE_POINT_LOOKUPS_PER_DAY`    | `200`                              | Weather requests of the "near me" page and anonymous point queries that may reach the API in 24 hours (cache misses); `0` turns them off. See below.                         |
 | `VIGIE_ME_POINT_LOOKUPS_PER_DAY` | `1000`                             | Daily pool of `/data/point.json` lookups reserved for signed-in accounts on "My page" (`/me`), capped at 500 per account/day; `0` turns them off.                            |
+| `VIGIE_WARM_PLACES`              | –                                  | `1` keeps the weather of the places the server knows warm (see "Warming the known places" below). Off unless set.                                                            |
+| `VIGIE_WARM_MAX_CELLS`           | `20`                               | Warming: the most grid cells (0.05°) kept warm, the most followed first; `0` turns it off.                                                                                   |
+| `VIGIE_WARM_LOOKUPS_PER_DAY`     | `2200`                             | Warming: the weather requests it may make in 24 hours, a budget of its own apart from the three above; `0` turns it off.                                                     |
 | `VIGIE_PUBLIC_ORIGIN`            | `https://vigie.auxfilsdesidees.fr` | The public address used in canonical links, social previews and `/sitemap.xml` (another address for a copy of the site).                                                     |
 | `VIGIE_VAPID_PUBLIC_KEY`         | –                                  | Notifications: the public key browsers subscribe with (web-push, base64url). Unset, with the private key: no notification.                                                   |
 | `VIGIE_VAPID_PRIVATE_KEY`        | –                                  | Notifications: the private key that signs them. Secret. Changing the pair makes every device turn notifications on again.                                                    |
@@ -48,6 +51,17 @@ part of it for them. The site therefore keeps its own part bounded: Each answer 
 lookups use a separate pool `VIGIE_ME_POINT_LOOKUPS_PER_DAY` (1,000 by default, capped at 500 per account/day). Fresh marine
 and TV cache entries are reused across pools without spending another lookup. Beyond its share, the page says that the weather
 by place is paused; the warnings and hazards are not affected. The count is in memory: a restart starts it again.
+
+## Warming the known places
+
+With `VIGIE_WARM_PLACES=1` the server asks the API ahead of time for the weather of the places it knows, so that the first opening of
+one is quick, on the site and in the Android app (which reads the API's own cache of the same cell): the circle zones that accounts
+and the app's devices follow (the bells, the linked app) and the places an account keeps. Places in the same cell of the weather grid
+(0.05°) are one cell; at most `VIGIE_WARM_MAX_CELLS` cells are kept, the most followed first. A cell is asked again once the site's
+answer has expired (it is kept 15 minutes, as long as the API keeps its own, so the request renews both), one cell at a time, in the same cache entry as a visitor's lookup (so a visitor who asks first
+makes it fresh and no request is made). The cost is at most 96 requests to the API a day for each cell, 1,920 for the default 20 cells;
+`VIGIE_WARM_LOOKUPS_PER_DAY` (2,200) caps them in a budget of its own, so the warming never uses the lookups of `/near` or `/me`, and
+they never use its. The count is in memory: a restart starts it again. No position is written in a log.
 
 ## Television screens
 
