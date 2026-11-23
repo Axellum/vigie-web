@@ -32,6 +32,24 @@ describe('TtlCache', () => {
 		expect((await cache.get('k', 1000, load)).value).toBe(2);
 	});
 
+	it('keeps a value for the time its own TTL gives: an absence is asked again sooner than the thing', async () => {
+		const c = clock();
+		const cache = new TtlCache(c.now);
+		const answers: (string | null)[] = [null, 'image', 'other'];
+		let calls = 0;
+		const load = async () => answers[calls++];
+		const ttl = (value: string | null) => (value ? 60_000 : 1000);
+		expect((await cache.get('k', ttl, load)).value).toBeNull();
+		c.advance(500);
+		expect((await cache.get('k', ttl, load)).value).toBeNull();
+		expect(calls).toBe(1);
+		c.advance(600);
+		expect((await cache.get('k', ttl, load)).value).toBe('image');
+		c.advance(30_000);
+		expect((await cache.get('k', ttl, load)).value).toBe('image');
+		expect(calls).toBe(2);
+	});
+
 	it('serves the last good value, marked stale, when a refresh fails', async () => {
 		const c = clock();
 		const cache = new TtlCache(c.now, 15_000);
