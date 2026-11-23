@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { softwareRenderer } from '../src/lib/windFlowGl';
 
 // The forecast wind of the map (`GET /v1/wind/field` of the API, e2e/fixtures/wind-field.json and its three images: ARPEGE over the
 // world and Europe, AROME over France, run of 2026-11-21 18 UTC, valid at 2026-11-22 00 UTC, 01:00 Paris time). Off until the visitor
@@ -43,6 +44,16 @@ const trails = (page: Page) =>
 		// A canvas that has a WebGL context gives no 2D one.
 		return { inked, print, webgl: c.getContext('2d') === null };
 	});
+/** Whether this browser's WebGL 2 runs on a graphics card: there it draws the trails; a renderer on the processor (a test
+ * runner without a graphics card) leaves them to the 2D canvas ($lib/windFlowGl). */
+const graphicsCard = async (page: Page) =>
+	!softwareRenderer(
+		await page.evaluate(() => {
+			const gl = document.createElement('canvas').getContext('webgl2');
+			const info = gl?.getExtension('WEBGL_debug_renderer_info');
+			return gl && info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : 'software';
+		})
+	);
 
 test('off at first, then moving trails over the world with the hour and the credit, finer grids close in', async ({
 	page
@@ -62,7 +73,7 @@ test('off at first, then moving trails over the world with the hour and the cred
 	await expect(page.locator('.credits')).toContainText('forecast models AROME (France) and ARPEGE');
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
 	expect(images).toEqual(['/data/wind-field/world/2026112200-2026112118.png']);
-	expect((await trails(page)).webgl).toBe(true);
+	expect((await trails(page)).webgl).toBe(await graphicsCard(page));
 
 	// The trails move, and lie over the map's canvas, under its markers (which come after them in the page).
 	const before = await trails(page);
