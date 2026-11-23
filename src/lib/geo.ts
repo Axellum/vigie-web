@@ -90,3 +90,25 @@ export function geometryBox(geometry: {
 	} else visit(geometry.coordinates);
 	return Number.isFinite(w) ? [w, s, e, n] : null;
 }
+
+function sameNumbers(a: unknown, b: unknown): boolean {
+	if (!Array.isArray(a) || !Array.isArray(b)) return a === b;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (!sameNumbers(a[i], b[i])) return false;
+	return true;
+}
+
+type AnyGeometry = { type: string; coordinates?: unknown; geometries?: unknown[] };
+
+/** Whether two geometries are the same shape, point for point and in the same order. */
+export function sameGeometry(a: AnyGeometry | null | undefined, b: AnyGeometry | null | undefined): boolean {
+	if (a === b) return true;
+	if (!a || !b || a.type !== b.type) return false;
+	if (a.type === 'GeometryCollection') {
+		const [ga, gb] = [a.geometries ?? [], b.geometries ?? []];
+		return (
+			ga.length === gb.length && ga.every((g, i) => sameGeometry(g as AnyGeometry, gb[i] as AnyGeometry))
+		);
+	}
+	return sameNumbers(a.coordinates, b.coordinates);
+}

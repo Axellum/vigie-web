@@ -11,7 +11,7 @@
 	// The map: OpenFreeMap base map, official warning zones (polygons or river sections) and hazards.
 	// MapLibre (code and stylesheet) is loaded after the page is shown, so that the text of the page comes first.
 	import { onDestroy, onMount } from 'svelte';
-	import type { FeatureCollection } from 'geojson';
+	import type { Feature, FeatureCollection } from 'geojson';
 	import type { Map as MlMap, Marker, GeoJSONSource, ExpressionSpecification } from 'maplibre-gl';
 	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -36,11 +36,14 @@
 	} from '#lib/wind.js';
 	import type { FieldGrid } from '#lib/windField.js';
 	import { WindFlow, type FlowColors } from '#lib/windFlow.js';
+	import { byKey, featureChanges } from '#lib/zoneFeatures.js';
 
 	interface Props {
 		lang: Lang;
 		hazards?: Hazard[];
 		zones?: FeatureCollection;
+		/** The zoom from which the zones are drawn (from the start when not given). */
+		zonesFrom?: number;
 		selected?: Selection | null;
 		frame?: Box | null;
 		globe?: boolean;
@@ -85,6 +88,7 @@
 		lang,
 		hazards = [],
 		zones = { type: 'FeatureCollection', features: [] },
+		zonesFrom = 0,
 		selected = null,
 		frame = null,
 		globe = false,
@@ -140,6 +144,21 @@
 		'GREEN',
 		css('--sev-green'),
 		css('--sev-none')
+	];
+	// The highest level is drawn last, on top, whatever the order of the zones in the source (a zone with no known level over
+	// them all, as the pages sorted them before).
+	const levelOrder: ExpressionSpecification = [
+		'match',
+		['get', 'level'],
+		'RED',
+		4,
+		'ORANGE',
+		3,
+		'YELLOW',
+		2,
+		'GREEN',
+		1,
+		5
 	];
 	const isArea: ExpressionSpecification = [
 		'match',
@@ -474,6 +493,22 @@
 		return firstRadar ?? labelsFrom;
 	}
 
+	// What the `zones` source holds, by key (null: a list without keys, which is only replaced whole).
+	let zonesHeld: Map<string, Feature> | null = null;
+
+	/** Tells the map what changed in the zones: the worker is sent the zones that are new, gone or changed, and builds again only
+	 * the tiles they touch. A list that shares nothing with the one before is sent whole. */
+	function syncZones() {
+		const source = map?.getSource('zones') as GeoJSONSource | undefined;
+		if (!source) return;
+		const next = byKey(zones.features);
+		const changes = zonesHeld && next ? featureChanges(zonesHeld, next) : null;
+		zonesHeld = next;
+		if (changes && !changes.add.length && !changes.remove.length) return;
+		if (changes?.kept) source.updateData({ add: changes.add, remove: changes.remove });
+		else source.setData(zones);
+	}
+
 	function syncObservedRain() {
 		if (!map || !overlayAdded) return;
 		const nextKey = observedRain ? `${observedRain.id}|${observedRain.tiles}` : null;
@@ -592,7 +627,9 @@
 		// between them at world scale).
 		if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', css('--map-land'));
 		if (map.getLayer('water')) map.setPaintProperty('water', 'fill-color', css('--map-water'));
-		map.addSource('zones', { type: 'geojson', data: zones });
+		// The key of a zone is its identifier in the source: what `updateData` needs to change one zone.
+		map.addSource('zones', { type: 'geojson', data: zones, promoteId: 'key' });
+		zonesHeld = byKey(zones.features);
 		map.addSource('quakes', { type: 'geojson', data: quakes() });
 		map.addSource('place', { type: 'geojson', data: placeData() });
 		map.addSource('forecast', { type: 'geojson', data: forecastData() });
@@ -654,22 +691,27 @@
 			id: 'zone-fill',
 			type: 'fill',
 			source: 'zones',
+			minzoom: zonesFrom,
 			filter: isArea,
+			layout: { 'fill-sort-key': levelOrder },
 			paint: { 'fill-color': levelColor('level'), 'fill-opacity': 0.4 }
 		});
 		addUnderRain({
 			id: 'zone-outline',
 			type: 'line',
 			source: 'zones',
+			minzoom: zonesFrom,
 			filter: isArea,
+			layout: { 'line-sort-key': levelOrder },
 			paint: { 'line-color': levelColor('level'), 'line-width': 0.9 }
 		});
 		addUnderRain({
 			id: 'zone-river',
 			type: 'line',
 			source: 'zones',
+			minzoom: zonesFrom,
 			filter: isLine,
-			layout: { 'line-cap': 'round', 'line-join': 'round' },
+			layout: { 'line-cap': 'round', 'line-join': 'round', 'line-sort-key': levelOrder },
 			paint: {
 				'line-color': levelColor('level'),
 				'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 9, 6]
@@ -679,6 +721,7 @@
 			id: 'zone-selected',
 			type: 'line',
 			source: 'zones',
+			minzoom: zonesFrom,
 			filter: ['==', ['get', 'key'], ''],
 			paint: { 'line-color': css('--ink'), 'line-width': 2.5 }
 		});
@@ -1102,8 +1145,8 @@
 	});
 
 	$effect(() => {
-		const data = zones;
-		if (ready && map?.getSource('zones')) (map.getSource('zones') as GeoJSONSource).setData(data);
+		void zones;
+		if (ready) syncZones();
 	});
 	$effect(() => {
 		void hazards;
