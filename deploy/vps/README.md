@@ -10,7 +10,7 @@ already managed"); before, on a server of its own at OVHcloud.
 | --------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | `vigie.network`       | internal network, containers reach each other by name      | –                                           |
 | `vigie-db.container`  | PostgreSQL 18 with PostGIS, the accounts (`vigie-db-data`) | internal network only                       |
-| `vigie-api.container` | the Vigie API (data volume `vigie-api-data`)               | internal network; `127.0.0.1:8081`          |
+| `vigie-api.container` | the Vigie API (data volume `vigie-api-data`)               | internal network; `127.0.0.1:8082`          |
 | `vigie-web.container` | this site                                                  | `127.0.0.1:3000` only                       |
 | `caddy.container`     | the one door, host network (real visitor addresses)        | `80`, `443` (TCP and UDP); `127.0.0.1:8090` |
 | `vigie-backup.timer`  | a dump of the database every day, kept 5 days              | –                                           |
@@ -57,8 +57,10 @@ it.
 
 - Let TCP 80 and 443 and UDP 443 (HTTP/3) in, in the provider's network rules and in the host's own firewall, ahead of
   its final reject. Rootless containers do not go through Docker's chains: Caddy listens on the host itself.
-- The API reaches services of the host by its private address (a port Docker publishes is reachable there), not by
-  `127.0.0.1`, which is the container's own.
+- The API reaches services of the host as `host.containers.internal` (a port Docker publishes is reachable there).
+  Neither `127.0.0.1` nor the host's own address works: pasta gives the container the host's address.
+- The units take `127.0.0.1:3000`, `127.0.0.1:8082` and `127.0.0.1:8090` and Caddy `80` and `443` on the host: check
+  they are free (`ss -ltnu`).
 - The host's backups of its disk hold the accounts' database too: keep them 2 days at most (a daily backup kept 2
   days), so that a deleted account is gone from every copy within 7 days.
 - From another server, move the data with the services stopped: `pg_dump --format=custom` of the old `vigie-db`, then

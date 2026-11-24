@@ -1,6 +1,6 @@
 # Caddy on the server (quadlet: ~/.config/containers/systemd/caddy.container): the only door to Vigie Web.
 # Host network: it sees the visitors' real addresses and reaches the site on 127.0.0.1:3000 and the API's
-# reads on 127.0.0.1:8081. Rootless, it may
+# reads on 127.0.0.1:8082. Rootless, it may
 # listen on 80 and 443 because setup.sh lets users bind ports from 80 up.
 [Unit]
 Description=Caddy for Vigie Web
