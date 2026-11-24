@@ -1,13 +1,16 @@
 # PostgreSQL with PostGIS, for the accounts of the site (quadlet: ~/.config/containers/systemd/vigie-db.container).
 # No published port: only the site reaches it, on the internal network (vigie-db:5432).
 # Stay on PostgreSQL 18: a new major version needs a dump and a restore (README.md, "Backups").
+# The image is built on the server for its architecture (db/Containerfile, deploy.sh db): PostgreSQL 18 and PostGIS 3,
+# as docker.io/postgis/postgis:18-3.6 was before, which exists for amd64 only. A volume made by one architecture is
+# not read by the other: move the database with a dump and a restore.
 [Unit]
 Description=Vigie database (accounts)
 Wants=network-online.target
 After=network-online.target
 
 [Container]
-Image=docker.io/postgis/postgis:18-3.6
+Image=localhost/vigie-db:current
 ContainerName=vigie-db
 Network=vigie.network
 # PostgreSQL 18 images keep their data under /var/lib/postgresql/18/docker: the volume is their parent.

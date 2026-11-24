@@ -148,9 +148,8 @@
 		</p>
 		<h2>Où</h2>
 		<p>
-			Sur le serveur du site, loué à OVHcloud à Beauharnois, au Canada. Le Canada est reconnu par l'Union
-			européenne comme assurant une protection adéquate des données (décision 2002/2/CE de la Commission, pour
-			les entreprises).
+			Sur le serveur du site, loué à Oracle dans sa région cloud de Marseille, en France, dans l'Union
+			européenne. Les notifications passent par les services cités plus haut.
 		</p>
 	{:else}
 		<p>
@@ -285,9 +284,8 @@
 		</p>
 		<h2>Where</h2>
 		<p>
-			On the site's server, rented from OVHcloud in Beauharnois, Canada. The European Union recognises Canada
-			as giving an adequate level of protection to personal data (Commission decision 2002/2/EC, for
-			businesses).
+			On the site's server, rented from Oracle in its cloud region of Marseille, France, in the European
+			Union. The notifications go through the services named above.
 		</p>
 	{/if}
 </div>

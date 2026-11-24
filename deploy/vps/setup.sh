@@ -5,11 +5,16 @@
 #   - firewall: only SSH, HTTP, HTTPS and WireGuard come in (nftables.conf);
 #   - SSH by key only, fail2ban on SSH, security updates installed automatically (with a reboot at 04:45 UTC when one
 #     needs it), the journal kept 14 days at most.
+# With VIGIE_HOST_MANAGED=1 (a host that already runs other services, Docker for one, and keeps its own firewall, SSH
+# settings, updates and swap; Debian or Ubuntu), only the first three: nftables.conf would replace the host's whole
+# ruleset, Docker's rules with it, and the rest would overwrite its own settings. Its firewall must then let TCP 80 and
+# 443 and UDP 443 in (README.md, "On a host that is already managed").
 # Running it again changes nothing that is already in place.
 set -euo pipefail
 
 here=${1:?"directory of setup.sh and nftables.conf"}
 admin=${SUDO_USER:?"run it with sudo from the admin account"}
+managed=${VIGIE_HOST_MANAGED:-0}
 admin_keys=$(getent passwd "$admin" | cut -d: -f6)/.ssh/authorized_keys
 if [ ! -s "$admin_keys" ]; then
 	echo "no SSH key for $admin: add one before passwords are turned off" >&2
@@ -18,7 +23,11 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd fail2ban wireguard-tools
+if [ "$managed" = 1 ]; then
+	apt-get install -y -q podman passt uidmap dbus-user-session zstd
+else
+	apt-get install -y -q podman passt uidmap dbus-user-session nftables unattended-upgrades zstd fail2ban wireguard-tools
+fi
 
 # The account that runs the containers, reachable with the same keys as the admin account.
 if ! id vigie >/dev/null 2>&1; then
@@ -35,6 +44,12 @@ loginctl enable-linger vigie
 # Caddy runs rootless and listens on 80 and 443 (this setting covers IPv4 and IPv6).
 echo 'net.ipv4.ip_unprivileged_port_start=80' >/etc/sysctl.d/60-vigie.conf
 sysctl -q -p /etc/sysctl.d/60-vigie.conf
+
+if [ "$managed" = 1 ]; then
+	echo "setup done (managed host: firewall, SSH, updates, journal and swap left as they are): $(podman --version)," \
+		"linger $(loginctl show-user vigie -p Linger --value)"
+	exit 0
+fi
 
 install -m 755 "$here/nftables.conf" /etc/nftables.conf
 systemctl enable -q nftables

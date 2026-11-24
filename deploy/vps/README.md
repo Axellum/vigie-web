@@ -1,8 +1,10 @@
 # Running Vigie on a rented server
 
-The public instance: a small rented server (Debian 13, 2 vCPU, 4 GB of memory), Podman rootless, systemd user
-units written as quadlets, HTTPS by Caddy and Let's Encrypt. The site, its API and its database run on it; the
-database is not reachable from outside, and of the API only its reads are, through Caddy ("The public API").
+The public instance: a rented server (Debian or Ubuntu, amd64 or arm64), Podman rootless, systemd user units written
+as quadlets, HTTPS by Caddy and Let's Encrypt. The site, its API and its database run on it; the database is not
+reachable from outside, and of the API only its reads are, through Caddy ("The public API"). Since November 2026 it
+runs on an arm64 server of Oracle Cloud in Marseille, France, that also runs other services ("On a host that is
+already managed"); before, on a server of its own at OVHcloud.
 
 | Unit                  | What                                                       | Listens on                                  |
 | --------------------- | ---------------------------------------------------------- | ------------------------------------------- |
@@ -20,9 +22,9 @@ updates with a reboot at 04:45 UTC when one needs it (a kernel fix only protects
 about a minute), a journal kept 14 days at most, and 2 GB of swap for the image builds.
 
 What is kept, and for how long, must match the privacy page: no access log (Caddy writes none), dumps of the
-database 5 days, plus the host's own backup of the whole server (24 hours at its Standard level): a deleted
-account is gone from every copy within 7 days, as the page says. A host backup that keeps copies 7 days (its
-Premium level) would break that: shorten the dumps or change the page first.
+database 5 days, plus the host's own backups of the server's disk, kept 2 days at most: a deleted account is gone
+from every copy within 7 days, as the page says. A host backup kept longer would break that: shorten the dumps or
+change the page first.
 
 ## First install
 
@@ -33,6 +35,7 @@ export VIGIE_HOST=<address> VIGIE_SSH_KEY=~/.ssh/<key>
 deploy/vps/deploy.sh setup        # admin account (VIGIE_ADMIN_USER, default "debian"), sudo
 deploy/vps/deploy.sh files
 deploy/vps/deploy.sh secrets      # the database password, made on the server
+deploy/vps/deploy.sh db           # builds PostgreSQL with PostGIS for the server's architecture, then starts it
 <the FIRMS key> | deploy/vps/deploy.sh firms-key
 <the admin token> | deploy/vps/deploy.sh admin-token
 deploy/vps/deploy.sh api
@@ -43,6 +46,25 @@ deploy/vps/deploy.sh caddy      # builds Caddy with the rate limit module, then 
 Before `deploy.sh api`, set `VIGIE_CONTACT` in `~/vigie/api.env`: the contact sent to the providers, chosen by
 the owner (the site's public address once the domain exists). MetService stays at the API's default, on (the
 owner's decision for this instance).
+
+## On a host that is already managed
+
+A server that already runs other services (Docker containers, for one) keeps its own firewall, SSH settings, updates
+and swap. There, `VIGIE_HOST_MANAGED=1 deploy/vps/deploy.sh setup` only installs Podman, makes the user `vigie` (not in
+the `docker` group: the public site cannot drive the other containers), turns linger on and lets users listen from
+port 80. Never run `setup` without it on such a host: `nftables.conf` replaces the whole ruleset, Docker's rules with
+it.
+
+- Let TCP 80 and 443 and UDP 443 (HTTP/3) in, in the provider's network rules and in the host's own firewall, ahead of
+  its final reject. Rootless containers do not go through Docker's chains: Caddy listens on the host itself.
+- The API reaches services of the host by its private address (a port Docker publishes is reachable there), not by
+  `127.0.0.1`, which is the container's own.
+- The host's backups of its disk hold the accounts' database too: keep them 2 days at most (a daily backup kept 2
+  days), so that a deleted account is gone from every copy within 7 days.
+- From another server, move the data with the services stopped: `pg_dump --format=custom` of the old `vigie-db`, then
+  `pg_restore` into the new one (`deploy.sh db` first; a volume of one architecture is not read by the other); the
+  API's archive as in "Off-site copy" below; the Caddy volume `vigie-caddy-data` (`podman volume export` and `import`)
+  keeps the certificates, so HTTPS works before the DNS records move.
 
 ## Check before going public
 
@@ -108,12 +130,13 @@ localhost/vigie-web:current`, then `systemctl --user restart vigie-web`. Old ima
 `podman images localhost/vigie-web`, `podman rmi localhost/vigie-web:<sha>`.
 
 Caddy: `deploy.sh caddy` rebuilds it (a new Caddy version: the two `FROM` lines of `caddy/Containerfile`); the
-previous image stays for a rollback, as above with `vigie-caddy` and `caddy`. The database image is pulled once; to take its fixes: `podman pull <image>`, then restart the unit.
-PostgreSQL stays on 18: a new major version needs a dump, a new volume and a restore.
+previous image stays for a rollback, as above with `vigie-caddy` and `caddy`. The database: `deploy.sh db` builds it
+again on the newest PostgreSQL 18 image and PostGIS package (their fixes), then restarts it; the previous image stays,
+as above with `vigie-db`. PostgreSQL stays on 18: a new major version needs a dump, a new volume and a restore.
 
 ## Backups
 
-`~/vigie/backups/vigie-<date>.dump`, made by `backup.sh` every day around 03:30 UTC
+`~/vigie/backups/vigie-<date>.dump`, made by `backup.sh` every day around 03:30, the server's time
 (`systemctl --user list-timers`). To restore one:
 
 ```
@@ -125,9 +148,9 @@ The dumps are on the server's own disk: they protect against a mistake, not agai
 ### Off-site copy of the API's database
 
 The API's database (`/data/vigie.db` in the volume `vigie-api-data`: the archive of the warnings, the forecasts kept
-to measure them, the sources' history) took weeks to gather and holds no account and no visitor's data. A second
-server, at another provider, pulls a copy of it every night with its own SSH key, limited to one command by a line
-of `/home/vigie/.ssh/authorized_keys`:
+to measure them, the sources' history) took weeks to gather and holds no account and no visitor's data. A backup job
+(of this server or of another one) pulls a copy of it every night with its own SSH key, limited to one command by a
+line of `/home/vigie/.ssh/authorized_keys`, and sends it to storage off the server:
 
 ```
 restrict,command="/home/vigie/vigie/export-oracle.sh" ssh-ed25519 AAAA... oracle-sauvegardes
@@ -135,8 +158,8 @@ restrict,command="/home/vigie/vigie/export-oracle.sh" ssh-ed25519 AAAA... oracle
 
 `export-oracle.sh` writes to its output a consistent copy of the database (SQLite's backup API, safe while the API
 writes), compressed with zstd. Whatever the key asks for, only this runs, and `restrict` turns off forwarding and the
-terminal. The second server checks each copy (`zstd -t`, `PRAGMA integrity_check`, an archive that is not empty)
-and keeps them 14 days.
+terminal. The backup job checks each copy (`zstd -t`, `PRAGMA integrity_check`, an archive that is not empty) and
+keeps them 14 days.
 
 - The accounts' database is not copied there: its dumps stay on this server, so that a deleted account is still
   gone from every copy within 7 days.

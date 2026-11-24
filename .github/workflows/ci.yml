@@ -78,6 +78,24 @@ jobs:
           curl -fsS http://127.0.0.1:3000/about | grep -q 'Vigie'
           test "$(docker exec web id -un)" = "node"
 
+  db:
+    name: Database image of the rented server builds and has PostGIS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build PostgreSQL with PostGIS
+        run: docker build -t vigie-db -f deploy/vps/db/Containerfile deploy/vps/db
+      - name: Start it and create the extensions a restored dump creates
+        run: |
+          docker run -d --name db -e POSTGRES_USER=vigie -e POSTGRES_DB=vigie -e POSTGRES_PASSWORD=ci vigie-db
+          for i in $(seq 1 30); do docker exec db pg_isready -h 127.0.0.1 -U vigie -d vigie >/dev/null && break; sleep 1; done
+          for ext in postgis postgis_topology fuzzystrmatch postgis_tiger_geocoder; do
+            docker exec db psql -v ON_ERROR_STOP=1 -U vigie -d vigie -c "create extension if not exists $ext"
+          done
+          docker exec db psql -U vigie -d vigie -Atc "select postgis_full_version()" | grep -q 'POSTGIS="3'
+
   caddy:
     name: Caddy of the rented server builds and accepts its Caddyfile
     runs-on: ubuntu-latest

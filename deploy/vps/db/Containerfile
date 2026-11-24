@@ -1,0 +1,10 @@
+# PostgreSQL 18 with PostGIS 3, for the accounts of the site. Built on the server by deploy.sh db, for its own
+# architecture: postgis/postgis is published for amd64 only, and the community arm64 builds lag months behind.
+# The official PostgreSQL image is published for both and gets each minor release; PostGIS comes from the same
+# PostgreSQL apt repository that image already uses. The two -scripts packages hold the extensions' SQL files,
+# which a restored dump needs (it creates postgis_topology and postgis_tiger_geocoder, as postgis/postgis did).
+# Stay on PostgreSQL 18: a new major version needs a dump, a new volume and a restore (README.md, "Backups").
+FROM docker.io/library/postgres:18
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends postgresql-18-postgis-3 postgresql-18-postgis-3-scripts \
+	&& rm -rf /var/lib/apt/lists/*
