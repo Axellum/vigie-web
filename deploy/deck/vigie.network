@@ -1,6 +1,8 @@
 # The internal network of Vigie (API, site): containers reach each other by name.
 # Explicit DNS: a rootless network cannot reach the host's local resolver (127.0.0.53 on SteamOS).
+# Two providers, both answering from every host tried. Not Quad9: it answers REFUSED to the server in Marseille
+# (measured on 2026-11-24), and aardvark-dns hands that answer on instead of asking the next resolver.
 [Network]
 NetworkName=vigie
-DNS=9.9.9.9
 DNS=1.1.1.1
+DNS=8.8.8.8

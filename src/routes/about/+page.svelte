@@ -55,9 +55,9 @@
 			<a href="https://github.com/Axellum">github.com/Axellum</a>.
 		</p>
 		<p>
-			Hébergeur : OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (<a href="https://www.ovhcloud.com/fr/"
-				>ovhcloud.com</a
-			>). Le serveur est à Beauharnois, au Canada.
+			Hébergeur : Oracle France SAS, 6 avenue de Messine, 75008 Paris, France, +33 1 57 60 20 20 (<a
+				href="https://www.oracle.com/fr/cloud/">oracle.com</a
+			>). Le serveur est dans la région Oracle Cloud de Marseille, en France.
 		</p>
 	{:else}
 		<p>
@@ -100,9 +100,9 @@
 			<a href="https://github.com/Axellum">github.com/Axellum</a>.
 		</p>
 		<p>
-			Host: OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (<a href="https://www.ovhcloud.com/en/"
-				>ovhcloud.com</a
-			>). The server is in Beauharnois, Canada.
+			Host: Oracle France SAS, 6 avenue de Messine, 75008 Paris, France, +33 1 57 60 20 20 (<a
+				href="https://www.oracle.com/cloud/">oracle.com</a
+			>). The server is in the Oracle Cloud region of Marseille, France.
 		</p>
 	{/if}
 </div>

@@ -71,7 +71,7 @@
 			defer
 		}
 
-		reverse_proxy 127.0.0.1:8081 {
+		reverse_proxy 127.0.0.1:8082 {
 			# Stream as it comes (the WebSocket, and the long answers): nothing waits in a buffer.
 			flush_interval -1
 		}

@@ -2,6 +2,8 @@
 # Installs and updates Vigie on a rented server (Debian 13, Podman rootless quadlets). See README.md.
 #
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh setup           # once: system, user "vigie", firewall (admin account, sudo)
+#   VIGIE_HOST_MANAGED=1 VIGIE_HOST=<address> deploy/vps/deploy.sh setup   # a host that keeps its own firewall and SSH
+#                                                             # settings (Docker next to it): Podman and the user only
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh files           # quadlets, Caddyfile, backup timer and scripts, health scripts
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh secrets         # once: the database password, made on the server
 #   <key> | VIGIE_HOST=<address> deploy/vps/deploy.sh firms-key   # the NASA FIRMS key, read on stdin
@@ -12,12 +14,13 @@
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh api [ref]       # the vigie-api repository (VIGIE_API_REPO), origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh web [ref]       # this repository, origin/main
 #   VIGIE_HOST=<address> deploy/vps/deploy.sh caddy [ref]     # Caddy with the rate limit module (caddy/Containerfile)
+#   VIGIE_HOST=<address> deploy/vps/deploy.sh db [ref]        # PostgreSQL with PostGIS (db/Containerfile)
 #
 # VIGIE_ADMIN_USER is the provider's admin account (default "debian"), VIGIE_SSH_KEY the private key to use.
 # Images are tagged with the commit and with :current; the previous one stays for a rollback.
 set -euo pipefail
 
-component=${1:?"setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web or caddy"}
+component=${1:?"setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web, caddy or db"}
 ref=${2:-origin/main}
 host=${VIGIE_HOST:?"set VIGIE_HOST to the server's address"}
 server=vigie@$host
@@ -33,7 +36,9 @@ setup() {
 	local admin=${VIGIE_ADMIN_USER:-debian}@$host
 	ssh "${ssh_opts[@]}" "$admin" 'rm -rf /tmp/vigie-setup && mkdir -m 700 /tmp/vigie-setup'
 	scp -q "${ssh_opts[@]}" "$here/setup.sh" "$here/nftables.conf" "$admin:/tmp/vigie-setup/"
-	ssh "${ssh_opts[@]}" "$admin" 'sudo bash /tmp/vigie-setup/setup.sh /tmp/vigie-setup; status=$?; rm -rf /tmp/vigie-setup; exit $status'
+	local managed=0
+	[ "${VIGIE_HOST_MANAGED:-0}" = 1 ] && managed=1
+	ssh "${ssh_opts[@]}" "$admin" "sudo VIGIE_HOST_MANAGED=$managed bash /tmp/vigie-setup/setup.sh /tmp/vigie-setup; status=\$?; rm -rf /tmp/vigie-setup; exit \$status"
 }
 
 install_files() {
@@ -131,8 +136,10 @@ web) build "$(cd "$here/../.." && pwd)" vigie-web Containerfile ;;
 api) build "${VIGIE_API_REPO:-$(cd "$here/../../../vigie_api" && pwd)}" vigie-api Dockerfile ;;
 # Before the first "files" that needs it: the Caddyfile uses the module, caddy.container this image.
 caddy) build "$(cd "$here/../.." && pwd)" vigie-caddy deploy/vps/caddy/Containerfile caddy ;;
+# After "files" (the unit) and "secrets" (its password, read when the volume is made): the build then starts it.
+db) build "$(cd "$here/../.." && pwd)" vigie-db deploy/vps/db/Containerfile ;;
 *)
-	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web or caddy)" >&2
+	echo "unknown component: $component (setup, files, secrets, firms-key, admin-token, vapid-public, vapid-private, fcm-key, api, web, caddy or db)" >&2
 	exit 2
 	;;
 esac
