@@ -158,6 +158,51 @@ test('the desktop app that hosts the page gets a summary of it', async ({ page }
 	});
 });
 
+// The mock API answers a spot `<id>--slow-<tag>` 2.5 s late, as the public one did on a quiet morning: the Windows widgets board
+// shows only a spinner until the page has come, so the page does not wait for it. A new tag for each run: the site keeps a spot
+// read in its cache.
+const slowSpot = () => `tv-hossegor--slow-${Date.now().toString(36)}`;
+
+test('a spot the API is slow to read does not hold the page: the place first, the spot when it comes', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.addInitScript(() => {
+		const got: unknown[] = [];
+		(window as unknown as { __got: unknown[] }).__got = got;
+		(window as unknown as { chrome: unknown }).chrome = {
+			webview: { postMessage: (m: unknown) => got.push(m) }
+		};
+	});
+	await page.setViewportSize({ width: SIZES.large[0], height: SIZES.large[1] + 48 });
+	await page.goto(`/widget?size=large&frame=board&spot=${slowSpot()}${PLACE}`);
+	await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.getByText('17°')).toBeVisible();
+	await expect(page.getByText('Vigilances…')).toHaveCount(0);
+	// The place is there and the spot is not yet: the page did not wait for it.
+	await expect(page.locator('.spot-rows')).toHaveCount(0);
+	await expect(page.locator('.spot-rows')).toBeVisible({ timeout: 10_000 });
+	await expect.poll(() => overflow(page)).toBe(0);
+	// While the spot was coming, the app got no summary it could take as final: one without the spot would read as the spot gone.
+	const got = await page.evaluate(
+		() => (window as unknown as { __got: { ready: boolean; spot: unknown }[] }).__got
+	);
+	expect(got.some((m) => m.ready)).toBe(true);
+	expect(got.filter((m) => m.ready && m.spot == null)).toEqual([]);
+	expect(errors).toEqual([]);
+});
+
+test('a spot alone, slow to read, says it is coming, then shows its verdicts', async ({ page }) => {
+	const errors = collectErrors(page);
+	await page.setViewportSize({ width: SIZES.medium[0], height: SIZES.medium[1] });
+	await page.goto(`/widget?size=medium&spot=${slowSpot()}`);
+	await expect(page.getByText('Spot…')).toBeVisible();
+	await expect(page.getByText(/Bon|Possible|Déconseillé/).first()).toBeVisible({ timeout: 10_000 });
+	await expect(page.getByText('Spot…')).toHaveCount(0);
+	expect(await overflow(page)).toBe(0);
+	expect(errors).toEqual([]);
+});
+
 test('without a place nor a spot, the widget says what to do', async ({ page }) => {
 	await page.setViewportSize({ width: SIZES.small[0], height: SIZES.small[1] });
 	await page.goto('/widget?size=small');

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
 	import { pointCredits } from '#lib/credits.js';
 	import { creditOf } from '#lib/tv/model.js';
 	import PlaceView from '#lib/widget/components/PlaceView.svelte';
@@ -32,7 +31,12 @@
 		place: place ? { lat: place.lat, lon: place.lon } : null,
 		served: data.served
 	}));
-	const spot = $derived(data.spot.status === 'ok' ? data.spot.screen : null);
+	// The spot as the server drew it, or as the browser read it after: when the server did not have it in time (`pending`), and
+	// every few minutes.
+	type SpotData = PageProps['data']['spot'];
+	let read = $state<{ id: string; value: SpotData } | null>(null);
+	const spotData = $derived(read && read.id === params.spot ? read.value : data.spot);
+	const spot = $derived(spotData.status === 'ok' ? spotData.screen : null);
 	const name = $derived(place ? (place.name ?? `${place.lat.toFixed(2)}, ${place.lon.toFixed(2)}`) : '');
 	const credit = $derived(
 		creditOf([
@@ -53,24 +57,42 @@
 			rain: place ? rainView(widget.w, now) : null,
 			weatherLoading: place != null && (widget.weather == null || widget.weather.status === 'loading'),
 			tempC: widget.w?.current?.tempC ?? null,
-			spot
+			spot,
+			spotLoading: spotData.status === 'pending'
 		})
 	);
 	$effect(() => {
 		if (mounted) postToHost(summary);
 	});
 
+	/** Reads the spot again. The spot on screen stays there while the new reading comes, and if it does not come. */
+	async function loadSpot() {
+		const id = params.spot;
+		if (!id) return;
+		try {
+			const response = await fetch(
+				`/data/widget-spot.json?spot=${encodeURIComponent(id)}&lang=${encodeURIComponent(lang)}`
+			);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = (await response.json()) as SpotData;
+			if (value.status === 'ok' || spotData.status !== 'ok') read = { id, value };
+		} catch {
+			if (spotData.status === 'pending') read = { id, value: { status: 'unavailable', screen: null } };
+		}
+	}
+
 	let last = Date.now();
 	function refresh() {
 		last = Date.now();
 		now = Math.floor(last / 1000);
 		widget.refresh();
-		if (data.params.spot) void invalidateAll();
+		void loadSpot();
 	}
 
 	onMount(() => {
 		hash = location.hash;
 		mounted = true;
+		if (spotData.status === 'pending') void loadSpot();
 		const onHash = () => (hash = location.hash);
 		const onVisible = () => {
 			if (document.visibilityState === 'visible' && Date.now() - last > REFRESH_MS / 2) refresh();
@@ -109,9 +131,11 @@
 		<PlaceView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
 	{:else if spot}
 		<SpotView screen={spot} {size} {lang} />
-	{:else if data.spot.status === 'unknown' || data.spot.status === 'unavailable'}
+	{:else if spotData.status === 'pending'}
+		<div class="empty"><span class="t3">{widgetText(lang, 'spotLoading')}</span></div>
+	{:else if spotData.status === 'unknown' || spotData.status === 'unavailable'}
 		<div class="empty">
-			<b>{widgetText(lang, data.spot.status === 'unknown' ? 'spotUnknown' : 'spotUnavailable')}</b>
+			<b>{widgetText(lang, spotData.status === 'unknown' ? 'spotUnknown' : 'spotUnavailable')}</b>
 		</div>
 	{:else}
 		<div class="empty">

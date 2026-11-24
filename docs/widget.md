@@ -45,14 +45,17 @@ large layout, from 200 the medium one, below that the small one.
 The place is after the `#`: the browser never sends it to the server. It matches the place against the warnings of the
 countries around (`/data/warnings/<cc>.json`, the same for everybody) and asks the weather of its cell of the grid only
 (about 5 km), as "near me" does; the measured wind is asked for a box of whole degrees around that cell. The spot is in
-the query: the server draws it from its cache, as for a television.
+the query: the server draws it from its cache, as for a television. The page waits 150 ms for it at most: when the
+spot is not in the cache (its sources are read again, 1 to 9 s on a quiet morning), the page comes without it and the
+browser reads it from `/data/widget-spot.json?spot=<id>&lang=<lang>`, so that the place shows meanwhile. The Windows
+widgets board shows only a spinner until the page has come.
 
 The page reads everything again every ten minutes, and when it comes back into view after five.
 
 ## For the app that shows it
 
 Inside WebView2 (`window.chrome.webview`), the page posts a message each time what it shows changes: `type`
-(`vigie-summary`), `version`, `ready` (false while the warnings or the weather of the place still load), `name`,
+(`vigie-summary`), `version`, `ready` (false while the warnings or the weather of the place, or the spot, still load), `name`,
 `vigilance` (`state`, `level`, `labels`, `until`), `rain` (`status`, `inMin`, `forMin`, `maxMmH`), `tempC`, `spot`
 (`name`, `activity`, `verdict`, `slot`) and `at`. The app colours its icon and writes its notifications from it, so
 that it never matches a place against the warnings itself. An ordinary browser has no such host and gets nothing.

@@ -57,6 +57,8 @@ describe('the summary for the desktop app', () => {
 		expect(
 			widgetSummary({ ...base, vigilance: { ...vigilance, state: 'loading' }, weatherLoading: false }).ready
 		).toBe(false);
+		// A spot still being read: a summary without it would tell the app that the spot went.
+		expect(widgetSummary({ ...base, vigilance, weatherLoading: false, spotLoading: true }).ready).toBe(false);
 	});
 });
 

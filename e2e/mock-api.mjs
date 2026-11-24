@@ -71,7 +71,7 @@ const radarOverseas = {
 	'new-caledonia': [159.7, -27.27, 171.58, -16.2]
 };
 
-createServer((req, res) => {
+const answer = (req, res) => {
 	const url = new URL(req.url, 'http://mock');
 	if (url.pathname === '/v1/radar/france/nowcast') {
 		res.writeHead(200, { 'content-type': 'application/json' });
@@ -360,4 +360,14 @@ createServer((req, res) => {
 		}
 	}
 	res.end(JSON.stringify(body));
+};
+
+// A spot whose sources the API has not read for a while: `<id>--slow-<anything>` answers its forecast and its verdicts as `<id>`,
+// 2.5 s late, as the public API did on a quiet morning (1 to 9 s). The tag after `--slow-` makes a new spot for the site's cache.
+const SLOW = /^\/v1\/(?:surf\/spots|activities)\/([a-z0-9-]+?)--slow-[a-z0-9-]+$/;
+createServer((req, res) => {
+	const slow = SLOW.exec(new URL(req.url, 'http://mock').pathname);
+	if (!slow) return answer(req, res);
+	req.url = req.url.replace(/\/[a-z0-9-]+--slow-[a-z0-9-]+/, `/${slow[1]}`);
+	setTimeout(() => answer(req, res), 2500);
 }).listen(port, '127.0.0.1', () => console.log(`mock Vigie API on http://127.0.0.1:${port}`));
