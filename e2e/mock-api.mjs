@@ -56,6 +56,7 @@ function placesKey(url) {
 const radarEpochs = new Set(
 	JSON.parse(readFileSync(join(dir, 'radar-france.json'), 'utf-8')).frames.map((f) => String(f.epoch))
 );
+const nowcastRun = JSON.parse(readFileSync(join(dir, 'radar-france-nowcast.json'), 'utf-8')).run_utc;
 const nowcastEpochs = new Set(
 	JSON.parse(readFileSync(join(dir, 'radar-france-nowcast.json'), 'utf-8')).frames.map((f) => String(f.epoch))
 );
@@ -85,7 +86,12 @@ createServer((req, res) => {
 			res.end(JSON.stringify({ detail: 'unknown nowcast tile' }));
 			return;
 		}
-		res.writeHead(200, { 'content-type': 'image/png' });
+		// As the API: immutable only when asked with the run that drew the tile (the fixture's run).
+		const ofTheRun = url.searchParams.get('run') === String(nowcastRun);
+		res.writeHead(200, {
+			'content-type': 'image/png',
+			'cache-control': ofTheRun ? 'public, max-age=3600, immutable' : 'public, max-age=60'
+		});
 		res.end(readFileSync(join(dir, 'radar-tile.png')));
 		return;
 	}

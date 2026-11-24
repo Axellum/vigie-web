@@ -103,7 +103,12 @@ describe('radar', () => {
 		expect(nc?.frames[0].leadMinutes).toBe(5);
 		expect(nc?.frames.at(-1)?.leadMinutes).toBe(60);
 		expect(nc?.bounds).toEqual([-6, 41, 10.5, 51.5]);
-		expect(radarNowcastTiles(1794995700)).toBe('/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png');
+		expect(radarNowcastTiles(1794995700, 1794995400)).toBe(
+			'/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png?run=1794995400'
+		);
+		expect(radarNowcastTiles(1794995700, null)).toBe(
+			'/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png'
+		);
 		expect(radarNowcastFromApi({ status: 'unavailable', frames: [] })).toBeNull();
 		expect(radarNowcastFromApi(null)).toBeNull();
 	});

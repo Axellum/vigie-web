@@ -84,7 +84,7 @@ describe('RadarLayer', () => {
 		expect(layer.activeFrame?.kind).toBe('observed');
 		expect(layer.onMap('credit')?.frames[0].tiles).toBe('/data/radar/france/1794995100/{z}/{x}/{y}.png');
 		expect(layer.onMap('credit')?.frames[2].tiles).toBe(
-			'/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png'
+			'/data/radar/france/nowcast/tiles/1794995700/{z}/{x}/{y}.png?run=1794995400'
 		);
 		expect(asked).toEqual([
 			'/data/radar.json?area=antilles',

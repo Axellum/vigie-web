@@ -146,9 +146,12 @@ export const radarAreaFrom = (value: string): RadarArea | null =>
 export const radarTiles = (area: RadarArea, epoch: number): string =>
 	`/data/radar/${area}/${epoch}/{z}/{x}/{y}.png`;
 
-/** The address of the tiles of one PIAF nowcast image on the site. */
-export const radarNowcastTiles = (epoch: number): string =>
-	`/data/radar/france/nowcast/tiles/${epoch}/{z}/{x}/{y}.png`;
+/**
+ * The address of the tiles of one PIAF nowcast image on the site, with the run that drew it: the next run (every 5 minutes)
+ * draws the same time again, so the address changes with it and a tile can be kept by the browser (and the map) as it is.
+ */
+export const radarNowcastTiles = (epoch: number, run: number | null): string =>
+	`/data/radar/france/nowcast/tiles/${epoch}/{z}/{x}/{y}.png${run === null ? '' : `?run=${run}`}`;
 
 /** What the map draws of the radar (`MapView`'s `radar` prop). */
 export interface RadarOnMap {

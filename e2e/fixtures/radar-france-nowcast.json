@@ -67,7 +67,7 @@
     }
   ],
   "interval_minutes": 5,
-  "tile_url_template": "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png",
+  "tile_url_template": "/v1/radar/france/nowcast/tiles/{epoch}/{z}/{x}/{y}.png?run=1794995400",
   "bounds": [
     -6.0,
     41.0,

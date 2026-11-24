@@ -96,7 +96,7 @@ export class RadarLayer {
 				f.kind === 'nowcast' && nc
 					? {
 							epoch: f.epoch,
-							tiles: radarNowcastTiles(f.epoch),
+							tiles: radarNowcastTiles(f.epoch, nc.runUtc),
 							kind: 'nowcast',
 							bounds: nc.bounds,
 							minZoom: nc.minZoom,

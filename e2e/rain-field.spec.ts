@@ -160,10 +160,21 @@ test('server proxy routes validate rain-field and PIAF nowcast requests cleanly'
 	expect(ncBody.frames).toHaveLength(nowcastFixture.frames.length);
 
 	const firstEpoch = nowcastFixture.frames[0].epoch;
-	const tile = await request.get(`/data/radar/france/nowcast/tiles/${firstEpoch}/6/32/22.png`);
+	// At the address of its run, a tile is kept; without the run (or with another one) a minute only: the next run draws it again.
+	const tile = await request.get(
+		`/data/radar/france/nowcast/tiles/${firstEpoch}/6/32/22.png?run=${nowcastFixture.run_utc}`
+	);
 	expect(tile.status()).toBe(200);
 	expect(tile.headers()['content-type']).toBe('image/png');
 	expect(tile.headers()['cache-control']).toContain('immutable');
+	for (const query of ['', `?run=${nowcastFixture.run_utc - 300}`]) {
+		const other = await request.get(`/data/radar/france/nowcast/tiles/${firstEpoch}/6/32/22.png${query}`);
+		expect(other.status()).toBe(200);
+		expect(other.headers()['cache-control']).toBe('public, max-age=60');
+	}
+	expect(
+		(await request.get(`/data/radar/france/nowcast/tiles/${firstEpoch}/6/32/22.png?run=x`)).status()
+	).toBe(404);
 	expect((await tile.body()).subarray(1, 4).toString()).toBe('PNG');
 
 	expect((await request.get('/data/radar/france/nowcast/tiles/1000/6/32/22.png')).status()).toBe(404);

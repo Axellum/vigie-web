@@ -91,7 +91,8 @@ test('Play goes through the images, and a whole animation asks for a few hundred
 }) => {
 	const asked: string[] = [];
 	page.on('request', (r) => {
-		if (/\/data\/radar\/france\/(?:\d+|nowcast\/tiles\/\d+)\/.*\.png$/.test(r.url())) asked.push(r.url());
+		if (/\/data\/radar\/france\/(?:\d+|nowcast\/tiles\/\d+)\/.*\.png(?:\?run=\d+)?$/.test(r.url()))
+			asked.push(r.url());
 	});
 	await open(page);
 	await view(page, 'France');
