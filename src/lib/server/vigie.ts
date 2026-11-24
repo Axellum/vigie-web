@@ -156,6 +156,7 @@ export const TTL_S = {
 	radar: 300,
 	radarNowcast: 60,
 	radarTile: 86_400,
+	// A PIAF tile at the address of its run (`?run=`); a tile asked without it, or of another run, is kept `radarNowcast`.
 	radarNowcastTile: 3600,
 	// The stations' wind: a new 6-minute package; the whole list is read once for every visitor, and a view cut from it.
 	stationWind: 180,
@@ -569,16 +570,21 @@ export function getRadarNowcast(): Promise<Cached<RadarNowcast | null>> {
 	});
 }
 
-/** One Web Mercator PNG tile of the PIAF +1h rain nowcast; null when unknown or unavailable. */
+/**
+ * One Web Mercator PNG tile of the PIAF +1h rain nowcast, asked for the run `run`; null when unknown or unavailable.
+ * `immutable`: the API drew it with that run (its own Cache-Control), so it may be kept; otherwise it is the newest run's.
+ */
 export async function getRadarNowcastTile(
 	epoch: number,
 	z: number,
 	x: number,
-	y: number
-): Promise<Uint8Array | null> {
+	y: number,
+	run: number | null
+): Promise<{ tile: Uint8Array; immutable: boolean } | null> {
 	let response: Response;
+	const query = run === null ? '' : `?run=${run}`;
 	try {
-		response = await fetch(apiUrl(`/v1/radar/france/nowcast/tiles/${epoch}/${z}/${x}/${y}.png`), {
+		response = await fetch(apiUrl(`/v1/radar/france/nowcast/tiles/${epoch}/${z}/${x}/${y}.png${query}`), {
 			headers: { accept: 'image/png' },
 			signal: AbortSignal.timeout(15_000)
 		});
@@ -588,7 +594,8 @@ export async function getRadarNowcastTile(
 	if (response.status === 404) return null;
 	if (!response.ok)
 		throw new ApiError(`Vigie API answered ${response.status} for a nowcast tile`, response.status);
-	return new Uint8Array(await response.arrayBuffer());
+	const immutable = /\bimmutable\b/.test(response.headers.get('cache-control') ?? '');
+	return { tile: new Uint8Array(await response.arrayBuffer()), immutable };
 }
 
 /** Every ministry's level for each country (`/v1/travel`): one answer for every visitor. */

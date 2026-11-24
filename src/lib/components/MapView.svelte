@@ -487,6 +487,8 @@
 	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
 	// the active one visible and the others transparent (they are only loaded, for the animation).
 	const radarIds = new Set<string>();
+	// The address of the tiles each radar layer was added with: a newer PIAF run draws the same time at another address.
+	const radarTilesOf = new Map<string, string>();
 	// The forecast rain: canvas layers (`rain-field-<level>-<n>`), a coarser level in pieces around a finer one ($lib/rainFieldPainter).
 	const rainLevels = new Set<string>();
 	const rainPainter = new RainFieldPainter(drawRain);
@@ -613,11 +615,18 @@
 			if (map.getLayer(id)) map.removeLayer(id);
 			if (map.getSource(id)) map.removeSource(id);
 			radarIds.delete(id);
+			radarTilesOf.delete(id);
 		}
 		if (!radar) return;
 		for (const f of wanted) {
 			const id = `radar-${f.epoch}`;
 			const opacity = f.epoch === radar.active ? RADAR_OPACITY : 0;
+			if (radarIds.has(id) && radarTilesOf.get(id) !== f.tiles) {
+				// The same time drawn by a newer PIAF run: the old run's tiles go, the layer is added again below.
+				if (map.getLayer(id)) map.removeLayer(id);
+				if (map.getSource(id)) map.removeSource(id);
+				radarIds.delete(id);
+			}
 			if (radarIds.has(id)) {
 				map.setPaintProperty(id, 'raster-opacity', opacity);
 				continue;
@@ -645,6 +654,7 @@
 				labelsFrom
 			);
 			radarIds.add(id);
+			radarTilesOf.set(id, f.tiles);
 		}
 	}
 
@@ -652,6 +662,7 @@
 		if (!map) return;
 		// A new style has none of the radar or global rain layers; the first label of the base map is where they go under.
 		radarIds.clear();
+		radarTilesOf.clear();
 		rainLevels.clear();
 		rainAgain = true;
 		observedRainKey = null;
