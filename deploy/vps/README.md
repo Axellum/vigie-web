@@ -64,7 +64,10 @@ it.
 - The host's backups of its disk hold the accounts' database too: keep them 2 days at most (a daily backup kept 2
   days), so that a deleted account is gone from every copy within 7 days.
 - From another server, move the data with the services stopped: `pg_dump --format=custom` of the old `vigie-db`, then
-  `pg_restore` into the new one (`deploy.sh db` first; a volume of one architecture is not read by the other); the
+  `pg_restore` into the new one (`deploy.sh db` first; a volume of one architecture is not read by the other). A dump
+  of the old `postgis/postgis` image holds its tiger geocoder, which the site does not use and the new image does not
+  install: leave it out (`pg_restore -l old.dump | grep -vE ' tiger |postgis_tiger_geocoder' >keep.list`, then
+  `pg_restore -L keep.list --exit-on-error -U vigie -d vigie old.dump`). The
   API's archive as in "Off-site copy" below; the Caddy volume `vigie-caddy-data` (`podman volume export` and `import`)
   keeps the certificates, so HTTPS works before the DNS records move.
 
