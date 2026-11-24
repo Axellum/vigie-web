@@ -22,7 +22,7 @@ export const labelOf =
 export interface WidgetSummary {
 	type: 'vigie-summary';
 	version: 1;
-	/** False while the warnings or the weather of the place are still loading. */
+	/** False while the warnings or the weather of the place, or the surf spot, are still loading. */
 	ready: boolean;
 	name: string | null;
 	vigilance: { state: OfficialState; level: Level | null; labels: string[]; until: number | null } | null;
@@ -47,13 +47,16 @@ export function widgetSummary(input: {
 	weatherLoading: boolean;
 	tempC: number | null;
 	spot: TvScreen | null;
+	/** The spot of the address is still being read: a summary without it would tell the app that it went. */
+	spotLoading?: boolean;
 }): WidgetSummary {
 	const { lang, vigilance, rain, spot } = input;
 	const best = spot ? featured(spot.activities) : null;
 	return {
 		type: 'vigie-summary',
 		version: 1,
-		ready: (vigilance == null || vigilance.state !== 'loading') && !input.weatherLoading,
+		ready:
+			(vigilance == null || vigilance.state !== 'loading') && !input.weatherLoading && !input.spotLoading,
 		name: input.name,
 		vigilance: vigilance && {
 			state: vigilance.state,
