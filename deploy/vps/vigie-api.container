@@ -29,6 +29,13 @@ HealthStartPeriod=30s
 Restart=always
 RestartSec=10
 TimeoutStartSec=180
+# The network the containers share forgets a connection that the far end has closed after 60 seconds
+# (nf_conntrack_tcp_timeout_close_wait). The API closes its side of such a connection only at its next request to that
+# source, often minutes later; netavark then drops that FIN as invalid, pasta never sees it and keeps the connection for
+# good, and every later connection from the same source port is lost. A day covers the API's gaps between requests to
+# a source. The setting lives in that network, made anew only when every container has stopped, and the API runs while
+# it exists: setting it at each start of the API is enough. "-": a failure leaves the API running, the journal says it.
+ExecStartPost=-/usr/bin/podman unshare --rootless-netns /usr/sbin/sysctl -q -w net.netfilter.nf_conntrack_tcp_timeout_close_wait=86400
 
 [Install]
 WantedBy=default.target

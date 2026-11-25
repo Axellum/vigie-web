@@ -71,6 +71,22 @@ it.
   API's archive as in "Off-site copy" below; the Caddy volume `vigie-caddy-data` (`podman volume export` and `import`)
   keeps the certificates, so HTTPS works before the DNS records move.
 
+## Connections from the containers
+
+The containers reach the Internet through a network Podman makes for them, then pasta. That network forgets, after 60
+seconds, a connection whose far end has closed it; the API closes its own side of an idle kept connection only at its
+next request to that source, and that late close is then dropped, so pasta keeps the connection for good and any later
+connection from the same source port gets no answer. Measured on the server: about 250 such connections an hour, and 1
+to 2 % of new connections to the busiest sources lost four hours after a restart. `vigie-api.container` sets that
+delay to a day at each start of the API (`ExecStartPost`). Check it, and count the connections pasta keeps:
+
+```sh
+podman unshare --rootless-netns cat /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait   # 86400
+ss -tanpH state close-wait | grep -c pasta
+```
+
+A newer pasta does not change this: the close never reaches it.
+
 ## Check before going public
 
 Caddy also serves the site on `127.0.0.1:8090`, for an SSH tunnel only:
