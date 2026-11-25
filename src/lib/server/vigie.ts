@@ -179,13 +179,18 @@ const fireCache = new TtlCache(Date.now, 15_000, 400);
 const tideCache = new TtlCache(Date.now, 15_000, 2000);
 // The images of the forecast wind: three an hour, about 600 kB together; the last two hours kept.
 const windFieldImages = new TtlCache(Date.now, 15_000, 6);
-// Forecast rain overlays (9-23 kB each): keep up to 24 recent level/stamp images in memory.
-const rainFieldImages = new TtlCache(Date.now, 15_000, 24);
-// Tiles of the rain radar (256x256 PNG, a few kB each): a tile of an image never changes, and every visitor on the same
-// area asks for the same ones; the 400 most recent are kept (a few MB at most).
-const radarTiles = new TtlCache(Date.now, 15_000, 400);
-// Global observed satellite precipitation tiles (256x256 PNG): keep up to 256 recent tiles in memory.
-const observedRainTiles = new TtlCache(Date.now, 15_000, 256);
+// Forecast rain overlays (9-23 kB each): keep up to 96 recent level/stamp images in memory (about 2 MB at most).
+const rainFieldImages = new TtlCache(Date.now, 15_000, 96);
+// The tiles of the map's rain layers (256x256 PNG; measured on 2026-11-25: radar 6 kB on average, 9 kB at most; PIAF the
+// same; observed rain 4 kB). A tile of an image never changes, and every visitor on the same area asks for the same ones:
+// one playing the radar over France asks for about 25 tiles a frame, that is 200 for its 8 frames and 450 for the 18 of
+// PIAF. Kept: 4,000 radar tiles (about 24 MB), 2,000 of each other layer (12 and 8 MB). Until 2026-11-25: 400 and 256,
+// and the PIAF tiles not kept at all.
+const radarTiles = new TtlCache(Date.now, 15_000, 4000);
+const observedRainTiles = new TtlCache(Date.now, 15_000, 2000);
+// A PIAF tile drawn with the run of its address is kept; one drawn with the newest run instead is only shared by the
+// visitors asking for it at the same moment.
+const nowcastTiles = new TtlCache(Date.now, 15_000, 2000);
 /**
  * An image the API answers 404 for is asked again after this delay, not after the day an image is kept: the API holds its
  * images in memory, so one it lists may be missing for a moment (the API was just restarted, or is still making it). Kept as
@@ -581,21 +586,30 @@ export async function getRadarNowcastTile(
 	y: number,
 	run: number | null
 ): Promise<{ tile: Uint8Array; immutable: boolean } | null> {
-	let response: Response;
 	const query = run === null ? '' : `?run=${run}`;
-	try {
-		response = await fetch(apiUrl(`/v1/radar/france/nowcast/tiles/${epoch}/${z}/${x}/${y}.png${query}`), {
-			headers: { accept: 'image/png' },
-			signal: AbortSignal.timeout(15_000)
-		});
-	} catch (error) {
-		throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
-	}
-	if (response.status === 404) return null;
-	if (!response.ok)
-		throw new ApiError(`Vigie API answered ${response.status} for a nowcast tile`, response.status);
-	const immutable = /\bimmutable\b/.test(response.headers.get('cache-control') ?? '');
-	return { tile: new Uint8Array(await response.arrayBuffer()), immutable };
+	const ttl = (got: { immutable: boolean } | null) =>
+		got === null ? MISSING_IMAGE_TTL_MS : got.immutable ? TTL_S.radarNowcastTile * 1000 : 0;
+	const cached = await nowcastTiles.get<{ tile: Uint8Array; immutable: boolean } | null>(
+		`${epoch}:${z}:${x}:${y}:${run ?? ''}`,
+		ttl,
+		async () => {
+			let response: Response;
+			try {
+				response = await fetch(apiUrl(`/v1/radar/france/nowcast/tiles/${epoch}/${z}/${x}/${y}.png${query}`), {
+					headers: { accept: 'image/png' },
+					signal: AbortSignal.timeout(15_000)
+				});
+			} catch (error) {
+				throw new ApiError(`Vigie API unreachable (${(error as Error).name})`, null);
+			}
+			if (response.status === 404) return null;
+			if (!response.ok)
+				throw new ApiError(`Vigie API answered ${response.status} for a nowcast tile`, response.status);
+			const immutable = /\bimmutable\b/.test(response.headers.get('cache-control') ?? '');
+			return { tile: new Uint8Array(await response.arrayBuffer()), immutable };
+		}
+	);
+	return cached.value;
 }
 
 /** Every ministry's level for each country (`/v1/travel`): one answer for every visitor. */

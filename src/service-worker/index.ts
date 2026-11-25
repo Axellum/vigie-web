@@ -3,8 +3,13 @@
 import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { self as sw } from '$app/service-worker';
+import { isDataImage, MAX_IMAGES, trimCache } from '#lib/swCache.js';
 
 const CACHE = `vigie-${version}`;
+// The images of the data (map tiles and layers), kept apart and bounded: see src/lib/swCache.ts.
+const IMAGES = `vigie-images-${version}`;
+// One image put and trimmed at a time, so that two trims never delete the same entries twice.
+let keeping: Promise<unknown> = Promise.resolve();
 // The manifest's paths are relative to the site's base: made absolute here, as `fetch` compares them.
 const ASSETS = [...immutable, ...assets].map(({ path }) => new URL(path, sw.location.href).pathname);
 
@@ -15,7 +20,7 @@ sw.addEventListener('install', (event) => {
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches.keys().then(async (keys) => {
-			for (const key of keys) if (key !== CACHE) await caches.delete(key);
+			for (const key of keys) if (key !== CACHE && key !== IMAGES) await caches.delete(key);
 		})
 	);
 });
@@ -34,7 +39,27 @@ sw.addEventListener('fetch', (event) => {
 			.then((response) => {
 				// A private page (an account) is never kept: the device may be shared.
 				const priv = /no-store|private/.test(response.headers.get('cache-control') ?? '');
-				if (response.ok && !priv && (request.mode === 'navigate' || url.pathname.startsWith('/data/'))) {
+				if (response.ok && !priv && isDataImage(url.pathname, response.headers.get('content-type'))) {
+					const copy = response.clone();
+					keeping = keeping
+						.then(async () => {
+							const cache = await caches.open(IMAGES);
+							await cache.put(request, copy);
+							await trimCache(cache, MAX_IMAGES);
+						})
+						.catch(() => {});
+					// Keeps the worker alive until the image is put; never fails the answer (the catch below would serve
+					// the last copy instead of this one).
+					try {
+						event.waitUntil(keeping);
+					} catch {
+						// the event has ended: the put still goes on while the worker runs
+					}
+				} else if (
+					response.ok &&
+					!priv &&
+					(request.mode === 'navigate' || url.pathname.startsWith('/data/'))
+				) {
 					const copy = response.clone();
 					caches.open(CACHE).then((cache) => cache.put(request, copy));
 				}

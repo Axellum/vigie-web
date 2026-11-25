@@ -138,3 +138,83 @@ describe('radar tile cache', () => {
 		await expect(getRadarTile('france', 2, 5, 1, 1)).rejects.toBeInstanceOf(ApiError);
 	});
 });
+
+describe('PIAF tile cache', () => {
+	let fetches: string[];
+	let immutable: boolean;
+	let status: number;
+
+	beforeEach(() => {
+		vi.resetModules();
+		fetches = [];
+		immutable = true;
+		status = 200;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: string | URL) => {
+				fetches.push(String(input));
+				return new Response(status === 200 ? new Uint8Array([137, 80, 78, 71]) : null, {
+					status,
+					headers: { 'cache-control': immutable ? 'public, max-age=3600, immutable' : 'public, max-age=60' }
+				});
+			})
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('asks the API once for a tile drawn with the run of its address', async () => {
+		const { getRadarNowcastTile } = await import('./vigie');
+		const a = await getRadarNowcastTile(1000, 6, 33, 22, 700);
+		const b = await getRadarNowcastTile(1000, 6, 33, 22, 700);
+		expect(a).toEqual({ tile: new Uint8Array([137, 80, 78, 71]), immutable: true });
+		expect(b).toEqual(a);
+		expect(fetches).toEqual(['http://vigie-api.test/v1/radar/france/nowcast/tiles/1000/6/33/22.png?run=700']);
+		await getRadarNowcastTile(1000, 6, 33, 22, 1000);
+		await getRadarNowcastTile(1000, 6, 33, 22, null);
+		await getRadarNowcastTile(1300, 6, 33, 22, 700);
+		expect(fetches).toHaveLength(4);
+	});
+
+	it('asks again for a tile drawn with another run than its address', async () => {
+		const { getRadarNowcastTile } = await import('./vigie');
+		immutable = false;
+		expect((await getRadarNowcastTile(1000, 6, 33, 22, 700))?.immutable).toBe(false);
+		await getRadarNowcastTile(1000, 6, 33, 22, 700);
+		expect(fetches).toHaveLength(2);
+	});
+
+	it('answers null for a tile the API does not have, and asks again after a short delay', async () => {
+		vi.useFakeTimers();
+		try {
+			const { getRadarNowcastTile } = await import('./vigie');
+			status = 404;
+			expect(await getRadarNowcastTile(1, 5, 1, 1, 1)).toBeNull();
+			expect(await getRadarNowcastTile(1, 5, 1, 1, 1)).toBeNull();
+			expect(fetches).toHaveLength(1);
+			vi.advanceTimersByTime(21_000);
+			status = 200;
+			expect(await getRadarNowcastTile(1, 5, 1, 1, 1)).not.toBeNull();
+			expect(fetches).toHaveLength(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not keep a failure as a tile: asked again once the failure is forgotten', async () => {
+		vi.useFakeTimers();
+		try {
+			const { ApiError, getRadarNowcastTile } = await import('./vigie');
+			status = 500;
+			await expect(getRadarNowcastTile(2, 5, 1, 1, 2)).rejects.toBeInstanceOf(ApiError);
+			vi.advanceTimersByTime(16_000);
+			status = 200;
+			expect(await getRadarNowcastTile(2, 5, 1, 1, 2)).not.toBeNull();
+			expect(fetches).toHaveLength(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});

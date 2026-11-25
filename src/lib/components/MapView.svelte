@@ -21,7 +21,7 @@
 	} from 'maplibre-gl';
 	// Only the address of MapLibre's worker, which Vite builds as a file of the site.
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-	import { localizedTextField } from '#lib/basemap.js';
+	import { BASEMAP_HOST, BASEMAP_STYLE_PATHS, localizedTextField } from '#lib/basemap.js';
 	import { translator, type Lang } from '#lib/i18n.js';
 	import type { Box } from '#lib/geo.js';
 	import { circleRing, type Place } from '#lib/near.js';
@@ -120,10 +120,9 @@
 	}: Props = $props();
 
 	const tr = $derived(translator(lang));
-	const STYLE = {
-		light: 'https://tiles.openfreemap.org/styles/positron',
-		dark: 'https://tiles.openfreemap.org/styles/dark'
-	};
+	// OpenFreeMap's styles, from the site with the address of their tiles written in: MapLibre does not ask for the
+	// description of the tiles before the first ones.
+	const STYLE = BASEMAP_STYLE_PATHS;
 
 	let container: HTMLDivElement;
 	let map: MlMap | null = null;
@@ -1285,6 +1284,11 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<!-- The tiles, glyphs and sprites of the base map come from there: the connection opens while the page loads. -->
+	<link rel="preconnect" href={BASEMAP_HOST} crossorigin="anonymous" />
+</svelte:head>
 
 <!-- data-ready: the base map is loaded and the map answers clicks (the end-to-end tests wait for it). -->
 <div class="wrap" data-ready={ready || undefined}>
