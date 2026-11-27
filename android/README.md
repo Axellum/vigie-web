@@ -59,21 +59,24 @@ The user chooses the places and their spots; two home screen widgets show one of
   The screen then reads as of that time (the frise, the days, the warnings); the rain of the hour to come, past 30
   minutes, reads « non lue ».
 - The home screen widget « Vigie · mon lieu » (Glance): its place is chosen among the followed places when it is
-  placed (« Paramètres » of the widget changes it). It is drawn in the look of the home page of the Home Assistant card
-  (the « Lueur » columns, the card's palette, icons and rules, `ui/board/HomeBoard.kt`), in three sizes picked from the
-  room the home screen gives it: compact (the weather now, six columns hour by hour, and under them the rain of the hour
-  with its twelve 5-minute bars and the warning's pill), medium (the place, the weather now and the warning in the
-  header, the rain of the hour on one line, the next 24 hours by three) and large (the same, then five days as two
-  curves). Touched, it opens the app on its place. It reads only the copies the app keeps: every half hour
-  (WorkManager), and at once when it is placed, the places shown by a widget are read again when their copy is older
-  than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then « non lue ». The
-  app redraws it after each read it keeps. From Android 15, the widget list shows it drawn by the same code from
-  made-up values (« Mon lieu »).
-- The widget « Vigie · la frise »: the next twelve hours, hour by hour, in the same look (one picture: a home screen
-  cannot draw a curve). The header of « Vigie · mon lieu », then a column per hour: its hour, icon, temperature curve,
-  rain, wind. With three rows, the rain tile of the hour comes above the columns (and the chance of rain in them); with
-  four, the tide (high and low waters written) and the surf of the favourite spot, hour by hour, come under them. Same
-  choice of place, refresh, age and touch as « Vigie · mon lieu ».
+  placed, with the next hours or the next days (« Paramètres » of the widget changes them). It is the home page of the
+  Home Assistant card drawn smaller, as the site's medium and large widgets: with the room for it (about four cells by
+  five on a phone) the whole page (now and its facts, the rain tile, the season, the 24 hours, the days); with less
+  (four by three, or three cells wide at a smaller scale) now, the rain tile and the hours or the days chosen; the place
+  and the warning on a line above. The page is the app's (`ui/board/HomeBoardView.kt`, its hours and days drawn by the
+  same code) in one picture at a scale given by the height and the width (330 wide at scale 1), 0.7 at least; too small for
+  that, the widget is the frise below. Touched, it opens the app on its place. It reads only the copies the app keeps:
+  every half hour (WorkManager), and at once when it is placed, the places shown by a widget are read again when their
+  copy is older than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then
+  « non lue ». The app redraws it after each read it keeps. From Android 15, the widget list shows it drawn by the same
+  code from made-up values (« Mon lieu »).
+- The widget « Vigie · la frise »: the site's small widget (the piste F chosen on 2026-11-27) at every size, one picture.
+  On top the weather now, the place and the warning, discreet (its sign and its words in the colour of its level); then
+  the next hour as its twelve steps of rain on a tint of rain, followed by the next hours or the next days in « Lueur »
+  columns; under them the sentence of the rain, as the card says it (« Pas de pluie avant demain vers 9 h » when the
+  hour is dry). Taller it is drawn larger in the middle of the height, the rain at the foot of every column (its bar and
+  its amount, « sec » for a dry day), with the days under the hours from about four rows; on one row of the grid, the weather now stands beside the band. Same choice of place, refresh, age and touch as
+  « Vigie · mon lieu ».
 - Notifications, without an account: in « Mes lieux et mes spots », each place has a bell (« dès le jaune », « orange
   et rouge », « rouge seulement », « jamais »). The first bell asks Android's permission (Android 13 and later), then
   the phone registers with the site (`/account/app/device`, see the site's `docs/configuration.md`) with its Firebase
@@ -157,13 +160,12 @@ not serve it).
 | `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
 | `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget |
 | `widget/WidgetModel.kt` | the warnings, the age and the words of the rain of the hour, read from a place's copy as the site's widget reads them (tested on the JVM) |
-| `widget/BoardWidget.kt` | what both widgets show, in the card's rules: the rain tile, the columns of the hours, the days, the pill, the sea (tested on the JVM) |
-| `widget/BoardArt.kt` | both widgets drawn into one picture each, in the look of the card's home page: header, rain of the hour, columns, days, tide |
-| `widget/PlaceWidget.kt` | the place widget (Glance): its format by the room, its preview in the widget list; the frame both widgets share |
-| `widget/FriseModel.kt` | the hours of the frise, read as the hours tab reads them: the tide and the surf of the favourite spot (tested on the JVM) |
-| `widget/FriseWidget.kt` | the frise widget: its picture (Glance) |
+| `widget/BoardWidget.kt` | what both widgets show, in the card's rules: the rain of the hour and its sentence, the frise's columns, the card's blocks and the height they need, the scale, the look by the room (tested on the JVM) |
+| `widget/BoardArt.kt` | both widgets drawn into one picture each: the frise, and the card's home page at a scale, its hours and days drawn by `ui/board/BoardColumns.kt` |
+| `widget/PlaceWidget.kt` | the place widget (Glance): its look by the room, its preview in the widget list; the frame and the picture both widgets share |
+| `widget/FriseWidget.kt` | the frise widget (Glance) |
 | `widget/WidgetRefresh.kt` | the half-hourly read and the redraw of the widgets; their receivers |
-| `widget/WidgetConfigActivity.kt` | the choice of the widget's place, when it is placed or reconfigured |
+| `widget/WidgetConfigActivity.kt` | the choice of the widget's place and of its next hours or days, when it is placed or reconfigured |
 | `ui/HomeViewModel.kt` | the app's state: choices saved at each change, each place read on its own |
 | `ui/FirstLaunch.kt` | the two steps of the first launch: the place, then its spots |
 | `ui/PlacesScreen.kt` | « Mes lieux et mes spots », and the place search shared with the first launch |
@@ -189,6 +191,7 @@ not serve it).
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |
 | `ui/board/DetailsBoardView.kt` | the Details page drawn, and the bar of pages « Accueil \| Détails » |
 | `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
+| `ui/board/BoardColumns.kt` | the hours and the days of the home page and their heights, drawn once for the app and the widgets |
 | `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |
 | `ui/board/FamilyIconData.kt` | those SVG, written by `tools/family_icons.py` from the card; not edited by hand |
 | `ui/theme/` | the charter's « Ciel » colours and type scale |

@@ -2,13 +2,15 @@
 // pages one swipes or picks in the bar at the top. It is shipped inside the integration and registered by it (a dashboard resource
 // where it can, ADR 0044), and it asks its data of Home Assistant (WebSocket command `vigie/card/data`), never of the instance; the
 // last answer is kept, so the card draws at once while it asks again. A value the data does not give is not drawn:
-// no empty box, no guess. Colours: the "Sombre uni" and "Clair" themes of the Vigie family, chosen by the dark mode of Home
+// no empty box, no guess. The Mountain page asks for the stations chosen in the editor the same way (`vigie/card/mountain`).
+// The Sea page asks for its beaches the same way (`vigie/card/beach`).
+// Colours: the "Sombre uni" and "Clair" themes of the Vigie family, chosen by the dark mode of Home
 // Assistant (the background of the card stays the dashboard's own). Weather icons: the icon set of the Vigie family (ADR 0045), in
 // the style chosen in the editor (`icon_style`), coloured by the same themes.
 
 const TAG = 'vigie-card';
 const EDITOR_TAG = 'vigie-card-editor';
-const PAGE_IDS = ['home', 'details', 'alerts', 'sea', 'normal'];
+const PAGE_IDS = ['home', 'details', 'alerts', 'sea', 'mountain', 'normal'];
 const REFRESH_MS = 5 * 60 * 1000; // the integration reads the instance every 10 minutes
 const IDLE_RETURN_MS = 60 * 1000;
 const CYCLE_MS = 20 * 1000;
@@ -66,7 +68,22 @@ const VERDICT_COLOUR = { good: 'vert', possible: 'jaune', poor: 'rouge' };
 // --------------------------------------------------------------------------------------------------------------------- words
 const TEXT = {
   fr: {
-    page_home: 'Accueil', page_details: 'Détails', page_alerts: 'Alertes', page_sea: 'Mer', page_normal: 'Normal ?',
+    page_home: 'Accueil', page_details: 'Détails', page_alerts: 'Alertes', page_sea: 'Mer', page_mountain: 'Montagne', page_normal: 'Normal ?',
+    station_n: 'Station {n}', mtn_now: 'en ce moment', mtn_from: 'dès {t}', mtn_snow_down: 'Neige {w} jusqu’au pied',
+    mtn_snow_top: 'Neige {w} en haut, pluie en bas', mtn_rain: 'Pluie {w} jusqu’en haut', mtn_snow: 'Neige {w}', mtn_rain_only: 'Pluie {w}',
+    mtn_dry: 'Sec pour 24&nbsp;h', mtn_fine: 'grand beau {d}', iso0: 'Iso 0', iso_up: 'jusqu’à {v} {d}', iso_down: 'descend à {v} {d}',
+    iso_steady: 'stable sur 3 jours', fresh_snow: 'Neige fraîche', snow_none: 'rien sur {n} jours', chance_p: 'chance {p}&nbsp;%',
+    aval_no_bulletin: 'pas de bulletin', aval_not_covered: 'non couvert', aval_bulletin: 'Bulletin d’avalanches',
+    aval_above: 'au-dessus de {a}', aval_below: 'en dessous de {b}', aval_between: 'de {a} à {b}', aval_all: 'à toutes les altitudes',
+    aval_treeline: 'la limite des arbres', aval_morning: 'le matin, ', aval_afternoon: 'l’après-midi, ', aspects_all: 'toutes les pentes',
+    aspects: 'pentes {l}', aspect_names: ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'], trend: 'Tendance : {t}', trend_decreasing: 'en baisse',
+    trend_steady: 'stable', trend_increasing: 'en hausse', next_bulletin: 'Ensuite : {t}',
+    aval_none: 'Pas de bulletin d’avalanche en cours pour ce lieu (hors saison, ou bulletin expiré).',
+    aval_outside: 'Aucun bulletin d’avalanche relayé par Vigie ne couvre ce lieu.', aval_unavailable: 'Le bulletin d’avalanche ne répond pas pour le moment.',
+    mtn_24h: '24&nbsp;h · en haut et en bas', mtn_top: 'en haut', mtn_base: 'en bas', snow_word: 'neige', rain_word: 'pluie',
+    mtn_phase_note: 'Neige ou pluie estimée d’après la température de l’heure.', mtn_days: '{n} jours · en haut', mtn_days_legend: 'neige fraîche · max / min · vent',
+    mtn_days_legend_nosnow: 'max / min · vent',
+    mtn_old: 'L’instance Vigie ne donne pas encore la météo à l’altitude choisie : la page Montagne attend sa mise à jour.',
     loading: 'Chargement…', not_found: 'Aucune entrée Vigie chargée dans Home Assistant.',
     weather_off: 'L’option « Météo du lieu et carte du tableau de bord » de cette entrée est décochée.',
     error: 'Les données de Vigie ne répondent pas pour le moment.',
@@ -135,9 +152,33 @@ const TEXT = {
     fire_note: 'Météo des forêts : un danger pour tout le département, publié de juin à septembre.', dept: 'Département : {n}',
     dir_from: ['du nord', 'du nord-est', 'd’est', 'du sud-est', 'du sud', 'du sud-ouest', 'd’ouest', 'du nord-ouest'],
     dir_to: ['au nord', 'au nord-est', 'à l’est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l’ouest', 'au nord-ouest'],
+    beach_n: 'Plage {n}', high_at: 'pleine mer {t}', low_at: 'basse mer {t}', swell_k: 'Houle', wind_k: 'Vent', wind_onshore: 'de mer',
+    wind_offshore: 'de terre', wind_cross_shore: 'le long de la côte', baines: 'Baïnes', baines_now: 'En cours', baines_until: 'jusqu’à {t}',
+    baines_tip: 'Courant des baïnes le plus fort de {a} à {b} (basse mer à {low})', water_quality: 'Qualité de l’eau', water_quality_short: 'Qualité',
+    quality_excellent: 'Excellente', quality_good: 'Bonne', quality_sufficient: 'Suffisante', quality_poor: 'Insuffisante', quality_unclassified: 'Non classée',
+    quality_d: 'classe sur 4 ans', guard_k: 'Plage surveillée', guard_v: 'En saison', guard_d: 'pas tous les jours', sunset_k: 'Coucher du soleil',
+    sunrise_k: 'Lever du soleil', sunrise_d: 'lever {t}', sunset_d: 'coucher {t}', activities: 'Activités', next_24h: 'dans les 24&nbsp;h',
+    best_from: 'au mieux {a}–{b}', best_until: 'au mieux jusqu’à {b}', tide_24: 'Marée · 24&nbsp;h', tide_nav: 'pas pour la navigation',
+    next_hours: 'Les prochaines heures', every_3h: 'toutes les 3&nbsp;h', row_waves: 'Vagues <small>m</small>', row_period: 'Période <small>s</small>',
+    row_wind: 'Vent <small>km/h</small>', bathing_source: 'ministère de la Santé (data.gouv.fr)',
   },
   en: {
-    page_home: 'Home', page_details: 'Details', page_alerts: 'Alerts', page_sea: 'Sea', page_normal: 'Normal?',
+    page_home: 'Home', page_details: 'Details', page_alerts: 'Alerts', page_sea: 'Sea', page_mountain: 'Mountain', page_normal: 'Normal?',
+    station_n: 'Station {n}', mtn_now: 'now', mtn_from: 'from {t}', mtn_snow_down: 'Snow {w}, down to the base',
+    mtn_snow_top: 'Snow {w} up high, rain at the base', mtn_rain: 'Rain {w}, up to the top', mtn_snow: 'Snow {w}', mtn_rain_only: 'Rain {w}',
+    mtn_dry: 'Dry for 24&nbsp;h', mtn_fine: 'sunny {d}', iso0: 'Freezing level', iso_up: 'up to {v} {d}', iso_down: 'down to {v} {d}',
+    iso_steady: 'steady for 3 days', fresh_snow: 'Fresh snow', snow_none: 'none in {n} days', chance_p: '{p}&nbsp;% chance',
+    aval_no_bulletin: 'no bulletin', aval_not_covered: 'not covered', aval_bulletin: 'Avalanche bulletin',
+    aval_above: 'above {a}', aval_below: 'below {b}', aval_between: 'from {a} to {b}', aval_all: 'at every altitude',
+    aval_treeline: 'the treeline', aval_morning: 'morning, ', aval_afternoon: 'afternoon, ', aspects_all: 'every aspect',
+    aspects: 'aspects {l}', aspect_names: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], trend: 'Trend: {t}', trend_decreasing: 'decreasing',
+    trend_steady: 'steady', trend_increasing: 'increasing', next_bulletin: 'Next: {t}',
+    aval_none: 'No avalanche bulletin in force for this place (off season, or the bulletin expired).',
+    aval_outside: 'No avalanche bulletin relayed by Vigie covers this place.', aval_unavailable: 'The avalanche bulletin does not answer for now.',
+    mtn_24h: '24&nbsp;h · top and base', mtn_top: 'top', mtn_base: 'base', snow_word: 'snow', rain_word: 'rain',
+    mtn_phase_note: 'Snow or rain estimated from the temperature of the hour.', mtn_days: '{n} days · top', mtn_days_legend: 'fresh snow · high / low · wind',
+    mtn_days_legend_nosnow: 'high / low · wind',
+    mtn_old: 'The Vigie instance does not give the weather at a chosen altitude yet: the Mountain page waits for its update.',
     loading: 'Loading…', not_found: 'No Vigie entry is loaded in Home Assistant.',
     weather_off: 'The option “Weather of the place and dashboard card” of this entry is unticked.',
     error: 'The data of Vigie do not answer for now.',
@@ -206,6 +247,15 @@ const TEXT = {
     fire_note: 'Météo des forêts: a danger for the whole department, published from June to September.', dept: 'Department: {n}',
     dir_from: ['from the north', 'from the north-east', 'from the east', 'from the south-east', 'from the south', 'from the south-west', 'from the west', 'from the north-west'],
     dir_to: ['to the north', 'to the north-east', 'to the east', 'to the south-east', 'to the south', 'to the south-west', 'to the west', 'to the north-west'],
+    beach_n: 'Beach {n}', high_at: 'high water {t}', low_at: 'low water {t}', swell_k: 'Swell', wind_k: 'Wind', wind_onshore: 'onshore',
+    wind_offshore: 'offshore', wind_cross_shore: 'cross-shore', baines: 'Rip currents', baines_now: 'Now', baines_until: 'until {t}',
+    baines_tip: 'Strongest rip current from {a} to {b} (low water at {low})', water_quality: 'Water quality', water_quality_short: 'Quality',
+    quality_excellent: 'Excellent', quality_good: 'Good', quality_sufficient: 'Sufficient', quality_poor: 'Poor', quality_unclassified: 'Unclassified',
+    quality_d: 'class over 4 years', guard_k: 'Lifeguarded beach', guard_v: 'In season', guard_d: 'not every day', sunset_k: 'Sunset',
+    sunrise_k: 'Sunrise', sunrise_d: 'sunrise {t}', sunset_d: 'sunset {t}', activities: 'Activities', next_24h: 'next 24&nbsp;h',
+    best_from: 'best {a}–{b}', best_until: 'best until {b}', tide_24: 'Tide · 24&nbsp;h', tide_nav: 'not for navigation',
+    next_hours: 'The next hours', every_3h: 'every 3&nbsp;h', row_waves: 'Waves <small>m</small>', row_period: 'Period <small>s</small>',
+    row_wind: 'Wind <small>km/h</small>', bathing_source: 'French Ministry of Health (data.gouv.fr)',
   },
 };
 const PHENOMENON = {
@@ -275,17 +325,25 @@ const REASON = {
 const EDITOR_TEXT = {
   fr: { entry_id: 'Lieu (entrée Vigie)', name: 'Nom affiché', pages: 'Pages affichées et leur ordre', pages_help: 'Glisser une ligne ou utiliser les flèches pour changer l’ordre. Une page sans donnée pour le lieu ne s’affiche pas, même cochée.',
     start_page: 'Page d’ouverture', idle: 'Écran qu’on ne touche pas', idle_return: 'Retour à la page d’ouverture après une minute', idle_cycle: 'Faire défiler les pages toutes les 20 secondes',
-    idle_none: 'Rester sur la page choisie', spot: 'Spot de la page Mer', spot_auto: 'Le plus proche (moins de 20 km)', spot_none: 'Aucun',
+    idle_none: 'Rester sur la page choisie', beaches: 'Plages de la page Mer',
+    beaches_help: 'Jusqu’à 6 spots à moins de 60 km, chacun dans un onglet de la page Mer ; sans plage cochée, la page Mer montre le spot ci-dessous.',
+    spot: 'Sans plage cochée : spot de la page Mer', spot_auto: 'Le plus proche (moins de 20 km)', spot_none: 'Aucun',
     weather_entity: 'Hors de France : entité météo de la maison', weather_entity_help: 'Pour l’accueil d’un lieu hors de France ; sans elle, l’accueil montre les alertes, les séismes et la marée.',
     icon_style: 'Style des icônes météo', icon_style_help: 'Les icônes de l’écran Meridien, en quatre styles ; leurs couleurs suivent le thème clair ou sombre.',
     icons_meridien: 'Meridien (celles de l’écran)', icons_line: 'Trait', icons_duo: 'Duo', icons_badge: 'Pastille',
+    stations: 'Stations de la page Montagne', stations_help: 'Le nom, la position (sur la carte), l’altitude du bas et celle du haut ; sans l’altitude du bas, le bas est l’altitude de la maille du modèle. La page Montagne ne s’affiche qu’avec au moins une station complète.',
+    station_name: 'Nom de la station', location: 'Position', base_m: 'Altitude du bas (m)', top_m: 'Altitude du haut (m)', add_station: 'Ajouter une station', remove: 'Retirer',
     up: 'Monter', down: 'Descendre', no_form: 'L’éditeur visuel ne s’est pas chargé : la carte se règle aussi en YAML (voir la documentation).' },
   en: { entry_id: 'Place (Vigie entry)', name: 'Name shown', pages: 'Pages shown and their order', pages_help: 'Drag a row or use the arrows to change the order. A page with no data for the place is not shown, even ticked.',
     start_page: 'Opening page', idle: 'Screen nobody touches', idle_return: 'Back to the opening page after a minute', idle_cycle: 'Go through the pages every 20 seconds',
-    idle_none: 'Stay on the page chosen', spot: 'Spot of the Sea page', spot_auto: 'The nearest (within 20 km)', spot_none: 'None',
+    idle_none: 'Stay on the page chosen', beaches: 'Beaches of the Sea page',
+    beaches_help: 'Up to 6 spots within 60 km, each in a tab of the Sea page; with no beach ticked, the Sea page shows the spot below.',
+    spot: 'With no beach ticked: spot of the Sea page', spot_auto: 'The nearest (within 20 km)', spot_none: 'None',
     weather_entity: 'Outside France: weather entity of the home', weather_entity_help: 'For the home page of a place outside France; without it the home page shows the warnings, the earthquakes and the tide.',
     icon_style: 'Style of the weather icons', icon_style_help: 'The icons of the Meridien screen, in four styles; their colours follow the light or dark theme.',
     icons_meridien: 'Meridien (the screen’s)', icons_line: 'Line', icons_duo: 'Duo', icons_badge: 'Badge',
+    stations: 'Stations of the Mountain page', stations_help: 'The name, the position (on the map), the altitude of the base and the one of the top; without the altitude of the base, the base is the altitude of the model’s cell. The Mountain page is shown only with at least one complete station.',
+    station_name: 'Station name', location: 'Position', base_m: 'Base altitude (m)', top_m: 'Top altitude (m)', add_station: 'Add a station', remove: 'Remove',
     up: 'Up', down: 'Down', no_form: 'The visual editor did not load: the card can also be set in YAML (see the documentation).' },
 };
 
@@ -513,7 +571,7 @@ const glyph = (name, s, c, sw = 2) => `<svg width="${s}" height="${s}" viewBox="
 // Wind arrow: it points where the wind GOES.
 const arrow = (s, fromDeg, c) => `<svg width="${s}" height="${s}" viewBox="-1.1 -1.1 2.2 2.2" style="flex:none" aria-hidden="true"><g transform="rotate(${(fromDeg + 180) % 360})"><path d="M0 -1 L0.62 0.85 L0 0.42 L-0.62 0.85 Z" fill="${c}"/></g></svg>`;
 const ACTIVITY_GLYPH = { surf: 'planche', kite: 'cerfVolant', boat: 'voilier', shore_fishing: 'seau' };
-const PAGE_GLYPH = { home: 'accueil', details: 'horloge', alerts: 'danger', sea: 'vagues', normal: 'jauge' };
+const PAGE_GLYPH = { home: 'accueil', details: 'horloge', alerts: 'danger', sea: 'vagues', mountain: 'montagne', normal: 'jauge' };
 
 // The providers named in the credits the data give, in the order of the list: the pages say who the values are from.
 const PROVIDERS = ['Météo-France', 'Vigicrues', 'VigiEau', 'MeteoAlarm', 'Open-Meteo', 'Copernicus', 'SLF', 'Avalanche.report', 'EOT20', 'OpenStreetMap', 'USGS', 'EMSC', 'NOAA', 'ECMWF', 'DWD'];
@@ -557,7 +615,7 @@ function makeContext(lang, dark, width, data, config) {
   const k = wide ? clamp(W / 937, 0.72, 1.1) : clamp(W / 327, 0.86, 1.12);
   const normals = data?.normals || null;
   const inFrance = normals?.status === 'available' || (typeof point?.weather_provider === 'string' && point.weather_provider.startsWith('Météo-France'));
-  return { lang, P, wide, pad, W, k, now, offset, point, data, config, normals, inFrance, t, fmt, local, hm, hourOnly, dayKey, dayName, monthName, sector };
+  return { lang, dark, width, P, wide, pad, W, k, now, offset, point, data, config, normals, inFrance, t, fmt, local, hm, hourOnly, dayKey, dayName, monthName, sector };
 }
 
 // ------------------------------------------------------------------------------------------------------------------ blocks
@@ -609,11 +667,14 @@ function header(c, onAlerts) {
 }
 const placeName = (title) => (typeof title === 'string' ? title.replace(/^Vigie\s+/i, '') || title : 'Vigie');
 
-function nav(c, pages, current) {
+// `iconsOnly`: the names do not fit (six pages on a phone, measured in `_render`): the icons, the name of each in its title;
+// 'names': the names without their icons (a wide card whose names do not fit beside their icons).
+function nav(c, pages, current, iconsOnly = false) {
   const fs = c.wide ? 15 : 13, h = c.wide ? 38 : 30;
   return `<div class="nav" role="tablist">` + pages.map((p) => {
-    const on = p === current;
-    return `<button role="tab" aria-selected="${on}" data-go="${p}" class="${on ? 'actif' : ''}" style="font-size:${fs}px;height:${h}px">${c.wide ? glyph(PAGE_GLYPH[p], fs + 3, on ? c.P.sur : c.P.t3, 2.2) : ''}<span>${c.t(`page_${p}`)}</span></button>`;
+    const on = p === current, name = c.t(`page_${p}`);
+    if (iconsOnly === true) return `<button role="tab" aria-selected="${on}" aria-label="${esc(name)}" title="${esc(name)}" data-go="${p}" class="${on ? 'actif' : ''}" style="height:${h}px">${glyph(PAGE_GLYPH[p], fs + 5, on ? c.P.sur : c.P.t3, 2.2)}</button>`;
+    return `<button role="tab" aria-selected="${on}" data-go="${p}" class="${on ? 'actif' : ''}" style="font-size:${fs}px;height:${h}px">${c.wide && iconsOnly !== 'names' ? glyph(PAGE_GLYPH[p], fs + 3, on ? c.P.sur : c.P.t3, 2.2) : ''}<span>${name}</span></button>`;
   }).join('') + `</div>`;
 }
 
@@ -924,7 +985,9 @@ function hourSlots(c, w) {
 const glowLegend = (c) => `${c.t('night')}<span class="ramp" style="background:linear-gradient(to right,${alpha(c.P.lueurNuit, 0.55)} 0%,${alpha(c.P.lueurNuit, 0.55)} 22%,${alpha(c.P.lueurCouvert, 0.45)} 30%,${alpha(c.P.lueurSoleil, 0.85)} 100%)"></span>${c.t('sun')}`;
 
 // The next 24 hours: a column per slot, its icon, the temperature curve, the rain, its chance (when the forecast gives one), the
-// wind and the gusts, the hour. `cut`: a flatter curve, that many px less (the card has a fixed size; at most 20).
+// wind, the gusts when they are strong (60 km/h or more, in their colour), the hour. `cut`: a flatter curve, that many px less
+// (the card has a fixed size; at most 26). Colour only where it says something (the "Calme" sketch of 2026-11-27): the
+// temperatures, the rain, a strong gust; the wind is grey.
 function hoursBlock(c, w, cut = 0) {
   const S = hourSlots(c, w);
   if (!S) return '';
@@ -947,7 +1010,7 @@ function hoursBlock(c, w, cut = 0) {
   if (hasP) s += cells(n, 144 - cut, list.map((x) => `<span class="pc">${num(x.p) ? `${x.p}&nbsp;%` : ''}</span>`));
   s += cells(n, yWind, list.map((x) => {
     const g = num(x.gust) ? gustColour(P, x.gust) : null;
-    return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.vent) : ''}${c.fmt(x.wind)}</span>${num(x.gust) ? `<small style="color:${g || P.t3};font-weight:${g ? 700 : 400}">${c.fmt(x.gust)}</small>` : ''}</div>`;
+    return `<div class="vt"><span>${num(x.deg) ? arrow(11, x.deg, P.t3) : ''}${c.fmt(x.wind)}</span>${g ? `<small style="color:${g};font-weight:700">${c.fmt(x.gust)}</small>` : ''}</div>`;
   }));
   // Under 36 px a column has no room for "21:00" (English): the hour alone, the title says what the row is.
   s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${cw < 36 ? c.hourOnly(x.ts).replace(/:00$/, '') : c.hourOnly(x.ts)}</span>`));
@@ -969,18 +1032,23 @@ function sunHoursText(c, h, tight) {
   return tight ? c.t('sun_h', { n: c.fmt(Math.max(0.1, h), 1) }) : c.t('sun_min', { n: Math.max(10, Math.round(h * 6) * 10) });
 }
 
-// The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain, its chance, the
-// strongest wind (with the gusts and the direction where the hours of the answer cover the day). Where the answer gives the hours
-// of sunshine of a day, they are said under its icon and tint its column (their share of the daylight); else the cloud cover of
-// its hours, then its weather code. `cut`: flatter curves, that many px less (at most 40).
-function daysBlock(c, w, nMax, cut = 0) {
+// The days: a column per day, tinted by its sun; the highest and lowest as two curves around a band; the rain (a gauge and its
+// amount), its chance, the strongest wind with its unit (and its direction where the hours of the answer cover the day), the
+// gusts below it, in their colour when strong. Where the answer gives the hours of sunshine of a day, they are said under its
+// icon and tint its column (their share of the daylight); else the cloud cover of its hours, then its weather code. `cut`:
+// flatter curves, that many px less (at most 52); `rest`: px still missing with the curves at their flattest, which leaves out the
+// line of the gusts.
+function daysBlock(c, w, nMax, cut = 0, rest = 0) {
   const P = c.P, today = c.dayKey(c.now);
   const list = (Array.isArray(c.point?.daily) ? c.point.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, nMax);
   const n = list.length;
   if (n < 2) return '';
   // Under 50 px a column has no room for "Mar 24" nor "0,5 mm" beside its neighbour: the day name alone, smaller amounts.
+  // "↖ 28 km/h" is 50 px wide (57 with three digits): its arrow only where it stays 4 px off the ring of today's column (a
+  // 412 px phone has 54 px columns); else the wind with its unit alone (its direction is in the hours and on Details).
   const cw = w / n, tight = cw < 50, hasP = list.some((d) => num(d.rain_probability_pct));
-  const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0, H = (hasP ? 250 : 236) + sh - cut; // sh: the line of sunshine
+  const roomy = (v) => cw >= (v >= 100 ? 66 : 58);
+  const hasSun = list.some((d) => num(d.sunshine_h)), sh = hasSun ? 14 : 0; // sh: the line of sunshine
   const hourly = Array.isArray(c.point?.hourly) ? c.point.hourly.filter((h) => h && num(h.time_utc)) : [];
   const info = list.map((d) => {
     const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date && h.time_utc >= c.now - (c.now % 3600));
@@ -991,12 +1059,15 @@ function daysBlock(c, w, nMax, cut = 0) {
     const light = num(d.sunshine_h) ? daylightHours(c, d.date) : null, share = light > 0 ? clamp(d.sunshine_h / light, 0, 1) : null;
     return { share, sun: share ?? sunOfHours(hrs.filter((h) => h.is_day === true)) ?? sunOfCode(d.code), gust: num(gust) && !(num(d.wind_max) && gust <= d.wind_max) ? gust : null, deg: whole ? windFrom(hrs) : null };
   });
+  // The line of the gusts under the wind (14 px and its gap) where a day has some: without it, it went past the bottom of the
+  // columns (seen on 2026-11-27 in Biarritz, 5 px past, the ring of today's column across it).
+  const hasG = rest <= 0 && info.some((x) => num(x.gust)), H = (hasP ? 250 : 236) + sh + (hasG ? 16 : 0) - cut;
   const lo = Math.floor(Math.min(...list.map((d) => d.tmin))) - 1, hi = Math.ceil(Math.max(...list.map((d) => d.tmax))) + 1;
   const yOf = (t) => 150 + sh - cut - ((t - lo) / (hi - lo)) * (76 - cut);
   const mx = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmax) })), mn = list.map((d, i) => ({ x: cw * (i + 0.5), y: yOf(d.tmin) }));
   const maxD = smooth(mx), minD = smooth(mn), band = `${maxD}${smooth(mn.slice().reverse()).replace(/^M/, ' L')} Z`, id = uid();
   const mean = (key) => sum(list.map((d) => d[key])) / n;
-  const legend = c.t(`days_legend${hasSun ? '_sun' : ''}${info.some((x) => num(x.gust)) ? '_gusts' : ''}`);
+  const legend = c.t(`days_legend${hasSun ? '_sun' : ''}${hasG ? '_gusts' : ''}`);
   const sunLine = (d, i) => {
     if (!num(d.sunshine_h)) return '<span class="ds"></span>';
     const k = info[i].share ?? d.sunshine_h / 9, col = k >= 0.45 ? P.icon.soleil : k >= 0.2 ? mix(P.t3, P.icon.soleil, 0.55) : P.t3;
@@ -1016,11 +1087,14 @@ function daysBlock(c, w, nMax, cut = 0) {
     `<span class="lb" style="left:${r1(mn[i].x - 22)}px;top:${r1(mn[i].y + 7)}px;width:44px;font-size:13px;font-weight:500;color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span>`).join('');
   s += cells(n, 176 + sh - cut, list.map((d, i) => {
     const mm = num(d.rain_mm) ? d.rain_mm : null, wet = mm !== null && mm >= 0.5;
-    const bh = mm > 0 ? Math.max(4, Math.sqrt(Math.min(mm, 30) / 30) * 24) : 2;
+    // The rain as a gauge filled up to 30 mm (a square root, so that a few mm still show), the same width every day.
+    const fill = wet ? Math.max(12, Math.sqrt(Math.min(mm, 30) / 30) * 100) : 0;
     const txt = mm === null ? '' : wet ? `${mm < 1 ? c.fmt(mm, 1) : c.fmt(mm)}&nbsp;mm` : c.t('dry');
-    return `<div class="db"><div class="bw"><i style="height:${r1(bh)}px;background:${wet ? rainColour(P, mm / 6) : P.creux}"></i></div>` +
+    const g = num(info[i].gust) ? gustColour(P, info[i].gust) : null;
+    return `<div class="db"><div class="bw"><span class="gauge">${fill ? `<i style="width:${r1(fill)}%;background:${rainColour(P, mm / 6)}"></i>` : ''}</span></div>` +
       `<b style="color:${wet ? P.pluieFaible : P.t3}">${txt}</b>` + (hasP ? `<span class="pc">${num(d.rain_probability_pct) ? `${d.rain_probability_pct}&nbsp;%` : ''}</span>` : '') +
-      `<span class="vt2">${num(info[i].deg) ? arrow(11, info[i].deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}${num(info[i].gust) ? `<small>/${c.fmt(info[i].gust)}</small>` : ''}</span></div>`;
+      `<span class="vt2">${num(info[i].deg) && roomy(d.wind_max) ? arrow(9, info[i].deg, P.t3) : ''}${num(d.wind_max) ? `${c.fmt(d.wind_max)}<small>${c.t('kmh')}</small>` : ''}</span>` +
+      (hasG && num(info[i].gust) ? `<span class="pc rf"${g ? ` style="color:${g};font-weight:700"` : ''}>${c.t('gusts_abbr')} ${c.fmt(info[i].gust)}</span>` : '') + '</div>';
   }));
   return `<div class="bloc${tight ? ' serre' : ''}">${s}</div></div>`;
 }
@@ -1069,7 +1143,7 @@ const AQI_TONE = ['vert', 'vert', 'jaune', 'orange', 'rouge', 'rouge'];
 function nowFacts(c) {
   const P = c.P, cur = c.point?.current || {}, out = [];
   const peak = gustPeak(c);
-  if (peak) out.push(c.t('gust_peak', { v: `<b style="color:${gustColour(P, peak.v) || P.vent}">${c.fmt(peak.v)}</b>`, t: c.hm(peak.at) }));
+  if (peak) out.push(c.t('gust_peak', { v: `<b style="color:${gustColour(P, peak.v) || P.texte}">${c.fmt(peak.v)}</b>`, t: c.hm(peak.at) }));
   if (num(cur.pressure_hpa)) { const tr = pressureTrend(c); out.push(`<b style="color:${P.texte}">${c.fmt(cur.pressure_hpa)}</b>&nbsp;hPa${tr ? ` ${tr}` : ''}`); }
   const air = [];
   if (num(cur.aqi_eu)) { const i = AQI_FROM.filter((b) => cur.aqi_eu >= b).length; air.push(c.t('air', { w: `<b style="color:${P[AQI_TONE[i]]}">${c.t('aqi_word')[i]}</b>` })); }
@@ -1085,7 +1159,7 @@ function nowFacts(c) {
 // Now: icon, temperature in its colour, the weather, feeling and humidity, the wind; beside it the gusts to come, the pressure, the
 // air and the UV, the sun. So that nothing is cut on a narrow card (measured on 2026-11-27 with Home Assistant's fonts): under
 // 370 px inside, the gust of now is left out (the gusts to come stay beside); under 340, the humidity too, and the icon and the
-// temperature are smaller.
+// temperature are smaller. The wind and the gusts are in the colour of the text, a gust of 60 km/h or more in its own.
 function nowBlock(c, w) {
   const P = c.P, m = momentOfPoint(c), cur = c.point?.current || {}, less = Math.max(c.nowLess || 0, w < 340 ? 2 : w < 370 ? 1 : 0);
   const narrow = less >= 1, narrower = less >= 2;
@@ -1093,7 +1167,7 @@ function nowBlock(c, w) {
   const k = clamp(w / 448, narrower ? 0.72 : 0.8, c.wide ? 1.25 : 1), fs = k < 0.9 ? 11 : 12;
   const hum = num(cur.humidity_pct) && !narrower ? `${c.fmt(cur.humidity_pct)}&nbsp;%` : '';
   const feels = [num(m.feels) ? c.t('feels', { t: c.fmt(m.feels) }) : '', hum].filter(Boolean).join(' · ');
-  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.vent}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) && !narrow ? ` · ${c.t('gusts_abbr')} <b style="color:${P.vent}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
+  const wind = num(m.wind) ? `<span class="nl">${num(m.deg) ? arrow(13, m.deg, P.vent) : ''}<span><b style="color:${P.texte}">${c.fmt(m.wind)}</b>&nbsp;km/h${num(m.gust) && !narrow ? ` · ${c.t('gusts_abbr')} <b style="color:${gustColour(P, m.gust) || P.texte}">${c.fmt(m.gust)}</b>` : ''}</span></span>` : '';
   const facts = nowFacts(c);
   return `<div class="now" style="min-height:${Math.round(68 * k)}px">${icon(P, m.kind, Math.round(54 * k))}` +
     (num(m.temp) ? `<span class="temp" style="font-size:${Math.round(52 * k)}px;color:${tempColour(P, m.temp)}">${c.fmt(m.temp)}°</span>` : '') +
@@ -1322,17 +1396,21 @@ function chancesBlock(c, w) {
 // The home page in France (piste B of the sketches, with the rain tile of piste A): now, the rain of the hour, the strongest line
 // of the season, the next 24 hours and the days. The credits are on the other pages. It has to fit the card: with the pill of
 // the season on a narrow card, or when the card measures it too tall (`c.squeeze`, px, see `_render`), the curves of the hours
-// and of the days are flattened, a third and two thirds of what is missing.
+// and of the days are flattened, a third and two thirds of what is missing: 78 px at most, since the line of sunshine of the days
+// (14 px) and a pill of the season on two lines (16 px, "Avalanches · risque 3 (marqué) · Mont-Blanc" under 360 px) came on top
+// of the 60 px it was drawn for (Chamonix scrolled by 13 px from 300 to 380 px wide, and by 3 px at 480). Past that (the line of
+// the gusts of the days on top, 16 px), the days leave out that line: the gusts stay on the Details page.
 function pageHome(c) {
   if (!c.inFrance) return pageHomeWorld(c);
   const W = c.W, season = seasonPill(c, 13, 18, true, '7px 12px');
-  const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(20, Math.round(less / 3)), cutD = Math.min(40, less - cutH);
+  const less = (season && !c.wide ? 38 : 0) + (c.squeeze || 0), cutH = Math.min(26, Math.round(less / 3)), cutD = Math.min(52, less - cutH);
+  const rest = less - cutH - cutD;
   if (c.wide) {
     const left = Math.round(W * 0.52), right = W - left - 20;
     return `<div class="pile" style="gap:10px"><div class="duo" style="grid-template-columns:${left}px ${right}px">${nowBlock(c, left)}` +
-      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W, cutH)}${daysBlock(c, W, 10, cutD)}</div>`;
+      `<div class="pile" style="gap:8px">${rainTile(c, right)}${season}</div></div>${hoursBlock(c, W, cutH)}${daysBlock(c, W, 10, cutD, rest)}</div>`;
   }
-  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, cutH)}${daysBlock(c, W, 7, cutD)}</div>`;
+  return `<div class="pile" style="gap:8px">${nowBlock(c, W)}${rainTile(c, W)}${season}${hoursBlock(c, W, cutH)}${daysBlock(c, W, 7, cutD, rest)}</div>`;
 }
 
 // Outside France: the weather of the home's own entity when one is chosen; else the warnings, the earthquakes and the tide.
@@ -1465,7 +1543,224 @@ function frieze(c, groups, w) {
   return `<div style="max-width:${w}px">${s}${ax}</svg></div>`;
 }
 
+// ------------------------------------------------------------------------------------------------------------------ the sea
+// The Sea page (sketch "Mer · sous-menu des plages" of 2026-11-27, without the flag of the beach, which no open source gives):
+// the beaches chosen in the editor (`beaches`, spots near the place), or without them the spot of `spot` (the nearest within
+// 20 km by default), each asked with `vigie/card/beach`: its name, the tide and the water, six tiles (waves, swell, wind, the
+// baïnes, the class of the water, the lifeguards or the sun), the verdicts of the activities hour by hour, the tide of 24 hours
+// and the next hours by 3 hours. A tile without its value is not drawn. Without a beach, while the spot of `spot` is asked, or
+// with an integration that does not answer `vigie/card/beach` (the online demo): the page of before, the tide of the place, its
+// sea and the verdicts of its spot.
+const MAX_BEACHES = 6;
+const beachesOf = (config) => [...new Set((Array.isArray(config?.beaches) ? config.beaches : []).filter((b) => typeof b === 'string' && b))].slice(0, MAX_BEACHES);
+// The beaches of the page, with the names the card knows of them (the spots of the editor's list, or the spot of the data).
+function beachList(config, data, spots) {
+  const ids = beachesOf(config), known = Array.isArray(spots) ? spots : [];
+  if (ids.length) return ids.map((id) => ({ id, name: known.find((s) => s && s.id === id)?.name || null }));
+  if (config?.spot === 'none') return [];
+  const s = data?.spot;
+  return s && typeof s.id === 'string' ? [{ id: s.id, name: s.name || null }] : [];
+}
+const beachKey = (config, id) => `b|${config?.entry_id || ''}|${id}`;
+// "Plage des Corsaires" -> "Corsaires" in the chips; the whole name under them.
+function shortBeach(name) {
+  if (typeof name !== 'string' || !name.trim()) return null;
+  const s = name.trim().replace(/^(plages?|beach)\s+(de\s+la\s+|de\s+l['’]\s*|des\s+|du\s+|de\s+|d['’]\s*)?/i, '').trim();
+  return s ? cap(s) : name.trim();
+}
+const beachName = (c, b, i) => b?.name || c.t('beach_n', { n: i + 1 });
+
+// The Douglas scale of the API (`classify_sea_state_douglas`), from the height of the waves at the spot.
+const seaState = (m) => (m < 0.1 ? 'CALM' : m < 0.5 ? 'SMOOTH' : m < 1.25 ? 'MODERATE' : m < 2.5 ? 'ROUGH' : m < 4 ? 'VERY_ROUGH' : m < 6 ? 'HIGH' : 'PHENOMENAL');
+const QUALITY_TONE = { excellent: 'vert', good: 'vert', sufficient: 'jaune', poor: 'rouge', unclassified: 't3' };
+// Credited by the spot's own data (its lifeguards, the nature of its bottom), on this page only.
+const SEA_PROVIDERS = ['GIP Littoral', 'Shom'];
+
+// The baïnes (the rule of the Vigie site, vigie-web `src/lib/sea/bathing.ts`; no official text draws where they are): the ocean
+// beaches from Charente-Maritime to the Basque Country, facing the open Atlantic and not on rock; their current runs the
+// strongest from three hours before to three hours after low water (the prefecture of Charente-Maritime: "the first three
+// hours of the rising tide and the last three hours of the falling tide").
+function onBaineCoast(s) {
+  if (!(num(s?.lat) && num(s?.lon) && s.lat >= 43.35 && s.lat <= 46.4 && s.lon <= -1)) return false;
+  if (!num(s.facing_deg) || s.facing_deg < 200 || s.facing_deg > 340) return false;
+  return s.bottom !== 'rock';
+}
+function baineWindow(extremes, now, horizon = 24 * 3600) {
+  const lows = (Array.isArray(extremes) ? extremes : []).filter((e) => e && e.kind === 'low' && num(e.time_utc)).sort((a, b) => a.time_utc - b.time_utc);
+  for (const low of lows) {
+    const from = low.time_utc - 3 * 3600, to = low.time_utc + 3 * 3600;
+    if (to <= now) continue;
+    return from - now > horizon ? null : { low, from, to, now: from <= now };
+  }
+  return null;
+}
+
+const hourFrom = (c) => c.now - (c.now % 3600);
+function beachHours(c, B) {
+  const from = hourFrom(c);
+  return (Array.isArray(B?.forecast?.hours) ? B.forecast.hours : []).filter((h) => h && num(h.time_utc) && h.time_utc >= from).sort((a, b) => a.time_utc - b.time_utc);
+}
+const extremesOf = (B) => (Array.isArray(B?.activities?.tide?.extremes) ? B.activities.tide.extremes : [])
+  .filter((e) => e && num(e.time_utc) && (e.kind === 'high' || e.kind === 'low')).sort((a, b) => a.time_utc - b.time_utc);
+
+// The name, the tide (rising or falling, the next high or low water, the coefficient where there is one) and the water.
+function beachHead(c, B, name, H0) {
+  const next = extremesOf(B).find((e) => e.time_utc > c.now);
+  const trend = H0?.tide?.trend === 'rising' || H0?.tide?.trend === 'falling' ? H0.tide.trend : next ? (next.kind === 'high' ? 'rising' : 'falling') : null;
+  const parts = [];
+  if (trend) parts.push(c.t(trend === 'rising' ? 'sea_rising' : 'sea_falling'));
+  if (next) parts.push(c.t(next.kind === 'high' ? 'high_at' : 'low_at', { t: c.hm(next.time_utc) }));
+  const coefs = (Array.isArray(B?.activities?.tide?.coefficients_estimated) ? B.activities.tide.coefficients_estimated : []).filter((k) => k && num(k.brest_high_water_utc) && num(k.value));
+  if (coefs.length) parts.push(c.t('coef', { c: [...coefs].sort((a, b) => Math.abs(a.brest_high_water_utc - c.now) - Math.abs(b.brest_high_water_utc - c.now))[0].value }));
+  const sst = B?.water?.sea_surface_temperature_c;
+  const water = num(sst) ? `<div class="beau"><small>${c.t('water')}</small><b>${c.fmt(sst)}°</b></div>` : '';
+  return `<div class="bh"><div class="bht"><b>${esc(name)}</b>${parts.length ? `<span>${parts.join(' · ')}</span>` : ''}</div>${water}</div>`;
+}
+
+// The six tiles: what the sea, the swell and the wind do in the hour under way, then the baïnes, the class of the water and the
+// lifeguards, the sun on the tiles left. `level`: the shorter words, when the card measured a word cut (1: without the
+// directions in words, the arrows keep them; 2: without the state of the sea either, and the shorter names).
+function beachTiles(c, B, H0, level = 0) {
+  const P = c.P, tiles = [], tight = level >= 2;
+  const dir = (deg) => (level < 1 && num(deg) ? c.t('dir_from')[c.sector(deg)] : '');
+  const line = (...parts) => parts.filter(Boolean).join(' · ');
+  const tile = (k, v, d, col = P.texte, deg = null, tip = '') => `<div class="bt"${tip ? ` title="${tip}"` : ''}><span class="k">${k}</span>` +
+    `<b class="v" style="color:${col}">${num(deg) ? arrow(13, deg, col) : ''}<span>${v}</span></b>${d ? `<span class="d">${d}</span>` : ''}</div>`;
+  const wv = H0?.waves;
+  if (num(wv?.height_m)) {
+    tiles.push(tile(tight ? c.t('waves') : `${c.t('waves')} · ${c.t(`sea_${seaState(wv.height_m)}`)}`, `${c.fmt(wv.height_m, 1)}&nbsp;m`,
+      line(num(wv.period_s) && `${c.fmt(wv.period_s)}&nbsp;s`, dir(wv.from_deg)), P.texte, wv.from_deg));
+  }
+  const sw = H0?.swell;
+  if (num(sw?.height_m)) tiles.push(tile(c.t('swell_k'), `${c.fmt(sw.height_m, 1)}&nbsp;m`, line(num(sw.period_s) && `${c.fmt(sw.period_s)}&nbsp;s`, dir(sw.from_deg)), P.texte, sw.from_deg));
+  const wd = H0?.wind;
+  if (num(wd?.speed_kmh)) {
+    const rel = { onshore: ['wind_onshore', P.orange], offshore: ['wind_offshore', P.vert], cross_shore: ['wind_cross_shore', P.t2] }[wd.relative];
+    const k = rel && !(tight && wd.relative === 'cross_shore') ? `${c.t('wind_k')} <b style="color:${rel[1]}">${c.t(rel[0])}</b>` : c.t('wind_k');
+    const gc = num(wd.gust_kmh) ? gustColour(P, wd.gust_kmh) : null;
+    const g = num(wd.gust_kmh) ? `${c.t('gusts')} <b${gc ? ` style="color:${gc}"` : ''}>${c.fmt(wd.gust_kmh)}</b>` : '';
+    tiles.push(tile(k, `${c.fmt(wd.speed_kmh)}&nbsp;${c.t('kmh')}`, line(g, dir(wd.from_deg)), P.vent, wd.from_deg));
+  }
+  if (onBaineCoast(B?.spot)) {
+    const w = baineWindow(extremesOf(B), c.now);
+    if (w) {
+      tiles.push(tile(c.t('baines'), w.now ? c.t('baines_now') : c.t('from', { t: c.hm(w.from) }), c.t('baines_until', { t: c.hm(w.to) }), w.now ? P.orange : P.jaune, null,
+        c.t('baines_tip', { a: c.hm(w.from), b: c.hm(w.to), low: c.hm(w.low.time_utc) })));
+    }
+  }
+  const q = B?.bathing?.quality;
+  if (QUALITY_TONE[q]) {
+    tiles.push(tile(tight ? c.t('water_quality_short') : c.t('water_quality'), c.t(`quality_${q}`), c.t('quality_d'), P[QUALITY_TONE[q]], null,
+      esc([B.bathing.name, B.bathing.commune].filter((x) => typeof x === 'string' && x).join(', '))));
+  }
+  if (B?.spot?.lifeguarded === true) tiles.push(tile(c.t('guard_k'), c.t('guard_v'), c.t('guard_d')));
+  if (tiles.length < 6) {
+    const days = (Array.isArray(B?.activities?.sun) ? B.activities.sun : []).filter((d) => d && num(d.sunrise_utc) && num(d.sunset_utc)).sort((a, b) => a.sunrise_utc - b.sunrise_utc);
+    const today = days.find((d) => d.sunrise_utc <= c.now && c.now < d.sunset_utc), next = days.find((d) => d.sunrise_utc > c.now);
+    if (today) tiles.push(tile(c.t('sunset_k'), c.hm(today.sunset_utc), next ? c.t('sunrise_d', { t: c.hm(next.sunrise_utc) }) : '', P.icon.soleil));
+    else if (next) tiles.push(tile(c.t('sunrise_k'), c.hm(next.sunrise_utc), c.t('sunset_d', { t: c.hm(next.sunset_utc) }), P.icon.soleil));
+  }
+  return tiles.length ? `<div class="bts" data-level="${level}">${tiles.join('')}</div>` : '';
+}
+
+// The verdicts of the activities: each verdict with its best slot or why it is not good, and the 24 hours from the one under way,
+// the night dark (the verdicts are for the daylight). `rowH`: the height of a row (the card has a fixed size).
+function beachActivities(c, B, w, rowH) {
+  const P = c.P, acts = (Array.isArray(B?.activities?.activities) ? B.activities.activities : []).filter((a) => a && TEXT.en[`act_${a.id}`]);
+  if (!acts.length) return '';
+  const from = hourFrom(c), nameW = Math.round(clamp(w * 0.24, 88, 120)), verdW = Math.round(clamp(w * 0.27, 100, 150));
+  const grid = `grid-template-columns:${nameW + 8 + verdW}px minmax(0,1fr)`, pair = `grid-template-columns:${nameW}px ${verdW}px`;
+  const ticks = [0, 6, 12, 18].map((i) => `<span style="left:${r1((i / 24) * 100)}%">${c.hourOnly(from + i * 3600)}</span>`).join('');
+  const rows = acts.map((a) => {
+    let word, col, why = '';
+    if (!a.available) { word = c.t('cannot_judge'); col = P.t3; } else if (!a.verdict) { word = c.t('no_verdict'); col = P.t3; } else {
+      word = c.t(`verdict_${a.verdict}`); col = P[VERDICT_COLOUR[a.verdict]] || P.t3;
+      const s = a.best_slot;
+      if (a.verdict === 'good' && num(s?.start_utc) && num(s?.end_utc)) why = s.start_utc <= c.now ? c.t('best_until', { b: c.hm(s.end_utc) }) : c.t('best_from', { a: c.hm(s.start_utc), b: c.hm(s.end_utc) });
+      else if (a.verdict !== 'good') why = reasonText(c, a.reason);
+    }
+    const byTs = new Map((Array.isArray(a.hours) ? a.hours : []).filter((h) => h && num(h.time_utc)).map((h) => [h.time_utc, h]));
+    const strip = a.available ? Array.from({ length: 24 }, (_, i) => {
+      const h = byTs.get(from + i * 3600), tone = h && h.daylight !== false ? VERDICT_COLOUR[h.verdict] : null;
+      return `<i style="background:${tone ? P[tone] : P.filet}"></i>`;
+    }).join('') : '';
+    // Not judged here: no hours, the words on the whole row.
+    const words = `<span class="bw"${why ? ` title="${why}"` : ''}${a.available ? '' : ' style="grid-column:1 / -1"'}>` +
+      `<span class="bl" style="${a.available ? pair : `grid-template-columns:${nameW}px minmax(0,1fr)`}"><span class="an">${esc(c.t(`act_${a.id}`))}</span>` +
+      `<b style="color:${col}">${word}</b></span>${why ? `<small>${why}</small>` : ''}</span>`;
+    return `<div class="bact" style="${grid};height:${rowH}px">${words}${a.available ? `<span class="bstrip">${strip}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="bloc" style="gap:0"><div class="bact hd" style="${grid}"><span class="bl" style="${pair}"><b>${c.t('activities')}</b>` +
+    `<span>${c.t('next_24h')}</span></span><span class="bticks">${ticks}</span></div>${rows}<div class="note" style="margin-top:4px">${c.t('rules_note')}</div></div>`;
+}
+
+// The tide of the next 24 hours at the beach: its height hour by hour (the forecast) and its high and low waters (the verdicts').
+function beachTide(c, B, w, h) {
+  const heights = beachHours(c, B).filter((x) => num(x.tide?.height_m)).map((x) => ({ time_utc: x.time_utc, height_m: x.tide.height_m }));
+  const curve = tideCurve(c, { heights, extremes: extremesOf(B) }, w, h);
+  return curve ? `<div class="bloc">${section(c.t('tide_24'), c.t('tide_nav'))}${curve}</div>` : '';
+}
+
+// The next hours by 3 hours: the waves, their period and the wind, coloured by their strength.
+function beachTable(c, B, cellH) {
+  const P = c.P, from = hourFrom(c), byTs = new Map(beachHours(c, B).map((h) => [h.time_utc, h]));
+  const list = Array.from({ length: 8 }, (_, i) => byTs.get(from + i * 3 * 3600)).filter(Boolean);
+  if (list.length < 4) return '';
+  const tone = (col, a) => `background:${alpha(col, a)}`;
+  const waveBg = (m) => (m >= 4 ? tone(P.rouge, 0.42) : m >= 3 ? tone(P.orange, 0.4) : m >= 2 ? tone(P.jaune, 0.34) : m >= 1 ? tone(P.pluie, 0.3) : tone(P.pluie, 0.14));
+  const windBg = (v) => (v >= 80 ? tone(P.rouge, 0.42) : v >= 60 ? tone(P.orange, 0.4) : v >= 40 ? tone(P.jaune, 0.34) : v >= 20 ? tone(P.vent, 0.28) : tone(P.vent, 0.12));
+  const cell = (style, inner) => `<span class="c" style="height:${cellH}px;${style}">${inner}</span>`;
+  let s = '<span></span>' + list.map((x, i) => `<span class="h"${i === 0 ? ` style="color:${P.accent}"` : ''}>${c.hourOnly(x.time_utc)}</span>`).join('');
+  s += `<span class="l">${c.t('row_waves')}</span>` + list.map((x) => (num(x.waves?.height_m) ? cell(waveBg(x.waves.height_m), c.fmt(x.waves.height_m, 1)) : cell('', '–'))).join('');
+  s += `<span class="l">${c.t('row_period')}</span>` + list.map((x) => cell(tone(P.t4, 0.12), num(x.waves?.period_s) ? c.fmt(x.waves.period_s) : '–')).join('');
+  s += `<span class="l">${c.t('row_wind')}</span>` + list.map((x) => (num(x.wind?.speed_kmh)
+    ? cell(windBg(x.wind.speed_kmh), `${num(x.wind.from_deg) ? arrow(9, x.wind.from_deg, P.texte) : ''}${c.fmt(x.wind.speed_kmh)}`) : cell('', '–'))).join('');
+  return `<div class="bloc">${section(c.t('next_hours'), c.t('every_3h'))}<div class="btab" style="grid-template-columns:62px repeat(${list.length},minmax(0,1fr))">${s}</div></div>`;
+}
+
 function pageSea(c) {
+  const list = beachList(c.config, c.data, c.spots), chosen = beachesOf(c.config).length > 0;
+  const B = c.beach, ready = !!(B && (B.forecast || B.activities));
+  if (!list.length || c.beachError === 'unknown_command' || (!chosen && !ready)) return pageSeaHome(c);
+  const i = clamp(c.config._beach || 0, 0, list.length - 1), name = (ready && B.spot?.name) || beachName(c, list[i], i);
+  const chipName = (x, j) => (j === i && ready && B.spot?.name ? shortBeach(B.spot.name) : shortBeach(x.name)) || c.t('beach_n', { n: j + 1 });
+  const chips = list.length > 1 ? `<div class="schs" role="tablist">${list.map((x, j) => `<button role="tab" aria-selected="${j === i}" class="sch${j === i ? ' on' : ''}" data-beach="${j}">${esc(chipName(x, j))}</button>`).join('')}</div>` : '';
+  if (!ready) {
+    const words = c.beachError || B ? c.t('error') : c.t('loading');
+    return `<div class="pile" style="gap:10px">${chips}<div class="bh"><div class="bht"><b>${esc(name)}</b></div></div><div class="vide">${words}</div></div>`;
+  }
+  const H0 = beachHours(c, B)[0] || null;
+  // The card has a fixed size: on a phone, the tide, the rows of the activities (two lines need 30 px), the cells of the table
+  // and last the gaps between the blocks give back what the page is over (`c.squeeze`, measured by the card).
+  const nActs = Array.isArray(B.activities?.activities) ? B.activities.activities.length : 0;
+  let over = c.wide ? 0 : c.squeeze || 0;
+  const tideCut = clamp(over, 0, 24);
+  over -= tideCut;
+  const rowCut = nActs ? clamp(Math.ceil(over / nActs), 0, 4) : 0;
+  over -= rowCut * nActs;
+  const cellCut = clamp(Math.ceil(over / 3), 0, 4);
+  over -= cellCut * 3;
+  const gap = 8 - clamp(Math.ceil(over / 5), 0, 2);
+  const rowH = c.wide ? 44 : 34 - rowCut, tideH = c.wide ? 190 : 84 - tideCut, cellH = c.wide ? 30 : 20 - cellCut;
+  const names = providers(B.forecast?.attribution, B.activities?.attribution, B.water?.attribution);
+  const spotCredit = [B.forecast?.attribution, B.activities?.attribution].filter((x) => typeof x === 'string').join(' ');
+  names.push(...SEA_PROVIDERS.filter((p) => spotCredit.includes(p)));
+  if (QUALITY_TONE[B.bathing?.quality]) names.push(c.t('bathing_source'));
+  const credit = foot(c, names);
+  c.beachTilesAt = (level) => beachTiles(c, B, H0, level);  // drawn again by the card when a word of the tiles is cut
+  const tiles = beachTiles(c, B, H0, c.tilesLevel || 0);
+  const left = (w) => beachHead(c, B, name, H0) + tiles + beachActivities(c, B, w, rowH);
+  const right = (w) => beachTide(c, B, w, tideH) + beachTable(c, B, cellH);
+  if (c.wide) {
+    const half = Math.floor((c.W - 28) / 2);
+    return `<div class="pile" style="gap:12px">${chips}<div class="duo" style="grid-template-columns:${half}px ${half}px;align-items:start;gap:28px">` +
+      `<div class="pile" style="gap:12px">${left(half)}</div><div class="pile" style="gap:16px">${right(half)}</div></div></div>${credit}`;
+  }
+  return `<div class="pile" style="gap:${gap}px">${chips}${left(c.W)}${right(c.W)}</div>${credit}`;
+}
+
+// The page of before: the tide of the place, its sea and the verdicts of its spot.
+function pageSeaHome(c) {
   const P = c.P, tides = c.data?.tides, marine = c.point?.marine;
   const left = (w) => (tides ? tideBlock(c, w) : '') + seaLine(c, marine);
   const spot = spotBlock(c);
@@ -1618,6 +1913,266 @@ function gustRuler(c, w, forecast, measured, record, recordDate) {
   return s + '</svg>';
 }
 
+// --------------------------------------------------------------------------------------------------------------- mountain
+// The Mountain page (sketch "Montagne · sous-menu des stations" of 2026-11-27, without the tiles of SkiRadar nor the "open"
+// pill, which Vigie does not have): the stations chosen in the editor, each read at its top and at its base and with its
+// avalanche bulletin (WebSocket command `vigie/card/mountain`). Snow or rain is told by the temperature of the hour (snow at
+// 1 °C or below, or with a snow code up to 3 °C): an estimate, and the legend says so.
+const MAX_STATIONS = 6;
+const MIN_ALTITUDE_M = -500;
+const MAX_ALTITUDE_M = 9000;
+const SNOW_CODES = new Set([71, 73, 75, 77, 85, 86]);
+const FRESH_CM = 0.5;  // the fresh snow a day shows: what rounds to 1 cm
+const ASPECTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const altitude = (v) => num(v) && v >= MIN_ALTITUDE_M && v <= MAX_ALTITUDE_M;
+
+// The stations of the configuration that can be read: a position and the altitude of the top (the base is optional: without
+// it, the base is the altitude of the model's cell). At most MAX_STATIONS.
+function stationsOf(config) {
+  const list = Array.isArray(config?.stations) ? config.stations : [];
+  return list.filter((s) => s && num(s.latitude) && num(s.longitude) && Math.abs(s.latitude) <= 90 && Math.abs(s.longitude) <= 180 && altitude(s.top_m))
+    .slice(0, MAX_STATIONS)
+    .map((s) => ({ name: typeof s.name === 'string' && s.name.trim() ? s.name.trim() : null, latitude: s.latitude, longitude: s.longitude,
+      top_m: Math.round(s.top_m), base_m: altitude(s.base_m) ? Math.round(s.base_m) : null }));
+}
+const stationKey = (config, s) => `m|${config?.entry_id || ''}|${s.latitude.toFixed(4)},${s.longitude.toFixed(4)}|${s.base_m ?? ''}|${s.top_m}`;
+const stationName = (c, s, i) => s.name || c.t('station_n', { n: i + 1 });
+
+const snowAt = (h) => (num(h.temp_c) ? h.temp_c <= 1 || (SNOW_CODES.has(h.weather_code) && h.temp_c <= 3) : SNOW_CODES.has(h.weather_code));
+function hoursFrom(c, pt) {
+  const from = c.now - (c.now % 3600);
+  return (Array.isArray(pt?.hourly) ? pt.hourly : []).filter((h) => h && num(h.time_utc) && h.time_utc >= from);
+}
+// "1 600 m" (French) or "1,600 m".
+const metres = (c, v) => `${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, c.lang === 'fr' ? '&nbsp;' : ',')}&nbsp;m`;
+// An altitude bound of the bulletins: metres (a number or a string of digits) or the treeline.
+function boundText(c, b) {
+  if (b === 'treeline') return c.t('aval_treeline');
+  const v = typeof b === 'string' && /^\d+$/.test(b) ? Number(b) : b;
+  return num(v) ? metres(c, v) : null;
+}
+// "aujourd'hui", "demain", or the day in full ("mardi"), for the sentences of the page.
+function dayLong(c, ts) {
+  const d = Math.round((Date.parse(`${c.dayKey(ts)}T00:00:00Z`) - Date.parse(`${c.dayKey(c.now)}T00:00:00Z`)) / 86400000);
+  if (d === 0) return c.t('today_word');
+  if (d === 1) return c.t('tomorrow');
+  const s = new Intl.DateTimeFormat(c.lang, { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${c.dayKey(ts)}T12:00:00Z`));
+  return c.lang === 'fr' ? s : cap(s);
+}
+const dayTs = (c, iso) => Date.parse(`${iso}T12:00:00Z`) / 1000 - c.offset;
+
+// The sentence under the name: the next rain or snow of the 24 hours at the top, down to the base or not, then the next fine day.
+function mountainSentence(c, top, base) {
+  const parts = [], hours = hoursFrom(c, top).slice(0, 24);
+  const wet = hours.find((h) => num(h.precipitation_mm) && h.precipitation_mm >= 0.2);
+  if (hours.length >= 12) {
+    if (wet) {
+      const when = wet.time_utc <= c.now ? c.t('mtn_now') : c.t('mtn_from', { t: dayWord(c, wet.time_utc, true) });
+      const low = hoursFrom(c, base).find((h) => h.time_utc === wet.time_utc && num(h.temp_c));
+      const key = snowAt(wet) ? (!low ? 'mtn_snow' : snowAt(low) ? 'mtn_snow_down' : 'mtn_snow_top') : low ? 'mtn_rain' : 'mtn_rain_only';
+      parts.push(c.t(key, { w: when }));
+    } else parts.push(c.t('mtn_dry'));
+  }
+  const today = c.dayKey(c.now);
+  const days = (Array.isArray(top?.daily) ? top.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today).slice(0, 7);
+  const fine = days.find((d, i) => num(d.code) && d.code <= 1 && (i > 0 || !wet));
+  if (fine) parts.push(c.t('mtn_fine', { d: dayLong(c, dayTs(c, fine.date)) }));
+  return parts.length ? cap(parts.join(' · ')) : '';
+}
+
+// The three tiles: the avalanche danger, the freezing level now and where it goes, the next fresh snow at the top.
+function mountainTiles(c, M, S, narrowAsked = false) {
+  const P = c.P, top = M.top, tiles = [];
+  const A = M.avalanches, l = A?.status === 'active' && num(A.max_danger_level) ? A.max_danger_level : null;
+  if (A) {
+    const col = l ? P[avalancheTone(l)] : P.t3;
+    tiles.push(`<div class="mt mtav"><span class="sq" style="background:${l ? col : 'transparent'};color:${P.sur};border-color:${l ? col : P.filet}">${l ?? '–'}</span>` +
+      `<div class="mtt"><span class="k">${c.t('aval')}</span><b class="v" style="color:${col}">${l ? c.t('aval_word')[l] : c.t(A.status === 'confirmed_none' ? 'aval_no_bulletin' : 'aval_not_covered')}</b></div></div>`);
+  }
+  const iso = hoursFrom(c, top).filter((h) => num(h.freezing_level_m));
+  if (iso.length) {
+    const now = iso[0].freezing_level_m, hi = iso.reduce((a, h) => (h.freezing_level_m > a.freezing_level_m ? h : a), iso[0]);
+    const lo = iso.reduce((a, h) => (h.freezing_level_m < a.freezing_level_m ? h : a), iso[0]);
+    const up = hi.freezing_level_m - now, down = now - lo.freezing_level_m;
+    const det = up >= 100 && up >= down ? c.t('iso_up', { v: metres(c, hi.freezing_level_m), d: dayLong(c, hi.time_utc) })
+      : down >= 100 ? c.t('iso_down', { v: metres(c, lo.freezing_level_m), d: dayLong(c, lo.time_utc) }) : c.t('iso_steady');
+    // Its colour against the station: below the base, between, above the top (rain likely up there).
+    const col = num(S.base_m) && now <= S.base_m ? P.ramp[0] : now >= S.top_m ? P.jaune : P.ramp[1];
+    tiles.push(`<div class="mt"><span class="k">${c.t('iso0')}</span><b class="v" style="color:${col}">${metres(c, now)}</b><span class="d">${det}</span></div>`);
+  }
+  const today = c.dayKey(c.now);
+  // The days of the page (seven), with the threshold of their pills: a day 11 days ahead would be named like this week's.
+  const days = (Array.isArray(top?.daily) ? top.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today).slice(0, 7).filter((d) => num(d.snowfall_cm));
+  if (days.length) {
+    const next = days.find((d) => d.snowfall_cm >= FRESH_CM);
+    const det = next ? [dayLong(c, dayTs(c, next.date)), num(next.rain_probability_pct) ? c.t('chance_p', { p: next.rain_probability_pct }) : ''].filter(Boolean).join(' · ')
+      : c.t('snow_none', { n: days.length });
+    tiles.push(`<div class="mt"><span class="k">${c.t('fresh_snow')}</span><b class="v" style="color:${next ? P.icon.neige : P.t3}">${next ? c.fmt(next.snowfall_cm) : 0}&nbsp;cm</b><span class="d">${cap(det)}</span></div>`);
+  }
+  // On a narrow card three tiles cut their words: the avalanches on the whole width, the others under them (also when the
+  // card measured a word cut, `narrowAsked`).
+  const narrow = !!A && tiles.length >= 2 && ((c.W < 380 && tiles.length === 3) || narrowAsked);
+  if (narrow) tiles[0] = tiles[0].replace('class="mt mtav"', 'class="mt mtav" style="grid-column:1 / -1"');
+  const cols = narrow ? tiles.length - 1 : tiles.length;
+  return tiles.length ? `<div class="mts"${narrow ? ' data-narrow="1"' : ''} style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${tiles.join('')}</div>` : '';
+}
+
+// The aspects of the problems on a rose of eight wedges, the north at the top.
+function aspectRose(c, on, col, size) {
+  const r = size / 2, r0 = r * 0.3, cx = r, cy = r + 12, at = (a, rr) => `${r1(cx + rr * Math.sin(rad(a)))} ${r1(cy - rr * Math.cos(rad(a)))}`;
+  let s = `<svg width="${size}" height="${size + 12}" viewBox="0 0 ${size} ${size + 12}" style="flex:none" aria-hidden="true">` +
+    `<text x="${cx}" y="9" font-size="10" font-weight="700" fill="${c.P.t3}" text-anchor="middle">${c.t('aspect_names')[0]}</text>`;
+  ASPECTS.forEach((a, i) => {
+    const a1 = i * 45 - 22.5, a2 = i * 45 + 22.5;
+    s += `<path d="M${at(a1, r0)} L${at(a1, r)} A${r} ${r} 0 0 1 ${at(a2, r)} L${at(a2, r0)} A${r1(r0)} ${r1(r0)} 0 0 0 ${at(a1, r0)} Z" fill="${on.has(a) ? col : c.P.creux}" stroke="var(--vc-carte)" stroke-width="1.5"/>`;
+  });
+  return s + '</svg>';
+}
+function bandText(c, e, period) {
+  const lo = e ? boundText(c, e.lower_bound) : null, hi = e ? boundText(c, e.upper_bound) : null;
+  const when = period === 'earlier' ? c.t('aval_morning') : period === 'later' ? c.t('aval_afternoon') : '';
+  return when + (lo && hi ? c.t('aval_between', { a: lo, b: hi }) : lo ? c.t('aval_above', { a: lo }) : hi ? c.t('aval_below', { b: hi }) : c.t('aval_all'));
+}
+function aspectsText(c, list) {
+  const set = ASPECTS.filter((a) => list.includes(a));
+  if (set.length === 8) return c.t('aspects_all');
+  return c.t('aspects', { l: set.map((a) => c.t('aspect_names')[ASPECTS.indexOf(a)]).join(', ') });
+}
+
+// The bulletin in force: its levels by altitude, the aspects of its problems on a rose, the problems and what comes next.
+function bulletinBlock(c, A, w) {
+  if (!A) return '';
+  const b = (Array.isArray(A.bulletins) ? A.bulletins : [])[0], issuer = AVALANCHE_ISSUER[b?.source || A.covered_by];
+  // The name of the area, never its code (Euregio gives its code as its name: "AT-07-14-03").
+  const area = typeof A.region_name === 'string' && A.region_name !== A.region_id && !/^[A-Z]{2}(-[0-9A-Z]+)+$/.test(A.region_name) ? A.region_name : null;
+  const head = section(c.t('aval_bulletin'), [issuer, area].filter(Boolean).map(esc).join(' · '));
+  if (A.status !== 'active' || !b) {
+    const words = A.status === 'outside_coverage' ? c.t('aval_outside') : A.status === 'confirmed_none' ? c.t('aval_none') : c.t('aval_unavailable');
+    return `<div class="bloc">${head}<div class="t2" style="font-size:13px">${words}</div></div>`;
+  }
+  const seen = new Set();
+  const bands = (Array.isArray(b.danger_ratings) ? b.danger_ratings : []).filter((r) => r && num(r.level) && r.level >= 1 && r.level <= 5)
+    .map((r) => ({ level: r.level, text: bandText(c, r.elevation, r.valid_time_period), up: r.elevation && r.elevation.lower_bound != null ? 0 : r.elevation && r.elevation.upper_bound != null ? 1 : 2 }))
+    .filter((x) => { const k = `${x.level}|${x.text}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b2) => a.up - b2.up || b2.level - a.level).slice(0, 3);
+  const problems = (Array.isArray(b.avalanche_problems) ? b.avalanche_problems : []).filter((p) => p && typeof p.problem_type === 'string').slice(0, 2);
+  const on = new Set(problems.flatMap((p) => (Array.isArray(p.aspects) ? p.aspects : []).map((a) => String(a).toUpperCase())));
+  const level = num(b.max_danger_level) ? b.max_danger_level : num(A.max_danger_level) ? A.max_danger_level : bands[0]?.level, col = level ? c.P[avalancheTone(level)] : c.P.t3;
+  const rows = bands.map((x) => { const k = c.P[avalancheTone(x.level)]; return `<div class="bd" style="background:${alpha(k, 0.16)};border-color:${alpha(k, 0.5)}"><b style="color:${k}">${x.level}</b><span>${x.text}</span></div>`; }).join('');
+  const size = w >= 360 ? 78 : 66, three = w >= 520;
+  const texts = [];
+  for (const p of problems) {
+    const name = TEXT[c.lang][`problem_${p.problem_type}`] || p.problem_type.replace(/_/g, ' ');
+    const where = [Array.isArray(p.aspects) && p.aspects.length ? aspectsText(c, p.aspects.map((a) => String(a).toUpperCase())) : '', p.elevation && (p.elevation.lower_bound != null || p.elevation.upper_bound != null) ? bandText(c, p.elevation) : ''].filter(Boolean).join(', ');
+    texts.push(`<div class="pb"><b>${esc(cap(name))}</b>${where ? `<span>${three ? cap(where) : where}</span>` : ''}</div>`);
+  }
+  const rose = on.size ? aspectRose(c, on, col, size) : '';
+  let s = `<div class="bloc">${head}<div class="bul${three ? ' b3' : ''}">${rows ? `<div class="bds">${rows}</div>` : '<div></div>'}${rose}${three ? `<div>${texts.join('')}</div>` : ''}</div>`;
+  if (!three) s += texts.join('');
+  const tend = (Array.isArray(b.tendency) ? b.tendency : [])[0];
+  const next = tend && ['decreasing', 'steady', 'increasing'].includes(tend.tendency_type) ? c.t('trend', { t: c.t(`trend_${tend.tendency_type}`) })
+    : tend && typeof tend.highlights === 'string' && tend.highlights.trim() ? c.t('next_bulletin', { t: esc(tend.highlights.trim()) }) : '';
+  const until = isoTs(b.valid_until);
+  const lines = [next, until !== null ? c.t('aval_until', { t: dayWord(c, until, true) }) : ''].filter(Boolean);
+  if (lines.length) s += `<div class="t2" style="font-size:12px;margin-top:4px">${lines.join(' · ')}</div>`;
+  const url = httpUrl(b.bulletin_url) ? b.bulletin_url : null;
+  if (url) s += `<div style="height:6px"></div><a class="lien" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${glyph('lien', 15, c.P.t2, 2.2)}${issuer ? c.t('aval_link', { issuer }) : c.t('bulletin_plain')}</a>`;
+  return s + '</div>';
+}
+
+// The next 24 hours at the top and at the base: the icon of the top, the two temperatures as curves around 0°, and the rain or
+// snow of the slot (snow above, rain below when it snows up high and rains down low).
+function mountainHours(c, top, base, w) {
+  const P = c.P, T = hoursFrom(c, top).filter((h) => num(h.temp_c)), byTs = new Map(hoursFrom(c, base).filter((h) => num(h.temp_c)).map((h) => [h.time_utc, h]));
+  const step = w / 24 >= 34 ? 1 : w / 12 >= 26 ? 2 : 3, n = Math.min(Math.floor(T.length / step), 24 / step);
+  if (n < 4) return '';
+  const list = [];
+  for (let i = 0; i < n; i++) {
+    const g = T.slice(i * step, (i + 1) * step), gb = g.map((h) => byTs.get(h.time_utc)).filter(Boolean);
+    const codes = vals(g, 'weather_code'), code = codes.length ? Math.max(...codes) : null, day = isDayAt(c, g[0], step * 1800);
+    const wetT = g.find((h) => num(h.precipitation_mm) && h.precipitation_mm >= 0.1) || g[0], wetB = gb.find((h) => num(h.precipitation_mm) && h.precipitation_mm >= 0.1) || gb[0];
+    const mmT = sum(vals(g, 'precipitation_mm')), mmB = gb.length ? sum(vals(gb, 'precipitation_mm')) : null;
+    list.push({ ts: g[0].time_utc, kind: atNight(wmoKind(code), day), day, sun: day ? (sunOfHours(g) ?? sunOfCode(code)) : null, t: g[0].temp_c,
+      b: gb.length && gb[0].time_utc === g[0].time_utc ? gb[0].temp_c : null, mm: Math.max(mmT, mmB ?? 0), snowT: snowAt(wetT), snowB: wetB ? snowAt(wetB) : null });
+  }
+  const cw = w / n, hasB = list.filter((x) => num(x.b)).length >= 2, all = [...list.map((x) => x.t), ...list.map((x) => x.b).filter(num), 0];
+  let lo = Math.min(...all) - 1, hi = Math.max(...all) + 1;
+  if (hi - lo < 8) { const m = (hi + lo) / 2; lo = m - 4; hi = m + 4; }
+  const yOf = (t) => 44 + ((hi - t) / (hi - lo)) * 60, H = 176, cTop = P.ramp[0], cBase = P.ramp[2];
+  const ptsT = list.map((x, i) => ({ x: cw * (i + 0.5), y: yOf(x.t) })), ptsB = hasB ? list.map((x, i) => (num(x.b) ? { x: cw * (i + 0.5), y: yOf(x.b) } : null)).filter(Boolean) : [];
+  const snowC = P.icon.neige, rainC = P.pluie, cap2 = 2.5 * step;
+  const legend = `<i class="sw" style="background:${snowC}"></i>${c.t('snow_word')} <i class="sw" style="background:${rainC}"></i>${c.t('rain_word')}`;
+  let s = section(c.t('mtn_24h'), legend) + `<div class="cols" style="width:${r1(w)}px;height:${H}px">` + list.map((x, i) => column(c, cw * i, cw, H, glow(P, x.sun, x.day), i === 0, 9)).join('');
+  s += cells(n, 2, list.map((x) => icon(P, x.kind, 24)));
+  const y0 = yOf(0);
+  s += `<svg class="ov" style="top:0" width="${r1(w)}" height="${H}" viewBox="0 0 ${r1(w)} ${H}" aria-hidden="true">` +
+    `<line x1="0" x2="${r1(w)}" y1="${r1(y0)}" y2="${r1(y0)}" stroke="${P.t4}" stroke-width="1" stroke-dasharray="3 3"/>` +
+    `<text x="${r1(w - 2)}" y="${r1(y0 - 3)}" font-size="10" fill="${P.t4}" text-anchor="end">0°</text>` +
+    (ptsB.length >= 2 ? `<path d="${smooth(ptsB)}" fill="none" stroke="${cBase}" stroke-width="3" stroke-linecap="round"/>` : '') +
+    `<path d="${smooth(ptsT)}" fill="none" stroke="${cTop}" stroke-width="3.5" stroke-linecap="round"/></svg>`;
+  // The names of the curves at their start: the higher one above its line, the lower one under it.
+  const first = list[0], topHigher = !num(first.b) || first.t >= first.b;
+  const label = (txt, col, y, above) => `<span class="lb2 dn" style="left:2px;top:${r1(above ? y - 15 : y + 4)}px;color:${col}">${txt}</span>`;
+  s += label(`${c.t('mtn_top')} ${c.fmt(first.t)}°`, cTop, ptsT[0].y, topHigher);
+  if (num(first.b)) s += label(`${c.t('mtn_base')} ${c.fmt(first.b)}°`, cBase, yOf(first.b), !topHigher);
+  s += cells(n, 112, list.map((x) => {
+    const mm = x.mm >= 0.1 ? x.mm : 0, bh = mm ? Math.max(5, Math.sqrt(Math.min(mm, cap2) / cap2) * 34) : 0;
+    if (!mm) return '<div class="mb"></div>';
+    const upper = x.snowT ? snowC : rainC, lower = x.snowB === null ? upper : x.snowB ? snowC : rainC;
+    const bg = upper === lower ? upper : `linear-gradient(to bottom,${upper} 0 50%,${lower} 50% 100%)`;
+    return `<div class="mb"><i style="height:${r1(bh)}px;background:${bg}"></i></div>`;
+  }));
+  s += cells(n, H - 17, list.map((x, i) => `<span class="hr" style="color:${i === 0 ? P.accent : P.t2}">${cw < 36 ? c.hourOnly(x.ts).replace(/:00$/, '') : c.hourOnly(x.ts)}</span>`));
+  const wet = list.some((x) => x.mm >= 0.1);
+  return `<div class="bloc">${s}</div></div>${wet ? `<div class="note" style="margin-top:2px">${c.t('mtn_phase_note')}</div>` : ''}`;
+}
+
+// The days at the top: the icon, the fresh snow, the highest and lowest, the strongest wind (its direction where the hours of the
+// answer cover the day).
+function mountainDays(c, top, w) {
+  const P = c.P, today = c.dayKey(c.now);
+  const list = (Array.isArray(top?.daily) ? top.daily : []).filter((d) => d && typeof d.date === 'string' && d.date >= today && num(d.tmax) && num(d.tmin)).slice(0, 7);
+  if (list.length < 2) return '';
+  const hourly = hoursFrom(c, top), tight = w / list.length < 40, hasSnow = list.some((d) => num(d.snowfall_cm));
+  const cellsHtml = list.map((d, i) => {
+    const hrs = hourly.filter((h) => c.dayKey(h.time_utc) === d.date);
+    const start = Date.parse(`${d.date}T00:00:00Z`) / 1000 - c.offset, need = Math.round((start + 86400 - Math.max(start, c.now - (c.now % 3600))) / 3600);
+    const deg = need > 0 && hrs.length >= need - 1 ? windFrom(hrs) : null;
+    const snow = !hasSnow ? '' : num(d.snowfall_cm) && d.snowfall_cm >= FRESH_CM ? `<span class="sn" style="background:${P.icon.neige};color:${P.sur}">${c.fmt(d.snowfall_cm)}${tight ? '' : '&nbsp;cm'}</span>` : `<span class="sn" style="color:${P.t3}">–</span>`;
+    return `<div class="mj"><b style="color:${i === 0 ? P.accent : P.texte}">${i === 0 ? c.t('today_short') : c.dayName(d.date)}</b>${icon(P, wmoKind(d.code), 28)}${snow}` +
+      `<span class="tt"><b style="color:${tempColour(P, d.tmax)}">${c.fmt(d.tmax)}°</b><span style="color:${tempColour(P, d.tmin)}">${c.fmt(d.tmin)}°</span></span>` +
+      `<span class="vt2">${num(deg) ? arrow(11, deg, P.vent) : ''}${num(d.wind_max) ? c.fmt(d.wind_max) : ''}</span></div>`;
+  }).join('');
+  return `<div class="bloc">${section(c.t('mtn_days', { n: list.length }), c.t(hasSnow ? 'mtn_days_legend' : 'mtn_days_legend_nosnow'))}` +
+    `<div class="mjs" style="grid-template-columns:repeat(${list.length},minmax(0,1fr))">${cellsHtml}</div></div>`;
+}
+
+function pageMountain(c) {
+  const st = stationsOf(c.config);
+  if (!st.length) return '';
+  const i = clamp(c.config._station || 0, 0, st.length - 1), S = st[i], M = c.mountain;
+  const chips = st.length > 1 ? `<div class="schs" role="tablist">${st.map((s, j) => `<button role="tab" aria-selected="${j === i}" class="sch${j === i ? ' on' : ''}" data-station="${j}">${esc(stationName(c, s, j))}</button>`).join('')}</div>` : '';
+  const alt = `${num(S.base_m) ? `${metres(c, S.base_m)} – ` : ''}${metres(c, S.top_m)}`;
+  const head = (sentence) => `<div class="mth"><b>${esc(stationName(c, S, i))}</b><span>${alt}</span></div>${sentence ? `<div class="t2 mts2">${sentence}</div>` : ''}`;
+  if (!M || M.elevation_ignored || (!M.top && !M.base && !M.avalanches)) {
+    const words = M?.elevation_ignored ? c.t('mtn_old') : c.mountainError ? c.t('error') : M ? c.t('error') : c.t('loading');
+    return `<div class="pile" style="gap:10px">${chips}${head('')}<div class="vide">${words}</div></div>`;
+  }
+  // The station's own clock and place (its answer), for the hours, the days and the night.
+  const mc = makeContext(c.lang, c.dark, c.width, { ...c.data, point: M.top || M.base }, c.config);
+  const top = M.top || null, base = M.base || null;
+  const credit = foot(c, providers(top?.weather_attribution, base?.weather_attribution, M.avalanches?.attribution));
+  const left = (w) => [head(top ? mountainSentence(mc, top, base) : ''), mountainTiles(mc, M, S), bulletinBlock(mc, M.avalanches, w)].join('');
+  c.mountainTilesNarrow = () => mountainTiles(mc, M, S, true);  // drawn again by the card when a word of the tiles is cut
+  const right = (w) => (top ? mountainHours(mc, top, base, w) + mountainDays(mc, top, w) : '');
+  if (c.wide) {
+    const half = Math.floor((c.W - 28) / 2);
+    return `<div class="pile" style="gap:12px">${chips}<div class="duo" style="grid-template-columns:${half}px ${half}px;align-items:start;gap:28px">` +
+      `<div class="pile" style="gap:12px">${left(half)}</div><div class="pile" style="gap:12px">${right(half)}</div></div></div>${credit}`;
+  }
+  return `<div class="pile" style="gap:12px">${chips}${left(c.W)}${right(c.W)}</div>${credit}`;
+}
+
 // Which pages have something to show for this place (a page without data is not shown, even ticked).
 function availablePages(c, wanted) {
   const pt = c.point, d = c.data;
@@ -1626,12 +2181,13 @@ function availablePages(c, wanted) {
     details: !!(pt?.short_term?.steps?.length || pt?.probabilities?.short_range?.windows?.length ||
       (c.inFrance && (nowcastFirst(c) !== null || currentHours(c).length >= 12))),
     alerts: true,
-    sea: !!(d?.tides || (d?.spot && d?.activities)),
+    sea: !!(d?.tides || (d?.spot && d?.activities)) || beachesOf(c.config).length > 0,
+    mountain: stationsOf(c.config).length > 0,
     normal: c.normals?.status === 'available',
   };
   return wanted.filter((p) => has[p]);
 }
-const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, sea: pageSea, normal: pageNormal };
+const PAGE_RENDER = { home: pageHome, details: pageDetails, alerts: pageAlerts, sea: pageSea, mountain: pageMountain, normal: pageNormal };
 
 // ------------------------------------------------------------------------------------------------------------------- style
 // The home and Details pages (`.pile`) set their own line height: Home Assistant gives its text 1.6, which made their blocks
@@ -1662,7 +2218,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .moment .l1{font-weight:700}
 .vent{display:flex;align-items:center;gap:6px;color:var(--vc-t2)}
 .pills{display:grid;gap:8px}
-.puce{display:flex;align-items:center;gap:10px;border-radius:16px;padding:11px 14px;border:1.5px solid;font-weight:700;min-width:0;width:100%;color:var(--vc-texte)}
+.puce{display:flex;box-sizing:border-box;align-items:center;gap:10px;border-radius:16px;padding:11px 14px;border:1.5px solid;font-weight:700;min-width:0;width:100%;color:var(--vc-texte)}
 .puce small{display:block;font-weight:500;color:var(--vc-t2);font-size:13px;margin-top:2px}
 .puce .det{font-weight:500;color:var(--vc-t2)}
 .puce .tx{min-width:0}
@@ -1737,9 +2293,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .lb2.dn{font-weight:700;color:var(--vc-t2)}
 .pl{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;height:38px;width:100%;font-size:10px;font-weight:700}
 .pl i{display:block;width:min(18px,70%);border-radius:4px}
-.pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}
+.pc{font-size:10px;color:var(--vc-t3);white-space:nowrap}.rf{line-height:14px}
 .vt{display:flex;flex-direction:column;align-items:center;line-height:1.25}
-.vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-vent)}
+.vt span{display:flex;align-items:center;gap:2px;font-size:12px;font-weight:700;color:var(--vc-t2)}
 .vt small{font-size:10px}
 .hr{font-size:11px;font-weight:700;white-space:nowrap}
 .dh{display:flex;flex-direction:column;align-items:center;gap:1px}
@@ -1747,12 +2303,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .dh .ds{display:flex;align-items:center;gap:3px;height:13px;font-size:11px;font-weight:600;white-space:nowrap}
 .dh .ds i{display:block;width:5px;height:5px;border-radius:50%}
 .db{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
-.db .bw{height:24px;width:100%;display:flex;align-items:flex-end;justify-content:center}
-.db .bw i{display:block;width:min(26px,55%);border-radius:4px}
+.db .bw{height:8px;width:100%;display:flex;align-items:center;justify-content:center}
+.gauge{display:block;width:70%;height:5px;border-radius:3px;background:var(--vc-creux);overflow:hidden}
+.gauge i{display:block;height:100%;border-radius:3px}
 .db b{font-size:12px;white-space:nowrap}
-.vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-vent);white-space:nowrap}
-.vt2 small{font-size:10px;font-weight:400;color:var(--vc-t3)}
-.serre .db b{font-size:11px}.serre .vt2{font-size:11px;gap:1px}.serre .vt2 small{font-size:9px}
+.vt2{display:flex;align-items:center;gap:2px;margin-top:3px;font-size:12px;font-weight:700;color:var(--vc-t2);white-space:nowrap}
+.vt2 small{font-size:9px;font-weight:500;color:var(--vc-t3);margin-left:2px}
+.serre .db b{font-size:11px}.serre .vt2{font-size:11px;gap:1px}.serre .vt2 small{font-size:8px;margin-left:1px}
 .chipsr{display:flex;flex-wrap:wrap;gap:6px}
 .pp{height:28px;box-sizing:border-box;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:14px;border:1px solid;font-size:13px;font-weight:700;color:var(--vc-texte);white-space:nowrap}
 .pp i{width:8px;height:8px;border-radius:4px;flex:none}
@@ -1770,6 +2327,73 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .pe .h{font-size:10px;font-weight:700;color:var(--vc-t3);text-align:center;white-space:nowrap}
 .pe .r{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pe .v{height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.schs{display:flex;flex-wrap:wrap;gap:8px}
+.sch{border:1.5px solid var(--vc-filet);border-radius:999px;padding:5px 13px;font-size:14px;font-weight:700;color:var(--vc-t2);white-space:nowrap}
+.sch.on{border-color:var(--vc-accent);color:var(--vc-accent);background:color-mix(in srgb,var(--vc-accent) 14%,transparent)}
+.sch:focus-visible{outline:2px solid var(--vc-accent);outline-offset:2px}
+.mth{display:flex;align-items:baseline;gap:10px;min-width:0}
+.mth b{font-size:22px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mth span{font-size:13px;color:var(--vc-t3);white-space:nowrap;margin-left:auto}
+.mts2{font-size:14px;margin-top:-6px}
+.mts{display:grid;gap:8px}
+.mt{border:1.5px solid var(--vc-filet);border-radius:12px;padding:8px 10px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.mt .k{font-size:12px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt .v{font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt .d{font-size:11.5px;color:var(--vc-t2);line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.mt.mtav{flex-direction:row;align-items:center;gap:8px}
+.mt .sq{flex:none;width:34px;height:34px;border-radius:9px;border:1.5px solid;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800}
+.mtt{display:flex;flex-direction:column;min-width:0}
+.mtt .v{font-size:16px}
+.bul{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+.bul.b3{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.bul.b3 .pb:first-child{margin-top:0}
+.bds{display:flex;flex-direction:column;gap:6px;min-width:0}
+.bd{display:flex;align-items:center;gap:10px;border:1px solid;border-radius:10px;padding:6px 10px;font-size:13px;color:var(--vc-texte)}
+.bd b{font-size:18px;font-weight:800}
+.pb{display:block;margin-top:5px;font-size:13px;line-height:1.3}
+.pb span::before{content:' · '}
+.pb b{font-size:14px}
+.pb span{color:var(--vc-t2)}
+.bul.b3 .pb span{display:block}.bul.b3 .pb span::before{content:none}
+.sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 3px 0 4px;vertical-align:0}
+.mb{display:flex;align-items:flex-end;justify-content:center;height:38px;width:100%}
+.mb i{display:block;width:min(16px,62%);border-radius:4px}
+.mjs{display:grid;gap:2px}
+.mj{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.mj>b{font-size:13px;white-space:nowrap}
+.mj .sn{height:19px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;padding:0 6px;white-space:nowrap}
+.mj .tt{display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:1.2;white-space:nowrap}
+.mj .tt b{font-size:14px}
+.bh{display:flex;align-items:center;gap:12px;min-width:0}
+.bht{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.bht b{font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bht span{font-size:12.5px;color:var(--vc-t2);line-height:1.25}
+.beau{display:flex;flex-direction:column;align-items:flex-end;flex:none;line-height:1.05}
+.beau small{font-size:11px;color:var(--vc-t3)}
+.beau b{font-size:26px;font-weight:700;color:var(--vc-pluie)}
+.bts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.bt{border:1.5px solid var(--vc-filet);border-radius:12px;padding:6px 8px;min-width:0;display:flex;flex-direction:column;gap:1px}
+.bt .k{font-size:11px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt .v{display:flex;align-items:center;gap:4px;font-size:15px;font-weight:700;min-width:0}
+.bt .v span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bt .d{font-size:11px;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bact{display:grid;align-items:center;column-gap:8px;min-width:0;border-top:1px solid var(--vc-filet)}
+.bact.hd{height:18px;border-top:0;margin-bottom:2px}
+.bl{display:grid;column-gap:8px;align-items:baseline;min-width:0}
+.bact.hd .bl>b{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--vc-t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bact.hd .bl>span{font-size:10.5px;color:var(--vc-t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bticks{position:relative;height:13px}
+.bticks span{position:absolute;top:0;font-size:10px;font-weight:700;color:var(--vc-t3);white-space:nowrap}
+.bw{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.15}
+.bw .an,.bw .bl>b{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bw small{font-size:11px;color:var(--vc-t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bstrip{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;height:14px}
+.bstrip i{display:block;border-radius:2px}
+.btab{display:grid;gap:3px;align-items:center}
+.btab .h{font-size:10px;font-weight:700;color:var(--vc-t3);text-align:center;white-space:nowrap}
+.btab .l{font-size:11px;font-weight:700;color:var(--vc-t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btab .l small{font-size:10px;font-weight:500;color:var(--vc-t3)}
+.btab .c{border-radius:5px;display:flex;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
 `;
 
 // -------------------------------------------------------------------------------------------------------------------- card
@@ -1780,13 +2404,99 @@ class VigieCard extends HTMLElement {
   setConfig(config) {
     if (!config || typeof config !== 'object') throw new Error('Invalid configuration');
     const pages = Array.isArray(config.pages) ? config.pages.filter((p) => PAGE_IDS.includes(p)) : PAGE_IDS;
-    if (!pages.length) throw new Error('pages: at least one of home, details, alerts, sea, normal');
+    if (!pages.length) throw new Error(`pages: at least one of ${PAGE_IDS.join(', ')}`);
+    if (config.stations !== undefined && !Array.isArray(config.stations)) throw new Error('stations: a list of {name, latitude, longitude, base_m, top_m}');
+    if (config.beaches !== undefined && !Array.isArray(config.beaches)) throw new Error('beaches: a list of spot ids (the spots near the place)');
     this._config = { ...config, _pages: pages };
     if (!this._page || !pages.includes(this._page)) this._page = pages.includes(config.start_page) ? config.start_page : pages[0];
     const key = lastKey(this._config);
     if (key !== this._dataKey) { this._dataKey = key; this._data = lastAnswer(key); this._error = null; }
     if (this._hass) this._fetch();
     this._subscribeForecast();
+    this._render();
+  }
+
+  // The station of the Mountain page shown (its rank in the configuration), and its key for the answers kept.
+  _stationNow() {
+    const st = stationsOf(this._config);
+    if (!st.length) return null;
+    this._station = clamp(this._station || 0, 0, st.length - 1);
+    return st[this._station];
+  }
+
+  // A station of the Mountain page, asked like the card's data: the last answer is kept, so the page draws at once.
+  async _fetchMountain() {
+    const S = this._stationNow();
+    if (!this._hass || !S) return;
+    const key = stationKey(this._config, S);
+    if (key !== this._mKey) { this._mKey = key; this._mountain = lastAnswer(key); this._mError = null; }
+    if (this._askingMountain) return;
+    const msg = { type: 'vigie/card/mountain', lat: S.latitude, lon: S.longitude, top_m: S.top_m };
+    if (S.base_m !== null) msg.base_m = S.base_m;
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._askingMountain = true;
+    try {
+      const data = await this._hass.callWS(msg);
+      keepAnswer(key, data);
+      if (key === this._mKey) { this._mountain = data; this._mError = null; }
+    } catch (err) {
+      if (key === this._mKey) this._mError = err?.code || 'error';
+    } finally {
+      this._askingMountain = false;
+    }
+    const now = this._stationNow();
+    if (now && stationKey(this._config, now) !== key) { this._fetchMountain(); return; } // another station was chosen meanwhile
+    this._render();
+  }
+
+  // The beach of the Sea page shown (its rank in the list): a beach of the configuration, or the spot of the data.
+  _beachNow() {
+    if (!(this._config?._pages || []).includes('sea')) return null;
+    const list = beachList(this._config, this._data, this._spotNames);
+    if (!list.length) return null;
+    this._beachIdx = clamp(this._beachIdx || 0, 0, list.length - 1);
+    return list[this._beachIdx];
+  }
+
+  // A beach of the Sea page, asked like the card's data: the last answer is kept, so the page draws at once.
+  async _fetchBeach() {
+    const b = this._beachNow();
+    if (!this._hass || !b) return;
+    const key = beachKey(this._config, b.id);
+    if (key !== this._bKey) { this._bKey = key; this._beach = lastAnswer(key); this._bError = null; }
+    if (this._askingBeach) return;
+    const msg = { type: 'vigie/card/beach', spot: b.id };
+    if (this._config.entry_id) msg.entry_id = this._config.entry_id;
+    this._askingBeach = true;
+    try {
+      const data = await this._hass.callWS(msg);
+      keepAnswer(key, data);
+      if (key === this._bKey) { this._beach = data; this._bError = null; }
+    } catch (err) {
+      if (key === this._bKey) this._bError = err?.code || 'error';
+    } finally {
+      this._askingBeach = false;
+    }
+    const now = this._beachNow();
+    if (now && beachKey(this._config, now.id) !== key) { this._fetchBeach(); return; } // another beach was chosen meanwhile
+    this._render();
+  }
+
+  // The names of the beaches chosen, for their chips: the spots near the place, as the editor lists them.
+  async _fetchSpotNames() {
+    const entry = this._config?.entry_id || '';
+    if (!this._hass || !beachesOf(this._config).length || this._askingSpots || this._spotsFor === entry) return;
+    const msg = { type: 'vigie/card/spots' };
+    if (entry) msg.entry_id = entry;
+    this._askingSpots = true;
+    try {
+      this._spotNames = await this._hass.callWS(msg);
+      this._spotsFor = entry;
+    } catch (err) {
+      this._spotNames = null;
+    } finally {
+      this._askingSpots = false;
+    }
     this._render();
   }
 
@@ -1831,7 +2541,11 @@ class VigieCard extends HTMLElement {
   }
 
   async _fetch() {
-    if (!this._hass || !this._config || this._asking) return;
+    if (!this._hass || !this._config) return;
+    this._fetchMountain();
+    this._fetchBeach();
+    this._fetchSpotNames();
+    if (this._asking) return;
     const key = this._dataKey;
     const spot = this._config.spot === 'none' ? null : this._config.spot || 'auto';
     const msg = { type: 'vigie/card/data', spot };
@@ -1848,6 +2562,9 @@ class VigieCard extends HTMLElement {
     }
     if (key !== this._dataKey) { this._fetch(); return; } // the editor changed the entry or the spot meanwhile
     this._render();
+    // The spot of the data is the beach of the Sea page when none is chosen: asked once the data says which it is.
+    const b = this._beachNow();
+    if (b && (beachKey(this._config, b.id) !== this._bKey || (!this._beach && !this._bError))) this._fetchBeach();
   }
 
   // Outside France, the home page shows the weather entity of the home chosen in the editor, with its days.
@@ -1896,7 +2613,13 @@ class VigieCard extends HTMLElement {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div class="root" part="content"></div></ha-card>`;
       const root = this.shadowRoot.querySelector('.root');
-      root.addEventListener('click', (ev) => { const el = ev.target.closest('[data-go]'); if (el) { ev.stopPropagation(); this._go(el.dataset.go); } });
+      root.addEventListener('click', (ev) => {
+        const bt = ev.target.closest('[data-beach]');
+        if (bt) { ev.stopPropagation(); this._beachIdx = Number(bt.dataset.beach) || 0; this._touched = Date.now(); this._fetchBeach(); this._render(); return; }
+        const st = ev.target.closest('[data-station]');
+        if (st) { ev.stopPropagation(); this._station = Number(st.dataset.station) || 0; this._touched = Date.now(); this._fetchMountain(); this._render(); return; }
+        const el = ev.target.closest('[data-go]'); if (el) { ev.stopPropagation(); this._go(el.dataset.go); }
+      });
       root.addEventListener('pointerdown', (ev) => { this._touched = Date.now(); this._swipe = { x: ev.clientX, y: ev.clientY }; });
       root.addEventListener('pointerup', (ev) => {
         const s = this._swipe; this._swipe = null;
@@ -1913,8 +2636,17 @@ class VigieCard extends HTMLElement {
     // The blocks are drawn to the pixel: the width inside the border of ha-card (1 px each side by default).
     const width = (this._width || this.getBoundingClientRect().width || 380) - 2;
     const lang = this._lang || 'en';
-    const config = { ...this._config, _weatherState: this._entity || null, _forecast: this._forecast || [] };
+    const S = this._stationNow();
+    if (S && stationKey(this._config, S) !== this._mKey) { this._mKey = stationKey(this._config, S); this._mountain = lastAnswer(this._mKey); this._mError = null; }
+    const Bn = this._beachNow();
+    if (Bn && beachKey(this._config, Bn.id) !== this._bKey) { this._bKey = beachKey(this._config, Bn.id); this._beach = lastAnswer(this._bKey); this._bError = null; }
+    const config = { ...this._config, _weatherState: this._entity || null, _forecast: this._forecast || [], _station: this._station || 0, _beach: this._beachIdx || 0 };
     const c = makeContext(lang, !!this._dark, width, this._data, config);
+    c.mountain = S ? this._mountain : null;
+    c.mountainError = S ? this._mError : null;
+    c.beach = Bn ? this._beach : null;
+    c.beachError = Bn ? this._bError : null;
+    c.spots = this._spotNames || null;
     const P = c.P;
     const vars = { carte: null, texte: P.texte, t2: P.t2, t3: P.t3, t4: P.t4, filet: P.filet, accent: P.accent, sur: P.sur, pluie: P.pluie, vent: P.vent, creux: P.creux, piste: this._dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)' };
     root.style.cssText = Object.entries(vars).filter(([, v]) => v).map(([k, v]) => `--vc-${k}:${v}`).join(';') + `;--vc-pad:${c.pad}px`;
@@ -1938,6 +2670,28 @@ class VigieCard extends HTMLElement {
       body = `<div class="vide">${c.t('error')}</div>`;
     }
     root.innerHTML = `${top}<div class="page" tabindex="0">${body}</div>`;
+    // The names of the pages that do not fit their tab (six pages on a phone, a longer word in English): the icons alone. A name
+    // is centred in its tab, so it overflows on both sides and `scrollWidth` misses its left half: its own width is measured,
+    // with 4 px kept on each side (seen in a real Home Assistant: "Montagne" cut at both ends of its tab, on a phone). A wide
+    // card first drops the icons beside the names (six pages in a bar of 560 px), then keeps the icons alone.
+    const tight = (b) => { const r = document.createRange(); r.selectNodeContents(b); return r.getBoundingClientRect().width > b.clientWidth - 8; };
+    const cramped = () => [...(root.querySelector('.nav')?.querySelectorAll('button') || [])].some(tight);
+    for (const mode of c.wide ? ['names', true] : [true]) {
+      if (!cramped()) break;
+      root.querySelector('.nav').outerHTML = nav(c, visible, this._page, mode);
+    }
+    // The tiles of the Mountain page cut a word (a level of danger longer in English, a wider font): the avalanches on the
+    // whole width, the others under them.
+    const tiles = root.querySelector('.mts:not([data-narrow])');
+    if (tiles && c.mountainTilesNarrow && [...tiles.querySelectorAll('.k,.v')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) tiles.outerHTML = c.mountainTilesNarrow();
+    // The tiles of the Sea page cut a word (a longer word in English, a wider font): drawn again with shorter words, a level at a
+    // time (the directions in words first, then the state of the sea and the long names).
+    for (let i = 0; i < 2 && c.beachTilesAt; i++) {
+      const seaTiles = root.querySelector('.bts');
+      if (!seaTiles || ![...seaTiles.querySelectorAll('.k,.v>span,.d')].some((e) => e.scrollWidth > e.clientWidth + 0.5)) break;
+      c.tilesLevel = (c.tilesLevel || 0) + 1;
+      seaTiles.outerHTML = c.beachTilesAt(c.tilesLevel);
+    }
     // The home page fits the card without scrolling: drawn a few px too tall (fonts, a long header, a pill of the season), it is
     // drawn again with flatter curves, by what it is over as measured here, at most three times (the blocks round their
     // heights; nothing to measure while the card is hidden).
@@ -1953,6 +2707,14 @@ class VigieCard extends HTMLElement {
       if (over <= 0) break;
       c.squeeze = (c.squeeze || 0) + over;
       try { page.innerHTML = pageHome(c); } catch (err) { console.error('Vigie card:', err); break; }
+    }
+    // The Sea page of a beach fits a phone's card the same way: the rows of its activities, its tide and its table give back
+    // what it is over.
+    for (let i = 0; i < 3 && this._page === 'sea' && !c.wide && page.querySelector('.bts,.bact'); i++) {
+      const over = page.scrollHeight - page.clientHeight;
+      if (over <= 0) break;
+      c.squeeze = (c.squeeze || 0) + over;
+      try { page.innerHTML = pageSea(c); } catch (err) { console.error('Vigie card:', err); break; }
     }
   }
 }
@@ -1990,7 +2752,7 @@ class VigieCardEditor extends HTMLElement {
   }
   _t(key) { return EDITOR_TEXT[this._lang || 'en'][key] ?? key; }
   _changed(config) {
-    const clean = Object.fromEntries(Object.entries(config).filter(([k, v]) => !k.startsWith('_') && v !== undefined && v !== '' && v !== null));
+    const clean = Object.fromEntries(Object.entries(config).filter(([k, v]) => !k.startsWith('_') && v !== undefined && v !== '' && v !== null && !(Array.isArray(v) && !v.length)));
     const before = this._config?.entry_id;
     this._config = clean;
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: clean }, bubbles: true, composed: true }));
@@ -2009,9 +2771,14 @@ class VigieCardEditor extends HTMLElement {
         .row button:disabled{opacity:.3;cursor:default}
         h4{margin:16px 0 0;font-weight:500;color:var(--primary-text-color)} .help{font-size:12px;color:var(--secondary-text-color)}
         .fallback{color:var(--secondary-text-color);font-size:14px;margin-top:12px}
-      </style><div id="pages"></div><div id="form"></div>`;
+        .station{border:1px solid var(--divider-color,#ccc);border-radius:8px;padding:8px;margin:8px 0}
+        .station .bar{display:flex;justify-content:flex-end}
+        .btn{background:none;border:1px solid var(--divider-color,#ccc);border-radius:6px;color:var(--primary-text-color);cursor:pointer;padding:6px 12px;font:inherit}
+        .btn:disabled{opacity:.4;cursor:default}
+      </style><div id="pages"></div><div id="form"></div><div id="stations"></div>`;
     }
     this._renderPages();
+    this._renderStations();
     const holder = this.shadowRoot.getElementById('form');
     if (!this._formReady) { holder.innerHTML = this._formReady === false ? `<div class="fallback">${this._t('no_form')}</div>` : ''; return; }
     if (!this._form) {
@@ -2023,20 +2790,70 @@ class VigieCardEditor extends HTMLElement {
     const entries = (this._entries || []).filter((e) => e.weather_and_card);
     const spots = this._spots || [];
     const order = this._order();
+    const spotLabel = (s) => `${s.name || s.id}${s.place ? `, ${s.place}` : ''} (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)`;
     this._form.hass = this._hass;
     this._form.schema = [
       { name: 'entry_id', selector: { select: { mode: 'dropdown', options: entries.map((e) => ({ value: e.entry_id, label: e.title })) } } },
       { name: 'name', selector: { text: {} } },
       { name: 'start_page', selector: { select: { mode: 'dropdown', options: order.filter((p) => this._shown().includes(p)).map((p) => ({ value: p, label: T[`page_${p}`] })) } } },
       { name: 'idle', selector: { select: { mode: 'dropdown', options: ['return', 'cycle', 'none'].map((v) => ({ value: v, label: this._t(`idle_${v}`) })) } } },
+      { name: 'beaches', selector: { select: { multiple: true, mode: 'list', options: spots.map((s) => ({ value: s.id, label: spotLabel(s) })) } } },
       { name: 'spot', selector: { select: { mode: 'dropdown', options: [{ value: 'auto', label: this._t('spot_auto') }, { value: 'none', label: this._t('spot_none') },
-        ...spots.map((s) => ({ value: s.id, label: `${s.name || s.id}${s.place ? `, ${s.place}` : ''} (${String(s.distance_km).replace('.', lang === 'fr' ? ',' : '.')} km)` }))] } } },
+        ...spots.map((s) => ({ value: s.id, label: spotLabel(s) }))] } } },
       { name: 'weather_entity', selector: { entity: { domain: 'weather' } } },
       { name: 'icon_style', selector: { select: { mode: 'dropdown', options: ICON_STYLES.map((v) => ({ value: v, label: this._t(`icons_${v}`) })) } } },
     ];
-    this._form.data = { idle: 'return', spot: 'auto', start_page: 'home', icon_style: 'meridien', ...this._config };
+    this._form.data = { idle: 'return', spot: 'auto', beaches: [], start_page: 'home', icon_style: 'meridien', ...this._config };
     this._form.computeLabel = (s) => this._t(s.name);
-    this._form.computeHelper = (s) => (s.name === 'weather_entity' || s.name === 'icon_style' ? this._t(`${s.name}_help`) : undefined);
+    this._form.computeHelper = (s) => (['weather_entity', 'icon_style', 'beaches'].includes(s.name) ? this._t(`${s.name}_help`) : undefined);
+  }
+  // The stations of the Mountain page: one small form each (rebuilt only when their number changes, so typing keeps its focus).
+  _renderStations() {
+    const holder = this.shadowRoot.getElementById('stations');
+    if (!this._formReady) { holder.innerHTML = ''; this._stationForms = null; return; }
+    const list = Array.isArray(this._config.stations) ? this._config.stations : [];
+    if (!this._stationForms || this._stationForms.length !== list.length) {
+      holder.innerHTML = `<h4>${this._t('stations')}</h4><div class="help">${this._t('stations_help')}</div><div id="st-list"></div>` +
+        `<button class="btn" id="st-add" ${list.length >= MAX_STATIONS ? 'disabled' : ''}>${this._t('add_station')}</button>`;
+      const box = holder.querySelector('#st-list');
+      this._stationForms = list.map((_, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'station';
+        const form = document.createElement('ha-form');
+        form.addEventListener('value-changed', (ev) => this._setStation(i, ev.detail.value));
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.innerHTML = `<button class="btn">${this._t('remove')}</button>`;
+        bar.querySelector('button').addEventListener('click', () => this._changed({ ...this._config, stations: (this._config.stations || []).filter((__, j) => j !== i) }));
+        wrap.append(form, bar);
+        box.appendChild(wrap);
+        return form;
+      });
+      holder.querySelector('#st-add').addEventListener('click', () => {
+        const home = this._hass?.config;
+        const fresh = { name: '', latitude: num(home?.latitude) ? home.latitude : 45.9, longitude: num(home?.longitude) ? home.longitude : 6.87 };
+        this._changed({ ...this._config, stations: [...(Array.isArray(this._config.stations) ? this._config.stations : []), fresh] });
+      });
+    }
+    const altitude = { number: { min: MIN_ALTITUDE_M, max: MAX_ALTITUDE_M, step: 10, mode: 'box', unit_of_measurement: 'm' } };
+    this._stationForms.forEach((form, i) => {
+      const s = list[i] || {};
+      form.hass = this._hass;
+      form.schema = [
+        { name: 'name', selector: { text: {} } },
+        { name: 'location', selector: { location: { radius: false } } },
+        { name: 'base_m', selector: altitude },
+        { name: 'top_m', selector: altitude },
+      ];
+      form.data = { name: s.name ?? '', location: num(s.latitude) && num(s.longitude) ? { latitude: s.latitude, longitude: s.longitude } : undefined, base_m: s.base_m, top_m: s.top_m };
+      form.computeLabel = (f) => this._t(f.name === 'name' ? 'station_name' : f.name);
+    });
+  }
+  _setStation(i, value) {
+    const list = Array.isArray(this._config.stations) ? [...this._config.stations] : [];
+    const station = { name: value.name || undefined, latitude: value.location?.latitude, longitude: value.location?.longitude, base_m: value.base_m, top_m: value.top_m };
+    list[i] = Object.fromEntries(Object.entries(station).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+    this._changed({ ...this._config, stations: list });
   }
   _order() {
     const chosen = Array.isArray(this._config.pages) ? this._config.pages.filter((p) => PAGE_IDS.includes(p)) : [];

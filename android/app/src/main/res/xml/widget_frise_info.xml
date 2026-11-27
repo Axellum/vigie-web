@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  « Vigie · la frise »: four cells by two when placed (the columns of the hours alone), three rows for the rain of the
-  hour above them, four for the tide and the surf of the favourite spot under them (BoardArt.frise). Never narrower
-  than three cells: twelve columns need their width. Redrawn as the place widget (WidgetRefresh); the place is chosen
-  when it is placed, and again later.
+  « Vigie · la frise »: the site's small widget at every size (BoardArt.frise): four cells by two when placed; taller,
+  the frise drawn larger, the days under the hours from about four rows. Never narrower than three cells: the box of
+  the hour and its columns need their width. Redrawn as the place widget (WidgetRefresh); the place and the next hours
+  or days are chosen when it is placed, and again later.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="fr.auxfilsdesidees.vigie.widget.WidgetConfigActivity"
-    android:description="@string/widget_frise_description"
+    android:description="@string/widget_frise_about"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="250dp"
     android:minHeight="110dp"

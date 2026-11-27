@@ -7,17 +7,19 @@ import {
 	atNight,
 	boardPalette,
 	dayColumns,
+	friseColumns,
 	glow,
 	hourSlots,
 	pillWords,
 	rainBars,
-	rainEnd,
 	rainFirst,
+	rainNote,
+	rainStrength,
+	snowAt,
 	tempColour,
-	tempScale,
 	wmoKind
 } from './board';
-import { daysSvg, fmt, hourLabel, hoursSvg, iconSvg } from './boardArt';
+import { fmt, friseSvg, hourLabel, iconSvg } from './boardArt';
 import { ICON_BOX, ICONS } from './familyIcons';
 import type { VigilanceView } from './model';
 
@@ -151,7 +153,6 @@ describe('the sky', () => {
 		expect(tempColour(P, 12)).toBe('#7be495');
 		expect(tempColour(P, 50)).toBe(P.ramp[4]);
 		expect(tempColour(boardPalette('light'), 50)).toBe('#D0391E');
-		expect(tempScale([10, 11])).toEqual({ low: 8.5, amp: 4 });
 	});
 });
 
@@ -185,22 +186,6 @@ describe('the hours', () => {
 		expect(fmt('en', 0.84, 1)).toBe('0.8');
 		expect(fmt('fr', 12.4)).toBe('12');
 	});
-
-	it('draws a column per slot, its curve and the rows asked', () => {
-		const P = boardPalette('dark');
-		const slots = hourSlots(place(), NOW, 3, 8);
-		const svg = hoursSvg(P, 'fr', slots, 272, 170, {
-			rows: ['icon', 'curve', 'mm', 'wind', 'foot'],
-			step: 3,
-			offsetS: OFFSET
-		});
-		expect(svg.match(/<rect [^>]*fill="url\(#/g)).toHaveLength(8);
-		expect(svg).toContain('stroke="url(#');
-		expect(svg).toContain('>14 h<');
-		expect(svg).toContain('>1,2<');
-		expect(hoursSvg(P, 'fr', [], 272, 170, { rows: ['icon'], step: 3, offsetS: 0 })).toBe('');
-		expect(hoursSvg(P, 'fr', slots, 0, 170, { rows: ['icon'], step: 3, offsetS: 0 })).toBe('');
-	});
 });
 
 describe('the days', () => {
@@ -220,14 +205,6 @@ describe('the days', () => {
 		expect(days[0].kind).toBe('pluie');
 		expect(dayColumns(place({ daily: [] }), NOW, 'fr')).toEqual([]);
 	});
-
-	it('are drawn as two curves round a band, with their rain', () => {
-		const P = boardPalette('light');
-		const svg = daysSvg(P, 'fr', dayColumns(place(), NOW, 'fr', 5), 272, 160);
-		expect(svg.match(/<circle [^>]*r="3.4"/g)).toHaveLength(10);
-		expect(svg).toContain('>7 mm<');
-		expect(svg).toContain('>sec<');
-	});
 });
 
 describe('the rain of the hour', () => {
@@ -238,7 +215,6 @@ describe('the rain of the hour', () => {
 		expect(bars[0].known).toBe(true);
 		// The first wet step starts at 14:48: in 38 minutes.
 		expect(rainFirst(bars, NOW)).toBe(38);
-		expect(rainEnd(bars)).toBe(MIDNIGHT + 15 * 3600 + 8 * 60);
 	});
 
 	it('leaves out the steps already over, and counts from now when the answer does not say when they start', () => {
@@ -250,7 +226,6 @@ describe('the rain of the hour', () => {
 		expect(bars).toHaveLength(4);
 		expect(bars[1].r).toBeCloseTo(0.8);
 		expect(rainFirst(bars, NOW)).toBe(15);
-		expect(rainEnd(bars)).toBeNull();
 	});
 
 	it('says none for a dry hour and nothing without a nowcast', () => {
@@ -258,6 +233,75 @@ describe('the rain of the hour', () => {
 		dry.rain = { ...dry.rain!, rate5mMmH: new Array(12).fill(0) };
 		expect(rainFirst(rainBars(dry, NOW), NOW)).toBe(-1);
 		expect(rainFirst(rainBars(place({ rain: null }), NOW), NOW)).toBeNull();
+	});
+});
+
+describe('the frise of the small widget', () => {
+	it('says how strong the rain of the hour is, by the card’s thresholds', () => {
+		expect(rainStrength(0.4)).toBe('light');
+		expect(rainStrength(1)).toBe('moderate');
+		expect(rainStrength(3)).toBe('heavy');
+		expect(rainNote(place(), rainBars(place(), NOW), NOW)).toEqual({
+			kind: 'strength',
+			first: 'light',
+			peak: 'moderate'
+		});
+	});
+
+	it('after a dry hour, says when the next rain comes, from the hours after the nowcast', () => {
+		const dry = place();
+		dry.rain = { ...dry.rain!, rate5mMmH: new Array(12).fill(0) };
+		// The nowcast ends at 15:08, the hour of 15:00 is wet: the next rain is said from the end of the hour, 15:10.
+		expect(rainNote(dry, rainBars(dry, NOW), NOW)).toEqual({ kind: 'next', at: NOW + 3600 });
+		// Without a nowcast, the hours alone.
+		expect(rainNote(place({ rain: null }), [], NOW)).toEqual({ kind: 'next', at: NOW + 3600 });
+	});
+
+	it('says until when it stays dry, and nothing without any rain to read', () => {
+		const dry = place({ hourly: Array.from({ length: 30 }, (_, i) => hour(i, { precipMm: 0 })) });
+		dry.rain = { ...dry.rain!, rate5mMmH: new Array(12).fill(0) };
+		expect(rainNote(dry, rainBars(dry, NOW), NOW)).toEqual({
+			kind: 'dry',
+			until: MIDNIGHT + 44 * 3600
+		});
+		expect(rainNote(place({ rain: null, hourly: null }), [], NOW)).toBeNull();
+	});
+
+	it('tells snow by the weather of its hour', () => {
+		const snowy = place({ hourly: Array.from({ length: 30 }, (_, i) => hour(i, { weatherCode: 73 })) });
+		expect(snowAt(snowy, NOW + 38 * 60)).toBe(true);
+		expect(snowAt(place(), NOW + 38 * 60)).toBe(false);
+	});
+
+	it('follows the box of the hour with the next hours or the days from tomorrow', () => {
+		const hours = friseColumns(place(), NOW, 'fr', 'hours', 5, true);
+		expect(hours.map((x) => x.ts)).toEqual([15, 16, 17, 18, 19].map((h) => MIDNIGHT + h * 3600));
+		expect(hours[0].mm).toBeCloseTo(0.4);
+		expect(hours[0].low).toBeNull();
+		const days = friseColumns(place(), NOW, 'fr', 'days', 5, true);
+		expect(days.map((d) => d.name)).toEqual(['Sam', 'Dim', 'Lun', 'Mar', 'Mer']);
+		expect(days[0]).toMatchObject({ high: 13, low: 6, mm: null });
+		// Without a box, from now and from today.
+		expect(friseColumns(place(), NOW, 'fr', 'hours', 6, false)[0].ts).toBe(MIDNIGHT + 14 * 3600);
+		expect(friseColumns(place(), NOW, 'fr', 'days', 6, false)[0].name).toBe('Auj.');
+		expect(friseColumns(place({ hourly: null, daily: [] }), NOW, 'fr', 'days', 5, true)).toEqual([]);
+	});
+
+	it('draws a column each, the rain of an hour under its temperature and a narrow day as its high over its low', () => {
+		const P = boardPalette('dark');
+		const hours = friseSvg(P, 'fr', friseColumns(place(), NOW, 'fr', 'hours', 5, true), 165, 70, {
+			offsetS: OFFSET
+		});
+		expect(hours.match(/<rect [^>]*fill="url\(#/g)).toHaveLength(5);
+		expect(hours).toContain(`>${hourLabel('fr', MIDNIGHT + 15 * 3600, OFFSET)}<`);
+		expect(hours).toContain('>0,4<');
+		const days = friseSvg(P, 'fr', friseColumns(place(), NOW, 'fr', 'days', 5, true), 165, 70, {
+			offsetS: OFFSET
+		});
+		expect(days).toContain('>Sam<');
+		expect(days).toContain('>13°<');
+		expect(days).toContain('>6°<');
+		expect(friseSvg(P, 'fr', [], 165, 70, { offsetS: 0 })).toBe('');
 	});
 });
 

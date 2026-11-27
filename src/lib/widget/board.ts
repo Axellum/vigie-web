@@ -1,7 +1,9 @@
-// The widget of a place in the look of the home page of the Home Assistant card (piste B of the sketches of 2026-11-27, « the
-// columns first »): the weather now in the header, the rain of the hour on one line, the « Lueur » columns of the hours and the
-// days. Pure: the rules are the card's own (`static/ha-card/vigie-card.js`: hourSlots, daysBlock, nowcastFirst, nowcastBars, glow),
-// read from the site's copy of the answer (`PointWeather`), so that the card, the Android widgets and this page say one thing.
+// The small widget of a place, « the frise » (piste F of the sketches of 2026-11-27, chosen by the author): the weather now and a
+// discreet warning, then one band, the next hour as its twelve steps of rain followed by the next hours or days in « Lueur »
+// columns, and the sentence of the rain under it. Pure: the rules are the Home Assistant card's own (`static/ha-card/vigie-card.js`:
+// hourSlots, daysBlock, nowcastFirst, nowcastBars, rainTile, nextRain, glow), read from the site's copy of the answer
+// (`PointWeather`), so that the card, the Android widgets and this page say one thing. The medium and large widgets are the card
+// itself (CardWidget.svelte).
 import type { Lang } from '../i18n';
 import type { HourlyWeatherPoint, PointWeather } from '../types';
 import type { IconKind } from './familyIcons';
@@ -323,14 +325,6 @@ export function hourSlots(w: PointWeather | null, now: number, step: number, cou
 	return slots;
 }
 
-/** The bottom and the span of a temperature curve: at least 4 °C from top to bottom, so that 2° never look like a fall. */
-export function tempScale(temps: number[]): { low: number; amp: number } {
-	const mn = Math.min(...temps),
-		mx = Math.max(...temps);
-	const amp = Math.max(4, mx - mn);
-	return { low: (mn + mx) / 2 - amp / 2, amp };
-}
-
 // --- the days ------------------------------------------------------------------------------------------------------------------------
 
 export interface DayColumn {
@@ -411,12 +405,6 @@ export function rainFirst(bars: RainBar[], now: number): number | null {
 	return wet.known ? Math.max(0, Math.ceil((wet.at - now) / 60)) : bars.indexOf(wet) * wet.minutes;
 }
 
-/** When the bars end: the end of the last step, when the answer says when they start. */
-export const rainEnd = (bars: RainBar[]): number | null => {
-	const last = bars.at(-1);
-	return last?.known ? last.at + last.minutes * 60 : null;
-};
-
 /** The height of a bar in a drawing `height` tall: the square root keeps a light rain visible next to a downpour. */
 export const barHeight = (r: number, height: number, dry = 2) =>
 	r > 0 ? r1(Math.max(4, 4 + Math.sqrt(Math.min(r, 4) / 4) * (height - 4))) : dry;
@@ -453,3 +441,115 @@ export function pillWords(lang: Lang, v: VigilanceView, short = false): string |
 /** The colour of a level, from the palette. */
 export const levelColour = (P: BoardPalette, level: string | null) =>
 	level === 'RED' ? P.red : level === 'ORANGE' ? P.orange : level === 'YELLOW' ? P.yellow : P.t3;
+
+// --- the frise of the small widget -------------------------------------------------------------------------------------------------
+
+/** The words of a rate of rain, the card's thresholds (mm/h). */
+export type RainStrength = 'light' | 'moderate' | 'heavy';
+export const rainStrength = (r: number): RainStrength => (r >= 3 ? 'heavy' : r >= 1 ? 'moderate' : 'light');
+
+/**
+ * What the sentence of the rain adds after its head, as the card's rain tile: how strong the rain of the hour is (its first wet step
+ * and its strongest), or after a dry hour when the next rain comes, or until when it stays dry.
+ */
+export type RainNote =
+	| { kind: 'strength'; first: RainStrength; peak: RainStrength }
+	| { kind: 'next'; at: number }
+	| { kind: 'dry'; until: number };
+
+/**
+ * The note of the rain. After a dry hour the card reads the nowcast, then AROME-PI, then the hours; the site's copy of the answer
+ * keeps no AROME-PI steps, so here the nowcast then the hours (a rain of a few minutes between them may come out an hour later).
+ */
+export function rainNote(w: PointWeather | null, bars: RainBar[], now: number): RainNote | null {
+	const wet = bars.filter((b) => b.r > 0);
+	if (wet.length)
+		return {
+			kind: 'strength',
+			first: rainStrength(wet[0].r),
+			peak: rainStrength(Math.max(...wet.map((b) => b.r)))
+		};
+	const slots: { from: number; to: number; wet: boolean }[] = [];
+	let end = now;
+	const push = (from: number, to: number, isWet: boolean) => {
+		if (to <= end) return;
+		slots.push({ from: Math.max(from, end), to, wet: isWet });
+		end = to;
+	};
+	for (const b of bars) push(b.at, b.at + b.minutes * 60, b.r > 0);
+	for (const h of w?.hourly ?? []) if (num(h.t) && num(h.precipMm)) push(h.t, h.t + 3600, h.precipMm >= 0.1);
+	const after = now + 3600;
+	const next = slots.find((x) => x.wet && x.to > after);
+	if (next) return { kind: 'next', at: Math.max(next.from, after) };
+	const last = slots.at(-1);
+	return last && last.to > after ? { kind: 'dry', until: last.to } : null;
+}
+
+const SNOWY = (code: number | null | undefined) =>
+	num(code) && ((code >= 71 && code <= 77) || code === 85 || code === 86);
+
+/** Whether the precipitation at an instant is snow: the weather of its hour, else the weather now (the card's rule, without AROME-PI). */
+export function snowAt(w: PointWeather | null, ts: number): boolean {
+	const hour = (w?.hourly ?? []).find((h) => num(h.t) && h.t <= ts && ts < h.t + 3600);
+	return SNOWY(hour ? hour.weatherCode : w?.current?.code);
+}
+
+/** A column of the frise: an hour (its temperature and rain) or a day (its highest and lowest). */
+export interface FriseColumn {
+	ts: number | null;
+	date: string | null;
+	kind: IconKind | null;
+	sun: number | null;
+	day: boolean;
+	high: number;
+	/** The lowest of a day; null for an hour. */
+	low: number | null;
+	/** The rain of the hour, mm; null for a day (the frise has no room for it). */
+	mm: number | null;
+	/** The day's name (`Sam`); null for an hour, whose label is its time. */
+	name: string | null;
+}
+
+/**
+ * The columns of the frise after its box of the hour: the next `count` hours from the next one, or the next `count` days from
+ * tomorrow. Without a box (no nowcast), from the current hour or from today. Too few: none.
+ */
+export function friseColumns(
+	w: PointWeather | null,
+	now: number,
+	lang: Lang,
+	forecast: 'hours' | 'days',
+	count: number,
+	afterBox: boolean
+): FriseColumn[] {
+	const skip = afterBox ? 1 : 0;
+	if (forecast === 'days') {
+		const days = dayColumns(w, now, lang, count + skip).slice(skip);
+		return days.length < 2
+			? []
+			: days.map((d) => ({
+					ts: null,
+					date: d.date,
+					kind: d.kind,
+					sun: d.sun,
+					day: true,
+					high: d.tmax,
+					low: d.tmin,
+					mm: null,
+					name: d.short
+				}));
+	}
+	return hourSlots(w, now, 1, count + skip)
+		.slice(skip)
+		.map((x) => ({
+			ts: x.ts,
+			date: null,
+			kind: x.kind,
+			sun: x.sun,
+			day: x.day,
+			high: x.temp,
+			low: null,
+			mm: x.mm,
+			name: null
+		}));
+}

@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  « Vigie · mon lieu »: four cells by two when placed, from two by one to the whole screen. No update period: the app
-  and a half-hourly WorkManager job redraw it (WidgetRefresh). The place is chosen when it is placed, and again later.
+  « Vigie · mon lieu »: the home page of the Home Assistant card drawn smaller (BoardArt.card); four cells by three when
+  placed (now, the rain of the hour and the next hours or days), the whole page from about five rows, the frise when it
+  is too small for the card; from two by one to the whole screen. No update period: the app and a half-hourly
+  WorkManager job redraw it (WidgetRefresh). The place and the next hours or days are chosen when it is placed, and
+  again later.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="fr.auxfilsdesidees.vigie.widget.WidgetConfigActivity"
@@ -13,7 +16,7 @@
     android:minResizeHeight="40dp"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="4"
-    android:targetCellHeight="2"
+    android:targetCellHeight="3"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable" />
