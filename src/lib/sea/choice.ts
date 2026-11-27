@@ -1,4 +1,5 @@
-// What a visitor chose on the sea pages, without an account: the activity, the unit of the wind, and the kite's wind range. It
+// What a visitor chose on the sea pages, without an account: the activity, the unit of the wind, the kite's wind range, and
+// whether the pins of the map show the wind for every activity. It
 // stays in this browser (localStorage) and is never sent to the site; the page reads it once it is shown, so that a page
 // the server wrote for everybody does not depend on it. Where the storage refuses (private window, blocked), the page works
 // the same and asks again each time.
@@ -19,9 +20,11 @@ export interface SeaChoice {
 	activity: ActivityId | null;
 	unit: WindUnit;
 	wind: WindRangeKn | null;
+	/** The wind of the hour on the pins of the surf and of shore fishing too (those of the kite and the boat always show it). */
+	beachWind: boolean;
 }
 
-export const DEFAULT_CHOICE: SeaChoice = { activity: null, unit: 'kmh', wind: null };
+export const DEFAULT_CHOICE: SeaChoice = { activity: null, unit: 'kmh', wind: null, beachWind: false };
 
 /** The API takes a wind range up to 60 knots (`0 < min < max`). */
 export const MAX_WIND_KN = 60;
@@ -44,12 +47,13 @@ export function parseChoice(raw: string | null): SeaChoice {
 		return DEFAULT_CHOICE;
 	}
 	if (!value || typeof value !== 'object') return DEFAULT_CHOICE;
-	const { activity, unit, wind } = value as Record<string, unknown>;
+	const { activity, unit, wind, beachWind } = value as Record<string, unknown>;
 	const w = wind && typeof wind === 'object' ? (wind as Record<string, unknown>) : {};
 	return {
 		activity: ACTIVITY_IDS.includes(activity as ActivityId) ? (activity as ActivityId) : null,
 		unit: WIND_UNITS.includes(unit as WindUnit) ? (unit as WindUnit) : DEFAULT_CHOICE.unit,
-		wind: validRange(w.min, w.max)
+		wind: validRange(w.min, w.max),
+		beachWind: beachWind === true
 	};
 }
 

@@ -1048,7 +1048,7 @@
 			}
 		}
 		for (const [id, { pin: p, side }] of wanted) {
-			const key = [p.text, p.windFrom, p.tide, p.verdict, p.label, id === chosen].join('|');
+			const key = [p.text, p.wind, p.windFrom, p.tide, p.verdict, p.label, id === chosen].join('|');
 			const known = pinMarkers.get(id);
 			if (known?.key === key) continue;
 			// As for the wind badges: an element drawn again keeps the classes MapLibre gave it.
@@ -1066,6 +1066,7 @@
 			el.innerHTML =
 				`<span class="vd${band < 0 ? ' none' : ` surf-q${band}`}"></span>` +
 				`<span class="tx">${escapeHtml(p.text ?? p.name)}</span>` +
+				(p.wind ? `<span class="wn">${escapeHtml(p.wind)}</span>` : '') +
 				(p.windFrom != null
 					? `<svg class="wd" viewBox="0 0 16 16" style="transform:rotate(${Math.round(p.windFrom + 180)}deg)">${ARROW}</svg>`
 					: '') +
@@ -1593,6 +1594,14 @@
 	:global(.vigie-pin .tx) {
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	/* The wind of the hour after the figures of the surf or of shore fishing, parted from them by a dot. */
+	:global(.vigie-pin .wn) {
+		flex: none;
+	}
+	:global(.vigie-pin .wn)::before {
+		content: '· ';
+		color: var(--muted);
 	}
 	:global(.vigie-pin svg) {
 		flex: none;

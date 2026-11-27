@@ -11,6 +11,7 @@
 	import Credits from '#lib/components/Credits.svelte';
 	import MapView from '#lib/components/MapView.svelte';
 	import RadarCard from '#lib/components/RadarCard.svelte';
+	import RainScale from '#lib/components/RainScale.svelte';
 	import Seo from '#lib/components/Seo.svelte';
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { readFollowed } from '#lib/followed.js';
@@ -22,7 +23,8 @@
 	import { answerText } from '#lib/sea/answer.js';
 	import { buoysText } from '#lib/sea/buoys.js';
 	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
-	import { BAND, pinFeatures, seaPins } from '#lib/sea/map.js';
+	import LayerRow from '#lib/sea/LayerRow.svelte';
+	import { BAND, pinFeatures, seaPins, windIsTheFigure } from '#lib/sea/map.js';
 	import { answerOf, NEAR_KM, rankSpots, SLUGS } from '#lib/sea/overview.js';
 	import SeaSettings from '#lib/sea/SeaSettings.svelte';
 	import SeaSpotRow from '#lib/sea/SeaSpotRow.svelte';
@@ -30,7 +32,8 @@
 	import { apiSentence, seaText } from '#lib/sea/text.js';
 	import { windRangeText } from '#lib/sea/units.js';
 	import { dayLabel, hourLabel } from '#lib/surf.js';
-	import { windTime } from '#lib/wind.js';
+	import { windTime, windValue } from '#lib/wind.js';
+	import { FLOW_STRONG_KMH } from '#lib/windField.js';
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
 
@@ -102,7 +105,7 @@
 		v ? activityText(lang, `verdict.${v}`) : activityText(lang, 'unknown');
 
 	// --- the map: the pins of the spots (`sea/map.ts`), their dots, the card of the spot chosen --------------------------------
-	const pins = $derived(seaPins(lang, rows, data.surf, active, choice.unit));
+	const pins = $derived(seaPins(lang, rows, data.surf, active, choice.unit, choice.beachWind));
 	const dots = $derived(pinFeatures(pins));
 	const frame = $derived.by((): Box | null => {
 		if (!rows.length) return null;
@@ -195,8 +198,21 @@
 	});
 	$effect(() => pollWhileVisible(() => rainField.sync(), 60_000));
 
-	const familyOn = (f: Family): boolean =>
-		f === 'spots' ? true : f === 'wind' ? wind.on || flow.on : radar.open || rainField.on;
+	// The wind is on the labels of the kite and the boat whatever is chosen: it counts as a layer shown.
+	const windOnPins = $derived(windIsTheFigure(active));
+	const countOf = (f: Family): number =>
+		f === 'wind'
+			? Number(windOnPins || choice.beachWind) + Number(flow.on) + Number(wind.on)
+			: f === 'rain'
+				? Number(radar.open) + Number(rainField.on)
+				: 0;
+	const familyOn = (f: Family): boolean => f === 'spots' || countOf(f) > 0;
+	// The two strengths the forecast wind's trails are inked for, in the unit chosen on this page.
+	const flowSpeed = (kmh: number) =>
+		tr('wind.speed', {
+			value: String(windValue(kmh, choice.unit)),
+			unit: tr(choice.unit === 'kn' ? 'wind.kn' : 'wind.kmh')
+		});
 
 	const name = $derived(activityText(lang, `activity.${active}`));
 	const pageTitle = $derived(data.activity ? `${name} · ${t('title')}` : `${t('page')} · ${t('title')}`);
@@ -303,7 +319,17 @@
 				<p class="note">{t('unavailable')} {t('unavailableHint')}</p>
 			{/if}
 
-			<Credits {lang} credits={[overview?.attribution]} />
+			<Credits
+				{lang}
+				credits={[
+					overview?.attribution,
+					wind.on ? wind.data?.attribution : null,
+					flow.on ? flow.field?.attribution : null,
+					radar.open && radar.covered ? radar.data?.attribution : null,
+					radar.open && radar.covered ? radar.nowcastAttribution : null,
+					rainField.on ? rainField.field?.attribution : null
+				]}
+			/>
 		</div>
 	</div>
 
@@ -340,7 +366,12 @@
 						aria-expanded={family === f}
 						aria-controls="sea-layers"
 						onclick={() => (family = family === f ? null : f)}
-						>{@render familyIcon(f)}<span>{t(`family.${f}`)}</span></button
+						>{@render familyIcon(f)}<span>{t(`family.${f}`)}</span>{#if countOf(f)}<i
+								class="count"
+								aria-hidden="true">{countOf(f)}</i
+							><span class="visually-hidden"
+								>({t(countOf(f) > 1 ? 'layers.countMany' : 'layers.count', { count: countOf(f) })})</span
+							>{/if}</button
 					>
 				{/each}
 			</div>
@@ -369,6 +400,18 @@
 
 				<WindCard {lang} {wind} />
 				{#if radar.open}<RadarCard {lang} {radar} />{/if}
+				{#if rainField.on && rainField.active && !wind.on && family !== 'rain'}
+					<div class="rf-badge" role="status" data-testid="rain-field-badge">
+						<span class="eyebrow">
+							{tr('rainField.badge', {
+								model: rainField.active.level.model,
+								lead: rainField.active.frame.leadHours,
+								time: windTime(lang, rainField.active.frame.validUtc)
+							})}
+						</span>
+						<span class="rf-note">{tr('rainField.notRadarShort')}</span>
+					</div>
+				{/if}
 
 				{#if family}
 					<section class="layers" id="sea-layers" aria-label={t(`family.${family}`)}>
@@ -388,22 +431,27 @@
 								<li><span class="swatch surf-qn"></span>{word(null)}</li>
 							</ul>
 						{:else if family === 'wind'}
-							<label class="check">
-								<input type="checkbox" bind:checked={wind.on} data-testid="wind-toggle" />
-								{tr('wind.toggle')}
-							</label>
-							{#if wind.on}<p class="muted small">{tr('wind.hint')}</p>{/if}
-							<label class="check">
-								<input type="checkbox" bind:checked={flow.on} data-testid="flow-toggle" />
-								{tr('flow.toggle')}
-							</label>
+							<p class="small">{t('layers.windDesc')}</p>
+							<LayerRow
+								name={t('layers.beachWind')}
+								source={t(windOnPins ? 'layers.beachWindAlways' : 'layers.beachWindSub')}
+								disabled={windOnPins}
+								testid="beach-wind-toggle"
+								bind:checked={() => windOnPins || choice.beachWind, (on) => change({ beachWind: on })}
+							/>
+							<LayerRow
+								name={t('layers.flow')}
+								source={t('layers.flowSub')}
+								testid="flow-toggle"
+								bind:checked={flow.on}
+							/>
 							{#if flow.on}
 								{#if flow.field?.status === 'off'}
 									<p class="muted small">{tr('flow.off')}</p>
 								{:else if flow.field?.status === 'unavailable' || (flow.status === 'failed' && !flow.field)}
 									<p class="muted small">{tr('flow.failed')}</p>
 								{:else if flow.valid !== null}
-									<p class="muted small">
+									<p class="muted small" data-testid="flow-legend">
 										{tr(
 											flow.field?.stale || flow.valid !== nearestHour(Date.now())
 												? 'flow.legendOld'
@@ -411,23 +459,81 @@
 											{ time: windTime(lang, flow.valid) }
 										)}
 									</p>
+									<p class="muted small flow-scale" data-testid="flow-scale">
+										<span
+											><i class="ink" aria-hidden="true"></i>{tr('flow.strong', {
+												speed: flowSpeed(FLOW_STRONG_KMH[0])
+											})}</span
+										>
+										<span
+											><i class="ink stronger" aria-hidden="true"></i>{tr('flow.strong', {
+												speed: flowSpeed(FLOW_STRONG_KMH[1])
+											})}</span
+										>
+									</p>
+									<p class="muted small">{tr('flow.note')}</p>
+								{:else}
+									<p class="muted small">{tr('flow.loading')}</p>
 								{/if}
 							{/if}
+							<LayerRow
+								name={t('layers.measured')}
+								source={t('layers.measuredSub')}
+								testid="wind-toggle"
+								bind:checked={wind.on}
+							/>
+							{#if wind.on}<p class="muted small">{tr('wind.note')}</p>{/if}
 						{:else}
-							<label class="check">
-								<input type="checkbox" bind:checked={radar.open} data-testid="radar-toggle" />
-								{t('layers.radar')}
-							</label>
-							{#if radar.open}<p class="muted small">{t('layers.radarHint')}</p>{/if}
-							<label class="check">
-								<input type="checkbox" bind:checked={rainField.on} data-testid="rain-field-toggle" />
-								{tr('rainField.toggle')}
-							</label>
+							<p class="small">{t('layers.rainDesc')}</p>
+							<LayerRow
+								name={t('layers.radar')}
+								source={t('layers.radarSub')}
+								testid="radar-toggle"
+								bind:checked={radar.open}
+							/>
+							{#if radar.open}
+								<p class="muted small" data-testid="radar-coverage">
+									{t(radar.covered ? 'layers.radarHint' : 'layers.radarNone')}
+								</p>
+							{/if}
+							<LayerRow
+								name={t('layers.rainField')}
+								source={t('layers.rainFieldSub')}
+								testid="rain-field-toggle"
+								bind:checked={rainField.on}
+							/>
 							{#if rainField.on}
 								{#if rainField.field?.status === 'off'}
 									<p class="muted small">{tr('rainField.off')}</p>
 								{:else if rainField.field?.status === 'unavailable' || (rainField.status === 'failed' && !rainField.field)}
 									<p class="muted small">{tr('rainField.failed')}</p>
+								{:else if rainField.active && rainField.field}
+									<div
+										class="chips"
+										role="group"
+										aria-label={tr('rainField.leads')}
+										data-testid="rain-field-leads"
+									>
+										{#each rainField.leads as h (h)}
+											<button
+												type="button"
+												class="chip"
+												aria-pressed={rainField.leadHours === h}
+												onclick={() => rainField.setLead(h)}>+{h} h</button
+											>
+										{/each}
+									</div>
+									<p class="muted small" data-testid="rain-field-legend">
+										{tr('rainField.legend', {
+											model: rainField.active.level.model,
+											time: windTime(lang, rainField.active.frame.validUtc),
+											lead: rainField.active.frame.leadHours
+										})}
+									</p>
+									<RainScale {lang} legend={rainField.field.legend} testid="rain-field-scale" />
+									<p class="muted small">{tr('rainField.notRadar')}</p>
+								{:else}
+									<p class="muted small">{tr('rainField.loading')}</p>
 								{/if}
 							{/if}
 						{/if}
@@ -681,8 +787,30 @@
 		stroke-linecap: round;
 		stroke-linejoin: round;
 	}
+	.rail button {
+		position: relative;
+	}
 	.rail button.on {
 		color: var(--accent);
+	}
+	/* How many layers of the family are shown, in a dot after its name on a phone, on the corner of its button on a computer. */
+	.rail .count {
+		min-width: 17px;
+		height: 17px;
+		padding: 0 4px;
+		border-radius: 9px;
+		background: var(--accent);
+		color: var(--surface);
+		font: 700 11px/17px var(--font-body);
+		font-style: normal;
+		text-align: center;
+	}
+	@media (min-width: 900px) {
+		.rail .count {
+			position: absolute;
+			top: 3px;
+			right: 3px;
+		}
 	}
 	.rail button:hover,
 	.rail button[aria-expanded='true'] {
@@ -742,19 +870,48 @@
 		stroke-width: 2;
 		stroke-linecap: round;
 	}
-	.check {
+	/* The forecast wind's two inks, as in its legend on the home map. */
+	.flow-scale {
 		display: flex;
-		align-items: center;
-		gap: 8px;
-		min-height: 36px;
-		font-size: 14px;
-		font-weight: 600;
-		cursor: pointer;
+		flex-wrap: wrap;
+		gap: 4px 14px;
 	}
-	.check input {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--accent);
+	.flow-scale span {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.ink {
+		width: 16px;
+		height: 2px;
+		border-radius: 1px;
+		background: var(--wind-4);
+	}
+	.ink.stronger {
+		background: var(--wind-5);
+	}
+	.layers .chips {
+		margin: 2px 0;
+	}
+	/* The forecast rain said on the map when the layers are folded: a forecast, not a radar. */
+	.rf-badge {
+		position: absolute;
+		left: 10px;
+		top: 10px;
+		z-index: 3;
+		max-width: calc(100% - 70px);
+		padding: 6px 10px;
+		background: color-mix(in srgb, var(--surface) 93%, transparent);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.rf-note {
+		font-size: 11.5px;
+		color: var(--muted);
 	}
 
 	/* The card of a spot: on the right of the map on a computer, a sheet at the bottom of the screen on a phone. */

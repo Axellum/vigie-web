@@ -86,6 +86,27 @@ describe('the pins of the sea map', () => {
 		expect(bare.every((p) => p.text == null && p.tide == null && p.windFrom == null)).toBe(true);
 	});
 
+	it('adds the wind of the hour to the pins of the surf when it is asked for, and only the API’s', () => {
+		const rows = rankSpots(overview.spots, 'surf', null);
+		const pins = seaPins('fr', rows, surf.spots, 'surf', 'kmh', true);
+		for (const pin of pins) {
+			const now = surf.spots.find((s) => s.id === pin.id)?.now ?? null;
+			// The figures stay the swell's; the wind follows them, in the unit chosen, with where it comes from.
+			expect(pin.text).toBe(pinText('fr', 'surf', now, 'kmh'));
+			expect(pin.wind).toBe(now?.wind.speed != null ? pinText('fr', 'kite', now, 'kmh') : null);
+			expect(pin.windFrom).toBe(now ? now.wind.from : null);
+			if (pin.wind) expect(pin.label).toContain(`, ${pin.wind}, vent de `);
+		}
+		expect(pins.some((p) => p.wind != null)).toBe(true);
+		// Without the choice, the same pins as before; on the kite the wind is already the figure: not said twice.
+		expect(seaPins('fr', rows, surf.spots, 'surf', 'kmh').every((p) => p.wind == null)).toBe(true);
+		const kite = seaPins('fr', rankSpots(overview.spots, 'kite', null), surf.spots, 'kite', 'kmh', true);
+		expect(kite.every((p) => p.wind == null)).toBe(true);
+		expect(
+			seaPins('fr', rows, null, 'surf', 'kmh', true).every((p) => p.wind == null && p.windFrom == null)
+		).toBe(true);
+	});
+
 	it('colours the dot under each pin with the band of its verdict', () => {
 		expect([bandOf('good'), bandOf('possible'), bandOf('poor'), bandOf(null)]).toEqual([3, 2, 0, -1]);
 		const pins = seaPins('fr', rankSpots(overview.spots, 'boat', null), surf.spots, 'boat', 'kmh');
@@ -140,5 +161,9 @@ describe('the labels kept on the map', () => {
 	it('makes room for the arrows of the wind and of the tide', () => {
 		const [w] = labelSize({ text: '18 nœuds', name: 'x', windFrom: null, tide: null });
 		expect(labelSize({ text: '18 nœuds', name: 'x', windFrom: 270, tide: 'rising' })[0]).toBe(w + 30);
+		// The wind after the figures: its words and the gap of the dot that parts them.
+		expect(labelSize({ text: '18 nœuds', name: 'x', wind: '6 km/h', windFrom: null, tide: null })[0]).toBe(
+			w + Math.round(14 + 6 * 7.2)
+		);
 	});
 });

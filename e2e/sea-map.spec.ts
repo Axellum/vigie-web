@@ -153,6 +153,69 @@ test('the families of layers sit in the frame, off the map, and open their choic
 	await expect(page.getByTestId('radar-toggle')).toHaveCount(0);
 });
 
+test('the wind on the beaches puts the wind of the hour on the labels of the surf, is kept, and is always there on the kite', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/sea/surf');
+	const pin = await hossegorPin(page);
+	await expect(pin.locator('.wn')).toHaveCount(0);
+	const rail = page.getByRole('group', { name: 'Couches de la carte' });
+	const windButton = rail.getByRole('button', { name: /^Vent/ });
+	await expect(windButton.locator('.count')).toHaveCount(0);
+	await windButton.click();
+	await expect(page.getByText('Le vent sur les plages, celui que prévoit Météo-France')).toBeVisible();
+	const beach = page.getByTestId('beach-wind-toggle');
+	await expect(beach).not.toBeChecked();
+	await beach.check();
+	// The swell stays first; the recorded wind follows (10.5 km/h), with the arrow of where it comes from.
+	const kmh = `${Math.round(hossegor.now.wind.speed_kmh)} km/h`;
+	await expect(pin.locator('.wn')).toHaveText(kmh);
+	await expect(pin.locator('svg.wd')).toHaveCount(1);
+	await expect(pin).toHaveAttribute('aria-label', new RegExp(`, ${kmh}, vent de `));
+	// The rail says how many layers of the wind are shown.
+	await expect(windButton.locator('.count')).toHaveText('1');
+	await expect(windButton).toHaveAccessibleName('Vent (1 couche affichée)');
+	// Kept in this browser.
+	await page.reload();
+	await expect((await hossegorPin(page)).locator('.wn')).toHaveText(kmh);
+	// On the kite the figure is the wind already: the box stays ticked and greyed, and the wind is not said twice.
+	await page.goto('/sea/kite');
+	const kitePin = await hossegorPin(page);
+	await rail.getByRole('button', { name: /^Vent/ }).click();
+	await expect(page.getByTestId('beach-wind-toggle')).toBeChecked();
+	await expect(page.getByTestId('beach-wind-toggle')).toBeDisabled();
+	await expect(kitePin).toContainText(kmh);
+	await expect(kitePin.locator('.wn')).toHaveCount(0);
+	expect(errors).toEqual([]);
+});
+
+test('the rain family says where the radar is, and the forecast rain with its lead times, its scale and its badge', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/sea/surf');
+	await hossegorPin(page);
+	const rail = page.getByRole('group', { name: 'Couches de la carte' });
+	const rainButton = rail.getByRole('button', { name: /^Pluie/ });
+	await rainButton.click();
+	await expect(page.getByText('La pluie qui tombe, celle de l’heure qui vient')).toBeVisible();
+	await page.getByTestId('radar-toggle').check();
+	await expect(page.getByTestId('radar-coverage')).toContainText('France');
+	await page.getByTestId('rain-field-toggle').check();
+	await expect(page.getByTestId('rain-field-leads')).toBeVisible({ timeout: 15_000 });
+	await expect(page.getByTestId('rain-field-scale')).toContainText('mm/h');
+	await page.getByTestId('rain-field-leads').getByRole('button', { name: '+6 h' }).click();
+	await expect(page.getByTestId('rain-field-legend')).toContainText('+6 h');
+	await expect(rainButton.locator('.count')).toHaveText('2');
+	// Folded, the layers leave a badge on the map: a forecast, not a radar. Its source joins the credits.
+	await expect(page.getByTestId('rain-field-badge')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Fermer les couches' }).click();
+	await expect(page.getByTestId('rain-field-badge')).toContainText('Prévision, pas un radar.');
+	await expect(page.locator('details.credits')).toContainText('Licence Ouverte 2.0');
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
 test('on a phone the card is a sheet at the bottom, and the spot stays in sight above it', async ({
 	page
 }, info) => {

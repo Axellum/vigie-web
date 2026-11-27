@@ -15,7 +15,8 @@ describe('the choice kept in the browser', () => {
 			{
 				activity: 'kite',
 				unit: 'kn',
-				wind: { min: 15, max: 30 }
+				wind: { min: 15, max: 30 },
+				beachWind: false
 			}
 		);
 		expect(
@@ -25,6 +26,12 @@ describe('the choice kept in the browser', () => {
 			...DEFAULT_CHOICE,
 			activity: 'boat'
 		});
+	});
+
+	it('shows the wind on every pin only when it was asked for, in so many words', () => {
+		expect(parseChoice(JSON.stringify({ beachWind: true })).beachWind).toBe(true);
+		for (const v of [false, 'true', 1, null])
+			expect(parseChoice(JSON.stringify({ beachWind: v })).beachWind).toBe(false);
 	});
 
 	it('gives the default for anything that is not a stored choice', () => {
@@ -66,9 +73,19 @@ describe('the storage of the browser', () => {
 	it('keeps a change and the fields it did not touch', () => {
 		const s = storage({ [SEA_KEY]: JSON.stringify({ activity: 'surf', unit: 'kn' }) });
 		vi.stubGlobal('localStorage', s);
-		expect(updateChoice({ activity: 'boat' })).toEqual({ activity: 'boat', unit: 'kn', wind: null });
-		expect(readChoice()).toEqual({ activity: 'boat', unit: 'kn', wind: null });
-		expect(JSON.parse(s.data[SEA_KEY])).toEqual({ activity: 'boat', unit: 'kn', wind: null });
+		expect(updateChoice({ activity: 'boat' })).toEqual({
+			activity: 'boat',
+			unit: 'kn',
+			wind: null,
+			beachWind: false
+		});
+		expect(readChoice()).toEqual({ activity: 'boat', unit: 'kn', wind: null, beachWind: false });
+		expect(JSON.parse(s.data[SEA_KEY])).toEqual({
+			activity: 'boat',
+			unit: 'kn',
+			wind: null,
+			beachWind: false
+		});
 	});
 
 	it('works without the storage: the default choice, and the change is still returned', () => {
