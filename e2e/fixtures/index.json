@@ -48,7 +48,8 @@
   "avalanches-chamonix.json": 1794861000,
   "sea-buoys.json": 1794868200,
   "climate-corte.json": 1794950640,
-  "radar-france.json": 1794995747
+  "radar-france.json": 1794995747,
+  "sea-places-near-bathing.json": 1795772523
  },
  "source": "a Vigie API instance",
  "paths": {
@@ -114,7 +115,8 @@
   "/v1/sea/buoys": "sea-buoys.json",
   "/v1/climate/normals?fr": "climate-corte.json",
   "/v1/radar/france": "radar-france.json",
-  "/v1/stations/wind": "stations-wind.json"
+  "/v1/stations/wind": "stations-wind.json",
+  "/v1/sea/places?near&type=bathing": "sea-places-near-bathing.json"
  },
  "added": {
   "/v1/geojson/hazards": [

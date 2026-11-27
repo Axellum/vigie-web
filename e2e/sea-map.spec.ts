@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 // The sea map (`/sea`, `/sea/<activity>`): a pin per spot with the figures of the hour for the activity and the way the tide goes,
-// a card per spot with four tabs, and the families of layers in the frame of the map. The figures come from the recordings of
-// e2e/fixtures (activities-overview.json, surf-overview.json, surf-hossegor.json), so the expectations hold on any day.
+// a card per spot with five tabs, and the families of layers in the frame of the map. The figures come from the recordings of
+// e2e/fixtures (activities-overview.json, surf-overview.json, surf-hossegor.json, tv-point-hossegor.json,
+// sea-places-near-bathing.json), so the expectations hold on any day.
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const fixture = (name: string): Json =>
 	JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', name), 'utf-8'));
@@ -70,7 +71,7 @@ test('every pin says its spot, its verdict and the figures of the hour, and the 
 	expect(errors).toEqual([]);
 });
 
-test('a pin opens the card of its spot, with the same figures, four tabs and the warning; Escape closes it', async ({
+test('a pin opens the card of its spot, with the same figures, five tabs and the warning; Escape closes it', async ({
 	page
 }) => {
 	const errors = collectErrors(page);
@@ -104,6 +105,31 @@ test('a pin opens the card of its spot, with the same figures, four tabs and the
 	await page.keyboard.press('Escape');
 	await expect(card).toHaveCount(0);
 	await expect(pin).toBeFocused();
+	expect(errors).toEqual([]);
+});
+
+test('the swimming tab says the water, the swell, the wind and the class of the water of the bathing site of the spot', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/sea/surf');
+	const pin = await hossegorPin(page);
+	await pin.click();
+	const card = page.getByTestId('spot-bubble');
+	await card.getByRole('tab', { name: 'Baignade' }).click();
+	await expect(card.getByRole('tab', { name: 'Baignade' })).toHaveAttribute('aria-selected', 'true');
+	// The water of the grid point (recorded with the sea: tv-point-hossegor.json), then the swell of the pin.
+	const sea = fixture('tv-point-hossegor.json').marine.sea_surface_temperature_c as number;
+	const swell = hossegor.now.swell.height_m.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+	await expect(card.locator('p.lead')).toHaveText(
+		new RegExp(`^Eau à ${sea.toLocaleString('fr-FR')} °C, houle de ${swell} m, vent .+\\.$`)
+	);
+	// The nearest monitored bathing site on the shore (Notre Dame, Capbreton, 0.4 km south), not the lake behind the beach.
+	const quality = card.getByTestId('bathing-quality');
+	await expect(quality).toHaveText(/^Excellente · Notre Dame, Capbreton, à 0,4 km$/);
+	await expect(quality.getByRole('link')).toHaveAttribute('href', /^\/sea\/places\/bathing-/);
+	await expect(card.getByText('pas l’eau d’aujourd’hui', { exact: false })).toBeVisible();
+	await expect(card.getByText('Pas pour la sécurité ni pour la navigation', { exact: false })).toBeVisible();
 	expect(errors).toEqual([]);
 });
 
