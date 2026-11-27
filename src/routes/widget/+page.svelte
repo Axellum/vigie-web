@@ -178,8 +178,8 @@
 </svelte:head>
 
 {#if home}
-	<!-- The home page of the Home Assistant card, at its size; the summary for the desktop app is the widget's. No tooltip of
-	     credits: it covered the card in the flyout, and the card's home page names no credits (they are on its other pages). -->
+	<!-- The home and Details pages of the Home Assistant card, at its size; the summary for the desktop app is the widget's. No
+	     tooltip of credits: it covered the card in the flyout, and the card names its sources at the foot of its Details page. -->
 	<div class="home" data-ready={mounted && (cardReady || !place) ? 'yes' : 'no'}>
 		{#if !mounted}
 			<!-- The place is read in the browser. -->

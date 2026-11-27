@@ -1,5 +1,5 @@
 // What the address of the widget page says: `/widget?size=medium&theme=sky&spot=anglet-la-madrague#43.483,-1.559/Biarritz`
-// (`face=home` for the home page of the Home Assistant card instead).
+// (`face=home` for the home and Details pages of the Home Assistant card instead).
 // The size, the theme and the surf spot are in the query: they are the same for everybody and the server draws the spot. The place
 // is after the `#`, so that it never reaches the server: the browser matches it against the warnings, and asks the weather of its
 // cell of the grid only (about 5 km), as "near me" does. A value that is missing or makes no sense falls back to its default: a
@@ -24,8 +24,8 @@ export interface WidgetParams {
 	 */
 	board: boolean;
 	/**
-	 * `face=home`: the home page of the Home Assistant card instead of the widget, at the card's own size (480 × 760); what the
-	 * Windows app shows in its flyout. Null: the widget.
+	 * `face=home`: the home and Details pages of the Home Assistant card instead of the widget, at the card's own size
+	 * (480 × 760); what the Windows app shows in its flyout. Null: the widget.
 	 */
 	face: 'home' | null;
 }

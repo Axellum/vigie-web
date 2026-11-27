@@ -3,7 +3,7 @@
 // with the WebSocket command `vigie/card/data` of the integration; the page answers with the same shape (vigie-api,
 // `custom_components/vigie/websocket.py`, `ws_card_data`): the whole answer of `/v1/point` for the cell of the place, and the
 // official warnings the page has already matched against the place (the ones its summary tells the desktop app, so that the
-// card and the icon near the clock never say two different things). What the home page does not read is left `null`.
+// card and the icon near the clock never say two different things). What its home and Details pages do not read is left `null`.
 import type { Lang } from '../i18n';
 import type { WarningHere } from '../near';
 import type { OfficialState } from '../sentence';
