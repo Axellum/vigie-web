@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  « Vigie · la frise »: four cells by two when placed (the frise alone), three rows or more for the tide and the surf of
-  the favourite spot. Never narrower than three cells: a frise needs its width. Redrawn as the place widget
-  (WidgetRefresh); the place is chosen when it is placed, and again later.
+  « Vigie · la frise »: four cells by two when placed (the columns of the hours alone), three rows for the rain of the
+  hour above them, four for the tide and the surf of the favourite spot under them (BoardArt.frise). Never narrower
+  than three cells: twelve columns need their width. Redrawn as the place widget (WidgetRefresh); the place is chosen
+  when it is placed, and again later.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="fr.auxfilsdesidees.vigie.widget.WidgetConfigActivity"

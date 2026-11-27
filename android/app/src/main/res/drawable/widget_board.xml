@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The background of the widgets: the home page of the Home Assistant card, its dark theme (BoardArt.Background). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF19232E" />
+    <corners android:radius="24dp" />
+</shape>
