@@ -29,6 +29,8 @@
 	import SeaSettings from '#lib/sea/SeaSettings.svelte';
 	import SeaSpotRow from '#lib/sea/SeaSpotRow.svelte';
 	import SpotBubble from '#lib/sea/SpotBubble.svelte';
+	import TownBubble from '#lib/sea/TownBubble.svelte';
+	import type { Town } from '#lib/sea/town.js';
 	import { apiSentence, seaText } from '#lib/sea/text.js';
 	import { windRangeText } from '#lib/sea/units.js';
 	import { dayLabel, hourLabel } from '#lib/surf.js';
@@ -121,13 +123,26 @@
 	const chosenSpot = $derived(chosen ? (overview?.spots.find((s) => s.id === chosen) ?? null) : null);
 	const chosenSurf = $derived(chosen ? (data.surf?.find((s) => s.id === chosen) ?? null) : null);
 
+	// A town whose name was clicked on the map: its card takes the place of a spot's, and the other way round.
+	let town = $state<Town | null>(null);
+
 	async function open(id: string) {
 		chosen = id;
+		town = null;
 		await tick();
 		const spot = overview?.spots.find((s) => s.id === id);
-		if (!spot || !mapBox || !bubbleBox) return;
+		if (spot) bringOut([spot.lon, spot.lat]);
+	}
+	async function openTown(next: Town) {
+		chosen = null;
+		town = next;
+		await tick();
+		bringOut([next.lon, next.lat]);
+	}
+	function bringOut(at: [number, number]) {
+		if (!mapBox || !bubbleBox) return;
 		// The card covers the right of the map on a computer, the bottom of the screen on a phone: on a phone the map is first
-		// brought to the top of the screen, then, on both, the spot is brought out from under the card.
+		// brought to the top of the screen, then, on both, the spot or the town is brought out from under the card.
 		const sheet = matchMedia('(max-width: 899px)').matches;
 		if (sheet) {
 			const top = mapBox.getBoundingClientRect().top;
@@ -135,7 +150,7 @@
 		}
 		const m = mapBox.getBoundingClientRect();
 		const b = bubbleBox.getBoundingClientRect();
-		mapView?.reveal([spot.lon, spot.lat], {
+		mapView?.reveal(at, {
 			right: sheet ? 0 : Math.max(0, m.right - b.left),
 			bottom: sheet ? Math.max(0, m.bottom - b.top) : 0
 		});
@@ -143,11 +158,12 @@
 	function close() {
 		const id = chosen;
 		chosen = null;
+		town = null;
 		// The keyboard goes back to the pin that opened the card.
 		if (id) void tick().then(() => document.querySelector<HTMLElement>(`[data-spot="${id}"]`)?.focus());
 	}
 	function onKey(event: KeyboardEvent) {
-		if (event.key === 'Escape' && chosen) close();
+		if (event.key === 'Escape' && (chosen || town)) close();
 	}
 
 	// --- the layers of the frame: the spots always, the wind and the rain on demand (the choices kept as on the home map) -------
@@ -384,6 +400,8 @@
 					{pins}
 					{frame}
 					selected={chosen ? { kind: 'spot', id: chosen } : null}
+					place={town ? { lat: town.lat, lon: town.lon, radiusKm: null } : null}
+					ontown={(next) => void openTown(next)}
 					label={t('map')}
 					radar={radar.onMap(tr('radar.credit'))}
 					rainField={rainField.onMap(tr('rainField.credit'))}
@@ -540,22 +558,28 @@
 					</section>
 				{/if}
 
-				{#if chosenSpot}
+				{#if chosenSpot || town}
 					<div class="bubble-slot" bind:this={bubbleBox}>
-						{#key chosenSpot.id}
-							<SpotBubble
-								{lang}
-								spot={chosenSpot}
-								surf={chosenSurf}
-								activity={active}
-								unit={choice.unit}
-								onpick={(id) => {
-									choose(id);
-									void goto(hrefOf(id), { reset: false });
-								}}
-								onclose={close}
-							/>
-						{/key}
+						{#if chosenSpot}
+							{#key chosenSpot.id}
+								<SpotBubble
+									{lang}
+									spot={chosenSpot}
+									surf={chosenSurf}
+									activity={active}
+									unit={choice.unit}
+									onpick={(id) => {
+										choose(id);
+										void goto(hrefOf(id), { reset: false });
+									}}
+									onclose={close}
+								/>
+							{/key}
+						{:else if town}
+							{#key `${town.lat},${town.lon}`}
+								<TownBubble {lang} {town} {pins} onspot={(id) => void open(id)} onclose={close} />
+							{/key}
+						{/if}
 					</div>
 				{/if}
 			</div>

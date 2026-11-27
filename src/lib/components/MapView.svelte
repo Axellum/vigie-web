@@ -31,6 +31,7 @@
 	import { RainFieldPainter, type PaintedRain } from '#lib/rainFieldPainter.js';
 	import type { ObservedRainOnMap } from '#lib/observedRain.js';
 	import { bandOf, keepLabels, LABEL_OFFSET, type SeaPin } from '#lib/sea/map.js';
+	import { townOf, type Town } from '#lib/sea/town.js';
 	import { compass } from '#lib/surf.js';
 	import {
 		badgeRadius,
@@ -94,6 +95,8 @@
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
 		onpick?: (place: Place) => void;
+		/** When given, the names of the towns, cities and villages of the base map can be clicked (the sea map). */
+		ontown?: (town: Town) => void;
 	}
 
 	let {
@@ -121,7 +124,8 @@
 		pins = null,
 		onselect,
 		onmove,
-		onpick
+		onpick,
+		ontown
 	}: Props = $props();
 
 	const tr = $derived(translator(lang));
@@ -471,6 +475,28 @@
 	}
 
 	// The base map names places in English: in the page's language instead, where the tiles have the name.
+	// The town whose name is under a point of the map, give or take a few pixels (the names are small, a finger is not): the names
+	// are in the base map's `place` layer, whose layers are named and laid out differently in the light and the dark style.
+	const TOWN_SLOP_PX = 6;
+	function townAt(point: { x: number; y: number }): Town | null {
+		if (!map) return null;
+		const layers = map
+			.getStyle()
+			.layers.filter((l) => l.type === 'symbol' && 'source-layer' in l && l['source-layer'] === 'place')
+			.map((l) => l.id);
+		if (!layers.length) return null;
+		const box: [[number, number], [number, number]] = [
+			[point.x - TOWN_SLOP_PX, point.y - TOWN_SLOP_PX],
+			[point.x + TOWN_SLOP_PX, point.y + TOWN_SLOP_PX]
+		];
+		for (const f of map.queryRenderedFeatures(box, { layers })) {
+			if (f.geometry.type !== 'Point') continue;
+			const town = townOf(f.properties ?? {}, f.geometry.coordinates, lang);
+			if (town) return town;
+		}
+		return null;
+	}
+
 	function localizeLabels() {
 		if (!map) return;
 		for (const layer of map.getStyle().layers) {
@@ -1262,6 +1288,26 @@
 					map.on('click', (e) => {
 						const at = e.lngLat.wrap();
 						onpick?.({ lat: at.lat, lon: at.lng });
+					});
+				}
+				if (ontown) {
+					// A click on the canvas only (a pin's click is its own), and not on a spot's dot.
+					map.on('click', (e) => {
+						if (e.originalEvent.target !== map!.getCanvas()) return;
+						if (
+							map!.getLayer('spot-dot') &&
+							map!.queryRenderedFeatures(e.point, { layers: ['spot-dot'] }).length
+						)
+							return;
+						const town = townAt(e.point);
+						if (town) ontown?.(town);
+					});
+					let overTown = false;
+					map.on('mousemove', (e) => {
+						const over = townAt(e.point) !== null;
+						if (over === overTown) return;
+						overTown = over;
+						map!.getCanvas().style.cursor = over ? 'pointer' : '';
 					});
 				}
 				map.on('moveend', () => {
