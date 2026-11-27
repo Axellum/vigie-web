@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { closeLayers, openLayers } from './layers';
 
 const observedFixture = JSON.parse(
 	readFileSync(join(import.meta.dirname, 'fixtures', 'rain-observed.json'), 'utf-8')
@@ -33,6 +34,7 @@ test('global observed satellite rain layer is off by default, switches frames, p
 	});
 
 	await open(page);
+	await openLayers(page, 'Pluie');
 	const toggle = page.getByTestId('observed-rain-toggle');
 	await expect(toggle).not.toBeChecked();
 	await expect(page.getByTestId('observed-rain-badge')).toHaveCount(0);
@@ -50,6 +52,8 @@ test('global observed satellite rain layer is off by default, switches frames, p
 	await expect(page.getByTestId('observed-rain-disclaimer')).toContainText('Estimation satellite');
 	await expect(page.getByTestId('observed-rain-disclaimer')).toContainText('pas un radar au sol');
 	await expect(page.locator('.credits')).toContainText("NASA's Global Imagery Browse Services (GIBS)");
+	// The badge of the layer is over the map, once its family is folded.
+	await closeLayers(page);
 	await expect(page.getByTestId('observed-rain-badge')).toBeVisible();
 
 	const latestStamp = observedFixture.frames[observedFixture.frames.length - 1].stamp;
@@ -64,6 +68,7 @@ test('global observed satellite rain layer is off by default, switches frames, p
 	const earlierBtn = page.locator(
 		`[data-testid="observed-rain-frames"] button[data-stamp="${earlierStamp}"]`
 	);
+	await openLayers(page, 'Pluie');
 	await earlierBtn.click();
 	await expect(earlierBtn).toHaveAttribute('aria-pressed', 'true');
 	await expect
@@ -77,6 +82,7 @@ test('global observed satellite rain layer is off by default, switches frames, p
 
 	// English check.
 	await open(page, '/?lang=en');
+	await openLayers(page, 'Rain');
 	await expect(page.getByTestId('observed-rain-toggle')).toBeChecked();
 	await expect(page.getByTestId('observed-rain-scale')).toContainText('Rain');
 	await expect(page.getByTestId('observed-rain-scale')).toContainText('Snow');
@@ -84,6 +90,7 @@ test('global observed satellite rain layer is off by default, switches frames, p
 	await expect(page.getByTestId('observed-rain-disclaimer')).toContainText('not a ground radar');
 
 	await page.getByTestId('observed-rain-toggle').uncheck();
+	await closeLayers(page);
 	await expect(page.getByTestId('observed-rain-badge')).toHaveCount(0);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });

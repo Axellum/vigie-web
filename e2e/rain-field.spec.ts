@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { closeLayers, openLayers } from './layers';
 
 const rainFixture = JSON.parse(
 	readFileSync(join(import.meta.dirname, 'fixtures', 'rain-field.json'), 'utf-8')
@@ -33,6 +34,7 @@ test('global forecast rain layer is off by default, switches lead times, shows d
 	});
 
 	await open(page);
+	await openLayers(page, 'Pluie');
 	const toggle = page.getByTestId('rain-field-toggle');
 	await expect(toggle).not.toBeChecked();
 	await expect(page.getByTestId('rain-field-badge')).toHaveCount(0);
@@ -42,21 +44,26 @@ test('global forecast rain layer is off by default, switches lead times, shows d
 	await expect(page.getByTestId('rain-field-disclaimer')).toContainText('Prévision, pas un radar.');
 	await expect(page.getByTestId('rain-field-scale')).toContainText('mm/h');
 	await expect(page.locator('.credits')).toContainText('Licence Ouverte 2.0');
+	// The badge of the layer is over the map, once its family is folded.
+	await closeLayers(page);
 	await expect(page.getByTestId('rain-field-badge')).toBeVisible();
 	await expect.poll(() => asked.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(1);
 	expect(asked[0]).toMatch(/^\/data\/rain-field\/world\/\d{10}-\d{10}\.png$/);
 
 	// Switch lead time to +6 h.
+	await openLayers(page, 'Pluie');
 	await page.getByTestId('rain-field-leads').getByRole('button', { name: '+6 h' }).click();
 	await expect(page.getByTestId('rain-field-legend')).toContainText('+6 h');
 	await expect.poll(() => asked.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
 
 	// English check.
 	await open(page, '/?lang=en');
+	await openLayers(page, 'Rain');
 	await expect(page.getByTestId('rain-field-toggle')).toBeChecked();
 	await expect(page.getByTestId('rain-field-disclaimer')).toContainText('Forecast, not a radar.');
 
 	await page.getByTestId('rain-field-toggle').uncheck();
+	await closeLayers(page);
 	await expect(page.getByTestId('rain-field-badge')).toHaveCount(0);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
@@ -83,6 +90,7 @@ test('the forecast rain shows the world around the Europe grid, and stays on the
 		if (r.url().includes('/data/rain-field/')) asked.push(new URL(r.url()).pathname);
 	});
 	await open(page);
+	await openLayers(page, 'Pluie');
 	await page.getByTestId('rain-field-toggle').check();
 	// Europe and the North Atlantic at zoom 3, wider than the Europe grid (32° W to 42° E): the world's image around it.
 	await page.evaluate(() =>

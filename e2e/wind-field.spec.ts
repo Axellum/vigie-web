@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { softwareRenderer } from '../src/lib/windFlowGl';
+import { openLayers } from './layers';
 
 // The forecast wind of the map (`GET /v1/wind/field` of the API, e2e/fixtures/wind-field.json and its three images: ARPEGE over the
 // world and Europe, AROME over France, run of 2026-11-21 18 UTC, valid at 2026-11-22 00 UTC, 01:00 Paris time). Off until the visitor
@@ -64,6 +65,7 @@ test('off at first, then moving trails over the world with the hour and the cred
 		if (r.url().includes('/data/wind-field/')) images.push(new URL(r.url()).pathname);
 	});
 	await open(page);
+	await openLayers(page, 'Vent');
 	await expect(toggle(page)).not.toBeChecked();
 	await expect(canvas(page)).toHaveCount(0);
 
@@ -110,6 +112,7 @@ test('"on" is kept for the next visit, and with reduced motion the trails are dr
 }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await open(page);
+	await openLayers(page, 'Vent');
 	await toggle(page).check();
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
 	const still = await trails(page);
@@ -118,6 +121,7 @@ test('"on" is kept for the next visit, and with reduced motion the trails are dr
 
 	await page.reload();
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	await openLayers(page, 'Vent');
 	await expect(toggle(page)).toBeChecked();
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
 });
@@ -136,6 +140,7 @@ test('without WebGL 2, the trails are drawn on a 2D canvas, and move', async ({ 
 		} as typeof get;
 	});
 	await open(page);
+	await openLayers(page, 'Vent');
 	await toggle(page).check();
 	await expect.poll(async () => (await trails(page)).inked, { timeout: 15_000 }).toBeGreaterThan(300);
 	const before = await trails(page);

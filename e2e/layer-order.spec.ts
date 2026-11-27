@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { closeLayers, openLayers } from './layers';
 
 // The order of the map's layers, from the bottom: the base map, the warnings, the rain radar (under the names of the base map),
 // the forecast wind's trails, then the badges of the measured wind on top. The map is read through `window.vigieMap`, set only
@@ -70,6 +71,8 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 	await expectOrder(page, 20);
 
 	// Global observed satellite precipitation layer sits above warnings, below radar and below base map labels.
+	// The rain's layers are ticked in their family, opened from the rail of the map.
+	await openLayers(page, 'Pluie');
 	await page.getByTestId('observed-rain-toggle').check();
 	await expect
 		.poll(async () => (await layers(page)).ids.includes('observed-rain'), { timeout: 15_000 })
@@ -119,10 +122,12 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 	await expectOrder(page, 1);
 
 	// Over the map's canvas: the warnings' markers, then the trails, then the badges and their card.
+	await openLayers(page, 'Vent');
 	await page.getByTestId('flow-toggle').check();
 	await page.getByTestId('wind-toggle').check();
 	await expect(page.getByTestId('wind-flow')).toBeAttached({ timeout: 15_000 });
 	await expect.poll(() => page.getByTestId('wind-badge').count(), { timeout: 15_000 }).toBeGreaterThan(10);
+	await closeLayers(page);
 	const z = (selector: string) =>
 		page.evaluate((s) => {
 			const el = document.querySelector(s);
