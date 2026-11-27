@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -48,6 +50,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -161,12 +165,23 @@ private fun PlaceContent(state: HomeState, tab: Tab, onRefresh: () -> Unit, cont
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
   Column(
-    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
+    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
+      .padding(horizontal = evenSide()).padding(24.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     content()
   }
+}
+
+/** The left and right margin the system bars and the cutout need, the larger of the two on both sides: in landscape the camera's
+ *  cutout is on one side only, and the card stood 145 px right of the middle (seen on the Pixel 6 Pro, 27/11/2026). */
+@Composable
+private fun evenSide(): Dp {
+  val insets = WindowInsets.safeDrawing
+  val density = LocalDensity.current
+  val direction = LocalLayoutDirection.current
+  return with(density) { maxOf(insets.getLeft(density, direction), insets.getRight(density, direction)).toDp() }
 }
 
 /** The page that scrolls: the system bars are space inside it (the card goes under them as it scrolls), not a frame around. */
@@ -189,7 +204,8 @@ private fun Refreshable(state: HomeState.Ready, tab: Tab, onRefresh: () -> Unit,
     },
   ) {
     Column(
-      Modifier.fillMaxSize().verticalScroll(scroll).windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 16.dp, vertical = 6.dp),
+      Modifier.fillMaxSize().verticalScroll(scroll).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
+        .padding(horizontal = evenSide() + 16.dp, vertical = 6.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
       content()
