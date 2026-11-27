@@ -15,7 +15,8 @@
 	const tr = $derived(translator(data.lang));
 	const other = $derived(data.lang === 'fr' ? 'en' : 'fr');
 	const path = $derived(page.url.pathname);
-	const isMap = $derived(path === '/');
+	// The pages that are a map in a frame fill the screen on a computer, without the footer: the home map and the sea map.
+	const isMap = $derived(path === '/' || page.route.id === '/sea/[[activity=activity]]');
 	// The screens for televisions (/tv) and the widgets (/widget, shown by a desktop app) are pages of their own: nothing of the
 	// site around them.
 	const isBare = $derived(path === '/tv' || path.startsWith('/tv/') || path === '/widget');
