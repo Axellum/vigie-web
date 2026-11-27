@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { closeLayers, openLayers } from './layers';
 
 // The measured wind on the map (`GET /v1/stations/wind` of the API, e2e/fixtures/stations-wind.json: the 687 stations of
 // metropolitan France recorded on 2026-11-21 at 23:12, Paris time; plus the offshore buoys of e2e/fixtures/sea-buoys.json).
@@ -28,12 +29,16 @@ test('the wind is off at first, then badges over France, strongest kept, with a 
 }) => {
 	const errors = collectErrors(page);
 	await open(page);
+	await openLayers(page, 'Vent');
 	await expect(toggle(page)).not.toBeChecked();
 	await expect(card(page)).toHaveCount(0);
 	await expect(badges(page)).toHaveCount(0);
 
 	await page.getByRole('button', { name: 'France', exact: true }).click();
 	await toggle(page).check();
+	// The card of the wind holds the top left, where the layers of the family open: it is there once they are folded.
+	await expect(card(page)).toHaveCount(0);
+	await closeLayers(page);
 	await expect(card(page)).toBeVisible();
 	await expect(card(page)).toContainText(`Vent mesuré · ${at}`, { timeout: 15_000 });
 
@@ -61,7 +66,9 @@ test('the wind is off at first, then badges over France, strongest kept, with a 
 test('knots and "on" are kept for the next visit; the card turns the wind off', async ({ page }) => {
 	await open(page);
 	await page.getByRole('button', { name: 'France', exact: true }).click();
+	await openLayers(page, 'Vent');
 	await toggle(page).check();
+	await closeLayers(page);
 	await card(page).getByRole('button', { name: 'nœuds' }).click();
 	await expect(card(page).getByRole('button', { name: 'nœuds' })).toHaveAttribute('aria-pressed', 'true');
 	const ouessant = page.getByRole('button', { name: /^Ouessant-Stiff : Vent 31 nœuds de SE/ });
@@ -69,10 +76,13 @@ test('knots and "on" are kept for the next visit; the card turns the wind off', 
 
 	await page.reload();
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	await openLayers(page, 'Vent');
 	await expect(toggle(page)).toBeChecked();
+	await closeLayers(page);
 	await expect(card(page).getByRole('button', { name: 'nœuds' })).toHaveAttribute('aria-pressed', 'true');
 
 	await card(page).getByRole('button', { name: 'Masquer le vent' }).click();
+	await openLayers(page, 'Vent');
 	await expect(toggle(page)).not.toBeChecked();
 	await expect(card(page)).toHaveCount(0);
 	await expect(badges(page)).toHaveCount(0);
@@ -83,7 +93,9 @@ test('knots and "on" are kept for the next visit; the card turns the wind off', 
 test('badges stay on their station when the map zooms in and the unit changes', async ({ page }) => {
 	await open(page);
 	await page.getByRole('button', { name: 'France', exact: true }).click();
+	await openLayers(page, 'Vent');
 	await toggle(page).check();
+	await closeLayers(page);
 	await expect.poll(async () => badges(page).count(), { timeout: 15_000 }).toBeGreaterThan(60);
 	const unplaced = () =>
 		page.evaluate(

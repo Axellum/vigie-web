@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { openLayers } from './layers';
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 const fixture = (name: string): Json =>
@@ -561,14 +562,15 @@ test('the fires seen by satellite are off until asked, then drawn with their cre
 	await expect(page.getByText(grid.metadata.attribution)).toHaveCount(0);
 	// The world, far away: the one tile of the coarsest grid.
 	const tile = page.waitForResponse((r) => r.url().endsWith('/data/fires/w5/0_0.json'));
-	await page.getByLabel('Feux vus par satellite (NASA)').check();
+	await openLayers(page, 'Alertes');
+	await page.getByTestId('fires-toggle').check();
 	const answer = await tile;
 	expect(answer.status()).toBe(200);
 	expect((await answer.json()).features.features).toHaveLength(grid.features.length);
 	await expect(page.getByText(/Une détection n’est pas une alerte/).first()).toBeVisible();
 	await expect(page.getByText(grid.metadata.attribution)).toBeVisible();
 	await expect(page.getByText(grid.metadata.disclaimer)).toBeVisible();
-	await page.getByLabel('Feux vus par satellite (NASA)').uncheck();
+	await page.getByTestId('fires-toggle').uncheck();
 	await expect(page.getByText(grid.metadata.attribution)).toHaveCount(0);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
@@ -832,7 +834,8 @@ test('the tide layer is off until asked, and asks to come closer on the world ma
 	await page.goto('/');
 	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
 	await expect(page.getByText(/Pas pour la navigation/)).toHaveCount(0);
-	await page.getByLabel('Marées (calculées)').check();
+	await openLayers(page, 'Marée');
+	await page.getByTestId('tide-toggle').check();
 	await expect(page.getByText('Rapprochez la carte pour voir la marée le long des côtes.')).toBeVisible();
 	await expect(page.getByText(/Pas pour la navigation/)).toBeVisible();
 	// No tile at this distance, so no credit yet.
