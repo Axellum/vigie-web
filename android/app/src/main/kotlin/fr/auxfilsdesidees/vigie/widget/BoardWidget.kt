@@ -10,6 +10,8 @@ import fr.auxfilsdesidees.vigie.data.Vigilances
 import fr.auxfilsdesidees.vigie.ui.Vigil
 import fr.auxfilsdesidees.vigie.ui.Words
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoard
+import fr.auxfilsdesidees.vigie.ui.board.daysHeight
+import fr.auxfilsdesidees.vigie.ui.board.hoursHeight
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -178,9 +180,8 @@ object BoardWidget {
   /**
    * The page of [large] (everything: the facts of now, the season, the hours and the days) or of the medium widget (now
    * without its facts, the rain, and the block of [forecast]; the other one when it is missing), as the site's widget
-   * leaves out what it has no room for. The heights are the card's ([HomeBoardView][fr.auxfilsdesidees.vigie.ui.board.HomeBoardView]):
-   * 206 for the hours with their chance of rain, 192 without; 250 for the days with it, 236 without, 14 more with the line
-   * of their sunshine.
+   * leaves out what it has no room for. The heights of the hours and the days are those the app draws them at
+   * ([hoursHeight], [daysHeight]).
    */
   fun cardPlan(p: PointNow, now: Long, large: Boolean, forecast: Forecast): CardPlan {
     val hourly = slots(p, now, 1)
@@ -188,8 +189,8 @@ object BoardWidget {
     val days = HomeBoard.days(p, now, 7)
     val wantHours = hoursOk && (large || forecast == Forecast.Hours || days.isEmpty())
     val wantDays = days.isNotEmpty() && (large || forecast == Forecast.Days || !hoursOk)
-    val hoursHeight = if (hourly.any { it.chance != null }) 206f else 192f
-    val daysHeight = (if (days.any { it.chance != null }) 250f else 236f) + (if (days.any { it.sunshineH != null }) 14f else 0f)
+    val hoursHeight = hoursHeight(hourly)
+    val daysHeight = daysHeight(days)
     return CardPlan(
       facts = large,
       tile = HomeBoard.rainTile(p, now) != null,
