@@ -302,6 +302,35 @@ class VigieParserTest {
   }
 
   @Test
+  fun `point reads what the Details page shows`() {
+    val p =
+      VigieParser.point(
+        """
+        {"server_utc": 1795778400, "weather_attribution": "Source: Météo-France | Air quality: Copernicus",
+         "rain_nowcast": {"interval_minutes": 15, "mm_per_step": [0, 0, 0, 0], "attribution": "Source: Météo-France, PIAF"},
+         "short_term": {"interval_minutes": 15, "steps": [], "hail": {"level": "small_hail", "max_kg_m2": 0.4},
+                        "visibility": {"level": "reduced", "min_m": 800}, "attribution": "Source: Météo-France, AROME-PI"},
+         "probabilities": {"short_range": {"members": 35, "window_hours": 3,
+                                           "windows": [{"to_utc": 1795780800, "rain_1mm_pct": 20, "gust_30kt_pct": 5, "storm_pct": 0},
+                                                       {"rain_1mm_pct": 40}]},
+                           "attribution": "Source: Météo-France, PE-AROME"}}
+        """
+      )
+    assertEquals("Source: Météo-France, PIAF", p.rainSoon!!.attribution)
+    assertEquals("small_hail", p.shortTerm!!.hailLevel)
+    assertEquals("reduced", p.shortTerm.visibilityLevel)
+    assertEquals("Source: Météo-France, AROME-PI", p.shortTerm.attribution)
+    val pr = p.probabilities!!
+    assertEquals(35, pr.members)
+    assertEquals(3, pr.windowHours)
+    assertEquals("Source: Météo-France, PE-AROME", pr.attribution)
+    // A window without its end is left out; a chance the API does not give is absent.
+    assertEquals(listOf(ChanceWindow(1795780800L, mapOf("rain_1mm_pct" to 20.0, "gust_30kt_pct" to 5.0, "storm_pct" to 0.0))), pr.windows)
+    assertEquals("Source: Météo-France | Air quality: Copernicus", p.weatherAttribution)
+    assertNull(VigieParser.point("""{"server_utc": 10}""").probabilities)
+  }
+
+  @Test
   fun `a rate without a number leaves the 5-minute rates out, the steps stay`() {
     val p = VigieParser.point("""{"server_utc": 10, "rain_nowcast": {"mm_per_step": [0, 0, 0, 0], "rate_5m_mm_h": [0, null, 0]}}""")
     assertNull(p.rainSoon!!.rate5mMmH)

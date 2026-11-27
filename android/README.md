@@ -35,6 +35,11 @@ The user chooses the places and their spots; two home screen widgets show one of
   over a whole day), each column tinted by its sky (« Lueur »). The icons are the card's SVG, copied by
   `tools/family_icons.py` (`--check` tells whether the copy still matches a card). Forest fires, which the card's season
   line also reads, come from another answer the app does not read yet.
+- Its Details page, as in the card: a bar « Accueil | Détails » over the board when the place has details (and the rain
+  tile opens them; a swipe still changes the place). The rain until the first noon 12 hours ahead in a few periods
+  (« Sec → 14 h 50 », « Pluie faible », « Accalmie »), the hour to come by 5 minutes, AROME-PI by quarter hour (gusts and
+  their peak, periods of precipitation, hail and visibility), 48 hours hour by hour (sky, rain, its chance, wind) and the
+  chances of the ensembles PE-AROME by window of 3 hours, then who the values are from (`ui/board/DetailsBoard*.kt`).
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -173,6 +178,8 @@ not serve it).
 | `ui/VigieApp.kt` | the tabs, the pages of the home tab and their cards |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
+| `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |
+| `ui/board/DetailsBoardView.kt` | the Details page drawn, and the bar of pages « Accueil \| Détails » |
 | `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
 | `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |
 | `ui/board/FamilyIconData.kt` | those SVG, written by `tools/family_icons.py` from the card; not edited by hand |

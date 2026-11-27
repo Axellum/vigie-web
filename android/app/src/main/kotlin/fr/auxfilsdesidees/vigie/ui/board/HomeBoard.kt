@@ -161,7 +161,7 @@ object HomeBoard {
   }
 
   /** Day or night at an hour: its flag, else the sun [midS] seconds after its start, else day. */
-  private fun isDayAt(p: PointNow, h: HourWeather, midS: Long = 1800): Boolean =
+  fun isDayAt(p: PointNow, h: HourWeather, midS: Long = 1800): Boolean =
     h.isDay ?: if (p.lat != null && p.lon != null) sunUp(p.lat, p.lon, h.timeUtc + midS) else true
 
   /** Where the wind of some hours comes from: the mean of their vectors weighted by the speed; null without wind. */
@@ -308,23 +308,23 @@ object HomeBoard {
     return wmoPrecip(h?.weatherCode ?: p.weatherCode)
   }
 
-  /** One slot of the rain to come: [wet], its rate in mm/h when known. */
-  data class Slot(val from: Long, val to: Long, val wet: Boolean, val r: Double?)
+  /** One slot of the rain to come: [wet], its kind in the words of AROME-PI when known, its rate in mm/h when known. */
+  data class Slot(val from: Long, val to: Long, val wet: Boolean, val r: Double?, val kind: String? = null)
 
   /** The rain from now on: the nowcast, then AROME-PI by 15 minutes, then the hours; each only after the one before. */
   fun rainSlots(p: PointNow, now: Long): List<Slot> {
     val out = ArrayList<Slot>()
     var end = now
-    fun push(from: Long, to: Long, wet: Boolean, r: Double?) {
+    fun push(from: Long, to: Long, wet: Boolean, r: Double?, kind: String?) {
       if (to <= end) return
-      out += Slot(maxOf(from, end), to, wet, r)
+      out += Slot(maxOf(from, end), to, wet, r, kind)
       end = to
     }
-    for (b in nowcastBars(p, now)) push(b.at, b.at + b.minutes * 60, b.r > 0, b.r)
+    for (b in nowcastBars(p, now)) push(b.at, b.at + b.minutes * 60, b.r > 0, b.r, null)
     val st = p.shortTerm
     val m = (st?.intervalMinutes ?: 15) * 60L
-    for (s in st?.steps.orEmpty()) if (s.precipitation != null) push(s.timeUtc, s.timeUtc + m, s.precipitation != "none", null)
-    for (h in currentHours(p, now)) if (h.rainMm != null) push(h.timeUtc, h.timeUtc + 3600, h.rainMm >= 0.1, h.rainMm)
+    for (s in st?.steps.orEmpty()) if (s.precipitation != null) push(s.timeUtc, s.timeUtc + m, s.precipitation != "none", null, s.precipitation.takeIf { it != "none" })
+    for (h in currentHours(p, now)) if (h.rainMm != null) push(h.timeUtc, h.timeUtc + 3600, h.rainMm >= 0.1, h.rainMm, wmoPrecip(h.weatherCode))
     return out
   }
 
@@ -352,15 +352,17 @@ object HomeBoard {
 
   private val STALE = Regex("""\(stale""", RegexOption.IGNORE_CASE)
 
+  /** A reading older than half an hour (a copy kept without network), or flagged stale by the API: its hour is not read. */
+  fun nowcastStale(p: PointNow, now: Long): Boolean =
+    (p.serverUtc > 0 && now - p.serverUtc > fr.auxfilsdesidees.vigie.ui.RainHour.MAX_AGE_S) || STALE.containsMatchIn(p.provider.orEmpty())
+
   /**
    * The tile, null without a nowcast. A reading older than half an hour (a copy kept without network) or flagged stale by the
    * API says nothing of the hour to come: « Pluie de l’heure non lue », as the rest of the app (`RainHour`).
    */
   fun rainTile(p: PointNow, now: Long): RainTile? {
     val first = nowcastFirst(p, now) ?: return null
-    if ((p.serverUtc > 0 && now - p.serverUtc > fr.auxfilsdesidees.vigie.ui.RainHour.MAX_AGE_S) || STALE.containsMatchIn(p.provider.orEmpty())) {
-      return RainTile("Pluie de l’heure non lue", "", emptyList(), emptyList())
-    }
+    if (nowcastStale(p, now)) return RainTile("Pluie de l’heure non lue", "", emptyList(), emptyList())
     val bars = nowcastBars(p, now)
     val wet = bars.filter { it.r > 0 }
     val snow = first >= 0 && kindAt(p, now, now + first * 60L) in SNOWY

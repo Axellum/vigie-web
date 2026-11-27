@@ -62,13 +62,24 @@ data class PointNow(
   val shortTerm: ShortTerm? = null,
   /** What the home page says of the season: avalanches, drought, pollen. */
   val season: SeasonData = SeasonData(),
+  /** `probabilities`: the chances of the ensembles (PE-AROME, France) by window of a few hours; null without them. */
+  val probabilities: Probabilities? = null,
+  /** `weather_attribution`: the credit of the weather of the place, named at the foot of the Details page. */
+  val weatherAttribution: String? = null,
 )
 
 /**
  * `rain_nowcast` of `/v1/point`: the millimetres of each step of [stepMinutes] over the next hour; with PIAF (France) also
  * the twelve 5-minute rates in mm/h ([rate5mMmH]). [startUtc] is the start of the first step (an older API has none).
  */
-data class RainNowcast(val stepMinutes: Int, val mmPerStep: List<Double>, val rate5mMmH: List<Double>? = null, val startUtc: Long? = null)
+data class RainNowcast(
+  val stepMinutes: Int,
+  val mmPerStep: List<Double>,
+  val rate5mMmH: List<Double>? = null,
+  val startUtc: Long? = null,
+  /** Its credit: it names PIAF where the radar nowcast of Météo-France gives the rain (else Open-Meteo's forecast). */
+  val attribution: String? = null,
+)
 
 data class Day(
   val date: String,
@@ -83,8 +94,29 @@ data class Day(
 
 data class PressureReading(val timeUtc: Long, val hpa: Double)
 
-/** AROME-PI of `short_term`: a step every [intervalMinutes] from its [ShortStep.timeUtc]. */
-data class ShortTerm(val intervalMinutes: Int, val steps: List<ShortStep>)
+/**
+ * `probabilities` of `/v1/point`: the windows of `short_range` (the ensembles of PE-AROME, [members] scenarios, a window of
+ * [windowHours] hours) and the credit of the block.
+ */
+data class Probabilities(val members: Int?, val windowHours: Int?, val windows: List<ChanceWindow>, val attribution: String?)
+
+/**
+ * One window of the ensembles, ending at [toUtc]: its chances in % by name of the API (`rain_1mm_pct`, `gust_30kt_pct`,
+ * `gust_50kt_pct`, `storm_pct`, `snow_1mm_pct`, `hail_pct`…); a chance the API does not give is absent.
+ */
+data class ChanceWindow(val toUtc: Long, val pct: Map<String, Double>)
+
+/**
+ * AROME-PI of `short_term`: a step every [intervalMinutes] from its [ShortStep.timeUtc]. [hailLevel] (`none`, `small_hail`,
+ * `hail`) and [visibilityLevel] (`none`, `reduced`, `very_reduced`) are the worst the API worked out over the steps.
+ */
+data class ShortTerm(
+  val intervalMinutes: Int,
+  val steps: List<ShortStep>,
+  val hailLevel: String? = null,
+  val visibilityLevel: String? = null,
+  val attribution: String? = null,
+)
 
 /** One step of AROME-PI: its strongest gust and its precipitation (`none`, `rain`, `snow`, `drizzle`, `freezing`…). */
 data class ShortStep(val timeUtc: Long, val gustKmh: Double?, val precipitation: String?)
