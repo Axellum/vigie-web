@@ -210,3 +210,65 @@ test('without a place nor a spot, the widget says what to do', async ({ page }) 
 	await page.goto('/widget?size=small&spot=nowhere-at-all');
 	await expect(page.getByText('Spot inconnu')).toBeVisible();
 });
+
+// The home face (`face=home`): the Home Assistant card of vigie-api itself, at its size, which the Windows app shows in its flyout.
+// The recorded weather of the mock API is Open-Meteo's and weeks old, so the card draws its page for a place outside France; what
+// is checked here is the frame: the card is there with the place, nothing scrolls, only the cell of the grid leaves the browser,
+// and the desktop app still gets the widget's summary, spot included.
+test('the home face: the Home Assistant card with the place, and the summary for the desktop app as before', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const asked: string[] = [];
+	page.on('request', (r) => asked.push(r.url()));
+	await page.addInitScript(() => {
+		const got: unknown[] = [];
+		(window as unknown as { __got: unknown[] }).__got = got;
+		(window as unknown as { chrome: unknown }).chrome = {
+			webview: { postMessage: (m: unknown) => got.push(m) }
+		};
+	});
+	await page.setViewportSize({ width: 480, height: 760 });
+	await page.goto(`/widget?face=home&theme=dark&spot=tv-hossegor${PLACE}`);
+	await expect(page.locator('.home')).toHaveAttribute('data-ready', 'yes');
+	const card = page.locator('vigie-card');
+	await expect(card).toHaveCount(1);
+	// The card draws in its shadow root: the name of the place in its header, its home page only (no bar of pages).
+	await expect(card.locator('.lieu')).toHaveText('Corte');
+	await expect(card.locator('.nav')).toHaveCount(0);
+	expect(await card.evaluate((c) => Math.round(c.getBoundingClientRect().height))).toBe(760);
+	// No tooltip of credits over the card (it covered it in the flyout).
+	expect(await page.locator('.home').getAttribute('title')).toBeNull();
+	expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(
+		0
+	);
+	// The whole answer of the cell first, then the widget's own reading of the same cell; never the exact position.
+	expect(asked.some((u) => u.includes('/data/card.json?lat=42.3&lon=9.15'))).toBe(true);
+	expect(asked.some((u) => u.includes('/ha-card/vigie-card.js?v='))).toBe(true);
+	expect(asked.filter((u) => u.includes('42.306') || u.includes('9.149'))).toEqual([]);
+	await expect
+		.poll(() =>
+			page.evaluate(() => (window as unknown as { __got: { ready: boolean }[] }).__got.some((m) => m.ready))
+		)
+		.toBe(true);
+	const last = await page.evaluate(() =>
+		(window as unknown as { __got: { ready: boolean }[] }).__got.filter((m) => m.ready).at(-1)
+	);
+	expect(last).toMatchObject({
+		type: 'vigie-summary',
+		name: 'Corte',
+		tempC: 16.6,
+		spot: { name: expect.any(String) }
+	});
+	expect(errors).toEqual([]);
+});
+
+test('the home face without a place asks for one, as the widget does', async ({ page }) => {
+	const errors = collectErrors(page);
+	await page.setViewportSize({ width: 480, height: 760 });
+	await page.goto('/widget?face=home');
+	await expect(page.locator('.home')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.getByText('Aucun lieu choisi')).toBeVisible();
+	await expect(page.locator('vigie-card')).toHaveCount(0);
+	expect(errors).toEqual([]);
+});

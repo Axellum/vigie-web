@@ -255,14 +255,22 @@ describe('the address of the widget', () => {
 			size: 'large',
 			theme: 'light',
 			spot: 'anglet-plage',
-			board: true
+			board: true,
+			face: null
 		});
 		expect(parseWidgetParams(new URLSearchParams('size=huge&theme=pink&spot=../x&frame=window'))).toEqual({
 			size: 'medium',
 			theme: 'sky',
 			spot: null,
-			board: false
+			board: false,
+			face: null
 		});
+	});
+
+	it('reads the home face of the Home Assistant card, and nothing else as a face', () => {
+		expect(parseWidgetParams(new URLSearchParams('face=Home&theme=dark')).face).toBe('home');
+		expect(parseWidgetParams(new URLSearchParams('face=details')).face).toBeNull();
+		expect(parseWidgetParams(new URLSearchParams('')).face).toBeNull();
 	});
 
 	it('in the widgets board, takes the layout from the height Windows gives', () => {
