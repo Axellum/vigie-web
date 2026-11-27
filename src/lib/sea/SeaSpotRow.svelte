@@ -7,13 +7,12 @@
 	import { hourLabel, slotLabel } from '#lib/surf.js';
 	import type { SeaRow } from './overview.js';
 	import { seaText } from './text.js';
+	import VerdictChip from './VerdictChip.svelte';
 
 	let { lang, row }: { lang: Lang; row: SeaRow } = $props();
 
 	const t = (key: string, vars: Record<string, string | number> = {}) => seaText(lang, key, vars);
 	const verdict = $derived(row.activity.verdict);
-	const glyph = (v: Verdict | null) =>
-		v === 'good' ? '✓' : v === 'possible' ? '~' : v === 'poor' ? '✕' : '?';
 	const word = (v: Verdict | null) =>
 		v ? activityText(lang, `verdict.${v}`) : activityText(lang, 'unknown');
 	const why = $derived(reasonText(lang, row.activity.reason));
@@ -32,9 +31,7 @@
 </script>
 
 <a class="row" href="/surf/{row.spot.id}">
-	<span class="chip v-{verdict ?? 'none'}"
-		><span aria-hidden="true">{glyph(verdict)}</span> {word(verdict)}</span
-	>
+	<VerdictChip {lang} {verdict} />
 	<span class="body">
 		<strong>{row.spot.name}</strong>
 		{#if where}<span class="muted small">{where}</span>{/if}
@@ -71,34 +68,6 @@
 	}
 	.row:hover {
 		border-color: var(--accent);
-	}
-	.chip {
-		flex: none;
-		display: inline-flex;
-		gap: 6px;
-		align-items: center;
-		padding: 2px 10px;
-		border-radius: 12px;
-		font-weight: 600;
-		font-size: 14px;
-		min-width: 7.5em;
-		justify-content: center;
-	}
-	.v-good {
-		background: var(--sev-green);
-		color: var(--on-sev);
-	}
-	.v-possible {
-		background: var(--sev-yellow);
-		color: var(--on-yellow);
-	}
-	.v-poor {
-		background: var(--sev-red);
-		color: var(--on-sev);
-	}
-	.v-none {
-		border: 1px dashed var(--sev-none);
-		color: var(--muted);
 	}
 	.body {
 		display: flex;

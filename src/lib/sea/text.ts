@@ -81,7 +81,7 @@ const TEXT = {
 		'family.wind': 'Vent',
 		'family.rain': 'Pluie',
 		'layers.spotsHint':
-			'Chaque étiquette donne les chiffres de l’heure pour votre activité : la houle pour le surf, le vent pour le kite et le bateau, la marée pour la pêche à pied (« Vent sur les plages », dans Vent, y ajoute le vent). La flèche bleue dit si la marée monte ou descend. Toucher un spot ouvre sa fiche.',
+			'Chaque étiquette donne les chiffres de l’heure pour votre activité : la houle pour le surf, le vent pour le kite et le bateau, la marée pour la pêche à pied (« Vent sur les plages », dans Vent, y ajoute le vent). La flèche bleue dit si la marée monte ou descend. Toucher un spot ouvre sa fiche ; le nom d’une ville, sa météo et les spots les plus proches.',
 		'layers.spotsLegend': 'Couleur du point : le verdict de la journée pour cette activité.',
 		'layers.radar': 'Pluie au radar',
 		'layers.radarHint':
@@ -146,7 +146,16 @@ const TEXT = {
 		'bathing.qualityFailed': 'la liste des sites de baignade ne répond pas pour le moment',
 		'bathing.qualityNote':
 			'Qualité de l’eau : la classe du site sur les saisons 2021 à 2024 (ministère de la Santé), pas l’eau d’aujourd’hui.',
-		'bathing.loading': 'Chargement de la baignade…'
+		'bathing.loading': 'Chargement de la baignade…',
+		'town.kind': 'Ville',
+		'town.dry': 'sec',
+		'town.close': 'Fermer la fiche de la ville',
+		'town.loading': 'Chargement de la météo de la ville…',
+		'town.failed': 'La météo de cette ville ne répond pas pour le moment.',
+		'town.spots': 'Spots les plus proches',
+		'town.spotsHint': 'à vol d’oiseau ; touchez pour la fiche',
+		'town.noSpot': 'Aucun spot à moins de {km} km.',
+		'town.more': 'Toute la page du lieu : alertes, marée, pollens…'
 	},
 	en: {
 		page: 'Sea',
@@ -226,7 +235,7 @@ const TEXT = {
 		'family.wind': 'Wind',
 		'family.rain': 'Rain',
 		'layers.spotsHint':
-			'Each label gives the figures of the hour for your activity: the swell for the surf, the wind for the kite and the boat, the tide for shore fishing (“Wind on the beaches”, under Wind, adds the wind). The blue arrow says whether the tide is rising or falling. Tap a spot to open its card.',
+			'Each label gives the figures of the hour for your activity: the swell for the surf, the wind for the kite and the boat, the tide for shore fishing (“Wind on the beaches”, under Wind, adds the wind). The blue arrow says whether the tide is rising or falling. Tap a spot to open its card, the name of a town for its weather and the nearest spots.',
 		'layers.spotsLegend': 'Colour of the dot: the verdict of the day for this activity.',
 		'layers.radar': 'Rain radar',
 		'layers.radarHint':
@@ -291,7 +300,16 @@ const TEXT = {
 		'bathing.qualityFailed': 'the list of bathing sites does not answer at the moment',
 		'bathing.qualityNote':
 			'Water quality: the class of the site over the seasons 2021 to 2024 (Ministry of Health), not the water of today.',
-		'bathing.loading': 'Loading the swimming card…'
+		'bathing.loading': 'Loading the swimming card…',
+		'town.kind': 'Town',
+		'town.dry': 'dry',
+		'town.close': 'Close the card of the town',
+		'town.loading': 'Loading the weather of the town…',
+		'town.failed': 'The weather of this town does not answer at the moment.',
+		'town.spots': 'Nearest spots',
+		'town.spotsHint': 'as the crow flies; tap for the card',
+		'town.noSpot': 'No spot within {km} km.',
+		'town.more': 'The whole page of the place: warnings, tide, pollens…'
 	}
 } as const;
 
