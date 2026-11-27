@@ -54,7 +54,7 @@ import fr.auxfilsdesidees.vigie.ui.windArrow
 
 /**
  * The bar of pages of the Home Assistant card (« Accueil | Détails »), its narrow look: a track, the page shown in the green
- * of the hour. [selected] is the index of the page shown.
+ * of the hour. [selected] is the index of the page shown. The app's tabs use it too, in the head of its card.
  */
 @Composable
 fun BoardPages(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {

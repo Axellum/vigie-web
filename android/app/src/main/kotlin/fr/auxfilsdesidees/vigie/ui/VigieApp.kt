@@ -1,38 +1,39 @@
 package fr.auxfilsdesidees.vigie.ui
 
-import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,15 +45,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
@@ -63,17 +69,21 @@ import fr.auxfilsdesidees.vigie.ui.board.DetailsBoardView
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
-private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
-  Home(R.string.tab_home, R.drawable.ic_tab_home),
-  Hours(R.string.tab_hours, R.drawable.ic_tab_hours),
-  Sea(R.string.tab_sea, R.drawable.ic_tab_sea),
+/** The tabs, in the bar of the head of the card. « Détails » is there only when the place has details (as in the card). */
+private enum class Tab(@StringRes val label: Int) {
+  Home(R.string.tab_home),
+  Details(R.string.tab_details),
+  Hours(R.string.tab_hours),
+  Sea(R.string.tab_sea),
 }
 
 /**
- * The app's frame: the sky behind everything, three tabs at the bottom, switched instantly (no animation, by taste). No
- * place followed yet: the first-launch steps instead. The Accueil swipes between the followed places; the Heures and
- * Mer tabs show the place shown last. The gear of the Accueil and « Choisir des spots » open [onSettings]; the warning
- * banner of the Accueil opens [onWarnings].
+ * The app's frame, as the Home Assistant card (sketch 3, chosen by the author on 27/11/2026): nothing fixed around the card, no
+ * bar at the bottom. The place, the time of the read, the warnings and the gear are in the head of the glass card, with the bar
+ * Accueil · Détails · Heures · Mer; everything scrolls, the system bars included, and a tab is changed at the top of the page.
+ * The tabs switch instantly (no animation, by taste). No place followed yet: the first-launch steps instead. Accueil and
+ * Détails swipe between the followed places; Heures and Mer show the place shown last (their frise and cards keep the finger).
+ * The gear and « Choisir des spots » open [onSettings]; the warning banner and the warning mark of the head open [onWarnings].
  */
 @Composable
 fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () -> Unit) {
@@ -82,60 +92,47 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () ->
     FirstLaunch(viewModel)
     return
   }
-  var tab by rememberSaveable { mutableIntStateOf(0) }
+  var shown by rememberSaveable { mutableIntStateOf(0) }
+  val tab = Tab.entries[shown]
+  val onTab = { t: Tab -> shown = t.ordinal }
   Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(VigieColors.SkyTop, VigieColors.SkyBottom)))) {
-    Scaffold(
-      containerColor = Color.Transparent,
-      bottomBar = {
-        NavigationBar(containerColor = VigieColors.Bar) {
-          Tab.entries.forEachIndexed { i, t ->
-            NavigationBarItem(
-              selected = tab == i,
-              onClick = { tab = i },
-              icon = { Icon(painterResource(t.icon), contentDescription = null) },
-              label = { Text(stringResource(t.label)) },
-              colors =
-                NavigationBarItemDefaults.colors(
-                  selectedIconColor = VigieColors.Accent,
-                  selectedTextColor = VigieColors.Accent,
-                  indicatorColor = VigieColors.Accent.copy(alpha = 0.18f),
-                  unselectedIconColor = VigieColors.Text3,
-                  unselectedTextColor = VigieColors.Text3,
-                ),
-            )
+    val place = app.choices.currentPlace
+    if (place != null) {
+      when (tab) {
+        Tab.Home,
+        Tab.Details -> HomePager(app, viewModel, tab, onTab, onSettings, onWarnings)
+        Tab.Hours ->
+          PlaceContent(app.stateOf(place), tab, viewModel::refresh) {
+            CardHead(it, tab, onTab, null, onSettings, onWarnings)
+            HoursTab(it, followsSpots = place.spots.isNotEmpty())
           }
-        }
-      },
-    ) { padding ->
-      val place = app.choices.currentPlace
-      if (place != null) {
-        when (Tab.entries[tab]) {
-          Tab.Home -> HomePager(app, viewModel, padding, onSettings, onWarnings)
-          Tab.Hours -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { HoursTab(it, followsSpots = place.spots.isNotEmpty()) }
-          Tab.Sea -> PlaceContent(app.stateOf(place), padding, viewModel::refresh) { SeaTab(it, place.spots.isEmpty(), onSettings) }
-        }
+        Tab.Sea ->
+          PlaceContent(app.stateOf(place), tab, viewModel::refresh) {
+            CardHead(it, tab, onTab, null, onSettings, onWarnings)
+            SeaTab(it, place.spots.isEmpty(), onSettings)
+          }
       }
     }
   }
 }
 
 /**
- * The Accueil: one page per followed place, swiped left and right. The pager starts on the place shown last and tells the
- * view model which page settled; it is not restored from a saved state, so a place chosen in the settings wins.
+ * Accueil and Détails: one page per followed place, swiped left and right. The pager starts on the place shown last and tells
+ * the view model which page settled; it is not restored from a saved state, so a place chosen in the settings wins.
  */
 @Composable
-private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingValues, onSettings: () -> Unit, onWarnings: () -> Unit) {
+private fun HomePager(app: AppState, viewModel: HomeViewModel, tab: Tab, onTab: (Tab) -> Unit, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val places = app.choices.places
   val count by rememberUpdatedState(places.size)
   val pager = remember { PagerState(currentPage = app.choices.current) { count } }
   LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { viewModel.select(it) } }
   LaunchedEffect(app.choices.current) { if (pager.currentPage != app.choices.current) pager.scrollToPage(app.choices.current) }
-  HorizontalPager(pager, Modifier.fillMaxSize().padding(padding), key = { places.getOrNull(it)?.key ?: it }) { page ->
+  HorizontalPager(pager, Modifier.fillMaxSize(), key = { places.getOrNull(it)?.key ?: it }) { page ->
     val f = places.getOrNull(page)
     if (f != null) {
-      PlaceContent(app.stateOf(f), PaddingValues(0.dp), viewModel::refresh) {
-        // The banner opens the warnings of the place shown: its page is the current place once settled, select it anyway.
-        HomeTab(it, page, places.size, onSettings) {
+      PlaceContent(app.stateOf(f), tab, viewModel::refresh) {
+        // The warnings open for the place shown: its page is the current place once settled, select it anyway.
+        HomeTab(it, Dots(page, places.size), tab, onTab, onSettings) {
           viewModel.select(page)
           onWarnings()
         }
@@ -144,24 +141,27 @@ private fun HomePager(app: AppState, viewModel: HomeViewModel, padding: PaddingV
   }
 }
 
-/** What was read for a place: a wait, a failure with « Réessayer », or the [content] with « pull to refresh ». */
+/**
+ * What was read for a place: a wait, a failure with « Réessayer », or the [content] with « pull to refresh ». The page opens at
+ * its top for each [tab]: the rain tile opens the Détails at the top of the card, not in the middle of it.
+ */
 @Composable
-private fun PlaceContent(state: HomeState, padding: PaddingValues, onRefresh: () -> Unit, content: @Composable (HomeState.Ready) -> Unit) {
+private fun PlaceContent(state: HomeState, tab: Tab, onRefresh: () -> Unit, content: @Composable (HomeState.Ready) -> Unit) {
   when (state) {
-    HomeState.Loading -> Centered(padding) { CircularProgressIndicator(color = VigieColors.Accent); Text(stringResource(R.string.loading), color = VigieColors.Text2) }
+    HomeState.Loading -> Centered { CircularProgressIndicator(color = VigieColors.Accent); Text(stringResource(R.string.loading), color = VigieColors.Text2) }
     is HomeState.Failed ->
-      Centered(padding) {
+      Centered {
         Text(state.message, color = VigieColors.Text, textAlign = TextAlign.Center)
         TextButton(onClick = onRefresh) { Text(stringResource(R.string.retry), color = VigieColors.Accent) }
       }
-    is HomeState.Ready -> Refreshable(state, padding, onRefresh) { content(state) }
+    is HomeState.Ready -> Refreshable(state, tab, onRefresh) { content(state) }
   }
 }
 
 @Composable
-private fun Centered(padding: PaddingValues, content: @Composable () -> Unit) {
+private fun Centered(content: @Composable () -> Unit) {
   Column(
-    Modifier.fillMaxSize().padding(padding).padding(24.dp),
+    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
@@ -169,12 +169,27 @@ private fun Centered(padding: PaddingValues, content: @Composable () -> Unit) {
   }
 }
 
+/** The page that scrolls: the system bars are space inside it (the card goes under them as it scrolls), not a frame around. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Refreshable(state: HomeState.Ready, padding: PaddingValues, onRefresh: () -> Unit, content: @Composable () -> Unit) {
-  PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().padding(padding)) {
+private fun Refreshable(state: HomeState.Ready, tab: Tab, onRefresh: () -> Unit, content: @Composable () -> Unit) {
+  val scroll = rememberSaveable(tab, saver = ScrollState.Saver) { ScrollState(0) }
+  val pull = rememberPullToRefreshState()
+  PullToRefreshBox(
+    isRefreshing = state.refreshing,
+    onRefresh = onRefresh,
+    modifier = Modifier.fillMaxSize(),
+    state = pull,
+    indicator = {
+      PullToRefreshDefaults.Indicator(
+        state = pull,
+        isRefreshing = state.refreshing,
+        modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+      )
+    },
+  ) {
     Column(
-      Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+      Modifier.fillMaxSize().verticalScroll(scroll).windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 16.dp, vertical = 6.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
       content()
@@ -206,18 +221,112 @@ private fun Pill(text: String, color: Color) {
   )
 }
 
+/** The followed places of the Accueil: the page shown and how many, dots after the name in the head of the card. */
+private class Dots(val page: Int, val count: Int)
+
+/**
+ * The head of the glass card, on every tab: the place (and its dots on the Accueil), when it was read, a mark for its
+ * warnings, the gear; under them, the banner of the warnings in force (Accueil and Détails) and the bar of tabs. The [board]
+ * of the Accueil and the Détails goes on in the same card; Heures and Mer have their own cards under it.
+ */
 @Composable
-internal fun Freshness(state: HomeState.Ready) {
+private fun CardHead(
+  state: HomeState.Ready,
+  tab: Tab,
+  onTab: (Tab) -> Unit,
+  dots: Dots?,
+  onSettings: () -> Unit,
+  onWarnings: () -> Unit,
+  board: (@Composable () -> Unit)? = null,
+) {
+  val snap = state.snapshot
+  val p = snap.point
+  // The official warnings of the place (`/v1/vigilances`), never `local_alert_level`, a level Vigie works out over a wide
+  // radius: on 22/11/2026 it said green at Ajaccio while Météo-France had the wind in orange there.
+  val vigil = Vigil.view(snap.vigilances, p.serverUtc)
+  val read = readNote(state)
+  val tabs = Tab.entries.filter { it != Tab.Details || DetailsBoard.available(p, System.currentTimeMillis() / 1000) }
+  val shown = if (tab in tabs) tab else Tab.Home
+  Glass(padding = 12.dp) {
+    Column(if (board != null) Modifier.padding(bottom = 6.dp) else Modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+          Icon(painterResource(R.drawable.ic_location), contentDescription = null, tint = VigieColors.Text3, modifier = Modifier.size(18.dp))
+          Spacer(Modifier.width(6.dp))
+          Text(
+            snap.place.name,
+            color = VigieColors.Text,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+          )
+          if (dots != null && dots.count > 1) {
+            val label = stringResource(R.string.page_of, dots.page + 1, dots.count)
+            Spacer(Modifier.width(8.dp))
+            PageDots(dots.page, dots.count, Modifier.semantics { contentDescription = label })
+          }
+        }
+        if (!read.ownLine) {
+          Spacer(Modifier.width(8.dp))
+          Text(read.text, color = read.color, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+        Spacer(Modifier.width(6.dp))
+        VigilMark(vigil, onWarnings)
+        Spacer(Modifier.width(6.dp))
+        Box(
+          Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(role = Role.Button, onClick = onSettings),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_title), tint = VigieColors.Text, modifier = Modifier.size(18.dp))
+        }
+      }
+      // A read kept on the phone says how old it is: « Données d'hier 18 h 05 · Pas de réponse du serveur… », on its own line.
+      if (read.ownLine) Text(read.text, color = read.color, style = MaterialTheme.typography.labelMedium)
+      if (vigil.state == Vigil.State.Warnings && (tab == Tab.Home || tab == Tab.Details)) WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
+      BoardPages(tabs.map { stringResource(it.label) }, tabs.indexOf(shown), { onTab(tabs[it]) })
+    }
+    board?.invoke()
+  }
+}
+
+/**
+ * The warnings of the place in the head, one mark: the green check when none is in force, grey when no official source is
+ * read here or the read failed, the colour of the highest level when some are; that one opens the warnings.
+ */
+@Composable
+private fun VigilMark(view: Vigil.View, onWarnings: () -> Unit) {
+  val (icon, color, words) =
+    when (view.state) {
+      Vigil.State.None -> Triple(R.drawable.ic_check, VigieColors.Good, R.string.vigil_none)
+      Vigil.State.NoSource -> Triple(R.drawable.ic_check, VigieColors.Text3, R.string.vigil_nosource)
+      Vigil.State.Unread -> Triple(R.drawable.ic_warning, VigieColors.Text3, R.string.vigil_unread)
+      Vigil.State.Warnings -> Triple(R.drawable.ic_warning, VigieColors.warning(view.level), R.string.vigil_open)
+    }
+  val open = view.state == Vigil.State.Warnings
+  Box(
+    Modifier.size(26.dp).clip(CircleShape).then(if (open) Modifier.clickable(role = Role.Button, onClick = onWarnings) else Modifier),
+    contentAlignment = Alignment.Center,
+  ) {
+    Icon(painterResource(icon), stringResource(words), tint = color, modifier = Modifier.size(18.dp))
+  }
+}
+
+/** What the head says of the read: short, in its row (« Relevé à 14 h 36 », « Mise à jour… »), or longer, on a line of its own. */
+private class ReadNote(val text: String, val color: Color, val ownLine: Boolean)
+
+@Composable
+private fun readNote(state: HomeState.Ready): ReadNote {
   val p = state.snapshot.point
-  // The read kept on the phone says how old it is: « Données d'hier 18 h 05 · Pas de réponse du serveur… ».
   val now = System.currentTimeMillis() / 1000
   val readTime = Words.readTime(p.serverUtc, now, p.utcOffsetS)
   val old = p.serverUtc > 0 && now - p.serverUtc >= Words.OLD_READ_S
-  when {
-    state.error != null -> Text(stringResource(R.string.old_data, readTime, state.error), color = VigieColors.Warning, style = MaterialTheme.typography.labelMedium)
-    state.refreshing && old -> Text(stringResource(R.string.old_data_refreshing, readTime), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    state.refreshing -> Text(stringResource(R.string.refreshing), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    else -> Text(stringResource(R.string.read_at, Words.clock(p.serverUtc, p.utcOffsetS)), color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
+  return when {
+    state.error != null -> ReadNote(stringResource(R.string.old_data, readTime, state.error), VigieColors.Warning, true)
+    state.refreshing && old -> ReadNote(stringResource(R.string.old_data_refreshing, readTime), VigieColors.Text3, true)
+    state.refreshing -> ReadNote(stringResource(R.string.refreshing), VigieColors.Text3, false)
+    else -> ReadNote(stringResource(R.string.read_at, Words.clock(p.serverUtc, p.utcOffsetS)), VigieColors.Text3, false)
   }
 }
 
@@ -228,37 +337,21 @@ internal fun Credits(text: String) {
 
 // ----------------------------------------------------------------------------------------------------------- the tabs
 
+/**
+ * Accueil and Détails: the home and Details pages of the Home Assistant card, drawn natively (board/), in the card of the head:
+ * now, the rain of the hour, the season, the next 24 hours and the days; the rain until noon, by 5 and 15 minutes, 48 hours
+ * and the chances of the ensembles. As in the card, the rain tile opens the Détails; no swipe between the two (a swipe changes
+ * the place). The clock is the phone's: a copy read without network shows its hours from now on.
+ */
 @Composable
-private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: () -> Unit, onWarnings: () -> Unit) {
+private fun HomeTab(state: HomeState.Ready, dots: Dots, tab: Tab, onTab: (Tab) -> Unit, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val snap = state.snapshot
   val p = snap.point
   val vigil = Vigil.view(snap.vigilances, p.serverUtc)
-  Row(verticalAlignment = Alignment.CenterVertically) {
-    Column(Modifier.weight(1f)) {
-      Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-      Freshness(state)
-      if (pages > 1) {
-        val label = stringResource(R.string.page_of, page + 1, pages)
-        PageDots(page, pages, Modifier.padding(top = 6.dp).semantics { contentDescription = label })
-      }
-    }
-    IconButton(onClick = onSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.12f), CircleShape)) {
-      Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.settings_title), tint = VigieColors.Text)
-    }
-  }
-  // The official warnings of the place (`/v1/vigilances`), never `local_alert_level`, a level Vigie works out over a wide
-  // radius: on 22/11/2026 it said green at Ajaccio while Météo-France had the wind in orange there.
-  WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
-  // The home and Details pages of the Home Assistant card, drawn natively (board/): now, the rain of the hour, the season, the
-  // next 24 hours and the days; the rain until noon, by 5 and 15 minutes, 48 hours and the chances of the ensembles. As in
-  // the card, its bar of pages when the place has details, and the rain tile opens them; no swipe between the two (a swipe
-  // changes the place). The clock is the phone's: a copy read without network shows its hours from now on.
   val now = System.currentTimeMillis() / 1000
   val hasDetails = DetailsBoard.available(p, now)
-  var details by rememberSaveable { mutableIntStateOf(0) }
-  Glass(padding = 12.dp) {
-    if (hasDetails) BoardPages(listOf("Accueil", "Détails"), details, { details = it }, Modifier.padding(bottom = 6.dp))
-    if (hasDetails && details == 1) DetailsBoardView(p, now) else HomeBoardView(p, now, onRain = if (hasDetails) ({ details = 1 }) else null)
+  CardHead(state, tab, onTab, dots, onSettings, onWarnings) {
+    if (hasDetails && tab == Tab.Details) DetailsBoardView(p, now) else HomeBoardView(p, now, onRain = if (hasDetails) ({ onTab(Tab.Details) }) else null)
   }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
   if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
@@ -266,13 +359,8 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
 
 @Composable
 private fun SeaTab(state: HomeState.Ready, noneFollowed: Boolean, onSettings: () -> Unit) {
+  // The place and the time of the read are in the head: verdicts read yesterday, without network, do not pass for today's.
   val snap = state.snapshot
-  Column {
-    Text(stringResource(R.string.sea_title), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-    Text(snap.place.name, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    // As on the other tabs: verdicts read yesterday, without network, must not pass for today's.
-    Freshness(state)
-  }
   if (noneFollowed) {
     Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.name)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
   } else {

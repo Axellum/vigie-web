@@ -1,7 +1,8 @@
 # Vigie for Android
 
-A first, small native app that reads the public Vigie API, in French. Three tabs: the weather and the official warnings
-of a place (home), a frise of the next 24 hours (hours), and the activity verdicts of the spots followed near it (sea).
+A first, small native app that reads the public Vigie API, in French. Four tabs: the weather and the official warnings
+of a place (Accueil, and its Détails), a frise of the next 24 hours (Heures), and the activity verdicts of the spots
+followed near it (Mer).
 The user chooses the places and their spots; two home screen widgets show one of them. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
@@ -12,20 +13,26 @@ The user chooses the places and their spots; two home screen widgets show one of
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
   (below) is the other: the site keeps its notification address with the account.
+- The frame, as the Home Assistant card (chosen by the author on 27/11/2026 among three sketches): nothing fixed around
+  the card, no bar at the bottom. The head of the glass card holds the place (and a dot per followed place on the
+  Accueil), « Relevé à 14 h 36 » (on a line of its own when the read is old or failed), the mark of the warnings and the
+  gear, over the bar Accueil · Détails · Heures · Mer. Everything scrolls, the system bars too; a tab is changed at the
+  top of the page.
 - Places and spots: the first launch asks for a place (search, or the phone's approximate position rounded to about
   1 km, asked only when touched), then offers the nearest spots, those within 60 km ticked (three at most). Later, the
-  gear of the home tab opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
+  gear in the head of the card opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
   following it, « Ajouter un lieu »), the spots of the shown place (the star puts one first: the frise draws it) and the
-  nearest other spots. The home tab swipes between the places; the hours and sea tabs show the place shown last. The
+  nearest other spots. Accueil and Détails swipe between the places; Heures and Mer show the place shown last. The
   search puts the places of France first (the site ranks equal matches by population).
 - Official warnings: those of the place's exact point (`/v1/vigilances`: an area that holds it, a river section within
   5 km; in France Météo-France and Vigicrues), never `local_alert_level` of `/v1/point` (a level Vigie works out over a
   wide radius, not a warning). Read and worded as the site's widget does (`src/lib/widget/model.ts`, `text.ts`), so the
-  family says the same thing: a banner on the home tab (the highest level, its phenomena, until when, « +1 » for the
-  others; « Aucune vigilance en cours » otherwise), touched to open every warning with its period, its area and the
-  issuer's bulletin; a « Vigil. » row in the frise draws each warning over its hours (a river in flood has none: the
+  family says the same thing: a banner in the head of the card on Accueil and Détails (the highest level, its
+  phenomena, until when, « +1 » for the others), touched to open every warning with its period, its area and the
+  issuer's bulletin; a mark in the head on every tab (a green check when none is in force, « Aucune vigilance en
+  cours » for a screen reader; grey when none is read; the colour of the level, touched to open them, when some are); a « Vigil. » row in the frise draws each warning over its hours (a river in flood has none: the
   banner says it). The end shown is `ends_utc`, else `expires_utc` (the end of the bulletin), as on the widget.
-- The home tab, under the banner: the home page of Vigie's Home Assistant card (`vigie-card.js` of the API), redrawn
+- Accueil, in the card under its head: the home page of Vigie's Home Assistant card (`vigie-card.js` of the API), redrawn
   natively in the card's dark colours so that both show the same thing (`ui/board/`). The weather now (its icon, its
   temperature on the ramp, its words, feeling, humidity, wind) with the highest gust of the next hours, the pressure and
   its trend, the air and the UV, the next sunset and sunrise; the rain of the hour (PIAF's 5-minute bars in France, else
@@ -36,8 +43,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   sunshine over its daylight when the answer gives it). The icons are the card's SVG, copied by
   `tools/family_icons.py` (`--check` tells whether the copy still matches a card). Forest fires, which the card's season
   line also reads, come from another answer the app does not read yet.
-- Its Details page, as in the card: a bar « Accueil | Détails » over the board when the place has details (and the rain
-  tile opens them; a swipe still changes the place). The rain until the first noon 12 hours ahead in a few periods
+- Détails, as in the card: a tab of the bar only when the place has details (the rain tile of the Accueil opens it; a
+  swipe still changes the place). The rain until the first noon 12 hours ahead in a few periods
   (« Sec → 14 h 50 », « Pluie faible », « Accalmie »), the hour to come by 5 minutes, AROME-PI by quarter hour (gusts and
   their peak, periods of precipitation, hail and visibility), 48 hours hour by hour (sky, rain, its chance, wind) and the
   chances of the ensembles PE-AROME by window of 3 hours, then who the values are from (`ui/board/DetailsBoard*.kt`).
@@ -47,7 +54,7 @@ The user chooses the places and their spots; two home screen widgets show one of
   follows the finger. Night hours are shaded and show no verdict.
 - Offline: the last good read of every followed place is kept on the phone (the texts the API served, the overview cut
   down to the place's spots, in the app's folder that the phone's backup leaves out). It shows at once at the next
-  launch while the network answers, and stays when it does not, with when it was read, on the three tabs: « Données
+  launch while the network answers, and stays when it does not, with when it was read, in the head of every tab: « Données
   d'hier 18 h 05 · Pas de réponse du serveur… ». A failed or unreadable read never replaces it; a place no longer followed loses its copy.
   The screen then reads as of that time (the frise, the days, the warnings); the rain of the hour to come, past 30
   minutes, reads « non lue ».
@@ -172,11 +179,11 @@ not serve it).
 | `ui/Locator.kt` | the phone's approximate position, from the system's own providers |
 | `ui/Words.kt` | the French words: weather, wind, verdicts, reasons, times, sentences (tested on the JVM) |
 | `ui/Vigil.kt` | the official warnings read and worded as the site's widget: banner, periods, frise lanes (tested on the JVM) |
-| `ui/WarningsScreen.kt` | the banner of the home tab and the page of the warnings of a place, with the bulletins |
+| `ui/WarningsScreen.kt` | the banner of the Accueil and the page of the warnings of a place, with the bulletins |
 | `ui/Frise.kt` | the frise's days and hours, tide between extremes (tested on the JVM) |
 | `ui/HoursTab.kt` | the hours tab: day pills, the frise drawn on a canvas, the reading of an hour |
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
-| `ui/VigieApp.kt` | the tabs, the pages of the home tab and their cards |
+| `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, the cards of Mer |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |
