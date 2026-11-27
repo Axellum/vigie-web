@@ -63,8 +63,9 @@ import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 /**
- * « Vigie · mon lieu »: the place widget in the look of the home page of the Home Assistant card ([BoardArt], piste B
- * of 2026-11-27), in three formats chosen by the room the home screen gives ([BoardWidget.format]). Its place is chosen
+ * « Vigie · mon lieu »: the home page of the Home Assistant card drawn smaller, as the site's medium and large widgets
+ * (2026-11-27): the whole page when the widget has the room for it, else now, the rain of the hour and the next hours or
+ * the next days (chosen per widget, [FORECAST]); too small for the card, the frise ([BoardWidget.look]). Its place is chosen
  * when it is placed ([WidgetConfigActivity]) and kept in its own state; it shows the last read of that place kept by the
  * app ([fr.auxfilsdesidees.vigie.data.OfflineCopies]), with its age once it is old. Touching it opens the app on that
  * place.
@@ -84,17 +85,21 @@ class PlaceWidget : GlanceAppWidget() {
       val key = prefs[PLACE]
       val stamp = prefs[STAMP] ?: 0L
       LaunchedEffect(key, stamp) { if (content.key != key || content.stamp != stamp) content = load(context, prefs) }
-      Frame(content, appWidgetId) { PlaceReady(it) }
+      val forecast = BoardWidget.forecast(prefs[FORECAST])
+      Frame(content, appWidgetId) { WidgetReady(it, forecast, card = true) }
     }
   }
 
-  /** The widget list's picture, drawn by the same code from an example (Android 15 and later; see [WidgetRefresh.publishPreview]). */
-  override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 200.dp)))
+  /**
+   * The widget list's picture, drawn by the same code from an example (Android 15 and later; see
+   * [WidgetRefresh.publishPreview]): four cells by three, the card with the next hours.
+   */
+  override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 320.dp)))
 
   override suspend fun providePreview(context: Context, widgetCategory: Int) {
     val now = System.currentTimeMillis() / 1000
     val view = BoardWidget.sample(now, phoneOffsetS())
-    provideContent { Frame(Content.Ready("", 0L, view, null, now), AppWidgetManager.INVALID_APPWIDGET_ID) { PlaceReady(it) } }
+    provideContent { Frame(Content.Ready("", 0L, view, null, now), AppWidgetManager.INVALID_APPWIDGET_ID) { WidgetReady(it, BoardWidget.Forecast.Hours, card = true) } }
   }
 
   companion object {
@@ -104,6 +109,9 @@ class PlaceWidget : GlanceAppWidget() {
 
     /** Changed at every new read or new place: the widget then reads its place again. */
     val STAMP = longPreferencesKey("stamp")
+
+    /** The next hours or the next days ([BoardWidget.forecast]: `hours` or `days`), chosen with the place. */
+    val FORECAST = stringPreferencesKey("forecast")
 
     internal suspend fun load(context: Context, prefs: Preferences): Content {
       val key = prefs[PLACE]
@@ -229,16 +237,17 @@ private val PADDING_V = 10.dp
 @Composable
 internal fun room(): DpSize = LocalSize.current.let { DpSize(it.width - PADDING_H * 2, it.height - PADDING_V * 2) }
 
-/** The read drawn as one picture, in the format the room asks for ([BoardWidget.format]). */
+/**
+ * The read drawn as one picture, in the look the room asks for ([BoardWidget.look]): the card's page for the place widget
+ * ([card]) when it holds, else the frise; [forecast] the next hours or the next days.
+ */
 @Composable
-private fun PlaceReady(r: Content.Ready) {
+internal fun WidgetReady(r: Content.Ready, forecast: BoardWidget.Forecast, card: Boolean) {
   val context = LocalContext.current
-  val whole = LocalSize.current
   val room = room()
-  val format = BoardWidget.format(whole.width.value, whole.height.value)
   val picture =
-    remember(r.view, room, format) {
-      if (room.width < 40.dp || room.height < 30.dp) null else BoardArt.place(context, r.view, room.width.value, room.height.value, format)
+    remember(r.view, room, forecast, card) {
+      if (room.width < 40.dp || room.height < 30.dp) null else BoardArt.widget(context, r.view, room.width.value, room.height.value, forecast, card)
     }
   if (picture != null) {
     Image(ImageProvider(picture), contentDescription = BoardWidget.describe(r.view), modifier = GlanceModifier.size(room.width, room.height), contentScale = ContentScale.FillBounds)

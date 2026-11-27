@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The widgets drawn as the site's (vigie-web /widget, 2026-11-27): the next hours or the next days, chosen per widget.
+         A file of their own while the app's strings.xml is changed by another pull request. -->
+    <string name="widget_forecast">Prévisions du widget</string>
+    <string name="widget_forecast_hours">Heure par heure</string>
+    <string name="widget_forecast_days">Jour par jour</string>
+    <string name="widget_forecast_hint">Assez grand, « mon lieu » montre toute la page d\'accueil de la carte, les heures et les jours ; « la frise », assez haute, les heures puis les jours.</string>
+    <string name="widget_frise_about">La pluie de l\'heure en douze pas, puis les prochaines heures ou les prochains jours d\'un lieu suivi ; assez haute, les heures et les jours.</string>
+</resources>
