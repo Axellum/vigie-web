@@ -1,6 +1,6 @@
 // The pins of the sea map: for each spot that can be judged for the activity chosen, its verdict and the few figures that activity
 // is judged on — the swell for the surf, the wind for the kite and the boat, the tide for shore fishing — with the way the tide goes,
-// on every pin. The verdicts are the API's (`/v1/activities/overview`), the figures of the current hour too (`/v1/surf/overview`,
+// on every pin, and the wind of the hour on the others too when the visitor asks for it (« Vent sur les plages »). The verdicts are the API's (`/v1/activities/overview`), the figures of the current hour too (`/v1/surf/overview`,
 // joined by the spot's id); a figure the API did not give is left out, never guessed. Nothing here is for safety.
 import type { FeatureCollection } from 'geojson';
 import { activityText, type ActivityId, type Verdict } from '../activities';
@@ -22,7 +22,9 @@ export interface SeaPin {
 	rank: number;
 	/** The figures of the current hour for the activity, in a few characters: `1,2 m · 9 s`, `18 nœuds`, `tiers bas`. */
 	text: string | null;
-	/** Where the wind comes from (degrees from north), drawn as an arrow on the pins of the kite and the boat. */
+	/** The wind of the hour after the figures, on the pins of the surf and shore fishing when it is asked for (`18 km/h`). */
+	wind: string | null;
+	/** Where the wind comes from (degrees from north), drawn as an arrow wherever the pin shows the wind. */
 	windFrom: number | null;
 	/** The tide now, on every pin of a spot the tide model reaches. */
 	tide: 'rising' | 'falling' | null;
@@ -63,28 +65,39 @@ export function pinText(
 	return `${now.tide.height >= 0 ? '+' : ''}${number(lang, now.tide.height, 1)} m`;
 }
 
+/** The activities whose figures are the wind: their pins always show where it comes from. */
+export const windIsTheFigure = (activity: ActivityId): boolean => activity === 'kite' || activity === 'boat';
+
 /**
  * One pin per spot that can be judged for the activity (the rows of `rankSpots`, in their order), with the figures of its
  * current hour when the surf overview has the spot. Without that overview the pins keep their verdict and nothing else.
+ * `beachWind` adds the wind of the hour, and where it comes from, to the pins of the surf and of shore fishing.
  */
 export function seaPins(
 	lang: Lang,
 	rows: SeaRow[],
 	surf: SurfSpotNow[] | null,
 	activity: ActivityId,
-	unit: WindUnit
+	unit: WindUnit,
+	beachWind = false
 ): SeaPin[] {
 	const byId = new Map((surf ?? []).map((s) => [s.id, s]));
 	const verdictWord = (v: Verdict | null) =>
 		v ? activityText(lang, `verdict.${v}`) : activityText(lang, 'unknown');
+	const showWind = windIsTheFigure(activity) || beachWind;
 	return rows.map(({ spot, activity: a }) => {
 		const now = byId.get(spot.id)?.now ?? null;
 		const text = pinText(lang, activity, now, unit);
-		const windFrom = (activity === 'kite' || activity === 'boat') && now ? now.wind.from : null;
+		const wind =
+			beachWind && !windIsTheFigure(activity) && now?.wind.speed != null
+				? windOf(lang, now.wind.speed, unit)
+				: null;
+		const windFrom = showWind && now ? now.wind.from : null;
 		const tide = now?.tide?.trend ?? null;
 		const said = [
 			`${spot.name} : ${verdictWord(a.verdict).toLowerCase()}`,
 			text,
+			wind,
 			windFrom != null ? seaText(lang, 'pin.windFrom', { dir: compass(lang, windFrom) }) : null,
 			tide ? seaText(lang, `pin.tide.${tide}`) : null
 		].filter(Boolean);
@@ -96,6 +109,7 @@ export function seaPins(
 			verdict: a.verdict,
 			rank: rankOf(a.verdict),
 			text,
+			wind,
 			windFrom,
 			tide,
 			label: said.join(', ')
@@ -115,11 +129,20 @@ export function pinFeatures(pins: SeaPin[]): FeatureCollection {
 	};
 }
 
+/** What `labelSize` and `keepLabels` read of a pin (the wind after the figures may be absent). */
+type LabelOf = Pick<SeaPin, 'text' | 'name' | 'windFrom' | 'tide'> & { wind?: string | null };
+
 /** The room a label takes on screen, in pixels: a guess from its figures, since a label is laid out before it is drawn. */
-export function labelSize(pin: Pick<SeaPin, 'text' | 'name' | 'windFrom' | 'tide'>): [number, number] {
+export function labelSize(pin: LabelOf): [number, number] {
 	const words = pin.text ?? pin.name;
 	return [
-		Math.round(26 + Math.min(words.length, 22) * 7.2 + (pin.windFrom != null ? 16 : 0) + (pin.tide ? 14 : 0)),
+		Math.round(
+			26 +
+				Math.min(words.length, 22) * 7.2 +
+				(pin.wind ? 14 + pin.wind.length * 7.2 : 0) +
+				(pin.windFrom != null ? 16 : 0) +
+				(pin.tide ? 14 : 0)
+		),
 		26
 	];
 }
@@ -133,7 +156,7 @@ export const LABEL_OFFSET = 9;
  * left out (its dot stays on the map). `at` gives the dot's position on screen (null: off screen). A label sits on the left of
  * its dot, or on its right where the left would leave the screen.
  */
-export function keepLabels<T extends Pick<SeaPin, 'id' | 'rank' | 'text' | 'name' | 'windFrom' | 'tide'>>(
+export function keepLabels<T extends LabelOf & Pick<SeaPin, 'id' | 'rank'>>(
 	pins: T[],
 	at: (pin: T) => [number, number] | null,
 	chosen: string | null

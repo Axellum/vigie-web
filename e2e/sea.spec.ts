@@ -120,7 +120,12 @@ test('an activity has its own address, is remembered in this browser only, and t
 	await page.getByLabel('à', { exact: true }).fill('30');
 	await page.getByRole('button', { name: 'Appliquer' }).click();
 	await expect(page).toHaveURL(/\/sea\/kite\?min=15&max=30$/);
-	expect(await stored(page)).toEqual({ activity: 'kite', unit: 'kn', wind: { min: 15, max: 30 } });
+	expect(await stored(page)).toEqual({
+		activity: 'kite',
+		unit: 'kn',
+		wind: { min: 15, max: 30 },
+		beachWind: false
+	});
 
 	// The kite page, opened without the range, takes the one chosen last.
 	await page.goto('/sea/kite');
