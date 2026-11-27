@@ -233,9 +233,10 @@ test('the home face: the Home Assistant card with the place, and the summary for
 	await expect(page.locator('.home')).toHaveAttribute('data-ready', 'yes');
 	const card = page.locator('vigie-card');
 	await expect(card).toHaveCount(1);
-	// The card draws in its shadow root: the name of the place in its header, its home page only (no bar of pages).
+	// The card draws in its shadow root: the name of the place in its header, its bar of two pages, on the home page.
 	await expect(card.locator('.lieu')).toHaveText('Corte');
-	await expect(card.locator('.nav')).toHaveCount(0);
+	await expect(card.getByRole('tab')).toHaveText(['Accueil', 'Détails']);
+	await expect(card.getByRole('tab', { name: 'Accueil' })).toHaveAttribute('aria-selected', 'true');
 	expect(await card.evaluate((c) => Math.round(c.getBoundingClientRect().height))).toBe(760);
 	// No tooltip of credits over the card (it covered it in the flyout).
 	expect(await page.locator('.home').getAttribute('title')).toBeNull();
@@ -260,6 +261,34 @@ test('the home face: the Home Assistant card with the place, and the summary for
 		tempC: 16.6,
 		spot: { name: expect.any(String) }
 	});
+	expect(errors).toEqual([]);
+});
+
+// The Details page of the card, as in Home Assistant: from its bar, and by a swipe from the home page; it scrolls inside the card,
+// never the page of the flyout.
+test('the home face: the Details page of the card from its bar and by a swipe', async ({ page }) => {
+	const errors = collectErrors(page);
+	await page.setViewportSize({ width: 480, height: 760 });
+	await page.goto(`/widget?face=home&theme=dark${PLACE}`);
+	await expect(page.locator('.home')).toHaveAttribute('data-ready', 'yes');
+	const card = page.locator('vigie-card');
+	const details = card.getByRole('tab', { name: 'Détails' });
+	await details.click();
+	await expect(details).toHaveAttribute('aria-selected', 'true');
+	await expect(card.locator('.page .pile').first()).toBeVisible();
+	expect(await card.evaluate((c) => Math.round(c.getBoundingClientRect().height))).toBe(760);
+	expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(
+		0
+	);
+	// Back home from the bar, then to Details again by a swipe to the left.
+	await card.getByRole('tab', { name: 'Accueil' }).click();
+	await expect(card.getByRole('tab', { name: 'Accueil' })).toHaveAttribute('aria-selected', 'true');
+	await page.mouse.move(400, 400);
+	await page.mouse.down();
+	await page.mouse.move(250, 405, { steps: 5 });
+	await page.mouse.move(150, 405, { steps: 5 });
+	await page.mouse.up();
+	await expect(details).toHaveAttribute('aria-selected', 'true');
 	expect(errors).toEqual([]);
 });
 

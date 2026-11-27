@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The home face: the Home Assistant card of vigie-api (`<vigie-card>`, loaded from `static/ha-card/`), drawn as in Home
-	// Assistant with only its home page. The page plays the part of Home Assistant (`fakeHass`): the card asks its data with
-	// `callWS` and gets the latest the page read. When they change, the page sets the same configuration again, which is how a
+	// Assistant with its home and Details pages: its own bar of pages, a swipe or its rain tile to go from one to the other, and
+	// back home after a minute untouched, as in Home Assistant. The page plays the part of Home Assistant (`fakeHass`): the card
+	// asks its data with `callWS` and gets the latest the page read. When they change, the page sets the same configuration again, which is how a
 	// Lovelace card is told to read again (`setConfig` asks for the data when it already has `hass`).
 	import { onMount } from 'svelte';
 	import type { Lang } from '../../i18n';
@@ -16,7 +17,7 @@
 	let host: HTMLDivElement;
 	let card = $state<Card | null>(null);
 	let failed = $state(false);
-	const config = $derived({ pages: ['home'], name, spot: 'none', idle: 'none' });
+	const config = $derived({ pages: ['home', 'details'], name, spot: 'none', idle: 'return' });
 
 	onMount(() => {
 		let gone = false;
