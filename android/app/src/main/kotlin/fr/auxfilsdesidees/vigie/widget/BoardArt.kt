@@ -6,10 +6,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -26,6 +23,8 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import fr.auxfilsdesidees.vigie.data.PointNow
@@ -33,20 +32,22 @@ import fr.auxfilsdesidees.vigie.ui.Vigil
 import fr.auxfilsdesidees.vigie.ui.board.BoardPalette
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoard
 import fr.auxfilsdesidees.vigie.ui.board.cardGlyph
+import fr.auxfilsdesidees.vigie.ui.board.column
+import fr.auxfilsdesidees.vigie.ui.board.drawDays
+import fr.auxfilsdesidees.vigie.ui.board.drawHours
 import fr.auxfilsdesidees.vigie.ui.board.familyIcon
-import fr.auxfilsdesidees.vigie.ui.smoothPath
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import fr.auxfilsdesidees.vigie.ui.windArrow
 import kotlin.math.roundToInt
-import androidx.compose.ui.graphics.Paint as LayerPaint
 
 /**
  * The widgets drawn as the site's widgets of 2026-11-27 ([BoardWidget.Look]): the frise (piste F) and the home page of the
  * Home Assistant card drawn smaller. A home screen cannot draw, so the whole content of a widget is one picture at the
  * screen's density, laid out here with the card's palette ([BoardPalette.Dark]) and rules ([HomeBoard]). The card's page is
- * the app's native one ([HomeBoardView][fr.auxfilsdesidees.vigie.ui.board.HomeBoardView]) drawn again into the picture, at
- * its sizes (the card's px, dp in the app) and a scale: the app's is laid out by Compose, which a widget cannot run. As the
- * app's home page, the texts keep their size whatever the phone's font scale, so that nothing overlaps.
+ * the app's native one ([HomeBoardView][fr.auxfilsdesidees.vigie.ui.board.HomeBoardView]) at its sizes (the card's px, dp in
+ * the app) and a scale: its hours and days are the app's own drawing (`ui/board/BoardColumns.kt`, at the picture's density);
+ * now, the rain tile and the season are laid out again here, the app's being Compose layouts, which a widget cannot run. As
+ * the app's home page, the texts keep their size whatever the phone's font scale, so that nothing overlaps.
  */
 object BoardArt {
   private val pal = BoardPalette.Dark
@@ -219,7 +220,7 @@ object BoardArt {
     val foot = big && footBar >= 10
     list.forEachIndexed { i, x ->
       val cx = cw * (i + 0.5f)
-      column(cw * i, cw, h, pal.glow(x.sun, x.day, h.px), false, 6f)
+      column(pal, cw * i, cw, h, pal.glow(x.sun, x.day, h.px), false, 6f)
       val label = x.name ?: x.ts?.let { t -> HomeBoard.hourOnly(t, offsetS).let { if (cw < 26) it.takeWhile { c -> c.isDigit() } else it } }.orEmpty()
       text(label, cx, yLab, pal.t2, ls)
       familyIcon(x.kind, cx.px, yIcon.px, ic.px, pal)
@@ -337,13 +338,13 @@ object BoardArt {
     if (plan.hours) {
       HomeBoard.hours(v.point, v.now, w)?.let {
         y += BoardWidget.GAP
-        at(0f, y) { hoursBlock(it, v.offsetS, w, plan.hoursHeight) }
+        at(0f, y) { drawHours(measurer, it, v.offsetS, w, pal) }
         y += plan.hoursHeight
       }
     }
     if (plan.days.isNotEmpty()) {
       y += BoardWidget.GAP
-      at(0f, y) { daysBlock(plan.days, w, plan.daysHeight) }
+      at(0f, y) { drawDays(measurer, plan.days, w, pal) }
     }
   }
 
@@ -513,165 +514,18 @@ object BoardArt {
     writeRuns(runs, 40f, cy, right - 40)
   }
 
-  /**
-   * The next 24 hours (the app's `HoursBlock`, its title left out as in the site's widget): a column per slot, its icon, the
-   * temperature curve, the rain, its chance, the wind and the gust, the hour. [height] 206 with the chance, 192 without.
-   */
-  private fun DrawScope.hoursBlock(h: HomeBoard.Hours, offsetS: Int, w: Float, height: Float) {
-    val list = h.slots
-    val n = list.size
-    val cw = w / n
-    val hasP = height > 192f
-    val yWind = if (hasP) 158f else 144f
-    fun cx(i: Int) = cw * (i + 0.5f)
-    list.forEachIndexed { i, x -> column(cw * i, cw, height, pal.glow(x.sun, x.day, height.px), i == 0, 9f) }
-    list.forEachIndexed { i, x -> familyIcon(x.kind, cx(i).px, 14f.px, 24f.px, pal) }
-    // The curve: at least 4 °C from top to bottom, so that 2° never looks like a fall.
-    val temps = list.map { it.temp }
-    val mn = temps.min()
-    val mx = temps.max()
-    val amp = maxOf(4.0, mx - mn)
-    val low = (mn + mx) / 2 - amp / 2
-    val yRel = temps.map { (66 - (it - low) / amp * 44).toFloat() }
-    val pts = yRel.mapIndexed { i, y -> Offset(cx(i).px, (26 + y).px) }
-    drawPath(smoothPath(pts), tempBrush(temps, w.px), style = Stroke(4f.px, cap = StrokeCap.Round))
-    list.forEachIndexed { i, x -> label("${HomeBoard.fmt(x.temp)}°", cx(i), yRel[i] + 7, 13f, pal.temperature(x.temp), lineHeight = 1.2f) }
-    // The rain: its amount over the bar, the bars standing on the same line.
-    list.forEachIndexed { i, x ->
-      val mm = x.mm?.takeIf { it >= 0.1 } ?: return@forEachIndexed
-      val bh = HomeBoard.hourBar(mm, h.step)
-      val bw = minOf(18f, cw * 0.7f)
-      drawRoundRect(pal.rainOf(mm / h.step), Offset((cx(i) - bw / 2).px, (142 - bh).px), Size(bw.px, bh.px), CornerRadius(4f.px))
-      label(HomeBoard.fmt(mm, if (mm < 10) 1 else 0), cx(i), 142 - bh - 2 - 11.7f, 10f, pal.rainLight)
-    }
-    if (hasP) list.forEachIndexed { i, x -> x.chance?.let { label("${HomeBoard.fmt(it)} %", cx(i), 144f, 10f, pal.t3, Weight.Medium) } }
-    // The wind: its arrow and speed, the gust under it (yellow from 60, orange from 80).
-    list.forEachIndexed { i, x ->
-      val speed = HomeBoard.fmt(x.wind)
-      val arrow = if (x.deg != null) 13f else 0f
-      val left = cx(i) - (arrow + measure(speed, 12f, Weight.Bold)) / 2
-      val mid = yWind + 7.5f
-      x.deg?.let { windArrow((left + 5.5f).px, mid.px, 11f.px, it, pal.wind) }
-      textMid(speed, left + arrow, mid, pal.wind, 12f, Weight.Bold, Paint.Align.LEFT)
-      x.gust?.let { g ->
-        val c = pal.gust(g)
-        label(HomeBoard.fmt(g), cx(i), yWind + 15f, 10f, c ?: pal.t3, if (c != null) Weight.Bold else Weight.Regular, 1.25f)
-      }
-    }
-    list.forEachIndexed { i, x -> label(HomeBoard.hourOnly(x.ts, offsetS), cx(i), height - 17, 11f, if (i == 0) pal.accent else pal.t2) }
-  }
-
-  /**
-   * The days (the app's `DaysBlock`, its title left out): a column per day tinted by its sun, its name, its icon, the line of
-   * its sunshine when the answer gives it, the highest and lowest as two curves around a band, rain, chance, wind and gust.
-   */
-  private fun DrawScope.daysBlock(days: List<HomeBoard.DayColumn>, w: Float, height: Float) {
-    val n = days.size
-    val cw = w / n
-    val tight = cw < 50
-    val hasP = days.any { it.chance != null }
-    val sh = if (days.any { it.sunshineH != null }) 14f else 0f
-    val sunColour = pal.iconRoles["vs"] ?: pal.yellow
-    fun cx(i: Int) = cw * (i + 0.5f)
-    days.forEachIndexed { i, d -> column(cw * i, cw, height, pal.glow(d.sun, true, height.px), i == 0, 10f) }
-    days.forEachIndexed { i, d ->
-      label(if (tight) d.nameShort else d.name, cx(i), 3f, 13f, if (i == 0) pal.accent else pal.text)
-      familyIcon(d.kind, cx(i).px, (3 + 15.2f + 1 + 15).px, 30f.px, pal)
-      d.sunshineH?.let { sun ->
-        val col =
-          when (HomeBoard.sunTone(d)) {
-            2 -> sunColour
-            1 -> mixSrgb(pal.t3, sunColour, 0.55f)
-            else -> pal.t3
-          }
-        val s = HomeBoard.sunHoursText(sun, tight)
-        val left = cx(i) - (8 + measure(s, 11f, Weight.Medium)) / 2
-        val mid = 3 + 15.2f + 1 + 30 + 1 + 6.5f
-        drawCircle(col, 2.5f.px, Offset((left + 2.5f).px, mid.px))
-        textMid(s, left + 8, mid, col, 11f, Weight.Medium, Paint.Align.LEFT)
-      }
-    }
-    val (lo, hi) = HomeBoard.dayScale(days)
-    fun yOf(t: Double) = (150 + sh - (t - lo) / (hi - lo) * 76).toFloat()
-    val mx = days.mapIndexed { i, d -> Offset(cx(i).px, yOf(d.tmax).px) }
-    val mn = days.mapIndexed { i, d -> Offset(cx(i).px, yOf(d.tmin).px) }
-    // One outline: along the highest, then back along the lowest (the card's band).
-    val band =
-      Path().apply {
-        smoothInto(this, mx, start = true)
-        smoothInto(this, mn.reversed(), start = false)
-        close()
-      }
-    val bounds = band.getBounds()
-    // The curves in a layer of their own, so that the dots are hollow: the columns show through them.
-    drawContext.canvas.saveLayer(Rect(0f, 0f, w.px, height.px), LayerPaint())
-    drawPath(
-      band,
-      Brush.verticalGradient(
-        listOf(pal.temperature(days.map { it.tmax }.average()).copy(alpha = 0.2f), pal.temperature(days.map { it.tmin }.average()).copy(alpha = 0.16f)),
-        startY = bounds.top,
-        endY = bounds.bottom,
-      ),
-    )
-    drawPath(smoothPath(mx), tempBrush(days.map { it.tmax }, w.px), style = Stroke(4f.px, cap = StrokeCap.Round))
-    drawPath(smoothPath(mn), tempBrush(days.map { it.tmin }, w.px), style = Stroke(3f.px, cap = StrokeCap.Round))
-    (mx + mn).forEach { drawCircle(Color.Black, 3.75f.px, it, blendMode = BlendMode.Clear) }
-    drawContext.canvas.restore()
-    days.forEachIndexed { i, d ->
-      drawCircle(pal.temperature(d.tmax), 3.75f.px, mx[i], style = Stroke(2.5f.px))
-      drawCircle(pal.temperature(d.tmin), 3.75f.px, mn[i], style = Stroke(2.5f.px))
-      label("${HomeBoard.fmt(d.tmax)}°", cx(i), yOf(d.tmax) - 26, 15f, pal.temperature(d.tmax), lineHeight = 1.2f)
-      label("${HomeBoard.fmt(d.tmin)}°", cx(i), yOf(d.tmin) + 7, 13f, pal.temperature(d.tmin), Weight.Medium, 1.2f)
-    }
-    // Rain, chance and wind, stacked as the card stacks them.
-    val size = if (tight) 11f else 12f
-    days.forEachIndexed { i, d ->
-      val mm = d.rainMm
-      val wet = mm != null && mm >= 0.5
-      val bh = HomeBoard.dayBar(mm)
-      val bw = minOf(26f, cw * 0.55f)
-      drawRoundRect(if (wet) pal.rainOf(mm!! / 6) else pal.hollow, Offset((cx(i) - bw / 2).px, (200 + sh - bh).px), Size(bw.px, bh.px), CornerRadius(4f.px))
-      var y = 202f + sh
-      if (mm != null) label(if (wet) "${if (mm < 1) HomeBoard.fmt(mm, 1) else HomeBoard.fmt(mm)} mm" else "sec", cx(i), y, size, if (wet) pal.rainLight else pal.t3)
-      y += size * 1.17f + 2
-      if (hasP) {
-        d.chance?.let { label("${HomeBoard.fmt(it)} %", cx(i), y, 10f, pal.t3, Weight.Medium) }
-        y += 11.7f + 2
-      }
-      y += 3
-      val runs = ArrayList<Run>()
-      if (d.windMax != null) runs += Run(HomeBoard.fmt(d.windMax), pal.wind, size, Weight.Bold)
-      if (d.gust != null) runs += Run("/${HomeBoard.fmt(d.gust)}", pal.t3, if (tight) 9f else 10f, Weight.Regular)
-      if (runs.isEmpty()) return@forEachIndexed
-      val arrow = if (d.deg != null) 11f + (if (tight) 1f else 2f) else 0f
-      val tw = runs.sumOf { measure(it.s, it.size, it.weight).toDouble() }.toFloat()
-      val left = cx(i) - (arrow + tw) / 2
-      val mid = y + size * 1.17f / 2
-      d.deg?.let { windArrow((left + 5.5f).px, mid.px, 11f.px, it, pal.wind) }
-      writeRuns(runs, left + arrow, mid, tw + 1)
-    }
-  }
-
   // ======================================================================================================== the drawing
 
   /** The density of the picture being drawn and its scale, what [px] multiplies by: one picture at a time ([draw] is synchronized). */
   private var dpScale = 1f
 
+  /** The texts of the card's columns, measured at the picture's density ([draw]). */
+  private lateinit var measurer: TextMeasurer
+
   private val Float.px: Float
     get() = this * dpScale
 
   private fun DrawScope.at(x: Float, y: Float, block: DrawScope.() -> Unit) = translate(x.px, y.px, block)
-
-  /** One column, the card's: its glow, and the green ring of the one under way. */
-  private fun DrawScope.column(left: Float, width: Float, height: Float, glow: Brush, ring: Boolean, radius: Float) {
-    val x = (left + 1).px
-    val cw = maxOf(1f, width - 2).px
-    drawRoundRect(glow, Offset(x, 0f), Size(cw, height.px), CornerRadius(radius.px))
-    if (ring) {
-      val s = 1.5f.px
-      drawRoundRect(pal.accent.copy(alpha = 0.75f), Offset(x + s / 2, s / 2), Size(cw - s, height.px - s), CornerRadius(radius.px - s / 2), style = Stroke(s))
-    }
-  }
 
   private fun levelColour(level: String?): Color =
     when (level) {
@@ -694,50 +548,6 @@ object BoardArt {
   }
 
   private val PIN: Path by lazy { PathParser().parsePathString("M12 21 C12 21 5 14 5 9.5 a7 7 0 0 1 14 0 C19 14 12 21 12 21 Z").toPath() }
-
-  /** A horizontal brush through the colours of some temperatures, a stop in the middle of each column. */
-  private fun tempBrush(temps: List<Double>, widthPx: Float): Brush =
-    if (temps.size == 1) Brush.horizontalGradient(listOf(pal.temperature(temps[0]), pal.temperature(temps[0])))
-    else Brush.horizontalGradient(*temps.mapIndexed { i, t -> (i + 0.5f) / temps.size to pal.temperature(t) }.toTypedArray(), startX = 0f, endX = widthPx)
-
-  /** The card's `mix`: [a] towards [b] by [t], channel by channel in sRGB (Compose's `lerp` goes through Oklab). */
-  private fun mixSrgb(a: Color, b: Color, t: Float): Color = Color(red = a.red + (b.red - a.red) * t, green = a.green + (b.green - a.green) * t, blue = a.blue + (b.blue - a.blue) * t)
-
-  /**
-   * The monotone curve of [smoothPath] (Fritsch–Carlson) appended to [path], from a move ([start]) or a line to its first
-   * point: the band of the days needs both curves in one outline (the app's own helper is private to its view).
-   */
-  private fun smoothInto(path: Path, pts: List<Offset>, start: Boolean) {
-    if (pts.isEmpty()) return
-    if (start) path.moveTo(pts[0].x, pts[0].y) else path.lineTo(pts[0].x, pts[0].y)
-    val n = pts.size
-    if (n == 1) return
-    val dx = FloatArray(n - 1) { pts[it + 1].x - pts[it].x }
-    val m = FloatArray(n - 1) { (pts[it + 1].y - pts[it].y) / dx[it] }
-    val t = FloatArray(n)
-    t[0] = m[0]
-    t[n - 1] = m[n - 2]
-    for (i in 1 until n - 1) t[i] = if (m[i - 1] * m[i] <= 0) 0f else (m[i - 1] + m[i]) / 2
-    for (i in 0 until n - 1) {
-      if (m[i] == 0f) {
-        t[i] = 0f
-        t[i + 1] = 0f
-      } else {
-        val a = t[i] / m[i]
-        val b = t[i + 1] / m[i]
-        val s = a * a + b * b
-        if (s > 9) {
-          val q = 3 / kotlin.math.sqrt(s)
-          t[i] = q * a * m[i]
-          t[i + 1] = q * b * m[i]
-        }
-      }
-    }
-    for (i in 0 until n - 1) {
-      val h = dx[i] / 3
-      path.cubicTo(pts[i].x + h, pts[i].y + t[i] * h, pts[i + 1].x - h, pts[i + 1].y - t[i + 1] * h, pts[i + 1].x, pts[i + 1].y)
-    }
-  }
 
   // ========================================================================================================== the texts
 
@@ -823,7 +633,10 @@ object BoardArt {
     val pw = (w * density).roundToInt().coerceAtLeast(1)
     val ph = (h * density).roundToInt().coerceAtLeast(1)
     val image = ImageBitmap(pw, ph)
-    CanvasDrawScope().draw(Density(density), LayoutDirection.Ltr, Canvas(image), Size(pw.toFloat(), ph.toFloat())) { block() }
+    // The picture's density is the screen's times the scale: the card's columns ([drawHours], [drawDays]) draw by it.
+    val at = Density(dpScale, 1f)
+    measurer = TextMeasurer(createFontFamilyResolver(context), at, LayoutDirection.Ltr)
+    CanvasDrawScope().draw(at, LayoutDirection.Ltr, Canvas(image), Size(pw.toFloat(), ph.toFloat())) { block() }
     return image.asAndroidBitmap()
   }
 }

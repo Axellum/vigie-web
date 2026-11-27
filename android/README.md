@@ -56,8 +56,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   Home Assistant card drawn smaller, as the site's medium and large widgets: with the room for it (about four cells by
   five on a phone) the whole page (now and its facts, the rain tile, the season, the 24 hours, the days); with less
   (four by three, or three cells wide at a smaller scale) now, the rain tile and the hours or the days chosen; the place
-  and the warning on a line above. The page is the app's (`ui/board/HomeBoardView.kt`) drawn again into one picture at a
-  scale given by the height and the width (330 wide at scale 1), 0.7 at least; too small for
+  and the warning on a line above. The page is the app's (`ui/board/HomeBoardView.kt`, its hours and days drawn by the
+  same code) in one picture at a scale given by the height and the width (330 wide at scale 1), 0.7 at least; too small for
   that, the widget is the frise below. Touched, it opens the app on its place. It reads only the copies the app keeps:
   every half hour (WorkManager), and at once when it is placed, the places shown by a widget are read again when their
   copy is older than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then
@@ -154,7 +154,7 @@ not serve it).
 | `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget |
 | `widget/WidgetModel.kt` | the warnings, the age and the words of the rain of the hour, read from a place's copy as the site's widget reads them (tested on the JVM) |
 | `widget/BoardWidget.kt` | what both widgets show, in the card's rules: the rain of the hour and its sentence, the frise's columns, the card's blocks and the height they need, the scale, the look by the room (tested on the JVM) |
-| `widget/BoardArt.kt` | both widgets drawn into one picture each: the frise, and the card's home page drawn again from `ui/board/HomeBoardView.kt` at a scale |
+| `widget/BoardArt.kt` | both widgets drawn into one picture each: the frise, and the card's home page at a scale, its hours and days drawn by `ui/board/BoardColumns.kt` |
 | `widget/PlaceWidget.kt` | the place widget (Glance): its look by the room, its preview in the widget list; the frame and the picture both widgets share |
 | `widget/FriseWidget.kt` | the frise widget (Glance) |
 | `widget/WidgetRefresh.kt` | the half-hourly read and the redraw of the widgets; their receivers |
@@ -184,6 +184,7 @@ not serve it).
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |
 | `ui/board/DetailsBoardView.kt` | the Details page drawn, and the bar of pages « Accueil \| Détails » |
 | `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
+| `ui/board/BoardColumns.kt` | the hours and the days of the home page and their heights, drawn once for the app and the widgets |
 | `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |
 | `ui/board/FamilyIconData.kt` | those SVG, written by `tools/family_icons.py` from the card; not edited by hand |
 | `ui/theme/` | the charter's « Ciel » colours and type scale |
