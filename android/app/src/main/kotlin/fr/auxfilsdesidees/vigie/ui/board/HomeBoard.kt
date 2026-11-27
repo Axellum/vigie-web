@@ -492,7 +492,10 @@ object HomeBoard {
 
   // ------------------------------------------------------------------------------------------------------------- days
 
-  /** A column of the days: its name, icon, highest and lowest, rain and its chance, strongest wind, gust, direction, sun. */
+  /**
+   * A column of the days: its name, icon, highest and lowest, rain and its chance, strongest wind, gust, direction, sun;
+   * [sunshineH] its hours of sunshine when the answer gives them, [share] their share of its daylight.
+   */
   data class DayColumn(
     val name: String,
     val nameShort: String,
@@ -505,11 +508,39 @@ object HomeBoard {
     val gust: Double?,
     val deg: Double?,
     val sun: Double,
+    val sunshineH: Double? = null,
+    val share: Double? = null,
   )
+
+  /** The hours of daylight of a local [day] (days since 1970 at the place), counted by 10 minutes; null without the place. */
+  fun daylightHours(p: PointNow, day: Long): Double? {
+    val lat = p.lat ?: return null
+    val lon = p.lon ?: return null
+    val start = day * 86_400 - p.utcOffsetS
+    var n = 0
+    for (k in 0 until 144) if (sunUp(lat, lon, start + k * 600L + 300)) n++
+    return n / 6.0
+  }
+
+  /** The hours of sunshine of a day as the card says them: « 7 h », « 30 min » (« 0,5 h » in a narrow column), « 0 h ». */
+  fun sunHoursText(h: Double, tight: Boolean): String =
+    when {
+      h == 0.0 || h >= 0.95 -> "${fmt(h)} h"
+      tight -> "${fmt(maxOf(0.1, h), 1)} h"
+      else -> "${maxOf(10, (h * 6).roundToInt() * 10)} min"
+    }
+
+  /** The tone of a day's line of sunshine: 2 the sun's colour (45 % of its daylight and more), 1 half-way (20 %), 0 grey. */
+  fun sunTone(d: DayColumn): Int {
+    val k = d.share ?: ((d.sunshineH ?: 0.0) / 9)
+    return if (k >= 0.45) 2 else if (k >= 0.2) 1 else 0
+  }
 
   /**
    * The days from today ([max] at most, none under 2). The gust and the direction come from the hours when they cover the
-   * day (today: the hours still to come); a gust no stronger than the wind of the day is left out (not « 33/24 »).
+   * day (today: the hours still to come); a gust no stronger than the wind of the day is left out (not « 33/24 »). Where the
+   * answer gives a day's hours of sunshine, their share of its daylight tints its column; else the cloud cover of its hours,
+   * then its weather code (the card's `daysBlock`).
    */
   fun days(p: PointNow, now: Long, max: Int): List<DayColumn> {
     val off = p.utcOffsetS
@@ -525,6 +556,8 @@ object HomeBoard {
       val whole = need > 0 && hrs.size >= need - 1 // an hour of slack for the change of time
       val gusts = hrs.mapNotNull { it.gustKmh }
       val gust = if (whole && gusts.isNotEmpty()) gusts.max() else null
+      val light = d.sunshineH?.let { daylightHours(p, day) }
+      val share = if (light != null && light > 0) (d.sunshineH!! / light).coerceIn(0.0, 1.0) else null
       DayColumn(
         name = if (i == 0) "Auj." else "${dayName(day)} ${dayOfMonth(day)}",
         nameShort = if (i == 0) "Auj." else dayName(day),
@@ -536,7 +569,9 @@ object HomeBoard {
         windMax = d.windMaxKmh,
         gust = gust?.takeUnless { d.windMaxKmh != null && it <= d.windMaxKmh },
         deg = if (whole) windFrom(hrs) else null,
-        sun = sunOfHours(hrs.filter { it.isDay == true }) ?: sunOfCode(d.code),
+        sun = share ?: sunOfHours(hrs.filter { it.isDay == true }) ?: sunOfCode(d.code),
+        sunshineH = d.sunshineH,
+        share = share,
       )
     }
   }

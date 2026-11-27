@@ -30,6 +30,7 @@ object VigieParser {
           rainMm = d["rain_mm"].dbl(),
           rainProbabilityPct = d["rain_probability_pct"].dbl(),
           windMaxKmh = d["wind_max"].dbl(),
+          sunshineH = d["sunshine_h"].dbl(),
         )
       }
     // `hourly` is absent from the compact payload and from an API older than ADR 0040: the list then stays empty.

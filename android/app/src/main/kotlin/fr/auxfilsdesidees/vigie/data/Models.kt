@@ -90,6 +90,8 @@ data class Day(
   val rainProbabilityPct: Double? = null,
   /** The strongest mean wind of the day. */
   val windMaxKmh: Double? = null,
+  /** Its hours of sunshine (`sunshine_h`, Open-Meteo's sunshine duration), 0 to 24. */
+  val sunshineH: Double? = null,
 )
 
 data class PressureReading(val timeUtc: Long, val hpa: Double)

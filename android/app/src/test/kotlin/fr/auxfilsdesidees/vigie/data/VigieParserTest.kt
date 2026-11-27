@@ -331,6 +331,17 @@ class VigieParserTest {
   }
 
   @Test
+  fun `a day reads its hours of sunshine, absent when the API does not give them`() {
+    val p =
+      VigieParser.point(
+        """{"server_utc": 10, "daily": [{"date": "2026-11-27", "tmin": 4, "tmax": 13, "sunshine_h": 7.8, "snowfall_cm": 0},
+                                         {"date": "2026-11-28", "tmin": 5, "tmax": 12}]}"""
+      )
+    assertEquals(7.8, p.days[0].sunshineH!!, 0.0)
+    assertNull(p.days[1].sunshineH)
+  }
+
+  @Test
   fun `a rate without a number leaves the 5-minute rates out, the steps stay`() {
     val p = VigieParser.point("""{"server_utc": 10, "rain_nowcast": {"mm_per_step": [0, 0, 0, 0], "rate_5m_mm_h": [0, null, 0]}}""")
     assertNull(p.rainSoon!!.rate5mMmH)

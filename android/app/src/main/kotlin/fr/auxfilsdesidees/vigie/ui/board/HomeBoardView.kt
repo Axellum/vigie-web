@@ -377,7 +377,11 @@ private fun HoursBlock(h: HomeBoard.Hours, offsetS: Int, w: Float, pal: BoardPal
 
 // ----------------------------------------------------------------------------------------------------------- the days
 
-/** The days: a column per day tinted by its sun, the highest and lowest as two curves around a band, rain, chance, wind. */
+/**
+ * The days: a column per day tinted by its sun, the highest and lowest as two curves around a band, rain, chance, wind. Where
+ * the answer gives the hours of sunshine, a line under the icon says them (« 7 h », « 30 min ») and everything under it goes
+ * 14 px down, as in the card.
+ */
 @Composable
 private fun DaysBlock(days: List<HomeBoard.DayColumn>, w: Float, pal: BoardPalette) {
   val measurer = rememberTextMeasurer()
@@ -385,8 +389,11 @@ private fun DaysBlock(days: List<HomeBoard.DayColumn>, w: Float, pal: BoardPalet
   val cw = w / n
   val tight = cw < 50
   val hasP = days.any { it.chance != null }
-  val height = if (hasP) 250f else 236f
-  val legend = if (days.any { it.gust != null }) "pluie · vent / rafales" else "pluie · vent"
+  val hasSun = days.any { it.sunshineH != null }
+  val sh = if (hasSun) 14f else 0f // the line of sunshine
+  val height = (if (hasP) 250f else 236f) + sh
+  val legend = (if (hasSun) "soleil · " else "") + if (days.any { it.gust != null }) "pluie · vent / rafales" else "pluie · vent"
+  val sunColour = pal.iconRoles["vs"] ?: pal.yellow
   Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
     SectionHeader("$n jours · max et min", pal) { Text(legend, color = pal.t4, fontSize = fs(10.5f), fontWeight = FontWeight.Medium, maxLines = 1) }
     Canvas(Modifier.width(w.dp).height(height.dp)) {
@@ -396,9 +403,18 @@ private fun DaysBlock(days: List<HomeBoard.DayColumn>, w: Float, pal: BoardPalet
         val cx = cw * (i + 0.5f) * k
         label(measurer, if (tight) d.nameShort else d.name, cx, 3f, 13f, if (i == 0) pal.accent else pal.text)
         familyIcon(d.kind, cx, (3 + 15.2f + 1 + 15) * k, 30f * k, pal)
+        // The card's `.ds`: a line of 13 px under the icon (1 px apart), a dot of 5 px, 3 px, the hours in 11 px semi-bold.
+        if (d.sunshineH != null) {
+          val col = when (HomeBoard.sunTone(d)) { 2 -> sunColour; 1 -> mixSrgb(pal.t3, sunColour, 0.55f); else -> pal.t3 }
+          val r = measurer.measure(HomeBoard.sunHoursText(d.sunshineH, tight), TextStyle(color = col, fontSize = 11.dp.toSp(), fontWeight = FontWeight.SemiBold), softWrap = false, maxLines = 1)
+          val left = cx - (8 * k + r.size.width) / 2
+          val mid = (3 + 15.2f + 1 + 30 + 1 + 6.5f) * k
+          drawCircle(col, 2.5f * k, Offset(left + 2.5f * k, mid))
+          drawText(r, topLeft = Offset(left + 8 * k, mid - r.size.height / 2f))
+        }
       }
       val (lo, hi) = HomeBoard.dayScale(days)
-      fun yOf(t: Double) = (150 - (t - lo) / (hi - lo) * 76).toFloat()
+      fun yOf(t: Double) = (150 + sh - (t - lo) / (hi - lo) * 76).toFloat()
       val mx = days.mapIndexed { i, d -> Offset(cw * (i + 0.5f) * k, yOf(d.tmax) * k) }
       val mn = days.mapIndexed { i, d -> Offset(cw * (i + 0.5f) * k, yOf(d.tmin) * k) }
       val maxPath = smoothPath(mx)
@@ -437,8 +453,8 @@ private fun DaysBlock(days: List<HomeBoard.DayColumn>, w: Float, pal: BoardPalet
         val wet = mm != null && mm >= 0.5
         val bh = HomeBoard.dayBar(mm)
         val bw = minOf(26f, cw * 0.55f)
-        drawRoundRect(if (wet) pal.rainOf(mm!! / 6) else pal.hollow, Offset((cx - bw / 2) * k, (200 - bh) * k), Size(bw * k, bh * k), CornerRadius(4f * k))
-        var y = 202f
+        drawRoundRect(if (wet) pal.rainOf(mm!! / 6) else pal.hollow, Offset((cx - bw / 2) * k, (200 + sh - bh) * k), Size(bw * k, bh * k), CornerRadius(4f * k))
+        var y = 202f + sh
         if (mm != null) {
           val txt = if (wet) "${if (mm < 1) HomeBoard.fmt(mm, 1) else HomeBoard.fmt(mm)} mm" else "sec"
           label(measurer, txt, cx * k, y, textSize, if (wet) pal.rainLight else pal.t3)
@@ -463,6 +479,10 @@ private fun DaysBlock(days: List<HomeBoard.DayColumn>, w: Float, pal: BoardPalet
     }
   }
 }
+
+/** The card's `mix`: [a] towards [b] by [t], channel by channel in sRGB (Compose's `lerp` goes through Oklab). */
+private fun mixSrgb(a: Color, b: Color, t: Float): Color =
+  Color(red = a.red + (b.red - a.red) * t, green = a.green + (b.green - a.green) * t, blue = a.blue + (b.blue - a.blue) * t)
 
 /** The monotone curve of [smoothPath] appended to [path]: from a move ([start]) or a line to its first point. */
 private fun smoothInto(path: Path, pts: List<Offset>, start: Boolean) {
