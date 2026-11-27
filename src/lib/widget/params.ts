@@ -1,4 +1,5 @@
-// What the address of the widget page says: `/widget?size=medium&theme=sky&spot=anglet-la-madrague#43.483,-1.559/Biarritz`.
+// What the address of the widget page says: `/widget?size=medium&theme=sky&spot=anglet-la-madrague#43.483,-1.559/Biarritz`
+// (`face=home` for the home page of the Home Assistant card instead).
 // The size, the theme and the surf spot are in the query: they are the same for everybody and the server draws the spot. The place
 // is after the `#`, so that it never reaches the server: the browser matches it against the warnings, and asks the weather of its
 // cell of the grid only (about 5 km), as "near me" does. A value that is missing or makes no sense falls back to its default: a
@@ -22,6 +23,11 @@ export interface WidgetParams {
 	 * (the "attribution area" of Microsoft's web widgets): the page leaves that band empty.
 	 */
 	board: boolean;
+	/**
+	 * `face=home`: the home page of the Home Assistant card instead of the widget, at the card's own size (480 × 760); what the
+	 * Windows app shows in its flyout. Null: the widget.
+	 */
+	face: 'home' | null;
 }
 
 export const WIDGET_DEFAULTS = { size: 'medium', theme: 'sky' } as const satisfies Pick<
@@ -52,7 +58,8 @@ export function parseWidgetParams(query: URLSearchParams): WidgetParams {
 		size: oneOf(WIDGET_SIZES, query.get('size'), WIDGET_DEFAULTS.size),
 		theme: oneOf(WIDGET_THEMES, query.get('theme'), WIDGET_DEFAULTS.theme),
 		spot: SPOT.test(spot) ? spot : null,
-		board: query.get('frame')?.trim().toLowerCase() === 'board'
+		board: query.get('frame')?.trim().toLowerCase() === 'board',
+		face: query.get('face')?.trim().toLowerCase() === 'home' ? 'home' : null
 	};
 }
 

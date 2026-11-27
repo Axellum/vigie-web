@@ -175,6 +175,9 @@ export const TTL_S = {
 const cache = new TtlCache();
 // Points have their own cache, so that many places cannot push the shared answers out. So do the tiles of fires.
 const pointCache = new TtlCache(Date.now, 15_000, 2000);
+// The whole answers of `/v1/point` that the Home Assistant card draws (`getPointAnswer`): much larger than the site's reading,
+// and asked only by the home face of the widget page, so fewer are kept.
+const pointAnswerCache = new TtlCache(Date.now, 15_000, 200);
 const fireCache = new TtlCache(Date.now, 15_000, 400);
 const tideCache = new TtlCache(Date.now, 15_000, 2000);
 // The images of the forecast wind: three an hour, about 600 kB together; the last two hours kept.
@@ -400,19 +403,44 @@ export function getPoint(
 	}
 	const key = `point:${cell.lat},${cell.lon}:${marine ? 'marine' : 'land'}`;
 	return pointCache.get(key, TTL_S.point * 1000, async () => {
-		const allowed = accountId ? takeAccountPointBudget(accountId) : budget().take();
-		if (!allowed) throw new BudgetError('The weather requests of the day are used up');
-		const query = new URLSearchParams({
-			lat: String(cell.lat),
-			lon: String(cell.lon),
-			marine: String(marine),
-			device_type: 'web',
-			compact: 'false',
-			// The page finds the hazards itself; the API wants at least one.
-			max_hazards: '1',
-			radius_km: '1'
-		});
-		return pointFromApi(await getJson(`/v1/point?${query}`, 30_000));
+		takePointBudget(accountId);
+		return pointFromApi(await getJson(`/v1/point?${pointQuery(cell, marine)}`, 30_000));
+	});
+}
+
+/** A request of the weather of a point counts against the day's share; none left: `BudgetError`. */
+function takePointBudget(accountId: string | undefined): void {
+	const allowed = accountId ? takeAccountPointBudget(accountId) : budget().take();
+	if (!allowed) throw new BudgetError('The weather requests of the day are used up');
+}
+
+/** The query of `/v1/point` for a cell of the grid, the same for the site's reading and for the whole answer. */
+function pointQuery(cell: { lat: number; lon: number }, marine: boolean): URLSearchParams {
+	return new URLSearchParams({
+		lat: String(cell.lat),
+		lon: String(cell.lon),
+		marine: String(marine),
+		device_type: 'web',
+		compact: 'false',
+		// The page finds the hazards itself; the API wants at least one.
+		max_hazards: '1',
+		radius_km: '1'
+	});
+}
+
+/**
+ * The whole answer of `/v1/point` (with the sea) at the grid point nearest to a position, as the API gives it: what the Home
+ * Assistant card draws, on the home face of the widget page. Same request, budget and lifetime as `getPoint` with the sea; the
+ * site's reading of the same answer is kept too, so that `getPoint` for the same cell (the widget's summary) does not ask the API
+ * a second time.
+ */
+export function getPointAnswer(lat: number, lon: number, accountId?: string): Promise<Cached<unknown>> {
+	const cell = snapToGrid({ lat, lon });
+	return pointAnswerCache.get(`answer:${cell.lat},${cell.lon}`, TTL_S.point * 1000, async () => {
+		takePointBudget(accountId);
+		const body: unknown = await getJson(`/v1/point?${pointQuery(cell, true)}`, 30_000);
+		pointCache.put(`point:${cell.lat},${cell.lon}:marine`, pointFromApi(body), TTL_S.point * 1000);
+		return body;
 	});
 }
 

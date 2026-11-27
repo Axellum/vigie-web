@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { pointCredits } from '#lib/credits.js';
+	import { snapToGrid } from '#lib/near.js';
 	import { creditOf } from '#lib/tv/model.js';
+	import HomeCard from '#lib/widget/components/HomeCard.svelte';
 	import PlaceView from '#lib/widget/components/PlaceView.svelte';
 	import SpotView from '#lib/widget/components/SpotView.svelte';
 	import { fit } from '#lib/widget/fit.js';
+	import { cardData, cardWarnings, type CardAnswer } from '#lib/widget/homeCard.js';
 	import { rainView, vigilanceView } from '#lib/widget/model.js';
 	import { boardSize, parseWidgetPlace } from '#lib/widget/params.js';
 	import { labelOf, postToHost, widgetSummary } from '#lib/widget/summary.js';
@@ -27,8 +30,15 @@
 	let hash = $state('');
 	let now = $state(Math.floor(Date.now() / 1000));
 	const place = $derived(mounted ? parseWidgetPlace(hash) : null);
+	const home = $derived(params.face === 'home');
+	// The home face reads the whole answer of the API first (`/data/card.json`): the site keeps its own reading of it too, so
+	// that the weather the widget reads next for its summary costs the API nothing more.
+	let answer = $state<{ key: string; status: 'loading' | 'ok' | 'error'; value?: CardAnswer } | null>(null);
+	const cell = $derived(place ? snapToGrid(place) : null);
+	const cellKey = $derived(cell ? `${cell.lat},${cell.lon}` : null);
+	const answered = $derived(answer != null && answer.key === cellKey && answer.status !== 'loading');
 	const widget = new PlaceWidget(() => ({
-		place: place ? { lat: place.lat, lon: place.lon } : null,
+		place: place && (!home || answered) ? { lat: place.lat, lon: place.lon } : null,
 		served: data.served
 	}));
 	// The spot as the server drew it, or as the browser read it after: when the server did not have it in time (`pending`), and
@@ -65,6 +75,54 @@
 		if (mounted) postToHost(summary);
 	});
 
+	/** Reads the whole answer of the cell for the card. A new reading keeps the last good one until it comes. */
+	async function loadAnswer(again = false) {
+		const at = cell,
+			key = cellKey;
+		if (!at || !key) return;
+		const kept = again && answer?.key === key && answer.value ? answer : null;
+		if (!kept) answer = { key, status: 'loading' };
+		try {
+			const response = await fetch(`/data/card.json?lat=${at.lat}&lon=${at.lon}`);
+			if (!response.ok) throw new Error(String(response.status));
+			const value = (await response.json()) as CardAnswer;
+			if (cellKey === key) answer = { key, status: 'ok', value };
+		} catch {
+			if (cellKey === key && !kept) answer = { key, status: 'error' };
+		}
+	}
+	$effect(() => {
+		if (home && cellKey && answer?.key !== cellKey) void loadAnswer();
+	});
+	// The card is put on the page once its data are there: the answer, and the warnings matched against the place (or after a
+	// few seconds without them, when a country's warnings do not come).
+	let waited = $state(false);
+	$effect(() => {
+		if (!home || !answered) return;
+		const timer = setTimeout(() => (waited = true), 4000);
+		return () => clearTimeout(timer);
+	});
+	const cardReady = $derived(home && answered && (widget.official !== 'loading' || waited));
+	const card = $derived(
+		place && answer?.status === 'ok' && answer.value
+			? cardData({
+					name,
+					lang,
+					answer: answer.value,
+					warnings:
+						widget.official === 'loading'
+							? null
+							: cardWarnings(
+									widget.official,
+									widget.here,
+									lang,
+									now,
+									widget.officialCredits.join(' · ') || null
+								)
+				})
+			: null
+	);
+
 	/** Reads the spot again. The spot on screen stays there while the new reading comes, and if it does not come. */
 	async function loadSpot() {
 		const id = params.spot;
@@ -82,9 +140,10 @@
 	}
 
 	let last = Date.now();
-	function refresh() {
+	async function refresh() {
 		last = Date.now();
 		now = Math.floor(last / 1000);
+		if (home) await loadAnswer(true);
 		widget.refresh();
 		void loadSpot();
 	}
@@ -95,7 +154,7 @@
 		if (spotData.status === 'pending') void loadSpot();
 		const onHash = () => (hash = location.hash);
 		const onVisible = () => {
-			if (document.visibilityState === 'visible' && Date.now() - last > REFRESH_MS / 2) refresh();
+			if (document.visibilityState === 'visible' && Date.now() - last > REFRESH_MS / 2) void refresh();
 		};
 		addEventListener('hashchange', onHash);
 		document.addEventListener('visibilitychange', onVisible);
@@ -118,35 +177,54 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 </svelte:head>
 
-<div
-	class="widget {params.theme} {size}"
-	class:board={params.board}
-	use:fit
-	title={credit || undefined}
-	data-ready={mounted ? 'yes' : 'no'}
->
-	{#if !mounted}
-		<!-- The place is read in the browser. -->
-	{:else if place}
-		<PlaceView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
-	{:else if spot}
-		<SpotView screen={spot} {size} {lang} />
-	{:else if spotData.status === 'pending'}
-		<div class="empty"><span class="t3">{widgetText(lang, 'spotLoading')}</span></div>
-	{:else if spotData.status === 'unknown' || spotData.status === 'unavailable'}
-		<div class="empty">
-			<b>{widgetText(lang, spotData.status === 'unknown' ? 'spotUnknown' : 'spotUnavailable')}</b>
-		</div>
-	{:else}
-		<div class="empty">
-			<b>{widgetText(lang, 'noPlace')}</b>
-			<span class="t3">{widgetText(lang, 'noPlaceHint')}</span>
-		</div>
-	{/if}
-	{#if mounted && size === 'large' && credit}
-		<div class="credit t3">{credit}</div>
-	{/if}
-</div>
+{#if home}
+	<!-- The home page of the Home Assistant card, at its size; the summary for the desktop app is the widget's. No tooltip of
+	     credits: it covered the card in the flyout, and the card's home page names no credits (they are on its other pages). -->
+	<div class="home" data-ready={mounted && (cardReady || !place) ? 'yes' : 'no'}>
+		{#if !mounted}
+			<!-- The place is read in the browser. -->
+		{:else if place}
+			{#if cardReady}
+				<HomeCard {name} {lang} dark={params.theme !== 'light'} data={card} />
+			{/if}
+		{:else}
+			<div class="empty {params.theme}">
+				<b>{widgetText(lang, 'noPlace')}</b>
+				<span class="t3">{widgetText(lang, 'noPlaceHint')}</span>
+			</div>
+		{/if}
+	</div>
+{:else}
+	<div
+		class="widget {params.theme} {size}"
+		class:board={params.board}
+		use:fit
+		title={credit || undefined}
+		data-ready={mounted ? 'yes' : 'no'}
+	>
+		{#if !mounted}
+			<!-- The place is read in the browser. -->
+		{:else if place}
+			<PlaceView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
+		{:else if spot}
+			<SpotView screen={spot} {size} {lang} />
+		{:else if spotData.status === 'pending'}
+			<div class="empty"><span class="t3">{widgetText(lang, 'spotLoading')}</span></div>
+		{:else if spotData.status === 'unknown' || spotData.status === 'unavailable'}
+			<div class="empty">
+				<b>{widgetText(lang, spotData.status === 'unknown' ? 'spotUnknown' : 'spotUnavailable')}</b>
+			</div>
+		{:else}
+			<div class="empty">
+				<b>{widgetText(lang, 'noPlace')}</b>
+				<span class="t3">{widgetText(lang, 'noPlaceHint')}</span>
+			</div>
+		{/if}
+		{#if mounted && size === 'large' && credit}
+			<div class="credit t3">{credit}</div>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	/* The themes of the family's common charter (drawn from Meridien): sky, plain dark, light. */
@@ -254,6 +332,23 @@
 		background: var(--card);
 		border: 1.5px solid var(--edge);
 		border-radius: 12px;
+	}
+	/* The home face: the card fills the page, on its own background (HomeCard.svelte). */
+	.home {
+		position: fixed;
+		inset: 0;
+		overflow: hidden;
+	}
+	.home .empty {
+		position: absolute;
+		inset: 0;
+		justify-content: center;
+		font-family: 'Barlow Semi Condensed', 'Arial Narrow', sans-serif;
+		font-weight: 600;
+		color: var(--t);
+	}
+	.home .empty .t3 {
+		color: var(--t3);
 	}
 	.empty {
 		margin: auto;
