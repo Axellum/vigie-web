@@ -86,18 +86,14 @@ internal fun HoursTab(state: HomeState.Ready, followsSpots: Boolean) {
   val c = cursor.coerceIn(0, Frise.HOURS - 1)
   val vigil = remember(snap) { Vigil.view(snap.vigilances, now) }
 
-  Column {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Text(snap.place.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-      Spacer(Modifier.width(10.dp))
-      WeatherIcon(p.weatherCode, !firstHour.night, 32.dp)
-      Spacer(Modifier.width(4.dp))
-      Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.headlineSmall)
+  // The place and the time of the read are in the head of the card above (VigieApp); the sky now closes the row of days.
+  Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      starts.forEachIndexed { k, t -> DayChip(Words.dayPill(t, now, off), k == d) { dayIndex = k } }
     }
-    Freshness(state)
-  }
-  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    starts.forEachIndexed { k, t -> DayChip(Words.dayPill(t, now, off), k == d) { dayIndex = k } }
+    WeatherIcon(p.weatherCode, !firstHour.night, 32.dp)
+    Spacer(Modifier.width(4.dp))
+    Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.headlineSmall)
   }
   daySentence(p, starts, d)?.let { Text(it, color = VigieColors.Text, style = MaterialTheme.typography.bodyLarge) }
   // No spot followed at the place: the rows of the sea (tide, coast, activities) would only say « non lue », so they go.
