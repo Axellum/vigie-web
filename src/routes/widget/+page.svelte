@@ -3,10 +3,12 @@
 	import { pointCredits } from '#lib/credits.js';
 	import { snapToGrid } from '#lib/near.js';
 	import { creditOf } from '#lib/tv/model.js';
+	import CardWidget from '#lib/widget/components/CardWidget.svelte';
+	import FriseView from '#lib/widget/components/FriseView.svelte';
 	import HomeCard from '#lib/widget/components/HomeCard.svelte';
-	import BoardView from '#lib/widget/components/BoardView.svelte';
 	import SpotView from '#lib/widget/components/SpotView.svelte';
 	import { fit } from '#lib/widget/fit.js';
+	import { cardDrawsHome } from '#lib/widget/cardFit.js';
 	import { cardData, cardWarnings, type CardAnswer } from '#lib/widget/homeCard.js';
 	import { rainView, vigilanceView } from '#lib/widget/model.js';
 	import { boardSize, parseWidgetPlace } from '#lib/widget/params.js';
@@ -31,14 +33,18 @@
 	let now = $state(Math.floor(Date.now() / 1000));
 	const place = $derived(mounted ? parseWidgetPlace(hash) : null);
 	const home = $derived(params.face === 'home');
-	// The home face reads the whole answer of the API first (`/data/card.json`): the site keeps its own reading of it too, so
-	// that the weather the widget reads next for its summary costs the API nothing more.
+	// The medium and large widgets of a place are the Home Assistant card's home page (CardWidget), the small one its frise. The
+	// card reads its answer first; when it would not draw its home page of France with it (cardDrawsHome), the frise again.
+	const wantsCard = $derived(!home && place != null && size !== 'small');
+	const usesCard = $derived(home || wantsCard);
+	// The faces drawn by the card read the whole answer of the API first (`/data/card.json`): the site keeps its own reading of
+	// it too, so that the weather the widget reads next for its summary costs the API nothing more.
 	let answer = $state<{ key: string; status: 'loading' | 'ok' | 'error'; value?: CardAnswer } | null>(null);
 	const cell = $derived(place ? snapToGrid(place) : null);
 	const cellKey = $derived(cell ? `${cell.lat},${cell.lon}` : null);
 	const answered = $derived(answer != null && answer.key === cellKey && answer.status !== 'loading');
 	const widget = new PlaceWidget(() => ({
-		place: place && (!home || answered) ? { lat: place.lat, lon: place.lon } : null,
+		place: place && (!usesCard || answered) ? { lat: place.lat, lon: place.lon } : null,
 		served: data.served
 	}));
 	// The spot as the server drew it, or as the browser read it after: when the server did not have it in time (`pending`), and
@@ -53,7 +59,7 @@
 			...widget.officialCredits,
 			...(widget.w ? pointCredits(widget.w) : []),
 			widget.wind?.value?.points.length ? widget.wind.value.attribution : null,
-			...(spot && (size === 'large' || !place) ? [spot.credit] : [])
+			...(spot && !place ? [spot.credit] : [])
 		])
 	);
 
@@ -92,17 +98,22 @@
 		}
 	}
 	$effect(() => {
-		if (home && cellKey && answer?.key !== cellKey) void loadAnswer();
+		if (usesCard && cellKey && answer?.key !== cellKey) void loadAnswer();
 	});
 	// The card is put on the page once its data are there: the answer, and the warnings matched against the place (or after a
 	// few seconds without them, when a country's warnings do not come).
 	let waited = $state(false);
 	$effect(() => {
-		if (!home || !answered) return;
+		if (!usesCard || !answered) return;
 		const timer = setTimeout(() => (waited = true), 4000);
 		return () => clearTimeout(timer);
 	});
-	const cardReady = $derived(home && answered && (widget.official !== 'loading' || waited));
+	const cardReady = $derived(usesCard && answered && (widget.official !== 'loading' || waited));
+	const cardSize = $derived(
+		wantsCard && answered && answer?.value && cardDrawsHome(answer.value.point) && size !== 'small'
+			? size
+			: null
+	);
 	const card = $derived(
 		place && answer?.status === 'ok' && answer.value
 			? cardData({
@@ -143,7 +154,7 @@
 	async function refresh() {
 		last = Date.now();
 		now = Math.floor(last / 1000);
-		if (home) await loadAnswer(true);
+		if (usesCard) await loadAnswer(true);
 		widget.refresh();
 		void loadSpot();
 	}
@@ -197,15 +208,29 @@
 {:else}
 	<div
 		class="widget {params.theme} {size}"
-		class:board={params.board}
+		class:board={params.frame === 'board'}
+		class:bare={params.frame === 'bare'}
+		class:carded={cardSize != null}
 		use:fit
 		title={credit || undefined}
-		data-ready={mounted ? 'yes' : 'no'}
+		data-ready={mounted && (!wantsCard || (answered && (!cardSize || cardReady))) ? 'yes' : 'no'}
 	>
-		{#if !mounted}
-			<!-- The place is read in the browser. -->
+		{#if !mounted || (wantsCard && !answered)}
+			<!-- The place is read in the browser; the card's answer first. -->
+		{:else if cardSize}
+			{#if cardReady}
+				<CardWidget
+					{name}
+					{lang}
+					theme={params.theme}
+					data={card}
+					size={cardSize}
+					forecast={params.forecast}
+					frame={params.frame}
+				/>
+			{/if}
 		{:else if place}
-			<BoardView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
+			<FriseView {widget} {name} {size} theme={params.theme} {lang} {now} forecast={params.forecast} />
 		{:else if spot}
 			<SpotView screen={spot} {size} {lang} />
 		{:else if spotData.status === 'pending'}
@@ -220,7 +245,7 @@
 				<span class="t3">{widgetText(lang, 'noPlaceHint')}</span>
 			</div>
 		{/if}
-		{#if mounted && size === 'large' && credit}
+		{#if mounted && size === 'large' && !place && credit}
 			<div class="credit t3">{credit}</div>
 		{/if}
 	</div>
@@ -251,9 +276,17 @@
 		gap: 7px;
 		padding: 10px 14px 6px;
 	}
-	/* The widgets board of Windows writes the widget's name over the top 48 pixels of the page. */
+	/* The widgets board of Windows writes the widget's name over the top 48 pixels of the page; without it (`frame=bare`) its
+	   « ··· » menu stays in the top right corner, which the frise leaves empty. */
 	.widget.board {
 		padding-top: 48px;
+	}
+	.widget.bare {
+		padding: 8px 12px;
+	}
+	/* The card frames itself (cardFit.ts). */
+	.widget.carded {
+		padding: 0;
 	}
 	/* A part hidden because the host gives less height than the size says (fit.ts). */
 	.widget :global([data-dropped]) {
