@@ -105,7 +105,32 @@ const TEXT = {
 		'compass.wind': 'Vent',
 		'weather.loading': 'Chargement de la météo du spot…',
 		'weather.failed': 'La météo de ce spot ne répond pas pour le moment.',
-		'weather.budget': 'La météo n’est plus disponible aujourd’hui pour ce site : réessayez demain.'
+		'weather.budget': 'La météo n’est plus disponible aujourd’hui pour ce site : réessayez demain.',
+		'tab.bathing': 'Baignade',
+		'bathing.leadWater': 'eau à {t}',
+		'bathing.leadSwell': 'houle de {m}',
+		'bathing.leadWind': 'vent à {speed}',
+		'bathing.leadWindRel': 'vent {rel} à {speed}',
+		'bathing.water': 'Eau',
+		'bathing.modelled': 'modèle océanique, pas une mesure à la plage',
+		'bathing.low': 'basse mer à {h}',
+		'bathing.high': 'pleine mer à {h}',
+		'bathing.baines': 'Baïnes',
+		'bathing.bainesNow': 'courant le plus fort en ce moment, jusqu’à {to} (basse mer à {low})',
+		'bathing.bainesNext': 'courant le plus fort de {from} à {to} (basse mer à {low})',
+		'bathing.bainesNote':
+			'Baïnes : de 3 h avant à 3 h après la basse mer, d’après la {source} ; les heures de la marée et la côte où la fiche en parle sont celles de Vigie. Se baigner sur une plage surveillée.',
+		'bathing.bainesSource': 'préfecture de la Charente-Maritime',
+		'bathing.watch': 'Surveillance',
+		'bathing.lifeguarded': 'surveillée en saison (GIP Littoral), pas forcément aujourd’hui',
+		'bathing.quality': 'Qualité de l’eau',
+		'bathing.qualityAt': 'à {km} km',
+		'bathing.qualityUnknown': 'classe inconnue',
+		'bathing.qualityNone': 'aucun site de baignade surveillé à moins de {km} km',
+		'bathing.qualityFailed': 'la liste des sites de baignade ne répond pas pour le moment',
+		'bathing.qualityNote':
+			'Qualité de l’eau : la classe du site sur les saisons 2021 à 2024 (ministère de la Santé), pas l’eau d’aujourd’hui.',
+		'bathing.loading': 'Chargement de la baignade…'
 	},
 	en: {
 		page: 'Sea',
@@ -209,7 +234,32 @@ const TEXT = {
 		'compass.wind': 'Wind',
 		'weather.loading': 'Loading the weather of the spot…',
 		'weather.failed': 'The weather of this spot does not answer at the moment.',
-		'weather.budget': 'The weather is no longer available today on this site: try again tomorrow.'
+		'weather.budget': 'The weather is no longer available today on this site: try again tomorrow.',
+		'tab.bathing': 'Swimming',
+		'bathing.leadWater': 'water at {t}',
+		'bathing.leadSwell': 'swell of {m}',
+		'bathing.leadWind': 'wind at {speed}',
+		'bathing.leadWindRel': '{rel} wind at {speed}',
+		'bathing.water': 'Water',
+		'bathing.modelled': 'an ocean model, not a measure at the beach',
+		'bathing.low': 'low water at {h}',
+		'bathing.high': 'high water at {h}',
+		'bathing.baines': 'Rip currents (baïnes)',
+		'bathing.bainesNow': 'strongest now, until {to} (low water at {low})',
+		'bathing.bainesNext': 'strongest from {from} to {to} (low water at {low})',
+		'bathing.bainesNote':
+			'Baïnes: from 3 hours before to 3 hours after low water, by the {source}; the hours of the tide and the coast where the card speaks of them are Vigie’s. Swim on a lifeguarded beach.',
+		'bathing.bainesSource': 'prefecture of Charente-Maritime',
+		'bathing.watch': 'Lifeguards',
+		'bathing.lifeguarded': 'in season (GIP Littoral), not always today',
+		'bathing.quality': 'Water quality',
+		'bathing.qualityAt': '{km} km away',
+		'bathing.qualityUnknown': 'class unknown',
+		'bathing.qualityNone': 'no monitored bathing site within {km} km',
+		'bathing.qualityFailed': 'the list of bathing sites does not answer at the moment',
+		'bathing.qualityNote':
+			'Water quality: the class of the site over the seasons 2021 to 2024 (Ministry of Health), not the water of today.',
+		'bathing.loading': 'Loading the swimming card…'
 	}
 } as const;
 

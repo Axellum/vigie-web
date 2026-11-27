@@ -79,6 +79,12 @@ const targets = [
 		'/v1/sea/places?type=bathing&type=slipway&near_lat=48.64&near_lon=-2.02&radius_km=10&limit=13',
 		'/v1/sea/places?near&type=bathing+slipway'
 	],
+	// The monitored bathing sites around Hossegor, as the card of a spot asks for them (its swimming tab).
+	[
+		'sea-places-near-bathing',
+		'/v1/sea/places?type=bathing&near_lat=43.66&near_lon=-1.44&radius_km=2&limit=10',
+		'/v1/sea/places?near&type=bathing'
+	],
 	['sea-place-port', '/v1/sea/places/port-port-de-saint-malo-f697'],
 	['sea-place-bathing', '/v1/sea/places/bathing-bon-secours-4142'],
 	['sea-place-slipway', '/v1/sea/places/slipway-saint-malo-eb59'],

@@ -1,10 +1,13 @@
 <script lang="ts">
-	// The card of a spot on the sea map, opened by its pin: four tabs, each asked of the site only when it is opened. Activities:
-	// the four verdicts, the chosen one first (the top of the spot's page). Surf: where the beach faces and where the swell and the
-	// wind come from, drawn on a compass, the figures of the current hour, the best slot and the chart of the three days. Tide: the
-	// curve of the day. Weather: the sky, the rain and the sea of the grid point. Every figure is the API's; what it did not give is
-	// left out. Beside the map on a computer, a sheet at the bottom of the screen on a phone. Not for safety.
-	import { onMount } from 'svelte';
+	// The card of a spot on the sea map, opened by its pin: five tabs, each asked of the site only when it is opened. Activities:
+	// the four verdicts, the chosen one first (the top of the spot's page). Swimming: the temperature of the water, the swell, the
+	// wind and the tide of the hour, the hours when the rip currents of the troughs (baïnes) run the strongest on the coast where
+	// they are, whether the beach is lifeguarded and the official class of the water of the monitored bathing site of the spot.
+	// Surf: where the beach faces and where the swell and the wind come from, drawn on a compass, the figures of the current hour,
+	// the best slot and the chart of the three days. Tide: the curve of the day. Weather: the sky, the rain and the sea of the grid
+	// point. Every figure is the API's; what it did not give is left out. Beside the map on a computer, a sheet at the bottom of the
+	// screen on a phone. Not for safety.
+	import { onMount, untrack } from 'svelte';
 	import type { ActivitiesForecast, ActivityId } from '#lib/activities.js';
 	import Credits from '#lib/components/Credits.svelte';
 	import PointWeather from '#lib/components/PointWeather.svelte';
@@ -13,10 +16,12 @@
 	import { number } from '#lib/format.js';
 	import type { Lang } from '#lib/i18n.js';
 	import { snapToGrid } from '#lib/near.js';
+	import { placeFormat } from '#lib/placeFormat.js';
 	import {
 		compass,
 		dayLabel,
 		hourLabel,
+		slotLabel,
 		surfText,
 		swellText,
 		type SurfForecast,
@@ -24,10 +29,22 @@
 		type SurfHour,
 		type SurfSpotNow
 	} from '#lib/surf.js';
+	import { TideAt } from '#lib/tideAt.svelte.js';
 	import type { PointWeather as Weather } from '#lib/types.js';
+	import {
+		BAINES_SOURCE,
+		BATHING_ASK_KM,
+		BATHING_NEAR_KM,
+		baineWindow,
+		nearestBathing,
+		onBaineCoast,
+		type NearBathing
+	} from './bathing.js';
 	import type { WindUnit } from './choice.js';
 	import type { SeaSpot } from './overview.js';
 	import PlaceAnswer from './PlaceAnswer.svelte';
+	import type { SeaPlaceList } from './places.js';
+	import { placesText } from './places-text.js';
 	import { seaText } from './text.js';
 	import { KMH_PER_KN, windText as windInUnit } from './units.js';
 
@@ -51,8 +68,8 @@
 	} = $props();
 
 	const t = (key: string, vars: Record<string, string | number> = {}) => seaText(lang, key, vars);
-	type Tab = 'activities' | 'surf' | 'tide' | 'weather';
-	const TABS: Tab[] = ['activities', 'surf', 'tide', 'weather'];
+	type Tab = 'activities' | 'bathing' | 'surf' | 'tide' | 'weather';
+	const TABS: Tab[] = ['activities', 'bathing', 'surf', 'tide', 'weather'];
 	// The surf opens on its own tab; the other activities on their verdicts.
 	let tab = $state<Tab>('activities');
 
@@ -105,8 +122,39 @@
 			weather = { status: 'failed' };
 		}
 	}
+	// The monitored bathing sites around the spot (the catalogue of the coast, the same for everybody) and the tide of the spot,
+	// asked the first time the swimming tab is opened; the weather of the grid point gives the temperature of the water.
+	let sites = $state<
+		| { status: 'idle' }
+		| { status: 'loading' }
+		| { status: 'failed' }
+		| { status: 'ok'; places: SeaPlaceList['places']; attribution: string | null }
+	>({ status: 'idle' });
+	async function loadSites() {
+		if (sites.status !== 'idle' && sites.status !== 'failed') return;
+		sites = { status: 'loading' };
+		const lat = Math.round(spot.lat * 100) / 100,
+			lon = Math.round(spot.lon * 100) / 100;
+		try {
+			const response = await fetch(
+				`/data/sea-places.json?lat=${lat}&lon=${lon}&type=bathing&radius_km=${BATHING_ASK_KM}&limit=10`
+			);
+			if (!response.ok) throw new Error(String(response.status));
+			const list = (await response.json()) as SeaPlaceList;
+			sites = { status: 'ok', places: list.places, attribution: list.attribution };
+		} catch {
+			sites = { status: 'failed' };
+		}
+	}
+	const tide = new TideAt();
+	const tideAt = $derived({ lat: Math.round(spot.lat * 20) / 20, lon: Math.round(spot.lon * 20) / 20 });
 	$effect(() => {
-		if (tab === 'weather') void loadWeather();
+		if (tab === 'weather' || tab === 'bathing') void loadWeather();
+		if (tab === 'bathing') {
+			void loadSites();
+			const at = tideAt;
+			untrack(() => tide.follow(at));
+		}
 	});
 
 	function onTabKey(event: KeyboardEvent, i: number) {
@@ -177,6 +225,54 @@
 			.filter(Boolean)
 			.join(' · ')
 	);
+
+	// Swimming: one sentence, then the facts. The water is the ocean model's at the grid point of the spot, the swell and the wind
+	// the hour of the pin, the tide the spot's.
+	const fmt = $derived(placeFormat(lang));
+	const seaC = $derived(weather.status === 'ok' ? (weather.value.marine?.seaTempC ?? null) : null);
+	const lead = $derived.by((): string | null => {
+		const parts: string[] = [];
+		if (seaC != null) parts.push(t('bathing.leadWater', { t: fmt.temp(seaC) }));
+		if (hour?.swell.height != null)
+			parts.push(t('bathing.leadSwell', { m: `${number(lang, hour.swell.height, 1)} m` }));
+		const w = hour?.wind;
+		if (w?.speed != null)
+			parts.push(
+				w.relative
+					? t('bathing.leadWindRel', { rel: surfText(lang, `relative.${w.relative}`), speed: kmh(w.speed) })
+					: t('bathing.leadWind', { speed: kmh(w.speed) })
+			);
+		if (!parts.length) return null;
+		const said = parts.join(', ');
+		return `${said[0].toUpperCase()}${said.slice(1)}.`;
+	});
+	// An hour of today, or the day and the hour when it is another day.
+	const when = (at: number) =>
+		dayLabel(lang, at) === dayLabel(lang, tide.loadedAt) ? hourLabel(lang, at) : slotLabel(lang, at);
+	const tideLine = $derived.by((): string | null => {
+		const now = tide.value?.now ?? null;
+		const trend = now?.trend ?? hour?.tide?.trend ?? null;
+		const parts: string[] = trend ? [surfText(lang, `trend.${trend}`)] : [];
+		const next = [now?.nextLow, now?.nextHigh].filter((e) => e != null).sort((a, b) => a.t - b.t);
+		for (const e of next) parts.push(t(e.kind === 'low' ? 'bathing.low' : 'bathing.high', { h: when(e.t) }));
+		return parts.length ? parts.join(' · ') : null;
+	});
+	const baines = $derived(
+		tide.value &&
+			onBaineCoast({
+				lat: spot.lat,
+				lon: spot.lon,
+				facing,
+				bottom: forecast?.spot.bottom ?? surf?.bottom ?? null
+			})
+			? baineWindow(tide.value.extremes, tide.loadedAt)
+			: null
+	);
+	const bainesNote = $derived(t('bathing.bainesNote').split('{source}'));
+	const near = $derived<NearBathing | null>(
+		sites.status === 'ok' ? nearestBathing(sites.places, spot, facing) : null
+	);
+	const lifeguarded = $derived(forecast?.spot.lifeguarded ?? surf?.lifeguarded ?? null);
 </script>
 
 <section class="bubble" aria-labelledby="spot-bubble-title" data-testid="spot-bubble">
@@ -213,6 +309,60 @@
 				<p class="muted">{t('bubble.loading')}</p>
 			{:else}
 				<p class="note">{t('bubble.failed')}</p>
+			{/if}
+		{:else if tab === 'bathing'}
+			{#if lead}
+				<p class="lead">{lead}</p>
+			{:else if weather.status === 'loading' || detail.status === 'loading'}
+				<p class="muted">{t('bathing.loading')}</p>
+			{/if}
+			<dl class="facts">
+				{#if seaC != null}<dt>{t('bathing.water')}</dt>
+					<dd>{fmt.temp(seaC)} <span class="muted small">· {t('bathing.modelled')}</span></dd>{/if}
+				{#if hour && swellText(lang, hour.swell)}<dt>{surfText(lang, 'swell')}</dt>
+					<dd>{swellText(lang, hour.swell)}</dd>{/if}
+				{#if hour && windSaid(hour.wind)}<dt>{surfText(lang, 'wind')}</dt>
+					<dd>{windSaid(hour.wind)}</dd>{/if}
+				{#if tideLine}<dt>{surfText(lang, 'tide')}</dt>
+					<dd>{tideLine}</dd>{/if}
+				{#if baines}<dt>{t('bathing.baines')}</dt>
+					<dd data-testid="baines">
+						{baines.now
+							? t('bathing.bainesNow', { to: when(baines.to), low: when(baines.low.t) })
+							: t('bathing.bainesNext', {
+									from: when(baines.from),
+									to: when(baines.to),
+									low: when(baines.low.t)
+								})}
+					</dd>{/if}
+				{#if lifeguarded}<dt>{t('bathing.watch')}</dt>
+					<dd>{t('bathing.lifeguarded')}</dd>{/if}
+				<dt>{t('bathing.quality')}</dt>
+				<dd data-testid="bathing-quality">
+					{#if near}
+						{@const q = near.place.quality}
+						{@const named = [near.place.name, near.place.commune].filter(Boolean).join(', ')}
+						<span class="q q-{q ?? 'unknown'}"
+							>{q ? placesText(lang, `quality.${q}`) : t('bathing.qualityUnknown')}</span
+						>
+						· <a href="/sea/places/{near.place.id}">{named || near.place.id}</a>, {t('bathing.qualityAt', {
+							km: number(lang, Math.max(0.1, near.km), 1)
+						})}
+					{:else if sites.status === 'ok'}
+						{t('bathing.qualityNone', { km: BATHING_NEAR_KM })}
+					{:else if sites.status === 'failed'}
+						{t('bathing.qualityFailed')}
+					{:else}
+						…
+					{/if}
+				</dd>
+			</dl>
+			{#if near}<p class="muted small">{t('bathing.qualityNote')}</p>{/if}
+			{#if baines}
+				<p class="muted small">
+					{bainesNote[0]}<a href={BAINES_SOURCE} rel="noopener noreferrer">{t('bathing.bainesSource')}</a
+					>{bainesNote[1] ?? ''}
+				</p>
 			{/if}
 		{:else if tab === 'surf'}
 			<div class="rose">
@@ -310,6 +460,16 @@
 		<p class="more"><a href="/surf/{spot.id}">{t('bubble.full')}</a></p>
 		{#if tab === 'activities' || tab === 'surf'}
 			<Credits {lang} credits={[forecast?.attribution, verdicts?.attribution]} />
+		{:else if tab === 'bathing'}
+			<Credits
+				{lang}
+				credits={[
+					weather.status === 'ok' ? weather.value.marine?.attribution : null,
+					forecast?.attribution,
+					tide.value?.attribution,
+					sites.status === 'ok' && near ? sites.attribution : null
+				]}
+			/>
 		{/if}
 	</div>
 
@@ -369,14 +529,14 @@
 	}
 	.tabs {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 4px;
-		padding: 0 12px 8px;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 2px;
+		padding: 0 10px 8px;
 		border-bottom: 1px solid var(--line);
 	}
 	.tabs button {
 		min-height: 40px;
-		padding: 4px 6px;
+		padding: 4px 2px;
 		border: 0;
 		border-radius: var(--radius);
 		background: none;
@@ -505,6 +665,40 @@
 	.best {
 		margin: 0;
 		font-size: 14px;
+	}
+	.lead {
+		margin: 0;
+		font-size: 16px;
+		line-height: 1.4;
+	}
+	/* The class of the water: a dot of the colour of its rank before its name. */
+	.q::before {
+		content: '';
+		display: inline-block;
+		width: 9px;
+		height: 9px;
+		margin-right: 6px;
+		border-radius: 50%;
+		background: var(--sev-none);
+		vertical-align: 1px;
+	}
+	.q-excellent::before,
+	.q-good::before {
+		background: var(--sev-green);
+	}
+	.q-sufficient::before {
+		background: var(--sev-yellow);
+	}
+	.q-poor::before {
+		background: var(--sev-red);
+	}
+	.q {
+		font-weight: 600;
+	}
+	@media (max-width: 420px) {
+		.tabs button {
+			font-size: 13px;
+		}
 	}
 	.chart {
 		min-width: 0;
