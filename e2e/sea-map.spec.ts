@@ -251,3 +251,80 @@ test('the card of a spot is read through the site, the same for everybody, and 4
 	expect((await request.get('/data/spot/no-such-spot.json')).status()).toBe(404);
 	expect((await request.get('/data/spot/BAD_ID.json')).status()).toBe(404);
 });
+
+test('the name of a town opens its card: its weather, five days, the nearest spots, and a spot from there', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/sea/surf');
+	await hossegorPin(page);
+	// The names of the towns are the base map's: those drawn on the map, found where they are, then clicked there (a pin can lie
+	// over a name: the next one is tried).
+	const towns = async () =>
+		page.evaluate(() => {
+			type Feature = { properties: Record<string, string>; geometry: { coordinates: [number, number] } };
+			const map = (
+				window as unknown as {
+					vigieMap: {
+						getStyle(): { layers: { id: string; type: string; 'source-layer'?: string }[] };
+						getCanvas(): HTMLCanvasElement;
+						queryRenderedFeatures(o: object): Feature[];
+						project(c: [number, number]): { x: number; y: number };
+					};
+				}
+			).vigieMap;
+			const layers = map
+				.getStyle()
+				.layers.filter((l) => l.type === 'symbol' && l['source-layer'] === 'place')
+				.map((l) => l.id);
+			const box = map.getCanvas().getBoundingClientRect();
+			return map
+				.queryRenderedFeatures({ layers })
+				.filter((f) => ['city', 'town', 'village'].includes(f.properties.class))
+				.map((f) => {
+					const p = map.project(f.geometry.coordinates);
+					const name = f.properties['name:fr'] || f.properties['name:latin'] || f.properties.name;
+					return { name, x: box.left + p.x, y: box.top + p.y };
+				})
+				.filter(
+					(t) => t.x > box.left + 40 && t.x < box.right - 80 && t.y > box.top + 40 && t.y < box.bottom - 40
+				);
+		});
+	await expect.poll(async () => (await towns()).length, { timeout: 15_000 }).toBeGreaterThan(0);
+	const card = page.getByTestId('town-bubble');
+	let opened = '';
+	for (const town of (await towns()).slice(0, 6)) {
+		await page.mouse.click(town.x, town.y);
+		if (await card.isVisible({ timeout: 1_000 }).catch(() => false)) {
+			opened = town.name;
+			break;
+		}
+		await page.keyboard.press('Escape');
+	}
+	expect(opened).not.toBe('');
+	await expect(card.getByRole('heading', { level: 2 })).toHaveText(opened);
+	await expect(card).toContainText('Ville');
+	// The weather of the recording, five days in the strip, and the way to the page of the place.
+	await expect(card.locator('.days li')).toHaveCount(5);
+	await expect(card.getByTestId('town-more')).toHaveAttribute(
+		'href',
+		/^\/near#-?\d+(\.\d+)?,-?\d+(\.\d+)?,300$/
+	);
+	// The spots nearest to it, at most four, each with its verdict; the first one opens its own card in the place of the town's.
+	const spots = card.getByTestId('town-spots').getByRole('button');
+	await expect(spots.first()).toBeVisible();
+	expect(await spots.count()).toBeLessThanOrEqual(4);
+	await expect(spots.first().locator('.chip')).toBeVisible();
+	// The recordings hold the forecast of Hossegor only: its spot when the town is near it, else the first one, whose card then
+	// finds no forecast (a 404 in the console, and only that).
+	const hossegorRow = spots.filter({ hasText: hossegor.name });
+	const known = (await hossegorRow.count()) > 0;
+	const target = known ? hossegorRow.first() : spots.first();
+	const name = await target.locator('strong').innerText();
+	await target.click();
+	await expect(page.getByTestId('spot-bubble').getByRole('heading', { level: 2 })).toHaveText(name);
+	await expect(card).toHaveCount(0);
+	await page.keyboard.press('Escape');
+	await expect(page.getByTestId('spot-bubble')).toHaveCount(0);
+	expect(known ? errors : errors.filter((e) => !e.includes('status of 404'))).toEqual([]);
+});
