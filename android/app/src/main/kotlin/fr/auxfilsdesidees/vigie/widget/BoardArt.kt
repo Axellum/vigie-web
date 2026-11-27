@@ -88,6 +88,8 @@ object BoardArt {
   private const val TOP_TALL = 44f
   private const val SAY = 18f
   private const val FGAP = 5f
+  private const val FOOT_SIZE = 12f
+  private const val FOOT_TEXT = 17f
 
   /** The site's small widget: now, the place and the warning on top; the band of the hour and the columns; the sentence of the rain. */
   private fun DrawScope.friseSmall(v: BoardWidget.View, w: Float, h: Float, forecast: BoardWidget.Forecast) {
@@ -98,15 +100,16 @@ object BoardArt {
   }
 
   /**
-   * The frise larger, in the middle of the height: its band at most 150 dp; from [BoardWidget.TALL_DAYS_FROM] the band holds
-   * the hours and the next days stand under the sentence (the site's large widget where the card draws no home page).
+   * The frise larger, in the middle of the height: its band at most 124 dp, the days at most 110, the rain at the foot of every
+   * column; from [BoardWidget.TALL_DAYS_FROM] the band holds the hours and the next days stand under the sentence (the
+   * site's large widget where the card draws no home page).
    */
   private fun DrawScope.friseTall(v: BoardWidget.View, w: Float, h: Float, forecast: BoardWidget.Forecast) {
     val days = if (h >= BoardWidget.TALL_DAYS_FROM) BoardWidget.friseColumns(v.point, v.now, BoardWidget.Forecast.Days, 6, false) else emptyList()
     val fixed = TOP_TALL + FGAP + FGAP + SAY + (if (days.isNotEmpty()) FGAP else 0f)
     val free = h - fixed
-    val bandH = if (days.isNotEmpty()) minOf(150f, free * 150 / 270) else minOf(150f, free)
-    val daysH = if (days.isNotEmpty()) minOf(120f, free - bandH) else 0f
+    val bandH = if (days.isNotEmpty()) minOf(124f, free * 124 / 234) else minOf(124f, free)
+    val daysH = if (days.isNotEmpty()) minOf(110f, free - bandH) else 0f
     var y = (h - fixed - bandH - daysH) / 2
     top(v, y, w, TOP_TALL, big = true)
     y += TOP_TALL + FGAP
@@ -197,7 +200,8 @@ object BoardArt {
   /**
    * The columns of the frise in [w] × [h] (the site's `friseSvg`): the hour or the day, its icon, its temperature (the highest
    * over the lowest for a narrow day, side by side otherwise), and under the temperature of an hour its rain when there is
-   * room. No ring: the box of the hour before them is « now ».
+   * room. No ring: the box of the hour before them is « now ». Taller ([big] with room under the temperature), the rain stands
+   * at the foot of every column as the card draws it: its bar and its amount, « sec » for a dry day ([rainFoot]).
    */
   private fun DrawScope.friseColumns(list: List<BoardWidget.FriseColumn>, w: Float, h: Float, big: Boolean, offsetS: Int) {
     val n = list.size
@@ -209,21 +213,26 @@ object BoardArt {
     val yIcon = yLab + 3 + ic / 2
     val yTemp = minOf(h - 4, yIcon + ic / 2 + ts + 1)
     val room = h - yTemp >= ts - 1
+    val stacked = room && cw < 46 && list.any { it.low != null }
+    val footBase = h - FOOT_TEXT - 2
+    val footBar = footBase - (if (stacked) yTemp + ts + 3 else yTemp + 8)
+    val foot = big && footBar >= 10
     list.forEachIndexed { i, x ->
       val cx = cw * (i + 0.5f)
       column(cw * i, cw, h, pal.glow(x.sun, x.day, h.px), false, 6f)
       val label = x.name ?: x.ts?.let { t -> HomeBoard.hourOnly(t, offsetS).let { if (cw < 26) it.takeWhile { c -> c.isDigit() } else it } }.orEmpty()
       text(label, cx, yLab, pal.t2, ls)
       familyIcon(x.kind, cx.px, yIcon.px, ic.px, pal)
+      if (foot) rainFoot(x, cx, cw, footBase, footBar, h)
       val high = "${HomeBoard.fmt(x.high)}°"
       val low = x.low
       when {
         low == null -> {
           text(high, cx, yTemp, pal.temperature(x.high), ts)
           val mm = x.mm
-          if (room && mm != null && mm >= 0.1) text(HomeBoard.fmt(mm, if (mm < 10) 1 else 0), cx, yTemp + ts - 0.5f, pal.rainLight, ts - 3)
+          if (!foot && room && mm != null && mm >= 0.1) text(HomeBoard.fmt(mm, if (mm < 10) 1 else 0), cx, yTemp + ts - 0.5f, pal.rainLight, ts - 3)
         }
-        room && cw < 46 -> {
+        stacked -> {
           text(high, cx, yTemp, pal.temperature(x.high), ts)
           text("${HomeBoard.fmt(low)}°", cx, yTemp + ts - 1, pal.temperature(low), ts - 2.5f, Weight.Medium)
         }
@@ -237,6 +246,30 @@ object BoardArt {
         }
       }
     }
+  }
+
+  /**
+   * The rain at the foot of a column of the frise, as the card draws it: the bar standing on [base], at most [most] tall (the
+   * card's heights shrunk to fit), its amount under it; an hour's millimetres, a day's « 6 mm », « sec » for a dry day, a flat
+   * bar for a dry hour.
+   */
+  private fun DrawScope.rainFoot(x: BoardWidget.FriseColumn, cx: Float, cw: Float, base: Float, most: Float, h: Float) {
+    val mm = x.mm ?: return
+    val day = x.low != null
+    val wet = mm >= if (day) 0.5 else 0.1
+    val k = minOf(1f, most / 24f)
+    val bh = if (!wet) 2f else (if (day) HomeBoard.dayBar(mm) else HomeBoard.hourBar(mm, 1)) * k
+    val bw = if (day) minOf(26f, cw * 0.55f) else minOf(18f, cw * 0.5f)
+    val colour = if (!wet) pal.hollow else pal.rainOf(if (day) mm / 6 else mm)
+    drawRoundRect(colour, Offset((cx - bw / 2).px, (base - bh).px), Size(bw.px, bh.px), CornerRadius(minOf(4f, bh / 2).px))
+    val words =
+      when {
+        wet && day -> "${if (mm < 1) HomeBoard.fmt(mm, 1) else HomeBoard.fmt(mm)} mm"
+        wet -> HomeBoard.fmt(mm, if (mm < 10) 1 else 0)
+        day -> "sec"
+        else -> return
+      }
+    label(fit(words, cw - 4, FOOT_SIZE, Weight.Bold), cx, h - FOOT_TEXT, FOOT_SIZE, if (wet) pal.rainLight else pal.t3)
   }
 
   /** The sentence of the rain: the umbrella, when it comes and how strong (or until when it stays dry); the age of an old read. */

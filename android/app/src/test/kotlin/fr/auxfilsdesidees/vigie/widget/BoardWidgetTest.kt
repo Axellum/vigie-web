@@ -133,6 +133,8 @@ class BoardWidgetTest {
     assertEquals(5, days.size)
     assertEquals(11.0, days[0].high, 1e-9) // tomorrow: the box is « now »
     assertEquals(6.0, days[0].low!!, 1e-9)
+    // A day carries its rain, drawn at the foot of the taller frise.
+    assertEquals(8.0, days[0].mm!!, 1e-9)
     val fromToday = BoardWidget.friseColumns(p, server, Forecast.Days, 6, afterBox = false)
     assertEquals("Auj.", fromToday[0].name)
     assertEquals(6, fromToday.size)
@@ -170,7 +172,7 @@ class BoardWidgetTest {
   }
 
   @Test
-  fun `the card is drawn at the scale the height asks for, never under 0,7 nor too narrow`() {
+  fun `the card is drawn at the scale the height and the width ask for, never under 0,7`() {
     val f = BoardWidget.cardFrame(372f, 276f, 280f)!!
     assertEquals(0.75f, f.scale, 0.001f)
     assertEquals(368f, f.width, 0.01f)
@@ -183,6 +185,10 @@ class BoardWidgetTest {
     assertEquals(150f, big.left, 0.01f)
     assertNull(BoardWidget.cardFrame(630f, 276f, 280f))
     assertNull(BoardWidget.cardFrame(372f, 150f, 280f))
+    // Three cells wide on the Pixel: the card drawn smaller, 330 wide at least.
+    val narrow = BoardWidget.cardFrame(372f, 272f, 392f)!!
+    assertEquals(0.82f, narrow.scale, 0.001f)
+    assertEquals(272 / 0.82f, narrow.width, 0.01f)
   }
 
   @Test
@@ -191,6 +197,7 @@ class BoardWidgetTest {
     assertEquals(Look.Frise, BoardWidget.look(true, 330f, 180f, 372f, 630f))
     assertEquals(Look.Medium, BoardWidget.look(true, 330f, 280f, 372f, 630f))
     assertEquals(Look.Large, BoardWidget.look(true, 330f, 480f, 372f, 630f))
+    assertEquals(Look.Medium, BoardWidget.look(true, 272f, 392f, 372f, 630f))
     // The frise widget is never the card.
     assertEquals(Look.FriseTall, BoardWidget.look(false, 330f, 480f, 372f, 630f))
     assertEquals(Look.Frise, BoardWidget.look(false, 330f, 180f, 372f, 630f))

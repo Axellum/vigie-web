@@ -134,7 +134,7 @@ object BoardWidget {
     val skip = if (afterBox) 1 else 0
     if (forecast == Forecast.Days) {
       val days = HomeBoard.days(p, now, count + skip).drop(skip)
-      return if (days.size < 2) emptyList() else days.map { FriseColumn(null, it.nameShort, it.kind, it.sun, true, it.tmax, it.tmin, null) }
+      return if (days.size < 2) emptyList() else days.map { FriseColumn(null, it.nameShort, it.kind, it.sun, true, it.tmax, it.tmin, it.rainMm) }
     }
     return slots(p, now, 1).take(count + skip).drop(skip).map { FriseColumn(it.ts, null, it.kind, it.sun, it.day, it.temp, null, it.mm) }
   }
@@ -204,25 +204,26 @@ object BoardWidget {
   /** The smallest scale the card is drawn at: under it its words are too small on a phone, the frise is drawn instead. */
   const val MIN_SCALE = 0.7f
 
-  /** The card is never drawn larger than in the app, nor wider than its narrow layout (it turns wide from 640). */
+  /**
+   * The card is never drawn larger than in the app, nor wider than its narrow layout (it turns wide from 640), nor narrower
+   * than [CARD_MIN_WIDTH]: a narrow widget draws it smaller (a widget of three cells, 272 dp of room on the Pixel, at 0.82).
+   */
   const val MAX_SCALE = 1f
   const val CARD_MAX_WIDTH = 600f
-  const val CARD_MIN_WIDTH = 280f
+  const val CARD_MIN_WIDTH = 330f
 
   /**
-   * Where the card stands in a room of [w] × [h] dp: its [scale] (the height asks for it, rounded down to the hundredth),
-   * its [width] in the card's px, its [left] in dp (in the middle of a room wider than the card may be) and its [top] in the
-   * card's px (the blocks in the middle of the height). Null when the card would be drawn under [MIN_SCALE] or narrower than
-   * [CARD_MIN_WIDTH].
+   * Where the card stands in a room of [w] × [h] dp: its [scale] (the height and the width ask for it, rounded down to the
+   * hundredth), its [width] in the card's px, its [left] in dp (in the middle of a room wider than the card may be) and its
+   * [top] in the card's px (the blocks in the middle of the height). Null when the card would be drawn under [MIN_SCALE].
    */
   data class CardFrame(val scale: Float, val width: Float, val left: Float, val top: Float)
 
   fun cardFrame(need: Float, w: Float, h: Float): CardFrame? {
     if (need <= 0 || w <= 0 || h <= 0) return null
-    val scale = floor(minOf(MAX_SCALE, h / need) * 100) / 100
+    val scale = floor(minOf(MAX_SCALE, h / need, w / CARD_MIN_WIDTH) * 100) / 100
     if (scale < MIN_SCALE) return null
     val width = minOf(w / scale, CARD_MAX_WIDTH)
-    if (width < CARD_MIN_WIDTH) return null
     return CardFrame(scale, width, (w - width * scale) / 2, maxOf(0f, (h / scale - need) / 2))
   }
 
