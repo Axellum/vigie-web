@@ -95,6 +95,12 @@ object BoardWidget {
    * The words of the warning's pill: the first hazard and the level (« Vent jaune »), the others counted (« Vent jaune
    * +1 »); the level alone when the hazards are unknown; null without a warning.
    */
+  /**
+   * The width of the bars of the rain of the hour: the [room] its words leave them, at least 64 dp, at most [most]. The
+   * words keep their width (« Pas de pluie dans l'h… » on the phone when the bars had a fixed third of the line).
+   */
+  fun barsRoom(room: Float, most: Float): Float = room.coerceIn(64f, most)
+
   fun pill(w: WidgetModel.Warnings): String? {
     val level = w.level ?: return null
     val hazards = w.detail.split(" · ").map { it.trim() }.filter { it.isNotEmpty() }

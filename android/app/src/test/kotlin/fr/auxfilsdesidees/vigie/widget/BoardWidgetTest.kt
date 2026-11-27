@@ -122,6 +122,14 @@ class BoardWidgetTest {
   }
 
   @Test
+  fun `the words of the rain keep their width and the bars take what is left`() {
+    assertEquals(89f, BoardWidget.barsRoom(89f, 120f))
+    assertEquals(120f, BoardWidget.barsRoom(200f, 120f))
+    assertEquals(64f, BoardWidget.barsRoom(20f, 110f))
+    assertEquals(64f, BoardWidget.barsRoom(-40f, 110f))
+  }
+
+  @Test
   fun `the surf is read hour by hour from the start of the frise`() {
     val sea = BoardWidget.Sea("Lacanau", emptyList(), midnight, listOf(null, "poor", "good"))
     assertNull(sea.surfAt(midnight + 1800))

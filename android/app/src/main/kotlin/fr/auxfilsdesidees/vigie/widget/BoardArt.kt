@@ -220,7 +220,9 @@ object BoardArt {
     }
     cardGlyph("parapluie", 8.5f.px, cy.px, 17f.px, pal.rain, 2.2f)
     val steps = v.rain.bars
-    val bw = if (steps.isEmpty()) 0f else minOf(110f, w * 0.36f)
+    // The words keep their width and the bars take what is left, from 110 down to 64 dp (« Pas de pluie dans l'h… » on
+    // the phone when the bars had a third of the line).
+    val bw = if (steps.isEmpty()) 0f else BoardWidget.barsRoom(w - 24 - 8 - measure(v.rain.head, 14f, Weight.Bold), 110f)
     textMid(fit(v.rain.head, w - 24 - (if (bw > 0) bw + 8 else 0f), 14f, Weight.Bold), 24f, cy, pal.text, 14f, Weight.Bold, Paint.Align.LEFT)
     if (bw > 0) bars(steps, w - bw, cy - 8, bw, 16f, gap = 2f, dry = 2f, low = 4f)
   }
@@ -276,9 +278,11 @@ object BoardArt {
     cardGlyph("parapluie", (12 + 11f).px, cy.px, 22f.px, pal.rain, 2.2f)
     val r = v.rain
     val textX = 12f + 22 + 10
-    val bw = if (v.age != null || r.bars.isEmpty()) 0f else minOf(120f, w - 24 - 22 - 20 - 124)
-    val textW = w - textX - 12 - (if (bw > 0) bw + 10 else 0f)
     val sub = v.age ?: r.sub
+    // As the line: the head and its words keep their width, the bars take what is left, from 120 down to 64 dp.
+    val words = maxOf(measure(r.head, 15f, Weight.Bold), if (sub.isEmpty()) 0f else measure(sub, 12f, Weight.Medium))
+    val bw = if (v.age != null || r.bars.isEmpty()) 0f else BoardWidget.barsRoom(w - textX - 12 - 10 - words, 120f)
+    val textW = w - textX - 12 - (if (bw > 0) bw + 10 else 0f)
     if (sub.isEmpty()) textMid(fit(r.head, textW, 15f, Weight.Bold), textX, cy, pal.text, 15f, Weight.Bold, Paint.Align.LEFT)
     else {
       textMid(fit(r.head, textW, 15f, Weight.Bold), textX, cy - 8, pal.text, 15f, Weight.Bold, Paint.Align.LEFT)
