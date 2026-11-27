@@ -57,6 +57,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
 import fr.auxfilsdesidees.vigie.data.Spot
+import fr.auxfilsdesidees.vigie.ui.board.BoardPages
+import fr.auxfilsdesidees.vigie.ui.board.DetailsBoard
+import fr.auxfilsdesidees.vigie.ui.board.DetailsBoardView
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
@@ -246,9 +249,17 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
   // The official warnings of the place (`/v1/vigilances`), never `local_alert_level`, a level Vigie works out over a wide
   // radius: on 22/11/2026 it said green at Ajaccio while Météo-France had the wind in orange there.
   WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
-  // The home page of the Home Assistant card, drawn natively (board/HomeBoardView.kt): now, the rain of the hour, the season,
-  // the next 24 hours and the days. The clock is the phone's: a copy read without network shows its hours from now on.
-  Glass(padding = 12.dp) { HomeBoardView(p, System.currentTimeMillis() / 1000) }
+  // The home and Details pages of the Home Assistant card, drawn natively (board/): now, the rain of the hour, the season, the
+  // next 24 hours and the days; the rain until noon, by 5 and 15 minutes, 48 hours and the chances of the ensembles. As in
+  // the card, its bar of pages when the place has details, and the rain tile opens them; no swipe between the two (a swipe
+  // changes the place). The clock is the phone's: a copy read without network shows its hours from now on.
+  val now = System.currentTimeMillis() / 1000
+  val hasDetails = DetailsBoard.available(p, now)
+  var details by rememberSaveable { mutableIntStateOf(0) }
+  Glass(padding = 12.dp) {
+    if (hasDetails) BoardPages(listOf("Accueil", "Détails"), details, { details = it }, Modifier.padding(bottom = 6.dp))
+    if (hasDetails && details == 1) DetailsBoardView(p, now) else HomeBoardView(p, now, onRain = if (hasDetails) ({ details = 1 }) else null)
+  }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
   if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
 }

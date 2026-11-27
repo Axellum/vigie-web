@@ -3,6 +3,7 @@ package fr.auxfilsdesidees.vigie.ui.board
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -56,16 +58,17 @@ import kotlin.math.roundToInt
  * of piste A, columns « Lueur »): now, the rain of the hour, the strongest line of the season, the next 24 hours and the
  * days. The sizes are the card's, in dp for its px: the layout follows the width as the card's does (columns by 1, 2 or 3
  * hours, day names without their number under 50 dp a column). The texts keep their size whatever the phone's font scale,
- * as in a drawing: the board is laid out to the dp, and a bigger font would overlap its columns.
+ * as in a drawing: the board is laid out to the dp, and a bigger font would overlap its columns. [onRain]: what a tap on the
+ * rain tile does (the card opens its Details page), none when null.
  */
 @Composable
-fun HomeBoardView(p: PointNow, now: Long, modifier: Modifier = Modifier) {
+fun HomeBoardView(p: PointNow, now: Long, modifier: Modifier = Modifier, onRain: (() -> Unit)? = null) {
   val pal = BoardPalette.Dark
   BoxWithConstraints(modifier.fillMaxWidth()) {
     val w = maxWidth.value
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
       NowBlock(p, now, w, pal)
-      HomeBoard.rainTile(p, now)?.let { RainTileView(it, w, pal) }
+      HomeBoard.rainTile(p, now)?.let { RainTileView(it, w, pal, onRain) }
       HomeBoard.seasonPill(p, now)?.let { SeasonPillView(it, pal) }
       HomeBoard.hours(p, now, w)?.let { HoursBlock(it, p.utcOffsetS, w, pal) }
       HomeBoard.days(p, now, 7).takeIf { it.size >= 2 }?.let { DaysBlock(it, w, pal) }
@@ -75,9 +78,9 @@ fun HomeBoardView(p: PointNow, now: Long, modifier: Modifier = Modifier) {
 
 /** A size in the card's px, as text that ignores the phone's font scale. */
 @Composable
-private fun fs(px: Float): TextUnit = with(LocalDensity.current) { px.dp.toSp() }
+internal fun fs(px: Float): TextUnit = with(LocalDensity.current) { px.dp.toSp() }
 
-private fun bold(c: Color) = SpanStyle(color = c, fontWeight = FontWeight.Bold)
+internal fun bold(c: Color) = SpanStyle(color = c, fontWeight = FontWeight.Bold)
 
 // ---------------------------------------------------------------------------------------------------------------- now
 
@@ -175,10 +178,16 @@ private fun nowFacts(p: PointNow, now: Long, off: Int, pal: BoardPalette): List<
 
 /** The rain of the next hour: when it comes, how strong, a bar per step and the hours under them. */
 @Composable
-private fun RainTileView(t: HomeBoard.RainTile, w: Float, pal: BoardPalette) {
+private fun RainTileView(t: HomeBoard.RainTile, w: Float, pal: BoardPalette, onClick: (() -> Unit)?) {
   val shape = RoundedCornerShape(12.dp)
   Row(
-    Modifier.fillMaxWidth().height(56.dp).background(pal.rain.copy(alpha = 0.12f), shape).border(1.dp, pal.rain.copy(alpha = 0.45f), shape).padding(horizontal = 12.dp),
+    Modifier.fillMaxWidth()
+      .height(56.dp)
+      .clip(shape)
+      .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+      .background(pal.rain.copy(alpha = 0.12f), shape)
+      .border(1.dp, pal.rain.copy(alpha = 0.45f), shape)
+      .padding(horizontal = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(10.dp),
   ) {
@@ -249,7 +258,7 @@ private fun SeasonPillView(s: HomeBoard.SeasonPill, pal: BoardPalette) {
 
 /** The title of a block: its name in capitals on the left, a legend on the right. */
 @Composable
-private fun SectionHeader(left: String, pal: BoardPalette, right: @Composable () -> Unit) {
+internal fun SectionHeader(left: String, pal: BoardPalette, right: @Composable () -> Unit) {
   Row(Modifier.fillMaxWidth().height(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
     Text(left.uppercase(), color = pal.t3, fontSize = fs(11f), fontWeight = FontWeight.Bold, letterSpacing = 0.06.em, maxLines = 1)
     right()
@@ -284,7 +293,7 @@ private fun DrawScope.column(pal: BoardPalette, left: Float, width: Float, heigh
 }
 
 /** Writes [text] centred on [cx] (px), its line box of [lineHeight] × the size starting at [top] (the card's px). */
-private fun DrawScope.label(
+internal fun DrawScope.label(
   m: TextMeasurer,
   text: AnnotatedString,
   cx: Float,
@@ -300,7 +309,7 @@ private fun DrawScope.label(
   drawText(r, topLeft = Offset(cx - r.size.width / 2f, y))
 }
 
-private fun DrawScope.label(m: TextMeasurer, text: String, cx: Float, top: Float, sizePx: Float, colour: Color, weight: FontWeight = FontWeight.Bold, lineHeight: Float = 1.17f) =
+internal fun DrawScope.label(m: TextMeasurer, text: String, cx: Float, top: Float, sizePx: Float, colour: Color, weight: FontWeight = FontWeight.Bold, lineHeight: Float = 1.17f) =
   label(m, AnnotatedString(text), cx, top, sizePx, colour, weight, lineHeight)
 
 /** A horizontal brush through the colours of some temperatures, one stop in the middle of each of [n] columns. */

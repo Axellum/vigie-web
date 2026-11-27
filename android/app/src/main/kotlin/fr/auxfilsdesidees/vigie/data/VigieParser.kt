@@ -61,6 +61,7 @@ object VigieParser {
           mmPerStep = steps.map { it!! },
           rate5mMmH = rates.takeIf { r -> r.isNotEmpty() && r.all { it != null } }?.map { it!! },
           startUtc = nowcast["start_utc"].long(),
+          attribution = nowcast["attribution"].str(),
         )
     val coordinates = root["coordinates"].objOrNull()
     val pressureHistory =
@@ -76,6 +77,23 @@ object VigieParser {
             st["steps"].arr().mapNotNull { it.objOrNull() }.mapNotNull { s ->
               ShortStep(s["time_utc"].long() ?: return@mapNotNull null, s["wind_gust_kmh"].dbl(), s["precipitation"].str())
             },
+          hailLevel = st["hail"].objOrNull()?.get("level").str(),
+          visibilityLevel = st["visibility"].objOrNull()?.get("level").str(),
+          attribution = st["attribution"].str(),
+        )
+      }
+    val probabilities =
+      root["probabilities"].objOrNull()?.let { pr ->
+        val sr = pr["short_range"].objOrNull()
+        Probabilities(
+          members = sr?.get("members").int(),
+          windowHours = sr?.get("window_hours").int(),
+          windows =
+            sr?.get("windows").arr().mapNotNull { it.objOrNull() }.mapNotNull { w ->
+              val to = w["to_utc"].long() ?: return@mapNotNull null
+              ChanceWindow(to, w.entries.mapNotNull { (k, v) -> if (k.endsWith("_pct")) v.dbl()?.let { k to it } else null }.toMap())
+            },
+          attribution = pr["attribution"].str(),
         )
       }
     return PointNow(
@@ -102,6 +120,8 @@ object VigieParser {
       pressureHistory = pressureHistory.sortedBy { it.timeUtc },
       shortTerm = shortTerm,
       season = season(root),
+      probabilities = probabilities,
+      weatherAttribution = root["weather_attribution"].str(),
     )
   }
 
