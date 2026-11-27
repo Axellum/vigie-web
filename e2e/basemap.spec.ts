@@ -11,9 +11,13 @@ test('the map takes its style from the site and asks OpenFreeMap for its tiles o
 		page.locator('link[rel="preconnect"][href="https://tiles.openfreemap.org"]').first()
 	).toHaveAttribute('crossorigin', 'anonymous');
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	// The tiles are those the description of OpenFreeMap lists: its planet, or its backup copy while it makes a new one
+	// (`backup_planet/`, seen on 27 November 2026).
 	await expect
 		.poll(() =>
-			asked.some((url) => /^https:\/\/tiles\.openfreemap\.org\/planet\/[^/]+\/\d+\/\d+\/\d+\.pbf$/.test(url))
+			asked.some((url) =>
+				/^https:\/\/tiles\.openfreemap\.org\/(?:backup_)?planet\/[^/]+\/\d+\/\d+\/\d+\.pbf$/.test(url)
+			)
 		)
 		.toBe(true);
 	expect(asked.filter((url) => /\/data\/basemap\/(light|dark)\.json$/.test(url))).toHaveLength(1);
