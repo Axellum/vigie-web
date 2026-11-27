@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDataImage, MAX_IMAGES, trimCache } from './swCache';
+import { fromKeptCopy, isDataImage, MAX_IMAGES, trimCache } from './swCache';
 
 /** A cache as the Cache API keeps one: its entries in the order they were put, a put again going last. */
 class FakeCache {
@@ -45,5 +45,24 @@ describe('the images of the service worker', () => {
 		}
 		expect(cache.entries).toHaveLength(MAX_IMAGES);
 		expect(cache.entries.at(-1)).toBe(tile(MAX_IMAGES * 3 - 1));
+	});
+});
+
+describe('the files of the site kept by the service worker', () => {
+	const assets = ['/ha-card/vigie-card.js', '/_app/immutable/entry/start.js', '/icon-192.png'];
+	const at = (path: string) => new URL(path, 'https://vigie.example');
+
+	it('are answered from the copy kept when asked for by their bare path', () => {
+		expect(fromKeptCopy(at('/ha-card/vigie-card.js'), assets)).toBe(true);
+		expect(fromKeptCopy(at('/_app/immutable/entry/start.js'), assets)).toBe(true);
+	});
+
+	it('come from the network when asked for in a given version: the copy kept may be the previous one', () => {
+		expect(fromKeptCopy(at('/ha-card/vigie-card.js?v=71e4b9108bad'), assets)).toBe(false);
+	});
+
+	it('are only the files of the site', () => {
+		expect(fromKeptCopy(at('/widget'), assets)).toBe(false);
+		expect(fromKeptCopy(at('/data/card.json'), assets)).toBe(false);
 	});
 });
