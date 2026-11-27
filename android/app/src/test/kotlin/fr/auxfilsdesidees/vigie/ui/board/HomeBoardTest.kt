@@ -309,6 +309,36 @@ class HomeBoardTest {
   }
 
   @Test
+  fun `the hours of sunshine are written as the card writes them`() {
+    assertEquals("0 h", HomeBoard.sunHoursText(0.0, false))
+    assertEquals("8 h", HomeBoard.sunHoursText(7.8, false))
+    assertEquals("1 h", HomeBoard.sunHoursText(0.95, true))
+    assertEquals("30 min", HomeBoard.sunHoursText(0.5, false))
+    assertEquals("10 min", HomeBoard.sunHoursText(0.04, false))
+    assertEquals("0,5 h", HomeBoard.sunHoursText(0.5, true))
+    assertEquals("0,1 h", HomeBoard.sunHoursText(0.04, true))
+  }
+
+  @Test
+  fun `a day's sunshine is its share of the daylight, which tints its column`() {
+    // Bordeaux on 27/11: the sun rises near 8 h 20 and sets near 17 h 20 at the place, about 9 hours of daylight.
+    val light = HomeBoard.daylightHours(point(), midnight / 86_400)!!
+    assertEquals(9.0, light, 0.34)
+    assertNull(HomeBoard.daylightHours(point().copy(lat = null), midnight / 86_400))
+    val sunny = listOf(8.0, 2.0, 0.5, null)
+    val list =
+      listOf(today, "2026-11-28", "2026-11-29", "2026-11-30").mapIndexed { i, date -> Day(date, 3, 4.0, 13.0, 0.0, 20.0, 30.0, sunshineH = sunny[i]) }
+    val d = HomeBoard.days(point(hours(), list), now, 7)
+    assertEquals(8.0 / light, d[0].share!!, 0.03)
+    assertEquals(d[0].share!!, d[0].sun, 0.0)
+    assertEquals(listOf(2, 1, 0), d.take(3).map { HomeBoard.sunTone(it) })
+    // Without the hours of sunshine, the cloud cover of its hours, then its code, as before.
+    assertNull(d[3].share)
+    assertNull(d[3].sunshineH)
+    assertEquals(HomeBoard.sunOfCode(3), d[3].sun, 0.0)
+  }
+
+  @Test
   fun `bars and the scale of the days follow the card`() {
     assertEquals(0f, HomeBoard.hourBar(0.0, 1))
     assertEquals(4f, HomeBoard.hourBar(0.01, 1))

@@ -32,7 +32,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   four 15-minute steps; « non lue » past 30 minutes, as elsewhere in the app); the strongest line of the season
   (avalanches, a drought from « alerte », pollen); the next 24 hours by 1, 2 or 3 hours as the width allows (sky,
   temperature curve, rain and its chance, wind) and seven days at most (highest and lowest curves, rain, wind and gust
-  over a whole day), each column tinted by its sky (« Lueur »). The icons are the card's SVG, copied by
+  over a whole day, the hours of sunshine under the icon), each column tinted by its sky (« Lueur »: a day's share of
+  sunshine over its daylight when the answer gives it). The icons are the card's SVG, copied by
   `tools/family_icons.py` (`--check` tells whether the copy still matches a card). Forest fires, which the card's season
   line also reads, come from another answer the app does not read yet.
 - Its Details page, as in the card: a bar « Accueil | Détails » over the board when the place has details (and the rain
