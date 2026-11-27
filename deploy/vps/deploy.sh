@@ -32,6 +32,24 @@ shared=$here/../deck
 remote() { ssh "${ssh_opts[@]}" "$server" "$@"; }
 copy() { scp -q "${ssh_opts[@]}" "$@"; }
 
+# One change at a time on the server: two deploys at once build in the same folder, and the first one stops halfway
+# (two "web" 14 s apart, 27/11/2026). mkdir is atomic, so the folder is the lock; its file says what holds it since
+# when, and it goes when this script ends, on an error too. A deploy killed hard leaves it behind: once sure that none
+# runs, remove ~/vigie/deploy.lock. Exit 3 when another deploy holds it. ssh never reads stdin here: a secret waits there.
+lock=vigie/deploy.lock
+take_lock() {
+	local status=0
+	remote "mkdir ~/$lock 2>/dev/null || exit 75; echo \"$component $ref, \$(date '+%F %T %Z')\" >~/$lock/holder" \
+		</dev/null || status=$?
+	if [ "$status" = 75 ]; then
+		echo "another deploy is changing $host: $(remote "cat ~/$lock/holder" </dev/null 2>/dev/null || echo '?')" >&2
+		echo "wait for it to end; if none runs any more, remove ~/$lock on the server" >&2
+		exit 3
+	fi
+	[ "$status" = 0 ] || exit "$status"
+	trap 'remote "rm -rf ~/$lock" </dev/null || true' EXIT
+}
+
 setup() {
 	local admin=${VIGIE_ADMIN_USER:-debian}@$host
 	ssh "${ssh_opts[@]}" "$admin" 'rm -rf /tmp/vigie-setup && mkdir -m 700 /tmp/vigie-setup'
@@ -122,6 +140,11 @@ build() {
 		&& sleep 10 && podman ps --filter name=$image --format '{{.Names}} {{.Image}} {{.Status}}'"
 	echo "$image now runs $sha"
 }
+
+# Not for setup: it runs as the admin account, before the user "vigie" exists.
+case $component in
+files | secrets | firms-key | admin-token | vapid-public | vapid-private | fcm-key | api | web | caddy | db) take_lock ;;
+esac
 
 case $component in
 setup) setup ;;

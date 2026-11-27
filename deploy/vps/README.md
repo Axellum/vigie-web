@@ -150,6 +150,10 @@ To close the API again: remove `import api` from `(site)`, `deploy.sh files`.
 localhost/vigie-web:current`, then `systemctl --user restart vigie-web`. Old images:
 `podman images localhost/vigie-web`, `podman rmi localhost/vigie-web:<sha>`.
 
+One deploy at a time: every command but `setup` holds `~/vigie/deploy.lock` on the server while it runs, and stops
+(exit 3, saying what holds it since when) if another one does. A deploy killed hard leaves the lock behind: once sure
+that none runs, `rm -rf ~/vigie/deploy.lock`.
+
 Caddy: `deploy.sh caddy` rebuilds it (a new Caddy version: the two `FROM` lines of `caddy/Containerfile`); the
 previous image stays for a rollback, as above with `vigie-caddy` and `caddy`. The database: `deploy.sh db` builds it
 again on the newest PostgreSQL 18 image and PostGIS package (their fixes), then restarts it; the previous image stays,
