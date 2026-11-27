@@ -3,7 +3,7 @@
 import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { self as sw } from '$app/service-worker';
-import { isDataImage, MAX_IMAGES, trimCache } from '#lib/swCache.js';
+import { fromKeptCopy, isDataImage, MAX_IMAGES, trimCache } from '#lib/swCache.js';
 
 const CACHE = `vigie-${version}`;
 // The images of the data (map tiles and layers), kept apart and bounded: see src/lib/swCache.ts.
@@ -30,7 +30,7 @@ sw.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return;
 	const url = new URL(request.url);
 	if (url.origin !== sw.location.origin) return; // the base map is not cached here
-	if (ASSETS.includes(url.pathname)) {
+	if (fromKeptCopy(url, ASSETS)) {
 		event.respondWith(caches.match(url.pathname).then((hit) => hit ?? fetch(request)));
 		return;
 	}
@@ -65,7 +65,13 @@ sw.addEventListener('fetch', (event) => {
 				}
 				return response;
 			})
-			.catch(async () => (await caches.match(request)) ?? Response.error())
+			.catch(
+				async () =>
+					(await caches.match(request)) ??
+					// A file of the site asked for with a query (see fromKeptCopy): without a network, the copy kept.
+					(ASSETS.includes(url.pathname) ? await caches.match(url.pathname) : undefined) ??
+					Response.error()
+			)
 	);
 });
 

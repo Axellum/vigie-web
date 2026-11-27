@@ -21,3 +21,14 @@ export async function trimCache(cache: Pick<Cache, 'keys' | 'delete'>, max: numb
 	for (let i = 0; i < extra; i++) await cache.delete(keys[i]);
 	return Math.max(0, extra);
 }
+
+/**
+ * Whether the worker answers a request for one of the site's own files (`assets`: the build and `static/`, kept at its install
+ * under their bare paths) from the copy it kept. A file asked for with a query is a given version of it, such as
+ * `/ha-card/vigie-card.js?v=<digest>` (widget/haCard.ts): the copy kept may be an older one, the one of the worker still in
+ * place after a deployment until the new one takes over (seen on 2026-11-27: the widgets board drew the new page with the
+ * previous card). That request goes to the network; the copy kept is its fallback without a network.
+ */
+export function fromKeptCopy(url: URL, assets: readonly string[]): boolean {
+	return url.search === '' && assets.includes(url.pathname);
+}
