@@ -55,8 +55,9 @@ The user chooses the places and their spots; two home screen widgets show one of
   placed, with the next hours or the next days (« Paramètres » of the widget changes them). It is the home page of the
   Home Assistant card drawn smaller, as the site's medium and large widgets: with the room for it (about four cells by
   five on a phone) the whole page (now and its facts, the rain tile, the season, the 24 hours, the days); with less
-  (four by three) now, the rain tile and the hours or the days chosen; the place and the warning on a line above. The
-  page is the app's (`ui/board/HomeBoardView.kt`) drawn again into one picture at a scale, 0.7 at least; too small for
+  (four by three, or three cells wide at a smaller scale) now, the rain tile and the hours or the days chosen; the place
+  and the warning on a line above. The page is the app's (`ui/board/HomeBoardView.kt`) drawn again into one picture at a
+  scale given by the height and the width (330 wide at scale 1), 0.7 at least; too small for
   that, the widget is the frise below. Touched, it opens the app on its place. It reads only the copies the app keeps:
   every half hour (WorkManager), and at once when it is placed, the places shown by a widget are read again when their
   copy is older than a quarter of an hour; without network it shows its copy with its age, the rain of the hour then
@@ -66,8 +67,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   On top the weather now, the place and the warning, discreet (its sign and its words in the colour of its level); then
   the next hour as its twelve steps of rain on a tint of rain, followed by the next hours or the next days in « Lueur »
   columns; under them the sentence of the rain, as the card says it (« Pas de pluie avant demain vers 9 h » when the
-  hour is dry). Taller it is drawn larger in the middle of the height, with the days under the hours from about four
-  rows; on one row of the grid, the weather now stands beside the band. Same choice of place, refresh, age and touch as
+  hour is dry). Taller it is drawn larger in the middle of the height, the rain at the foot of every column (its bar and
+  its amount, « sec » for a dry day), with the days under the hours from about four rows; on one row of the grid, the weather now stands beside the band. Same choice of place, refresh, age and touch as
   « Vigie · mon lieu ».
 - Notifications, without an account: in « Mes lieux et mes spots », each place has a bell (« dès le jaune », « orange
   et rouge », « rouge seulement », « jamais »). The first bell asks Android's permission (Android 13 and later), then
