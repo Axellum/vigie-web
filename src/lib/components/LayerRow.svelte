@@ -1,6 +1,7 @@
 <script lang="ts">
-	// One layer in the frame of the sea map: a box to tick, the name of the layer, and in a line under it what it shows and
-	// where it comes from. A layer that cannot be turned off here (the wind on the labels of the kite) is ticked and greyed.
+	// One layer in the frame of a map (the home map, the sea map): a box to tick, the name of the layer, and in a line under it
+	// what it shows and where it comes from. A layer that cannot be turned off here (the wind on the labels of the kite) is ticked
+	// and greyed.
 	let {
 		checked = $bindable(false),
 		name,

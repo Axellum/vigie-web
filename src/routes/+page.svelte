@@ -10,7 +10,12 @@
 	import AlertRow from '#lib/components/AlertRow.svelte';
 	import FireDetails from '#lib/components/FireDetails.svelte';
 	import TideSection from '#lib/components/TideSection.svelte';
+	import FlowScale from '#lib/components/FlowScale.svelte';
+	import LayerRow from '#lib/components/LayerRow.svelte';
+	import LayersPanel from '#lib/components/LayersPanel.svelte';
+	import MapRail, { type RailFamily } from '#lib/components/MapRail.svelte';
 	import RadarCard from '#lib/components/RadarCard.svelte';
+	import RainScale from '#lib/components/RainScale.svelte';
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
@@ -22,8 +27,7 @@
 	import { radarTime, rate } from '#lib/radar.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
-	import { windTime, windValue } from '#lib/wind.js';
-	import { FLOW_STRONG_KMH } from '#lib/windField.js';
+	import { windTime } from '#lib/wind.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -278,12 +282,6 @@
 		untrack(() => rainField.sync());
 	});
 	$effect(() => pollWhileVisible(() => rainField.sync(), 60_000));
-	const rainFieldMarks = $derived.by(() => {
-		const classes = rainField.field?.legend ?? [];
-		const n = classes.length;
-		const picks = [0, 2, 5, n - 1].filter((i, k, all) => i >= 0 && i < n && all.indexOf(i) === k);
-		return picks.map((i) => ({ i, text: rate(lang, classes[i].minMmH) }));
-	});
 
 	// --- global observed satellite precipitation (NASA GIBS IMERG 30-min; off until the visitor turns it on) --------------------
 	const observedRain = new ObservedRainLayer();
@@ -329,15 +327,34 @@
 	});
 	// The list of the hour is asked again every 10 minutes and when the hour turns (`WindFieldLayer.sync` keeps the delays).
 	$effect(() => pollWhileVisible(() => flow.sync(), 60_000));
-	const flowSpeed = (kmh: number) =>
-		tr('wind.speed', {
-			value: String(windValue(kmh, wind.unit)),
-			unit: tr(wind.unit === 'kn' ? 'wind.kn' : 'wind.kmh')
-		});
 	$effect(() => {
 		void tides.keys;
 		untrack(() => tides.sync());
 	});
+
+	// --- the frame of the map: the families of layers on its rail, their choices over the map (as on the sea map) -----------
+	type MapFamily = 'alerts' | 'rain' | 'wind' | 'tide';
+	const MAP_FAMILIES: MapFamily[] = ['alerts', 'rain', 'wind', 'tide'];
+	let layerFamily = $state<MapFamily | null>(null);
+	// How many layers of a family are shown; the warnings and the hazards are always there, the fires are counted.
+	const layerCount = (f: MapFamily): number =>
+		f === 'alerts'
+			? Number(showFires)
+			: f === 'rain'
+				? Number(radar.open && radar.covered) + Number(observedRain.on) + Number(rainField.on)
+				: f === 'wind'
+					? Number(flow.on) + Number(wind.on)
+					: Number(tides.on);
+	const railFamilies = $derived<RailFamily[]>(
+		MAP_FAMILIES.map((f) => ({
+			id: f,
+			icon: f,
+			label: tr(`frame.family.${f}` as Key),
+			count: layerCount(f),
+			countSaid: tr(layerCount(f) > 1 ? 'frame.countMany' : 'frame.count', { count: layerCount(f) }),
+			on: f === 'alerts' || layerCount(f) > 0
+		}))
+	);
 
 	// --- warnings of the countries in view -------------------------------------------------------------
 	// The same list as long as the same countries are in view: a move of the map inside them starts nothing again.
@@ -1013,281 +1030,6 @@
 					{/each}
 				</div>
 			</section>
-			<section class="block">
-				<h2 class="eyebrow">{tr('types.title')}</h2>
-				<div class="chips">
-					{#each categories as c (c)}
-						<button
-							type="button"
-							class="chip"
-							aria-pressed={!hidden.has(c)}
-							onclick={() => (hidden.has(c) ? hidden.delete(c) : hidden.add(c))}
-						>
-							{tOr(lang, `cat.${c}`, c)} <span class="count">{categoryCount(c)}</span>
-						</button>
-					{/each}
-				</div>
-				<label class="check">
-					<input type="checkbox" bind:checked={showFires} />
-					<span class="swatch" aria-hidden="true"></span>
-					{tr('fires.toggle')}
-				</label>
-				{#if showFires}
-					{#if fireOff}
-						<p class="hint">{tr('fires.off')}</p>
-					{:else}
-						<p class="hint">
-							{tr('fires.legend', { h: fireFirst?.windowHours ?? 24 })}
-							{#if fireLevelNow.cellDeg != null}{tr('fires.zoomIn')}{/if}
-						</p>
-						{#if fireShown.some((f) => f.status === 'loading')}<p class="hint">{tr('fires.loading')}</p>{/if}
-						{#if fireShown.some((f) => f.status === 'error')}<p class="hint">{tr('fires.failed')}</p>{/if}
-						{#if fireShown.some((f) => f.value?.truncated)}<p class="hint">{tr('fires.truncated')}</p>{/if}
-						<p class="hint">{tr('fires.notAlert')}</p>
-					{/if}
-				{/if}
-				<label class="check">
-					<input type="checkbox" bind:checked={observedRain.on} data-testid="observed-rain-toggle" />
-					<span class="swatch observed-rain" aria-hidden="true"></span>
-					{tr('observedRain.toggle')}
-				</label>
-				{#if observedRain.on}
-					{#if observedRain.data?.status === 'off'}
-						<p class="hint">{tr('observedRain.off')}</p>
-					{:else if observedRain.data?.status === 'unavailable' || (observedRain.status === 'failed' && !observedRain.data)}
-						<p class="hint">{tr('observedRain.failed')}</p>
-					{:else if observedRain.activeFrame && observedRain.data}
-						<div
-							class="chips observed-frames"
-							role="group"
-							aria-label={tr('observedRain.frames')}
-							data-testid="observed-rain-frames"
-						>
-							{#each observedRain.frames as f (f.stamp)}
-								<button
-									type="button"
-									class="chip"
-									aria-pressed={observedRain.activeFrame.stamp === f.stamp}
-									data-stamp={f.stamp}
-									onclick={() => observedRain.selectFrame(f.stamp)}
-								>
-									{radarTime(lang, f.timeUtc)}
-								</button>
-							{/each}
-						</div>
-						<p class="hint" data-testid="observed-rain-legend">
-							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
-								{tr('observedRain.legendMeta', {
-									time: radarTime(lang, observedRain.activeFrame.timeUtc),
-									km: observedRainMeta.km,
-									delay: observedRainMeta.delay
-								})}
-							{:else}
-								{tr('observedRain.legend', {
-									time: radarTime(lang, observedRain.activeFrame.timeUtc)
-								})}
-							{/if}
-						</p>
-						{#if observedRain.data.legend.length}
-							{@const hasSnow = observedRain.data.snowLegend.length > 0}
-							<div class="rf-scale" class:with-label={hasSnow} data-testid="observed-rain-scale">
-								{#if hasSnow}
-									<div class="rf-scale-row">
-										<span class="rf-scale-label">{tr('observedRain.rainScale')}</span>
-										<div
-											class="rf-bar"
-											role="img"
-											aria-label="{tr('observedRain.rainScale')}: {observedRain.data.legend
-												.map((c) => `≥ ${rate(lang, c.minMmH)}`)
-												.join(', ')}"
-										>
-											{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}
-												></i>{/each}
-										</div>
-									</div>
-									<div class="rf-scale-row">
-										<span class="rf-scale-label">{tr('observedRain.snowScale')}</span>
-										<div
-											class="rf-bar"
-											role="img"
-											aria-label="{tr('observedRain.snowScale')}: {observedRain.data.snowLegend
-												.map((c) => `≥ ${rate(lang, c.minMmH)}`)
-												.join(', ')}"
-										>
-											{#each observedRain.data.snowLegend as c (c.minMmH)}<i style:background={c.color}
-												></i>{/each}
-										</div>
-									</div>
-									<div class="rf-scale-row">
-										<span class="rf-scale-label" aria-hidden="true"></span>
-										<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
-											{#each observedRainMarks as m (m.i)}
-												<span
-													class:last={m.i === observedRain.data.legend.length - 1}
-													style:grid-column={m.i === observedRain.data.legend.length - 1
-														? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
-														: m.i + 1}
-													>{m.text}{m.i === observedRain.data.legend.length - 1
-														? ` ${tr('radar.unit')}`
-														: ''}</span
-												>
-											{/each}
-										</div>
-									</div>
-								{:else}
-									<div
-										class="rf-bar"
-										role="img"
-										aria-label="{tr('radar.legend')}: {observedRain.data.legend
-											.map((c) => `≥ ${rate(lang, c.minMmH)}`)
-											.join(', ')}"
-									>
-										{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}></i>{/each}
-									</div>
-									<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
-										{#each observedRainMarks as m (m.i)}
-											<span
-												class:last={m.i === observedRain.data.legend.length - 1}
-												style:grid-column={m.i === observedRain.data.legend.length - 1
-													? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
-													: m.i + 1}
-												>{m.text}{m.i === observedRain.data.legend.length - 1
-													? ` ${tr('radar.unit')}`
-													: ''}</span
-											>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/if}
-						<p class="hint" data-testid="observed-rain-disclaimer">
-							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
-								{tr('observedRain.notRadar', { km: observedRainMeta.km, delay: observedRainMeta.delay })}
-							{:else}
-								{tr('observedRain.notRadarPlain')}
-							{/if}
-						</p>
-					{:else}
-						<p class="hint">{tr('observedRain.loading')}</p>
-					{/if}
-				{/if}
-				<label class="check">
-					<input type="checkbox" bind:checked={rainField.on} data-testid="rain-field-toggle" />
-					<span class="swatch rain-field" aria-hidden="true"></span>
-					{tr('rainField.toggle')}
-				</label>
-				{#if rainField.on}
-					{#if rainField.field?.status === 'off'}
-						<p class="hint">{tr('rainField.off')}</p>
-					{:else if rainField.field?.status === 'unavailable' || (rainField.status === 'failed' && !rainField.field)}
-						<p class="hint">{tr('rainField.failed')}</p>
-					{:else if rainField.active && rainField.field}
-						<div class="chips" role="group" aria-label={tr('rainField.leads')} data-testid="rain-field-leads">
-							{#each rainField.leads as h (h)}
-								<button
-									type="button"
-									class="chip"
-									aria-pressed={rainField.leadHours === h}
-									onclick={() => rainField.setLead(h)}
-								>
-									+{h} h
-								</button>
-							{/each}
-						</div>
-						<p class="hint" data-testid="rain-field-legend">
-							{tr('rainField.legend', {
-								model: rainField.active.level.model,
-								time: windTime(lang, rainField.active.frame.validUtc),
-								lead: rainField.active.frame.leadHours
-							})}
-						</p>
-						{#if rainField.field.legend.length}
-							<div class="rf-scale" data-testid="rain-field-scale">
-								<div
-									class="rf-bar"
-									role="img"
-									aria-label="{tr('radar.legend')}: {rainField.field.legend
-										.map((c) => `≥ ${rate(lang, c.minMmH)}`)
-										.join(', ')}"
-								>
-									{#each rainField.field.legend as c (c.minMmH)}<i style:background={c.color}></i>{/each}
-								</div>
-								<div class="rf-marks" style:--n={rainField.field.legend.length} aria-hidden="true">
-									{#each rainFieldMarks as m (m.i)}
-										<span
-											class:last={m.i === rainField.field.legend.length - 1}
-											style:grid-column={m.i === rainField.field.legend.length - 1
-												? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
-												: m.i + 1}
-											>{m.text}{m.i === rainField.field.legend.length - 1 ? ` ${tr('radar.unit')}` : ''}</span
-										>
-									{/each}
-								</div>
-							</div>
-						{/if}
-						<p class="hint" data-testid="rain-field-disclaimer">{tr('rainField.notRadar')}</p>
-					{:else}
-						<p class="hint">{tr('rainField.loading')}</p>
-					{/if}
-				{/if}
-				<label class="check">
-					<input type="checkbox" bind:checked={flow.on} data-testid="flow-toggle" />
-					<span class="swatch flow" aria-hidden="true"></span>
-					{tr('flow.toggle')}
-				</label>
-				{#if flow.on}
-					{#if flow.field?.status === 'off'}
-						<p class="hint">{tr('flow.off')}</p>
-					{:else if flow.field?.status === 'unavailable' || (flow.status === 'failed' && !flow.field)}
-						<p class="hint">{tr('flow.failed')}</p>
-					{:else if flow.valid !== null}
-						<p class="hint" data-testid="flow-legend">
-							{tr(
-								flow.field?.stale || flow.valid !== nearestHour(Date.now())
-									? 'flow.legendOld'
-									: 'flow.legend',
-								{
-									time: windTime(lang, flow.valid)
-								}
-							)}
-						</p>
-						<p class="hint flow-scale">
-							<span
-								><i class="ink strong" aria-hidden="true"></i>{tr('flow.strong', {
-									speed: flowSpeed(FLOW_STRONG_KMH[0])
-								})}</span
-							>
-							<span
-								><i class="ink stronger" aria-hidden="true"></i>{tr('flow.strong', {
-									speed: flowSpeed(FLOW_STRONG_KMH[1])
-								})}</span
-							>
-						</p>
-						<p class="hint">{tr('flow.note')}</p>
-					{:else}
-						<p class="hint">{tr('flow.loading')}</p>
-					{/if}
-				{/if}
-				<label class="check">
-					<input type="checkbox" bind:checked={wind.on} data-testid="wind-toggle" />
-					<span class="swatch wind" aria-hidden="true"></span>
-					{tr('wind.toggle')}
-				</label>
-				{#if wind.on}
-					<p class="hint">{tr('wind.hint')}</p>
-					<p class="hint">{tr('wind.note')}</p>
-				{/if}
-				<label class="check">
-					<input type="checkbox" bind:checked={tides.on} />
-					<span class="swatch tide" aria-hidden="true"></span>
-					{tr('tide.toggle')}
-				</label>
-				{#if tides.on}
-					<p class="hint">{tides.tooFar ? tr('tide.zoomIn') : tr('tide.legend')}</p>
-					{#if tides.failed}<p class="hint">{tr('tide.layerFailed')}</p>{/if}
-					<p class="hint">{tr('tide.limits')}</p>
-				{/if}
-			</section>
 		{/if}
 		<section class="credits">
 			<h2 class="eyebrow">{tr('nav.sources')}</h2>
@@ -1318,66 +1060,361 @@
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
 	</aside>
-	<div class="mapwrap">
-		<MapView
-			bind:this={mapView}
-			{lang}
-			hazards={mapHazards}
-			{zones}
-			zonesFrom={WARNINGS_MIN_ZOOM}
-			selected={mapSelected}
-			forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
-			{fires}
-			tides={tides.features}
-			radar={radar.onMap(tr('radar.credit'))}
-			rainField={rainField.onMap(tr('rainField.credit'))}
-			observedRain={observedRain.onMap(tr('observedRain.credit'))}
-			wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
-			flow={flow.grids}
-			globe
-			onselect={onMapSelect}
-			onmove={(v, z) => {
-				view = v;
-				zoom = z;
-			}}
+	<div class="frame">
+		<MapRail
+			label={tr('frame.layers')}
+			families={railFamilies}
+			bind:open={() => layerFamily, (next) => (layerFamily = next as MapFamily | null)}
+			controls="home-layers"
 		/>
-		<RadarCard {lang} {radar} />
-		<WindCard {lang} {wind} />
-		{#if !wind.on && ((observedRain.on && observedRain.activeFrame) || (rainField.on && rainField.active))}
-			<div class="map-badges">
-				{#if observedRain.on && observedRain.activeFrame}
-					<div class="rf-badge" role="status" data-testid="observed-rain-badge">
-						<span class="eyebrow">
-							{tr('observedRain.badge', {
-								time: radarTime(lang, observedRain.activeFrame.timeUtc)
-							})}
-						</span>
-						<span class="rf-badge-note">
-							{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
-								{tr('observedRain.notRadarShort', {
-									km: observedRainMeta.km,
-									delay: observedRainMeta.delay
+		<div class="mapwrap">
+			<MapView
+				bind:this={mapView}
+				{lang}
+				hazards={mapHazards}
+				{zones}
+				zonesFrom={WARNINGS_MIN_ZOOM}
+				selected={mapSelected}
+				forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
+				{fires}
+				tides={tides.features}
+				radar={radar.onMap(tr('radar.credit'))}
+				rainField={rainField.onMap(tr('rainField.credit'))}
+				observedRain={observedRain.onMap(tr('observedRain.credit'))}
+				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
+				flow={flow.grids}
+				globe
+				onselect={onMapSelect}
+				onmove={(v, z) => {
+					view = v;
+					zoom = z;
+				}}
+			/>
+			<RadarCard {lang} {radar} />
+			<!-- The card of the measured wind holds the top left, where the layers of a family open: it comes back once folded. -->
+			{#if !layerFamily}<WindCard {lang} {wind} />{/if}
+			{#if !layerFamily && !wind.on && ((observedRain.on && observedRain.activeFrame) || (rainField.on && rainField.active))}
+				<div class="map-badges">
+					{#if observedRain.on && observedRain.activeFrame}
+						<div class="rf-badge" role="status" data-testid="observed-rain-badge">
+							<span class="eyebrow">
+								{tr('observedRain.badge', {
+									time: radarTime(lang, observedRain.activeFrame.timeUtc)
 								})}
+							</span>
+							<span class="rf-badge-note">
+								{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+									{tr('observedRain.notRadarShort', {
+										km: observedRainMeta.km,
+										delay: observedRainMeta.delay
+									})}
+								{:else}
+									{tr('observedRain.notRadarShortPlain')}
+								{/if}
+							</span>
+						</div>
+					{/if}
+					{#if rainField.on && rainField.active}
+						<div class="rf-badge" role="status" data-testid="rain-field-badge">
+							<span class="eyebrow">
+								{tr('rainField.badge', {
+									model: rainField.active.level.model,
+									lead: rainField.active.frame.leadHours,
+									time: windTime(lang, rainField.active.frame.validUtc)
+								})}
+							</span>
+							<span class="rf-badge-note">{tr('rainField.notRadarShort')}</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+			{#if layerFamily}
+				<LayersPanel
+					id="home-layers"
+					title={tr(`frame.family.${layerFamily}` as Key)}
+					closeLabel={tr('frame.close')}
+					onclose={() => (layerFamily = null)}
+				>
+					{#if layerFamily === 'alerts'}
+						<p class="small">{tr('frame.alertsDesc')}</p>
+						<p class="muted small">{tr('frame.types')}</p>
+						<div class="chips" role="group" aria-label={tr('frame.types')}>
+							{#each categories as c (c)}
+								<button
+									type="button"
+									class="chip"
+									aria-pressed={!hidden.has(c)}
+									onclick={() => (hidden.has(c) ? hidden.delete(c) : hidden.add(c))}
+								>
+									{tOr(lang, `cat.${c}`, c)} <span class="count">{categoryCount(c)}</span>
+								</button>
+							{/each}
+						</div>
+						<LayerRow
+							name={tr('frame.fires')}
+							source={tr('frame.firesSub')}
+							testid="fires-toggle"
+							bind:checked={showFires}
+						/>
+						{#if showFires}
+							{#if fireOff}
+								<p class="muted small">{tr('fires.off')}</p>
 							{:else}
-								{tr('observedRain.notRadarShortPlain')}
+								<p class="muted small">
+									{tr('fires.legend', { h: fireFirst?.windowHours ?? 24 })}
+									{#if fireLevelNow.cellDeg != null}{tr('fires.zoomIn')}{/if}
+								</p>
+								{#if fireShown.some((f) => f.status === 'loading')}<p class="muted small">
+										{tr('fires.loading')}
+									</p>{/if}
+								{#if fireShown.some((f) => f.status === 'error')}<p class="muted small">
+										{tr('fires.failed')}
+									</p>{/if}
+								{#if fireShown.some((f) => f.value?.truncated)}<p class="muted small">
+										{tr('fires.truncated')}
+									</p>{/if}
+								<p class="muted small">{tr('fires.notAlert')}</p>
 							{/if}
-						</span>
-					</div>
-				{/if}
-				{#if rainField.on && rainField.active}
-					<div class="rf-badge" role="status" data-testid="rain-field-badge">
-						<span class="eyebrow">
-							{tr('rainField.badge', {
-								model: rainField.active.level.model,
-								lead: rainField.active.frame.leadHours,
-								time: windTime(lang, rainField.active.frame.validUtc)
-							})}
-						</span>
-						<span class="rf-badge-note">{tr('rainField.notRadarShort')}</span>
-					</div>
-				{/if}
-			</div>
-		{/if}
+						{/if}
+					{:else if layerFamily === 'rain'}
+						<p class="small">{tr('frame.rainDesc')}</p>
+						<LayerRow
+							name={tr('frame.radar')}
+							source={tr('frame.radarSub')}
+							testid="radar-toggle"
+							bind:checked={radar.open}
+						/>
+						{#if radar.open}
+							<p class="muted small" data-testid="radar-coverage">
+								{tr(radar.covered ? 'frame.radarHint' : 'frame.radarNone')}
+							</p>
+						{/if}
+						<LayerRow
+							name={tr('frame.observed')}
+							source={tr('frame.observedSub')}
+							testid="observed-rain-toggle"
+							bind:checked={observedRain.on}
+						/>
+						{#if observedRain.on}
+							{#if observedRain.data?.status === 'off'}
+								<p class="muted small">{tr('observedRain.off')}</p>
+							{:else if observedRain.data?.status === 'unavailable' || (observedRain.status === 'failed' && !observedRain.data)}
+								<p class="muted small">{tr('observedRain.failed')}</p>
+							{:else if observedRain.activeFrame && observedRain.data}
+								<div
+									class="chips observed-frames"
+									role="group"
+									aria-label={tr('observedRain.frames')}
+									data-testid="observed-rain-frames"
+								>
+									{#each observedRain.frames as f (f.stamp)}
+										<button
+											type="button"
+											class="chip"
+											aria-pressed={observedRain.activeFrame.stamp === f.stamp}
+											data-stamp={f.stamp}
+											onclick={() => observedRain.selectFrame(f.stamp)}
+										>
+											{radarTime(lang, f.timeUtc)}
+										</button>
+									{/each}
+								</div>
+								<p class="muted small" data-testid="observed-rain-legend">
+									{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+										{tr('observedRain.legendMeta', {
+											time: radarTime(lang, observedRain.activeFrame.timeUtc),
+											km: observedRainMeta.km,
+											delay: observedRainMeta.delay
+										})}
+									{:else}
+										{tr('observedRain.legend', {
+											time: radarTime(lang, observedRain.activeFrame.timeUtc)
+										})}
+									{/if}
+								</p>
+								{#if observedRain.data.legend.length}
+									{@const hasSnow = observedRain.data.snowLegend.length > 0}
+									<div class="rf-scale" class:with-label={hasSnow} data-testid="observed-rain-scale">
+										{#if hasSnow}
+											<div class="rf-scale-row">
+												<span class="rf-scale-label">{tr('observedRain.rainScale')}</span>
+												<div
+													class="rf-bar"
+													role="img"
+													aria-label="{tr('observedRain.rainScale')}: {observedRain.data.legend
+														.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+														.join(', ')}"
+												>
+													{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}
+														></i>{/each}
+												</div>
+											</div>
+											<div class="rf-scale-row">
+												<span class="rf-scale-label">{tr('observedRain.snowScale')}</span>
+												<div
+													class="rf-bar"
+													role="img"
+													aria-label="{tr('observedRain.snowScale')}: {observedRain.data.snowLegend
+														.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+														.join(', ')}"
+												>
+													{#each observedRain.data.snowLegend as c (c.minMmH)}<i style:background={c.color}
+														></i>{/each}
+												</div>
+											</div>
+											<div class="rf-scale-row">
+												<span class="rf-scale-label" aria-hidden="true"></span>
+												<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
+													{#each observedRainMarks as m (m.i)}
+														<span
+															class:last={m.i === observedRain.data.legend.length - 1}
+															style:grid-column={m.i === observedRain.data.legend.length - 1
+																? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
+																: m.i + 1}
+															>{m.text}{m.i === observedRain.data.legend.length - 1
+																? ` ${tr('radar.unit')}`
+																: ''}</span
+														>
+													{/each}
+												</div>
+											</div>
+										{:else}
+											<div
+												class="rf-bar"
+												role="img"
+												aria-label="{tr('radar.legend')}: {observedRain.data.legend
+													.map((c) => `≥ ${rate(lang, c.minMmH)}`)
+													.join(', ')}"
+											>
+												{#each observedRain.data.legend as c (c.minMmH)}<i style:background={c.color}
+													></i>{/each}
+											</div>
+											<div class="rf-marks" style:--n={observedRain.data.legend.length} aria-hidden="true">
+												{#each observedRainMarks as m (m.i)}
+													<span
+														class:last={m.i === observedRain.data.legend.length - 1}
+														style:grid-column={m.i === observedRain.data.legend.length - 1
+															? `${Math.max(1, m.i - 1)} / ${m.i + 2}`
+															: m.i + 1}
+														>{m.text}{m.i === observedRain.data.legend.length - 1
+															? ` ${tr('radar.unit')}`
+															: ''}</span
+													>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/if}
+								<p class="muted small" data-testid="observed-rain-disclaimer">
+									{#if observedRainMeta.km !== null && observedRainMeta.delay !== null}
+										{tr('observedRain.notRadar', { km: observedRainMeta.km, delay: observedRainMeta.delay })}
+									{:else}
+										{tr('observedRain.notRadarPlain')}
+									{/if}
+								</p>
+							{:else}
+								<p class="muted small">{tr('observedRain.loading')}</p>
+							{/if}
+						{/if}
+						<LayerRow
+							name={tr('frame.rainField')}
+							source={tr('frame.rainFieldSub')}
+							testid="rain-field-toggle"
+							bind:checked={rainField.on}
+						/>
+						{#if rainField.on}
+							{#if rainField.field?.status === 'off'}
+								<p class="muted small">{tr('rainField.off')}</p>
+							{:else if rainField.field?.status === 'unavailable' || (rainField.status === 'failed' && !rainField.field)}
+								<p class="muted small">{tr('rainField.failed')}</p>
+							{:else if rainField.active && rainField.field}
+								<div
+									class="chips"
+									role="group"
+									aria-label={tr('rainField.leads')}
+									data-testid="rain-field-leads"
+								>
+									{#each rainField.leads as h (h)}
+										<button
+											type="button"
+											class="chip"
+											aria-pressed={rainField.leadHours === h}
+											onclick={() => rainField.setLead(h)}
+										>
+											+{h} h
+										</button>
+									{/each}
+								</div>
+								<p class="muted small" data-testid="rain-field-legend">
+									{tr('rainField.legend', {
+										model: rainField.active.level.model,
+										time: windTime(lang, rainField.active.frame.validUtc),
+										lead: rainField.active.frame.leadHours
+									})}
+								</p>
+								<RainScale {lang} legend={rainField.field.legend} testid="rain-field-scale" />
+								<p class="muted small" data-testid="rain-field-disclaimer">{tr('rainField.notRadar')}</p>
+							{:else}
+								<p class="muted small">{tr('rainField.loading')}</p>
+							{/if}
+						{/if}
+					{:else if layerFamily === 'wind'}
+						<p class="small">{tr('frame.windDesc')}</p>
+						<LayerRow
+							name={tr('frame.flow')}
+							source={tr('frame.flowSub')}
+							testid="flow-toggle"
+							bind:checked={flow.on}
+						/>
+						{#if flow.on}
+							{#if flow.field?.status === 'off'}
+								<p class="muted small">{tr('flow.off')}</p>
+							{:else if flow.field?.status === 'unavailable' || (flow.status === 'failed' && !flow.field)}
+								<p class="muted small">{tr('flow.failed')}</p>
+							{:else if flow.valid !== null}
+								<p class="muted small" data-testid="flow-legend">
+									{tr(
+										flow.field?.stale || flow.valid !== nearestHour(Date.now())
+											? 'flow.legendOld'
+											: 'flow.legend',
+										{
+											time: windTime(lang, flow.valid)
+										}
+									)}
+								</p>
+								<FlowScale {lang} unit={wind.unit} />
+								<p class="muted small">{tr('flow.note')}</p>
+							{:else}
+								<p class="muted small">{tr('flow.loading')}</p>
+							{/if}
+						{/if}
+						<LayerRow
+							name={tr('frame.measured')}
+							source={tr('frame.measuredSub')}
+							testid="wind-toggle"
+							bind:checked={wind.on}
+						/>
+						{#if wind.on}
+							<p class="muted small">{tr('wind.hint')}</p>
+							<p class="muted small">{tr('wind.note')}</p>
+						{/if}
+					{:else}
+						<p class="small">{tr('frame.tideDesc')}</p>
+						<LayerRow
+							name={tr('frame.tides')}
+							source={tr('frame.tidesSub')}
+							testid="tide-toggle"
+							bind:checked={tides.on}
+						/>
+						{#if tides.on}
+							<p class="muted small">{tides.tooFar ? tr('tide.zoomIn') : tr('tide.legend')}</p>
+							{#if tides.failed}<p class="muted small">{tr('tide.layerFailed')}</p>{/if}
+							<p class="muted small">{tr('tide.limits')}</p>
+						{/if}
+					{/if}
+				</LayersPanel>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -1571,10 +1608,18 @@
 		flex-direction: column;
 		gap: 18px;
 	}
+	/* The frame of the map: the rail of the families of layers (`MapRail`), a row over the map on a phone, a column on its left on
+	   a computer; their choices open over the map. */
+	.frame {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
 	.mapwrap {
 		height: 58vh;
 		min-height: 320px;
 		position: relative;
+		min-width: 0;
 	}
 	@media (min-width: 900px) {
 		.app {
@@ -1599,8 +1644,10 @@
 		.rail {
 			grid-area: rail;
 		}
-		.mapwrap {
+		.frame {
 			grid-area: map;
+			flex-direction: row;
+			min-height: 0;
 		}
 		.rail {
 			overflow-y: auto;
@@ -1609,6 +1656,7 @@
 			padding-right: 16px;
 		}
 		.mapwrap {
+			flex: 1;
 			height: auto;
 			min-height: 0;
 		}
@@ -1673,34 +1721,6 @@
 		font-size: 13px;
 		color: var(--muted);
 		cursor: pointer;
-	}
-	.check input {
-		accent-color: var(--accent);
-		width: 16px;
-		height: 16px;
-		margin: 0;
-	}
-	.swatch {
-		width: 10px;
-		height: 10px;
-		flex: none;
-		border-radius: 50%;
-		background: var(--fire);
-	}
-	.swatch.tide {
-		background: var(--accent);
-	}
-	.swatch.wind {
-		background: var(--wind-3);
-	}
-	.swatch.flow {
-		background: var(--flow);
-	}
-	.swatch.rain-field {
-		background: var(--surf-q2);
-	}
-	.swatch.observed-rain {
-		background: var(--calm-ink);
 	}
 	.observed-frames .chip {
 		padding: 3px 8px;
@@ -1767,25 +1787,6 @@
 	.rf-badge-note {
 		font-size: 11.5px;
 		color: var(--muted);
-	}
-	.flow-scale {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 14px;
-	}
-	.flow-scale span {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-	}
-	.ink {
-		width: 16px;
-		height: 2px;
-		border-radius: 1px;
-		background: var(--wind-4);
-	}
-	.ink.stronger {
-		background: var(--wind-5);
 	}
 	.list {
 		display: flex;

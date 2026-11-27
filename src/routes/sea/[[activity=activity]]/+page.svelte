@@ -9,6 +9,10 @@
 	import { goto } from '$app/navigation';
 	import { ACTIVITY_IDS, activityText, type ActivityId, type Verdict } from '#lib/activities.js';
 	import Credits from '#lib/components/Credits.svelte';
+	import FlowScale from '#lib/components/FlowScale.svelte';
+	import LayerRow from '#lib/components/LayerRow.svelte';
+	import LayersPanel from '#lib/components/LayersPanel.svelte';
+	import MapRail, { type RailFamily } from '#lib/components/MapRail.svelte';
 	import MapView from '#lib/components/MapView.svelte';
 	import RadarCard from '#lib/components/RadarCard.svelte';
 	import RainScale from '#lib/components/RainScale.svelte';
@@ -16,14 +20,13 @@
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { readFollowed } from '#lib/followed.js';
 	import type { Box } from '#lib/geo.js';
-	import { translator } from '#lib/i18n.js';
+	import { translator, type Key } from '#lib/i18n.js';
 	import { pollWhileVisible } from '#lib/pollVisible.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
 	import { answerText } from '#lib/sea/answer.js';
 	import { buoysText } from '#lib/sea/buoys.js';
 	import { DEFAULT_CHOICE, readChoice, updateChoice, type SeaChoice } from '#lib/sea/choice.js';
-	import LayerRow from '#lib/sea/LayerRow.svelte';
 	import { BAND, pinFeatures, seaPins, windIsTheFigure } from '#lib/sea/map.js';
 	import { answerOf, NEAR_KM, rankSpots, SLUGS } from '#lib/sea/overview.js';
 	import SeaSettings from '#lib/sea/SeaSettings.svelte';
@@ -34,8 +37,7 @@
 	import { apiSentence, seaText } from '#lib/sea/text.js';
 	import { windRangeText } from '#lib/sea/units.js';
 	import { dayLabel, hourLabel } from '#lib/surf.js';
-	import { windTime, windValue } from '#lib/wind.js';
-	import { FLOW_STRONG_KMH } from '#lib/windField.js';
+	import { windTime } from '#lib/wind.js';
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
 	import { WindLayer } from '#lib/windLayer.svelte.js';
 
@@ -220,15 +222,21 @@
 		f === 'wind'
 			? Number(windOnPins || choice.beachWind) + Number(flow.on) + Number(wind.on)
 			: f === 'rain'
-				? Number(radar.open) + Number(rainField.on)
+				? Number(radar.open && radar.covered) + Number(rainField.on)
 				: 0;
 	const familyOn = (f: Family): boolean => f === 'spots' || countOf(f) > 0;
-	// The two strengths the forecast wind's trails are inked for, in the unit chosen on this page.
-	const flowSpeed = (kmh: number) =>
-		tr('wind.speed', {
-			value: String(windValue(kmh, choice.unit)),
-			unit: tr(choice.unit === 'kn' ? 'wind.kn' : 'wind.kmh')
-		});
+	const familyName = (f: Family): string =>
+		f === 'spots' ? t('family.spots') : tr(`frame.family.${f}` as Key);
+	const railFamilies = $derived<RailFamily[]>(
+		FAMILIES.map((f) => ({
+			id: f,
+			icon: f,
+			label: familyName(f),
+			count: countOf(f),
+			countSaid: tr(countOf(f) > 1 ? 'frame.countMany' : 'frame.count', { count: countOf(f) }),
+			on: familyOn(f)
+		}))
+	);
 
 	const name = $derived(activityText(lang, `activity.${active}`));
 	const pageTitle = $derived(data.activity ? `${name} · ${t('title')}` : `${t('page')} · ${t('title')}`);
@@ -240,20 +248,6 @@
 
 <Seo title={pageTitle} {description} />
 <svelte:window onkeydown={onKey} />
-
-{#snippet familyIcon(f: Family)}
-	<svg viewBox="0 0 24 24" aria-hidden="true">
-		{#if f === 'spots'}
-			<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" />
-		{:else if f === 'wind'}
-			<path d="M3 8h11a3 3 0 1 0-3-3" /><path d="M3 12h16a3 3 0 1 1-3 3" /><path d="M3 16h8" />
-		{:else}
-			<path d="M7 15a4 4 0 0 1 .5-8A5.5 5.5 0 0 1 18 8.5 3.5 3.5 0 0 1 17.5 15z" /><path
-				d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"
-			/>
-		{/if}
-	</svg>
-{/snippet}
 
 <div class="sea-app">
 	<div class="panel">
@@ -374,23 +368,12 @@
 		</nav>
 
 		<div class="frame">
-			<div class="rail" role="group" aria-label={t('layers')}>
-				{#each FAMILIES as f (f)}
-					<button
-						type="button"
-						class:on={familyOn(f)}
-						aria-expanded={family === f}
-						aria-controls="sea-layers"
-						onclick={() => (family = family === f ? null : f)}
-						>{@render familyIcon(f)}<span>{t(`family.${f}`)}</span>{#if countOf(f)}<i
-								class="count"
-								aria-hidden="true">{countOf(f)}</i
-							><span class="visually-hidden"
-								>({t(countOf(f) > 1 ? 'layers.countMany' : 'layers.count', { count: countOf(f) })})</span
-							>{/if}</button
-					>
-				{/each}
-			</div>
+			<MapRail
+				label={tr('frame.layers')}
+				families={railFamilies}
+				bind:open={() => family, (next) => (family = next as Family | null)}
+				controls="sea-layers"
+			/>
 
 			<div class="mapzone" bind:this={mapBox}>
 				<MapView
@@ -432,13 +415,12 @@
 				{/if}
 
 				{#if family}
-					<section class="layers" id="sea-layers" aria-label={t(`family.${family}`)}>
-						<header>
-							<h2>{t(`family.${family}`)}</h2>
-							<button type="button" class="x" aria-label={t('layers.close')} onclick={() => (family = null)}>
-								<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-							</button>
-						</header>
+					<LayersPanel
+						id="sea-layers"
+						title={familyName(family)}
+						closeLabel={tr('frame.close')}
+						onclose={() => (family = null)}
+					>
 						{#if family === 'spots'}
 							<p class="small">{t('layers.spotsHint')}</p>
 							<p class="muted small">{t('layers.spotsLegend')}</p>
@@ -458,8 +440,8 @@
 								bind:checked={() => windOnPins || choice.beachWind, (on) => change({ beachWind: on })}
 							/>
 							<LayerRow
-								name={t('layers.flow')}
-								source={t('layers.flowSub')}
+								name={tr('frame.flow')}
+								source={tr('frame.flowSub')}
 								testid="flow-toggle"
 								bind:checked={flow.on}
 							/>
@@ -477,26 +459,15 @@
 											{ time: windTime(lang, flow.valid) }
 										)}
 									</p>
-									<p class="muted small flow-scale" data-testid="flow-scale">
-										<span
-											><i class="ink" aria-hidden="true"></i>{tr('flow.strong', {
-												speed: flowSpeed(FLOW_STRONG_KMH[0])
-											})}</span
-										>
-										<span
-											><i class="ink stronger" aria-hidden="true"></i>{tr('flow.strong', {
-												speed: flowSpeed(FLOW_STRONG_KMH[1])
-											})}</span
-										>
-									</p>
+									<FlowScale {lang} unit={choice.unit} testid="flow-scale" />
 									<p class="muted small">{tr('flow.note')}</p>
 								{:else}
 									<p class="muted small">{tr('flow.loading')}</p>
 								{/if}
 							{/if}
 							<LayerRow
-								name={t('layers.measured')}
-								source={t('layers.measuredSub')}
+								name={tr('frame.measured')}
+								source={tr('frame.measuredSub')}
 								testid="wind-toggle"
 								bind:checked={wind.on}
 							/>
@@ -504,19 +475,19 @@
 						{:else}
 							<p class="small">{t('layers.rainDesc')}</p>
 							<LayerRow
-								name={t('layers.radar')}
-								source={t('layers.radarSub')}
+								name={tr('frame.radar')}
+								source={tr('frame.radarSub')}
 								testid="radar-toggle"
 								bind:checked={radar.open}
 							/>
 							{#if radar.open}
 								<p class="muted small" data-testid="radar-coverage">
-									{t(radar.covered ? 'layers.radarHint' : 'layers.radarNone')}
+									{tr(radar.covered ? 'frame.radarHint' : 'frame.radarNone')}
 								</p>
 							{/if}
 							<LayerRow
-								name={t('layers.rainField')}
-								source={t('layers.rainFieldSub')}
+								name={tr('frame.rainField')}
+								source={tr('frame.rainFieldSub')}
 								testid="rain-field-toggle"
 								bind:checked={rainField.on}
 							/>
@@ -555,7 +526,7 @@
 								{/if}
 							{/if}
 						{/if}
-					</section>
+					</LayersPanel>
 				{/if}
 
 				{#if chosenSpot || town}
@@ -752,33 +723,12 @@
 		color: var(--on-sev);
 	}
 
-	/* The frame of the map: the rail of the families of layers, a row under the bar on a phone, a column on its left on a
-	   computer; nothing of it over the map, where the coast and its pins are. */
+	/* The frame of the map: the rail of the families of layers (`MapRail`), a row under the bar on a phone, a column on its
+	   left on a computer; nothing of it over the map, where the coast and its pins are. */
 	.frame {
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
-	}
-	.rail {
-		display: flex;
-		gap: 6px;
-		padding: 6px var(--gutter-r) 6px var(--gutter);
-		background: var(--surface);
-		border-bottom: 1px solid var(--line);
-	}
-	.rail button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		min-height: 40px;
-		padding: 4px 12px;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		background: var(--surface);
-		color: var(--muted);
-		font: 600 13px/1.1 var(--font-body);
-		cursor: pointer;
 	}
 	@media (min-width: 900px) {
 		.frame {
@@ -786,137 +736,8 @@
 			flex-direction: row;
 			min-height: 0;
 		}
-		.rail {
-			flex: none;
-			flex-direction: column;
-			width: 76px;
-			padding: 10px 8px;
-			border-bottom: 0;
-			border-right: 1px solid var(--line);
-		}
-		.rail button {
-			flex-direction: column;
-			gap: 3px;
-			min-height: 58px;
-			padding: 6px 2px;
-			font-size: 11.5px;
-		}
-	}
-	.rail button svg {
-		width: 22px;
-		height: 22px;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.9;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-	.rail button {
-		position: relative;
-	}
-	.rail button.on {
-		color: var(--accent);
-	}
-	/* How many layers of the family are shown, in a dot after its name on a phone, on the corner of its button on a computer. */
-	.rail .count {
-		min-width: 17px;
-		height: 17px;
-		padding: 0 4px;
-		border-radius: 9px;
-		background: var(--accent);
-		color: var(--surface);
-		font: 700 11px/17px var(--font-body);
-		font-style: normal;
-		text-align: center;
-	}
-	@media (min-width: 900px) {
-		.rail .count {
-			position: absolute;
-			top: 3px;
-			right: 3px;
-		}
-	}
-	.rail button:hover,
-	.rail button[aria-expanded='true'] {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
-	.rail button[aria-expanded='true'] {
-		background: var(--accent-soft);
 	}
 
-	/* The choices of a family, over the map beside the rail. */
-	.layers {
-		position: absolute;
-		left: 10px;
-		top: 10px;
-		z-index: 5;
-		width: min(310px, calc(100% - 64px));
-		max-height: calc(100% - 20px);
-		overflow-y: auto;
-		padding: 12px 14px;
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-	.layers header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 8px;
-	}
-	.layers h2 {
-		margin: 0;
-		font-size: 17px;
-	}
-	.layers p {
-		margin: 0;
-	}
-	.x {
-		width: 32px;
-		height: 32px;
-		display: grid;
-		place-items: center;
-		border: 1px solid var(--line);
-		border-radius: 50%;
-		background: var(--surface);
-		color: var(--ink);
-		cursor: pointer;
-	}
-	.x svg {
-		width: 12px;
-		height: 12px;
-		stroke: currentColor;
-		stroke-width: 2;
-		stroke-linecap: round;
-	}
-	/* The forecast wind's two inks, as in its legend on the home map. */
-	.flow-scale {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 14px;
-	}
-	.flow-scale span {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-	}
-	.ink {
-		width: 16px;
-		height: 2px;
-		border-radius: 1px;
-		background: var(--wind-4);
-	}
-	.ink.stronger {
-		background: var(--wind-5);
-	}
-	.layers .chips {
-		margin: 2px 0;
-	}
 	/* The forecast rain said on the map when the layers are folded: a forecast, not a radar. */
 	.rf-badge {
 		position: absolute;
