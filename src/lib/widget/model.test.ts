@@ -255,16 +255,29 @@ describe('the address of the widget', () => {
 			size: 'large',
 			theme: 'light',
 			spot: 'anglet-plage',
+			frame: 'board',
 			board: true,
+			forecast: 'hours',
 			face: null
 		});
-		expect(parseWidgetParams(new URLSearchParams('size=huge&theme=pink&spot=../x&frame=window'))).toEqual({
+		expect(
+			parseWidgetParams(new URLSearchParams('size=huge&theme=pink&spot=../x&frame=window&fc=weeks'))
+		).toEqual({
 			size: 'medium',
 			theme: 'sky',
 			spot: null,
+			frame: null,
 			board: false,
+			forecast: 'hours',
 			face: null
 		});
+	});
+
+	it('reads the bare frame of the board and the choice of the next days', () => {
+		const p = parseWidgetParams(new URLSearchParams('size=small&frame=bare&fc=Days'));
+		expect(p.frame).toBe('bare');
+		expect(p.board).toBe(true);
+		expect(p.forecast).toBe('days');
 	});
 
 	it('reads the home face of the Home Assistant card, and nothing else as a face', () => {

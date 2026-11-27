@@ -55,7 +55,21 @@ const TEXT = {
 		hoursBy: '24 h · par {n} h',
 		daysTitle: '{n} jours · max et min',
 		night: 'nuit',
-		sun: 'soleil'
+		sun: 'soleil',
+		snowNow: 'Il neige',
+		snowSoon: 'Neige dans {n} min',
+		'strength.light': 'faible',
+		'strength.moderate': 'modérée',
+		'strength.heavy': 'forte',
+		rainThen: '{a}, puis {b}',
+		nextRain: 'Prochaine pluie {d}vers {t}',
+		dryUntil: 'Sec jusqu’à {d}{t}',
+		noRain: 'Pas de pluie',
+		noRainBefore: 'avant {d}vers {t}',
+		noRainUntil: 'jusqu’à {d}{t}',
+		tomorrow: 'demain',
+		dayAfter: 'après-demain',
+		nextHour: '+1 h'
 	},
 	en: {
 		title: 'Vigie · widget',
@@ -109,7 +123,21 @@ const TEXT = {
 		hoursBy: '24 h · every {n} h',
 		daysTitle: '{n} days · high and low',
 		night: 'night',
-		sun: 'sun'
+		sun: 'sun',
+		snowNow: 'Snowing',
+		snowSoon: 'Snow in {n} min',
+		'strength.light': 'light',
+		'strength.moderate': 'moderate',
+		'strength.heavy': 'heavy',
+		rainThen: '{a}, then {b}',
+		nextRain: 'Next rain {d}around {t}',
+		dryUntil: 'Dry until {d}{t}',
+		noRain: 'No rain',
+		noRainBefore: 'until {d}around {t}',
+		noRainUntil: 'until {d}{t}',
+		tomorrow: 'tomorrow',
+		dayAfter: 'the day after',
+		nextHour: '+1 h'
 	}
 } as const;
 

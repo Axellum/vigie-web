@@ -1,4 +1,4 @@
-// What the address of the widget page says: `/widget?size=medium&theme=sky&spot=anglet-la-madrague#43.483,-1.559/Biarritz`
+// What the address of the widget page says: `/widget?size=medium&theme=sky&fc=days&spot=anglet-la-madrague#43.483,-1.559/Biarritz`
 // (`face=home` for the home and Details pages of the Home Assistant card instead).
 // The size, the theme and the surf spot are in the query: they are the same for everybody and the server draws the spot. The place
 // is after the `#`, so that it never reaches the server: the browser matches it against the warnings, and asks the weather of its
@@ -13,16 +13,29 @@ export type WidgetSize = (typeof WIDGET_SIZES)[number];
 export const WIDGET_THEMES = ['sky', 'dark', 'light'] as const;
 export type WidgetTheme = (typeof WIDGET_THEMES)[number];
 
+/** What the small and the medium widgets forecast, chosen in the app: the next hours or the next days. */
+export const WIDGET_FORECASTS = ['hours', 'days'] as const;
+export type WidgetForecast = (typeof WIDGET_FORECASTS)[number];
+
+/**
+ * The frame of the Windows widgets board. `board`: the board writes the widget's name over the top 48 pixels of the page (the
+ * "attribution area" of Microsoft's web widgets), which the page leaves empty. `bare`: the app asked the board for no name
+ * (`"header": null` in the card it gives), so the page has its whole height, but for the board's « ··· » menu in the top right
+ * corner (measured on 2026-11-27: centred about 271 × 23 px).
+ */
+export type WidgetFrame = 'board' | 'bare';
+
 export interface WidgetParams {
 	size: WidgetSize;
 	theme: WidgetTheme;
 	/** The surf spot (its id in the API, from `/surf`); null when the address does not name one. */
 	spot: string | null;
-	/**
-	 * `frame=board`: the page is a widget of the Windows widgets board, which writes the widget's name over its top 48 pixels
-	 * (the "attribution area" of Microsoft's web widgets): the page leaves that band empty.
-	 */
+	/** `frame=board` or `frame=bare`: the page is a widget of the Windows widgets board (WidgetFrame); null elsewhere. */
+	frame: WidgetFrame | null;
+	/** True in either frame of the board: the layout follows the height the board gives (boardSize). */
 	board: boolean;
+	/** `fc=days`: the small and the medium widgets show the next days; the next hours otherwise. */
+	forecast: WidgetForecast;
 	/**
 	 * `face=home`: the home and Details pages of the Home Assistant card instead of the widget, at the card's own size
 	 * (480 × 760); what the Windows app shows in its flyout. Null: the widget.
@@ -54,11 +67,15 @@ const oneOf = <T extends string>(all: readonly T[], value: string | null | undef
 
 export function parseWidgetParams(query: URLSearchParams): WidgetParams {
 	const spot = query.get('spot')?.trim().toLowerCase() ?? '';
+	const frameWord = query.get('frame')?.trim().toLowerCase();
+	const frame: WidgetFrame | null = frameWord === 'board' || frameWord === 'bare' ? frameWord : null;
 	return {
 		size: oneOf(WIDGET_SIZES, query.get('size'), WIDGET_DEFAULTS.size),
 		theme: oneOf(WIDGET_THEMES, query.get('theme'), WIDGET_DEFAULTS.theme),
 		spot: SPOT.test(spot) ? spot : null,
-		board: query.get('frame')?.trim().toLowerCase() === 'board',
+		frame,
+		board: frame != null,
+		forecast: oneOf(WIDGET_FORECASTS, query.get('fc'), 'hours'),
 		face: query.get('face')?.trim().toLowerCase() === 'home' ? 'home' : null
 	};
 }
