@@ -175,9 +175,10 @@ private fun Centered(content: @Composable () -> Unit) {
 }
 
 /** The left and right margin the system bars and the cutout need, the larger of the two on both sides: in landscape the camera's
- *  cutout is on one side only, and the card stood 145 px right of the middle (seen on the Pixel 6 Pro, 27/11/2026). */
+ *  cutout is on one side only, and the card stood 145 px right of the middle (seen on the Pixel 6 Pro, 27/11/2026). Also the margin
+ *  of the pages drawn on the sky ([SkyPage]: the places, the warnings, the first launch, the settings of a widget). */
 @Composable
-private fun evenSide(): Dp {
+internal fun evenSide(): Dp {
   val insets = WindowInsets.safeDrawing
   val density = LocalDensity.current
   val direction = LocalLayoutDirection.current
