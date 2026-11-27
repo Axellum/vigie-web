@@ -245,6 +245,10 @@ export interface PointWeather {
 		expected60: boolean | null;
 		maxMmH: number | null;
 		attribution: string | null;
+		/** When the first step starts (epoch seconds UTC); absent from an older API, which counts from its answer. */
+		startUtc?: number | null;
+		/** Météo-France's PIAF, France only: the rain rate of each 5-minute step of the hour, in mm/h; null elsewhere. */
+		rate5mMmH?: number[] | null;
 	} | null;
 	/**
 	 * What Météo-France's AROME-PI model forecasts for the next hours, as levels (France only, null elsewhere). A model

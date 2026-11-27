@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 // The widget page (/widget), which a desktop app shows in a panel a few hundred pixels wide: a place after the `#`, a surf spot in
@@ -37,12 +39,53 @@ test('a place: its sky, its warnings and its rain, and the exact position never 
 	await expect(page.getByText('17°')).toBeVisible();
 	// The recorded weather is weeks old: the rain of the hour is not told from it.
 	await expect(page.getByText('Pluie de l’heure non lue')).toBeVisible();
-	await expect(page.getByText(/Vigilance|vigilance/).first()).toBeVisible();
+	// The warning in the header: its pill, or the quiet words.
+	await expect(page.locator('.head .pill, .head .quiet').first()).toBeVisible();
 	await expect(page.getByText('Vigilances…')).toHaveCount(0);
 	expect(await overflow(page)).toBe(0);
 	// Only the cell of the grid goes to the server, for the weather and the measured wind.
 	expect(asked.some((u) => u.includes('/data/point.json?lat=42.3&lon=9.15'))).toBe(true);
 	expect(asked.filter((u) => u.includes('42.306') || u.includes('9.149'))).toEqual([]);
+	expect(errors).toEqual([]);
+});
+
+// The look of the card's home page (piste B): with the clock at the time of the recorded answer, its hours and days are still to
+// come, and the widget draws them as « Lueur » columns.
+const RECORDED_AT = (
+	JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'point.json'), 'utf-8')) as {
+		server_utc: number;
+	}
+).server_utc;
+
+test('the columns of the card: the hours by three and the days in the large widget, hour by hour in the small one', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.clock.setFixedTime(new Date((RECORDED_AT + 60) * 1000));
+	await page.setViewportSize({ width: SIZES.large[0], height: SIZES.large[1] });
+	await page.goto(`/widget?size=large&theme=dark${PLACE}`);
+	await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.locator('.head')).toContainText('Corte');
+	await expect(page.locator('.head')).toContainText('17°');
+	await expect(page.getByText('Pas de pluie dans l’heure')).toBeVisible();
+	// Eight columns of three hours, then five days, each drawn at the size of its box.
+	await expect(page.locator('.hours svg rect[fill^="url(#"]')).toHaveCount(8);
+	await expect(page.locator('.hours')).toContainText('24 h · par 3 h');
+	await expect(page.locator('.days svg circle[r="3.4"]')).toHaveCount(10);
+	await expect(page.locator('.days')).toContainText('Auj.');
+	expect(await overflow(page)).toBe(0);
+	// Nothing goes out at the side either: a long title of the rain takes the room of its bars.
+	expect(await page.locator('.rain').evaluate((e) => e.scrollWidth - e.clientWidth)).toBe(0);
+
+	await page.setViewportSize({ width: SIZES.small[0], height: SIZES.small[1] });
+	await page.goto(`/widget?size=small&theme=light${PLACE}`);
+	await expect(page.locator('.widget')).toHaveAttribute('data-ready', 'yes');
+	await expect(page.locator('.compact svg rect[fill^="url(#"]')).toHaveCount(6);
+	await expect(page.locator('.compact-rain')).toContainText('Pas de pluie dans l’heure');
+	// The recorded warnings hold Corsica: their pill (the phenomenon alone) takes the room of the flat bars of a dry hour.
+	await expect(page.locator('.compact-rain .pill')).toContainText('Crues, inondations +2');
+	await expect(page.locator('.compact-rain .bars')).toHaveCount(0);
+	expect(await overflow(page)).toBe(0);
 	expect(errors).toEqual([]);
 });
 

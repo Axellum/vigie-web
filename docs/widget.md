@@ -20,8 +20,8 @@ https://<the site>/widget?size=medium&theme=sky&spot=anglet-plage-de-la-madrague
 A value that makes no sense is replaced by its default, never by an error.
 
 A host may give the page another height than its size says. The page never cuts a part in the middle: it hides whole
-parts until the rest fits, the five days first, then the gusts forecast, the wind, and the spot last. The warnings, the
-rain of the hour and the header always stay.
+parts until the rest fits, the five days first, then the hours, and the spot last. The header and the rain of the hour
+always stay; the columns of the hours and the days are drawn at the height left to them.
 
 In the Windows widgets board (`frame=board`), Windows writes the widget's name over the top 48 pixels, which the page
 leaves empty, and the page takes its layout from the height it is given rather than from `size`: measured in November
@@ -30,15 +30,19 @@ large layout, from 200 the medium one, below that the small one.
 
 ## What it shows
 
-- **A place**: its sky, its temperature and how it feels; the official warnings whose area holds it (level, phenomena,
-  until when); the rain of the next hour in four steps of 15 minutes, a forecast of the weather model (the radar fields of
-  the API are not used); the wind measured by the nearest station within 25 km, else the forecast wind. The large size
-  adds the gusts that Météo-France's AROME-PI model forecasts, the next five days and, with a `spot`, its verdicts.
+- **A place**, in the look of the home page of the Home Assistant card (its rules, palettes and icons): the weather now
+  and the official warning whose area holds it (its phenomenon and level as a pill, « Aucune vigilance » without one);
+  the rain of the next hour on one line, when it comes and a bar per step (the twelve 5-minute rates of Météo-France's
+  PIAF in France, else four steps of 15 minutes of the weather model; the radar fields of the API are not used); then
+  the « Lueur » columns of the hours, tinted by their sun (grey to gold, navy at night). The small size shows six
+  columns hour by hour beside the weather now, the rain of the hour and the warning under them; the medium one the next
+  24 hours by three (icon, temperature curve, rain, wind); the large one adds five days as two curves round a band and,
+  with a `spot`, its verdicts.
 - **A surf spot** (a `spot` without a place, or inside the large size): the verdicts of its four activities for the next
   twelve hours, from the same model as the television screens (`/tv`), its swell and its next tide. "Vigie's rules, not
   for safety" is written under them.
-- **Outside France** the page shows less, never a guess: no measured wind where no station is near, no AROME-PI gusts,
-  "no official warning read here" where the API reads no source.
+- **Outside France** the page shows less, never a guess: four steps of 15 minutes for the rain of the hour, "no
+  official warning read here" where the API reads no source.
 
 ## Privacy
 
