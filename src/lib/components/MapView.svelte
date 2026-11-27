@@ -30,6 +30,7 @@
 	import type { RainFieldOnMap } from '#lib/rainField.js';
 	import { RainFieldPainter, type PaintedRain } from '#lib/rainFieldPainter.js';
 	import type { ObservedRainOnMap } from '#lib/observedRain.js';
+	import { bandOf, keepLabels, LABEL_OFFSET, type SeaPin } from '#lib/sea/map.js';
 	import { compass } from '#lib/surf.js';
 	import {
 		badgeRadius,
@@ -86,6 +87,9 @@
 		flow?: FieldGrid[] | null;
 		/** Surf spots (`properties.id`, `name`, and `q`: the band of the rating of the current hour, 0 to 3, or -1 without one). */
 		spots?: FeatureCollection | null;
+		/** The pins of the sea map (`sea/map.ts`): a label beside the dot of each spot of `spots`, with the figures of the hour; where
+		 * labels would touch, the best verdict is kept, and the spot selected always. A click on a label selects its spot. */
+		pins?: SeaPin[] | null;
 		onselect?: (selection: Selection) => void;
 		onmove?: (view: Box, zoom: number) => void;
 		/** When given, a click on the map chooses a place. */
@@ -114,6 +118,7 @@
 		wind = null,
 		flow = null,
 		spots = null,
+		pins = null,
 		onselect,
 		onmove,
 		onpick
@@ -1008,6 +1013,84 @@
 		}
 	}
 
+	// The labels of the sea map's spots: HTML, laid out again after each move (`keepLabels`), on the left of their dot.
+	const pinMarkers = new Map<
+		string,
+		{ marker: Marker; el: HTMLButtonElement; key: string; side: 'left' | 'right' }
+	>();
+	const ARROW = '<path d="M8 13V3M4 7l4-4 4 4"/>';
+	// The tide: a wave under an arrow that goes up or down, so that it is not taken for the wind's arrow beside it.
+	const TIDE = {
+		rising:
+			'<path d="M1.5 14c1.6-1.2 3-1.2 4.4 0s2.8 1.2 4.2 0 2.8-1.2 4.4 0"/><path d="M8 10.5V2.5M5 5.5l3-3 3 3"/>',
+		falling:
+			'<path d="M1.5 14c1.6-1.2 3-1.2 4.4 0s2.8 1.2 4.2 0 2.8-1.2 4.4 0"/><path d="M8 2.5v8M5 7.5l3 3 3-3"/>'
+	};
+
+	function syncPins() {
+		if (!map || !ml) return;
+		const chosen = selected?.kind === 'spot' ? selected.id : null;
+		const { clientWidth: w, clientHeight: h } = map.getContainer();
+		const kept = keepLabels(
+			pins ?? [],
+			(p) => {
+				const xy = map!.project([p.lon, p.lat]);
+				return xy.x < 0 || xy.y < 0 || xy.x > w || xy.y > h ? null : [xy.x, xy.y];
+			},
+			chosen
+		);
+		const wanted = new Map(kept.map((k) => [k.pin.id, k]));
+		for (const [id, m] of pinMarkers) {
+			// A label that changes side is made again: the anchor of a marker is set when it is made.
+			if (wanted.get(id)?.side !== m.side) {
+				m.marker.remove();
+				pinMarkers.delete(id);
+			}
+		}
+		for (const [id, { pin: p, side }] of wanted) {
+			const key = [p.text, p.windFrom, p.tide, p.verdict, p.label, id === chosen].join('|');
+			const known = pinMarkers.get(id);
+			if (known?.key === key) continue;
+			// As for the wind badges: an element drawn again keeps the classes MapLibre gave it.
+			const el = known?.el ?? document.createElement('button');
+			if (!known) {
+				el.type = 'button';
+				el.classList.add('vigie-pin');
+				el.dataset.testid = 'sea-pin';
+				el.dataset.spot = id;
+			}
+			el.classList.toggle('selected', id === chosen);
+			el.setAttribute('aria-label', p.label);
+			el.setAttribute('aria-pressed', String(id === chosen));
+			const band = bandOf(p.verdict);
+			el.innerHTML =
+				`<span class="vd${band < 0 ? ' none' : ` surf-q${band}`}"></span>` +
+				`<span class="tx">${escapeHtml(p.text ?? p.name)}</span>` +
+				(p.windFrom != null
+					? `<svg class="wd" viewBox="0 0 16 16" style="transform:rotate(${Math.round(p.windFrom + 180)}deg)">${ARROW}</svg>`
+					: '') +
+				(p.tide ? `<svg class="td" viewBox="0 0 16 16">${TIDE[p.tide]}</svg>` : '');
+			el.onclick = (event) => {
+				event.stopPropagation();
+				onselect?.({ kind: 'spot', id });
+			};
+			if (known) known.key = key;
+			else
+				pinMarkers.set(id, {
+					el,
+					key,
+					side,
+					marker: new ml.Marker({
+						element: el,
+						anchor: side === 'left' ? 'right' : 'left',
+						offset: [side === 'left' ? -LABEL_OFFSET : LABEL_OFFSET, 0]
+					})
+						.setLngLat([p.lon, p.lat])
+						.addTo(map)
+				});
+		}
+	}
+
 	// The forecast wind: a canvas of its own over the map's (`WindFlow`), made when there is a wind to draw and taken away after.
 	let flowEngine: WindFlow | null = null;
 	const flowColors = (): FlowColors => ({
@@ -1058,6 +1141,30 @@
 		} else {
 			map.flyTo({ center: target, zoom: Math.max(map.getZoom(), 4), duration });
 		}
+	}
+
+	/**
+	 * Brings a point out from under a card that covers the right or the bottom of the map (in pixels), keeping the zoom; a point
+	 * already in the free part of the map does not move it.
+	 */
+	export function reveal(at: [number, number], cover: { right?: number; bottom?: number }) {
+		if (!map) return;
+		const { clientWidth: w, clientHeight: h } = map.getContainer();
+		const margin = 48;
+		const free = {
+			x1: margin,
+			x2: w - (cover.right ?? 0) - margin,
+			y1: margin,
+			y2: h - (cover.bottom ?? 0) - margin
+		};
+		const xy = map.project(at);
+		const dx = free.x2 > free.x1 && (xy.x < free.x1 || xy.x > free.x2) ? xy.x - (free.x1 + free.x2) / 2 : 0;
+		const dy = free.y2 > free.y1 && (xy.y < free.y1 || xy.y > free.y2) ? xy.y - (free.y1 + free.y2) / 2 : 0;
+		if (!dx && !dy) return;
+		map.easeTo({
+			center: map.unproject([w / 2 + dx, h / 2 + dy]),
+			duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500
+		});
 	}
 
 	onMount(() => {
@@ -1159,6 +1266,7 @@
 				map.on('moveend', () => {
 					onmove?.(view(), map!.getZoom());
 					syncWind();
+					syncPins();
 				});
 				map.once('idle', () => (drawn = true));
 				map.on('load', () => {
@@ -1249,6 +1357,11 @@
 	$effect(() => {
 		void spots;
 		if (ready && map?.getSource('spots')) (map.getSource('spots') as GeoJSONSource).setData(spotData());
+	});
+	$effect(() => {
+		void pins;
+		void selected;
+		if (ready) syncPins();
 	});
 	$effect(() => {
 		void place;
@@ -1434,6 +1547,65 @@
 	:global(.vigie-wind-popup .maplibregl-popup-close-button) {
 		color: var(--muted);
 		font-size: 18px;
+	}
+	/* The labels of the sea map: on the left of their dot, over the forecast wind's trails like the wind's badges. */
+	:global(.vigie-pin) {
+		z-index: 2;
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		height: 26px;
+		max-width: 190px;
+		padding: 0 9px 0 7px;
+		border: 1px solid var(--line);
+		border-radius: 13px;
+		background: color-mix(in srgb, var(--surface) 94%, transparent);
+		color: var(--ink);
+		font: 600 13px/1 var(--font-body);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+		cursor: pointer;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+	}
+	:global(.vigie-pin:hover) {
+		border-color: var(--accent);
+	}
+	:global(.vigie-pin.selected) {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+		z-index: 3;
+	}
+	:global(.vigie-pin:focus-visible) {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	:global(.vigie-pin .vd) {
+		flex: none;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	:global(.vigie-pin .vd.none) {
+		border: 1px dashed var(--muted);
+		box-shadow: none;
+	}
+	:global(.vigie-pin .tx) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	:global(.vigie-pin svg) {
+		flex: none;
+		width: 13px;
+		height: 13px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2.2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	:global(.vigie-pin .td) {
+		color: var(--accent);
 	}
 	:global(.vigie-marker) {
 		width: 28px;
