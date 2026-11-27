@@ -10,14 +10,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
-import androidx.glance.LocalSize
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.PreviewSizeMode
@@ -25,29 +23,18 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.currentState
-import androidx.glance.layout.Alignment
-import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
-import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
 import androidx.glance.layout.size
-import androidx.glance.layout.width
 import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.state.PreferencesGlanceStateDefinition
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
 import fr.auxfilsdesidees.vigie.R
-import fr.auxfilsdesidees.vigie.ui.Vigil
-import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 /**
- * « Vigie · la frise »: the app's « Heures » tab in small, for one followed place. A header (the place, its sky and
- * temperature, the warnings in a few words), then the frise of the next hours drawn into a picture ([FriseArt]); with
- * the room of three rows or more, the tide and the surf of the favourite spot under it. Same place, same state, same
- * refresh and same touch as the place widget ([PlaceWidget]).
+ * « Vigie · la frise »: the next twelve hours of a followed place, hour by hour, in the look of the home page of the Home
+ * Assistant card ([BoardArt.frise], piste B of 2026-11-27): the header (the place, the weather now, the warning), the
+ * « Lueur » columns; with the room of about three rows, the rain tile of the hour above them; with about four, the tide
+ * and the surf of the favourite spot under them. Same place, same state, same refresh and same touch as the place widget
+ * ([PlaceWidget]).
  */
 class FriseWidget : GlanceAppWidget() {
   override val sizeMode: SizeMode = SizeMode.Exact
@@ -68,69 +55,34 @@ class FriseWidget : GlanceAppWidget() {
   }
 
   /** The widget list's picture: the same code on made-up hours (Android 15 and later; see [WidgetRefresh.publishPreview]). */
-  // The size the widget list shows it at (four cells by two): the frise alone, the sea rows would be cut.
+  // The size the widget list shows it at (four cells by two): the columns alone, no room for the tide.
   override val previewSizeMode: PreviewSizeMode = SizeMode.Responsive(setOf(DpSize(300.dp, 200.dp)))
 
   override suspend fun providePreview(context: Context, widgetCategory: Int) {
     val now = System.currentTimeMillis() / 1000
     val offset = phoneOffsetS()
-    val view = WidgetModel.sample(now, offset)
-    val pictures = Pictures.of(context, view)
-    val strip = FriseModel.sample(now, offset)
-    provideContent { Frame(Content.Ready("", 0L, view, pictures, null, now), AppWidgetManager.INVALID_APPWIDGET_ID) { FriseReady(it, strip) } }
+    val view = BoardWidget.sample(now, offset)
+    val sea = BoardWidget.seaOf(FriseModel.sample(now, offset))
+    provideContent { Frame(Content.Ready("", 0L, view, null, now), AppWidgetManager.INVALID_APPWIDGET_ID) { FriseReady(it, sea) } }
   }
 }
 
-/** The header and the frise, the picture drawn to the room left under the header ([example]: the widget list's). */
+/** The frise drawn as one picture in the room of the widget ([example]: the sea of the widget list's example). */
 @Composable
-private fun FriseReady(r: Content.Ready, example: FriseModel.Strip?) {
+private fun FriseReady(r: Content.Ready, example: BoardWidget.Sea?) {
   val context = LocalContext.current
-  val room = LocalSize.current
-  val v = r.view
-  val strip = remember(r) { example ?: r.snapshot?.let { FriseModel.strip(it, r.nowUtc) } }
-  // The frame's padding is 14 dp on the sides and 10 dp at the top and the bottom.
-  val headerH = 28.dp
-  val ageH = if (v.age != null) 17.dp else 0.dp
-  val width = room.width - 28.dp
-  val height = room.height - 20.dp - headerH - ageH - 6.dp
+  val room = room()
+  val sea = remember(r) { example ?: r.snapshot?.let { BoardWidget.sea(it, r.nowUtc) } }
   val picture =
-    remember(strip, width, height) {
-      if (strip == null || width < 40.dp || height < 40.dp) null else FriseArt.draw(context, strip, width.value, height.value, FriseArt.Labels.of(context))
+    remember(r.view, sea, room) {
+      if (room.width < 40.dp || room.height < 40.dp) null else BoardArt.frise(context, r.view, sea, room.width.value, room.height.value)
     }
-  Column(GlanceModifier.fillMaxSize()) {
-    Row(GlanceModifier.fillMaxWidth().height(headerH), verticalAlignment = Alignment.CenterVertically) {
-      PlaceName(v.name, 15.sp, 14.dp, TEXT)
-      Spacer(GlanceModifier.width(8.dp))
-      Picture(r.pictures.skySmall, 24.dp)
-      Spacer(GlanceModifier.width(4.dp))
-      v.temp?.let { Text(it, style = style(16.sp, color(VigieColors.temperature(v.tempC)), FontWeight.Medium), maxLines = 1) }
-      Spacer(GlanceModifier.defaultWeight())
-      Warnings(v.warnings)
-    }
-    v.age?.let { Text(it, style = style(12.sp, AGE), maxLines = 1) }
-    Spacer(GlanceModifier.height(6.dp))
-    if (picture != null) {
-      Image(
-        ImageProvider(picture),
-        contentDescription = context.getString(R.string.widget_frise_picture),
-        modifier = GlanceModifier.size(width, height),
-        contentScale = ContentScale.FillBounds,
-      )
-    }
-  }
-}
-
-/** The warnings in a few words at the end of the header: the level's pill, or a quiet line with its mark. */
-@Composable
-private fun Warnings(w: WidgetModel.Warnings) {
-  val level = w.level
-  if (level != null) {
-    Pill(level)
-    return
-  }
-  Row(verticalAlignment = Alignment.CenterVertically) {
-    if (w.state == Vigil.State.None) Glyph(R.drawable.ic_check, 14.dp, VigieColors.Good) else Glyph(R.drawable.ic_warning, 14.dp, VigieColors.Text3)
-    Spacer(GlanceModifier.width(4.dp))
-    Text(w.short, style = style(12.sp, TEXT2), maxLines = 1)
+  if (picture != null) {
+    Image(
+      ImageProvider(picture),
+      contentDescription = context.getString(R.string.widget_frise_picture),
+      modifier = GlanceModifier.size(room.width, room.height),
+      contentScale = ContentScale.FillBounds,
+    )
   }
 }
