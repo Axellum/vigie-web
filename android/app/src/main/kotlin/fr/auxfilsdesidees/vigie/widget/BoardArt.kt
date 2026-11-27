@@ -444,7 +444,8 @@ object BoardArt {
   /**
    * The rain of the next hour (the app's `RainTileView`): when it comes, how strong, a bar per step and the hours under them.
    * Its words have the room they need and the bars take what is left, 60 at least (the site's widget: « Pas de pluie dans
-   * l’heure » is otherwise cut); an old read writes its age under « Pluie de l’heure non lue ».
+   * l’heure » is otherwise cut); a dry hour leaves out its dots rather than cut when the next rain comes; an old read writes
+   * its age under « Pluie de l’heure non lue ».
    */
   private fun DrawScope.rainTile(r: BoardWidget.Rain, age: String?, w: Float) {
     val h = BoardWidget.TILE
@@ -454,9 +455,11 @@ object BoardArt {
     cardGlyph("parapluie", 23f.px, cy.px, 22f.px, pal.rain, 2.2f)
     val tx = 44f
     val sub = age ?: r.sub
-    val withBars = r.bars.isNotEmpty() && age == null
+    val need = maxOf(measure(r.head, 15f, Weight.Bold), if (sub.isEmpty()) 0f else measure(sub, 12f, Weight.Medium))
+    // A dry hour's bars are only dots: they give way when the sentence (when the next rain comes) would be cut.
+    val withBars = r.bars.isNotEmpty() && age == null && (r.bars.any { it.r > 0 } || need <= w - tx - 12 - 70)
     val most = w - tx - 12 - (if (withBars) 70f else 0f)
-    val textW = minOf(most, maxOf(measure(r.head, 15f, Weight.Bold), if (sub.isEmpty()) 0f else measure(sub, 12f, Weight.Medium)))
+    val textW = minOf(most, need)
     if (sub.isEmpty()) textMid(fit(r.head, textW, 15f, Weight.Bold), tx, cy, pal.text, 15f, Weight.Bold, Paint.Align.LEFT)
     else {
       textMid(fit(r.head, textW, 15f, Weight.Bold), tx, cy - 8, pal.text, 15f, Weight.Bold, Paint.Align.LEFT)
