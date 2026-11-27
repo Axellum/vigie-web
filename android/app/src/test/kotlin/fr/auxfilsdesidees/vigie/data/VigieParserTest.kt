@@ -263,6 +263,63 @@ class VigieParserTest {
     assertEquals(2, asked.count { it.endsWith("/v1/activities/overview") })
   }
 
+  @Test
+  fun `point reads what the home page shows`() {
+    val p =
+      VigieParser.point(
+        """
+        {"server_utc": 1795778400, "utc_offset_s": 3600,
+         "coordinates": {"lat": 44.84, "lon": -0.58},
+         "current": {"temp_c": 9.2, "humidity_pct": 81, "pressure_hpa": 1018.4, "uv_index": 1.2, "aqi_eu": 24},
+         "daily": [{"date": "2026-11-27", "tmin": 4.0, "tmax": 12.0, "rain_mm": 1.2, "rain_probability_pct": 60, "wind_max": 24.5}],
+         "hourly": [{"time_utc": 1795777200, "temp_c": 9.0, "precipitation_probability_pct": 35, "cloud_cover_pct": 72}],
+         "rain_nowcast": {"interval_minutes": 15, "mm_per_step": [0, 0.1, 0, 0],
+                          "rate_5m_mm_h": [0, 0, 0, 0.4, 0.4, 0, 0, 0, 0, 0, 0, 0], "start_utc": 1795778100},
+         "pressure_history": [{"time_utc": 1795774800, "pressure_hpa": 1017.2}, {"time_utc": 1795764000, "pressure_hpa": 1016.0}],
+         "short_term": {"interval_minutes": 15, "steps": [{"time_utc": 1795778100, "wind_gust_kmh": 38.0, "precipitation": "rain"}]},
+         "avalanche": {"status": "active", "max_danger_level": 2, "valid_until": "2026-11-28T16:00:00+01:00", "region_name": "Aspe-Ossau"},
+         "drought": {"status": "available", "max_level": "alerte", "restrictions_in_force": true},
+         "air_quality": {"pollens": {"current": {"grass_grains_m3": 3.5, "status": "ok"},
+                                     "daily": [{"date": "2026-11-27", "grass_max_grains_m3": 12.0, "birch_max_grains_m3": 0.5}]}}}
+        """
+      )
+    assertEquals(44.84, p.lat!!, 0.0)
+    assertEquals(81.0, p.humidityPct!!, 0.0)
+    assertEquals(1018.4, p.pressureHpa!!, 0.0)
+    assertEquals(24.0, p.aqiEu!!, 0.0)
+    assertEquals(60.0, p.days[0].rainProbabilityPct!!, 0.0)
+    assertEquals(24.5, p.days[0].windMaxKmh!!, 0.0)
+    assertEquals(35.0, p.hours[0].rainProbabilityPct!!, 0.0)
+    assertEquals(72.0, p.hours[0].cloudCoverPct!!, 0.0)
+    assertEquals(12, p.rainSoon!!.rate5mMmH!!.size)
+    assertEquals(1795778100L, p.rainSoon!!.startUtc)
+    assertEquals(listOf(1795764000L, 1795774800L), p.pressureHistory.map { it.timeUtc }) // oldest first
+    assertEquals(ShortStep(1795778100L, 38.0, "rain"), p.shortTerm!!.steps.single())
+    assertEquals(Avalanche("active", 2, 1795878000L, "Aspe-Ossau"), p.season.avalanche)
+    assertEquals(Drought("available", "alerte", true), p.season.drought)
+    assertEquals(mapOf("grass" to 3.5), p.season.pollen!!.now)
+    assertEquals(mapOf("grass" to 12.0, "birch" to 0.5), p.season.pollen!!.days.single().peaks)
+  }
+
+  @Test
+  fun `a rate without a number leaves the 5-minute rates out, the steps stay`() {
+    val p = VigieParser.point("""{"server_utc": 10, "rain_nowcast": {"mm_per_step": [0, 0, 0, 0], "rate_5m_mm_h": [0, null, 0]}}""")
+    assertNull(p.rainSoon!!.rate5mMmH)
+    assertEquals(4, p.rainSoon!!.mmPerStep.size)
+    assertNull(p.rainSoon!!.startUtc)
+    assertNull(p.shortTerm)
+    assertEquals(SeasonData(), p.season)
+  }
+
+  @Test
+  fun `ISO dates read with their zone, without java time`() {
+    assertEquals(1795737600L, VigieParser.isoSeconds("2026-11-27T00:00:00Z"))
+    assertEquals(1795885200L, VigieParser.isoSeconds("2026-11-28T18:00:00+01:00"))
+    assertEquals(1795782600L, VigieParser.isoSeconds("2026-11-27T12:30"))
+    assertEquals(1795746600L, VigieParser.isoSeconds("2026-11-27T00:00:00.123-0230"))
+    assertNull(VigieParser.isoSeconds("27/11/2026"))
+  }
+
   private companion object {
     val LORIENT = Place("Lorient", 47.75, -3.37)
     val SPOTS = listOf("plouharnel-la-grande-plage", "le-pouldu-plage-du-kerou", "portivy-plage-de-l-isthme", "beuzec-plage-de-la-torche")

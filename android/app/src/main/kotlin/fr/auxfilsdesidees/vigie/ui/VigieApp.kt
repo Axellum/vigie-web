@@ -51,11 +51,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.ActivityVerdict
 import fr.auxfilsdesidees.vigie.data.Spot
+import fr.auxfilsdesidees.vigie.ui.board.HomeBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 private enum class Tab(@StringRes val label: Int, @DrawableRes val icon: Int) {
@@ -181,10 +183,10 @@ private fun Refreshable(state: HomeState.Ready, padding: PaddingValues, onRefres
 // ------------------------------------------------------------------------------------------------------------ pieces
 
 @Composable
-internal fun Glass(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun Glass(modifier: Modifier = Modifier, padding: Dp = 16.dp, content: @Composable () -> Unit) {
   val shape = RoundedCornerShape(22.dp)
   Column(
-    modifier.fillMaxWidth().background(VigieColors.Glass, shape).border(1.5.dp, VigieColors.GlassBorder, shape).padding(16.dp),
+    modifier.fillMaxWidth().background(VigieColors.Glass, shape).border(1.5.dp, VigieColors.GlassBorder, shape).padding(padding),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     content()
@@ -199,14 +201,6 @@ private fun Pill(text: String, color: Color) {
     style = MaterialTheme.typography.titleMedium,
     modifier = Modifier.background(color, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp),
   )
-}
-
-@Composable
-private fun Fact(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
-  Column(modifier) {
-    Text(label, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    Text(value, color = color, style = MaterialTheme.typography.titleMedium)
-  }
 }
 
 @Composable
@@ -252,43 +246,9 @@ private fun HomeTab(state: HomeState.Ready, page: Int, pages: Int, onSettings: (
   // The official warnings of the place (`/v1/vigilances`), never `local_alert_level`, a level Vigie works out over a wide
   // radius: on 22/11/2026 it said green at Ajaccio while Météo-France had the wind in orange there.
   WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
-  Glass {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Text(Words.degrees(p.tempC), color = VigieColors.temperature(p.tempC), style = MaterialTheme.typography.displayLarge)
-      Spacer(Modifier.width(16.dp))
-      Column {
-        // `current` has no day/night flag: the first hour of `hourly` (the hour under way) tells it.
-        Text(Words.weatherAt(p.weatherCode, p.hours.firstOrNull()?.isDay), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-        if (p.feelsLikeC != null) Text(stringResource(R.string.feels_like, Words.degrees(p.feelsLikeC)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-      }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-      Fact(stringResource(R.string.wind), "${Words.kmh(p.windKmh)} ${Words.windFrom(p.windDeg)}".trim(), VigieColors.Wind, Modifier.weight(1.4f))
-      Fact(stringResource(R.string.gusts), Words.kmh(p.gustKmh), VigieColors.Wind, Modifier.weight(1f))
-    }
-    // The rain of the hour to come in the site widget's words (`rain_nowcast`), no longer the millimetres of the last hour.
-    val rain = RainHour.view(p, System.currentTimeMillis() / 1000)
-    Column {
-      Text(RainHour.title(rain), color = if (rain.status == RainHour.Status.Unknown) VigieColors.Text3 else VigieColors.Rain, style = MaterialTheme.typography.titleMedium)
-      RainHour.detail(rain)?.let { Text(it, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
-    }
-  }
-  if (p.days.isNotEmpty()) {
-    Glass {
-      Text(stringResource(R.string.next_days), color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
-      p.days.take(5).forEachIndexed { i, d ->
-        val name = Words.relativeDay(p.serverUtc + i * 86_400L, p.serverUtc, p.utcOffsetS).replaceFirstChar { it.uppercase() }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          Text(name, color = if (i == 0) VigieColors.Accent else VigieColors.Text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1.1f))
-          Text(Words.weather(d.code), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1.3f))
-          // the highest first, then the lowest, as the site's widget and the Home Assistant card write them
-          Text(Words.degrees(d.tmaxC), color = VigieColors.temperature(d.tmaxC), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
-          Text(Words.degrees(d.tminC), color = VigieColors.temperature(d.tminC), style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(44.dp), textAlign = TextAlign.End)
-          Text(Words.mm(d.rainMm), color = VigieColors.Rain, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(64.dp), textAlign = TextAlign.End)
-        }
-      }
-    }
-  }
+  // The home page of the Home Assistant card, drawn natively (board/HomeBoardView.kt): now, the rain of the hour, the season,
+  // the next 24 hours and the days. The clock is the phone's: a copy read without network shows its hours from now on.
+  Glass(padding = 12.dp) { HomeBoardView(p, System.currentTimeMillis() / 1000) }
   if (p.provider != null) Credits(stringResource(R.string.credits_weather, p.provider))
   if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
 }

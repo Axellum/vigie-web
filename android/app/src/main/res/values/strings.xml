@@ -12,10 +12,6 @@
     <!-- %1$s: « de 8 h 10, il y a 6 h », « d'hier 18 h 05 », « du sam. 21 nov., 18 h 05 » (Words.readTime). -->
     <string name="old_data">Données %1$s · %2$s</string>
     <string name="old_data_refreshing">Données %1$s · mise à jour…</string>
-    <string name="feels_like">Ressenti %1$s</string>
-    <string name="wind">Vent</string>
-    <string name="gusts">Rafales</string>
-    <string name="next_days">Prochains jours</string>
     <string name="hours_no_weather">Ciel, température, pluie et vent heure par heure : indisponibles pour l\'instant.</string>
     <string name="hours_drag">Glissez sur la frise : le relevé suit le doigt. Mer : %1$s.</string>
     <string name="hours_sea_unread">Les heures de la mer n\'ont pas pu être lues : la frise montre seulement la météo.</string>
