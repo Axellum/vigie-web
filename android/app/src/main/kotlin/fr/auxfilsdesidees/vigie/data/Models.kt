@@ -48,12 +48,61 @@ data class PointNow(
   val hours: List<HourWeather> = emptyList(),
   /** The rain of the hour to come (`rain_nowcast`); null when the API does not serve it. */
   val rainSoon: RainNowcast? = null,
+  /** The rest of `current`, and the point the weather is read at (the cell of the grid): what the home page shows. */
+  val humidityPct: Double? = null,
+  val pressureHpa: Double? = null,
+  val uvIndex: Double? = null,
+  /** The European air quality index of `current`. */
+  val aqiEu: Double? = null,
+  val lat: Double? = null,
+  val lon: Double? = null,
+  /** `pressure_history`: the pressure of the last hours, oldest first. */
+  val pressureHistory: List<PressureReading> = emptyList(),
+  /** `short_term`: AROME-PI by 15 minutes over the next hours; null when the API does not serve it. */
+  val shortTerm: ShortTerm? = null,
+  /** What the home page says of the season: avalanches, drought, pollen. */
+  val season: SeasonData = SeasonData(),
 )
 
-/** `rain_nowcast` of `/v1/point`: the millimetres of each step of [stepMinutes] over the next hour. */
-data class RainNowcast(val stepMinutes: Int, val mmPerStep: List<Double>)
+/**
+ * `rain_nowcast` of `/v1/point`: the millimetres of each step of [stepMinutes] over the next hour; with PIAF (France) also
+ * the twelve 5-minute rates in mm/h ([rate5mMmH]). [startUtc] is the start of the first step (an older API has none).
+ */
+data class RainNowcast(val stepMinutes: Int, val mmPerStep: List<Double>, val rate5mMmH: List<Double>? = null, val startUtc: Long? = null)
 
-data class Day(val date: String, val code: Int?, val tminC: Double?, val tmaxC: Double?, val rainMm: Double?)
+data class Day(
+  val date: String,
+  val code: Int?,
+  val tminC: Double?,
+  val tmaxC: Double?,
+  val rainMm: Double?,
+  val rainProbabilityPct: Double? = null,
+  /** The strongest mean wind of the day. */
+  val windMaxKmh: Double? = null,
+)
+
+data class PressureReading(val timeUtc: Long, val hpa: Double)
+
+/** AROME-PI of `short_term`: a step every [intervalMinutes] from its [ShortStep.timeUtc]. */
+data class ShortTerm(val intervalMinutes: Int, val steps: List<ShortStep>)
+
+/** One step of AROME-PI: its strongest gust and its precipitation (`none`, `rain`, `snow`, `drizzle`, `freezing`…). */
+data class ShortStep(val timeUtc: Long, val gustKmh: Double?, val precipitation: String?)
+
+/**
+ * The parts of `/v1/point` the home page reads for the season: avalanches (`avalanche`), drought (`drought`, VigiEau) and
+ * pollen (`air_quality.pollens`). Each is null when the API does not give it.
+ */
+data class SeasonData(val avalanche: Avalanche? = null, val drought: Drought? = null, val pollen: Pollen? = null)
+
+data class Avalanche(val status: String?, val maxDangerLevel: Int?, val validUntilUtc: Long?, val regionName: String?)
+
+data class Drought(val status: String?, val maxLevel: String?, val restrictionsInForce: Boolean?)
+
+/** Grains per m³: now by species, and the peak of each day ([PollenDay.peaks], species to value). */
+data class Pollen(val now: Map<String, Double>, val days: List<PollenDay>)
+
+data class PollenDay(val date: String, val peaks: Map<String, Double>)
 
 /** One hour of `hourly`, starting at [timeUtc]. */
 data class HourWeather(
@@ -65,6 +114,9 @@ data class HourWeather(
   val windDeg: Double?,
   val weatherCode: Int?,
   val isDay: Boolean?,
+  /** The chance of rain of the hour, when the forecast gives one. */
+  val rainProbabilityPct: Double? = null,
+  val cloudCoverPct: Double? = null,
 )
 
 /** One spot of `/v1/activities/overview` with its verdicts for the next 24 hours. */

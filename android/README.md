@@ -25,6 +25,16 @@ The user chooses the places and their spots; two home screen widgets show one of
   others; « Aucune vigilance en cours » otherwise), touched to open every warning with its period, its area and the
   issuer's bulletin; a « Vigil. » row in the frise draws each warning over its hours (a river in flood has none: the
   banner says it). The end shown is `ends_utc`, else `expires_utc` (the end of the bulletin), as on the widget.
+- The home tab, under the banner: the home page of Vigie's Home Assistant card (`vigie-card.js` of the API), redrawn
+  natively in the card's dark colours so that both show the same thing (`ui/board/`). The weather now (its icon, its
+  temperature on the ramp, its words, feeling, humidity, wind) with the highest gust of the next hours, the pressure and
+  its trend, the air and the UV, the next sunset and sunrise; the rain of the hour (PIAF's 5-minute bars in France, else
+  four 15-minute steps; « non lue » past 30 minutes, as elsewhere in the app); the strongest line of the season
+  (avalanches, a drought from « alerte », pollen); the next 24 hours by 1, 2 or 3 hours as the width allows (sky,
+  temperature curve, rain and its chance, wind) and seven days at most (highest and lowest curves, rain, wind and gust
+  over a whole day), each column tinted by its sky (« Lueur »). The icons are the card's SVG, copied by
+  `tools/family_icons.py` (`--check` tells whether the copy still matches a card). Forest fires, which the card's season
+  line also reads, come from another answer the app does not read yet.
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -159,4 +169,9 @@ not serve it).
 | `ui/HoursTab.kt` | the hours tab: day pills, the frise drawn on a canvas, the reading of an hour |
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
 | `ui/VigieApp.kt` | the tabs, the pages of the home tab and their cards |
+| `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
+| `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
+| `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
+| `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |
+| `ui/board/FamilyIconData.kt` | those SVG, written by `tools/family_icons.py` from the card; not edited by hand |
 | `ui/theme/` | the charter's « Ciel » colours and type scale |
