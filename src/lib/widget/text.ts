@@ -50,7 +50,12 @@ const TEXT = {
 		weatherFailed: 'Météo non lue',
 		weatherBudget: 'Météo en pause : trop de demandes aujourd’hui',
 		open: 'Ouvrir dans Vigie',
-		credits: 'Sources'
+		credits: 'Sources',
+		quiet: 'Aucune vigilance',
+		hoursBy: '24 h · par {n} h',
+		daysTitle: '{n} jours · max et min',
+		night: 'nuit',
+		sun: 'soleil'
 	},
 	en: {
 		title: 'Vigie · widget',
@@ -99,7 +104,12 @@ const TEXT = {
 		weatherFailed: 'Weather not read',
 		weatherBudget: 'Weather paused: too many requests today',
 		open: 'Open in Vigie',
-		credits: 'Sources'
+		credits: 'Sources',
+		quiet: 'No warning',
+		hoursBy: '24 h · every {n} h',
+		daysTitle: '{n} days · high and low',
+		night: 'night',
+		sun: 'sun'
 	}
 } as const;
 

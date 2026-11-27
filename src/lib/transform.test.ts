@@ -269,6 +269,25 @@ describe('pointFromApi', () => {
 		expect(point.space?.kp).toBe(2);
 	});
 
+	it('reads the 5-minute rates of the rain of the hour and when its steps start, and leaves them out when wrong', () => {
+		const rain = (extra: Record<string, unknown>) =>
+			pointFromApi({
+				coordinates: { lat: 44.84, lon: -0.58 },
+				rain_nowcast: { interval_minutes: 15, mm_per_step: [0, 0.2, 0.4, 0], ...extra }
+			}).rain;
+		const piaf = rain({ start_utc: 1795100400, rate_5m_mm_h: [0, 0, 0.4, 1.2, 2.5, 0.8, 0, 0, 0, 0, 0, 0] });
+		expect(piaf?.startUtc).toBe(1795100400);
+		expect(piaf?.rate5mMmH).toHaveLength(12);
+		expect(piaf?.rate5mMmH?.[4]).toBe(2.5);
+		const older = rain({});
+		expect(older?.startUtc).toBeNull();
+		expect(older?.rate5mMmH).toBeNull();
+		expect(rain({ start_utc: 'soon', rate_5m_mm_h: [0, 'x'] })).toMatchObject({
+			startUtc: null,
+			rate5mMmH: null
+		});
+	});
+
 	it('reads the temperature of the sea of the marine block, and a missing or wrong one as none', () => {
 		const marine = (extra: Record<string, unknown>) =>
 			pointFromApi({ coordinates: { lat: 43.66, lon: -1.44 }, marine: { wave_height_m: 0.5, ...extra } })

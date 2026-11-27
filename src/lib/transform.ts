@@ -454,7 +454,9 @@ export function pointFromApi(body: unknown): PointWeather {
 			mmPerStep: numList(rain.mm_per_step),
 			expected60: bool(rain.rain_expected_60m),
 			maxMmH: num(rain.max_mm_h),
-			attribution: str(rain.attribution)
+			attribution: str(rain.attribution),
+			startUtc: num(rain.start_utc),
+			rate5mMmH: numList(rain.rate_5m_mm_h)
 		},
 		shortTerm: shortTerm && {
 			runUtc: num(shortTerm.run_utc),

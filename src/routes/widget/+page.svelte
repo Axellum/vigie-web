@@ -4,7 +4,7 @@
 	import { snapToGrid } from '#lib/near.js';
 	import { creditOf } from '#lib/tv/model.js';
 	import HomeCard from '#lib/widget/components/HomeCard.svelte';
-	import PlaceView from '#lib/widget/components/PlaceView.svelte';
+	import BoardView from '#lib/widget/components/BoardView.svelte';
 	import SpotView from '#lib/widget/components/SpotView.svelte';
 	import { fit } from '#lib/widget/fit.js';
 	import { cardData, cardWarnings, type CardAnswer } from '#lib/widget/homeCard.js';
@@ -205,7 +205,7 @@
 		{#if !mounted}
 			<!-- The place is read in the browser. -->
 		{:else if place}
-			<PlaceView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
+			<BoardView {widget} {name} {size} theme={params.theme} {lang} {now} {spot} />
 		{:else if spot}
 			<SpotView screen={spot} {size} {lang} />
 		{:else if spotData.status === 'pending'}
