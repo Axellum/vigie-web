@@ -1,14 +1,16 @@
 # Vigie for Android
 
 A first, small native app that reads the public Vigie API, in French. Four tabs: the weather and the official warnings
-of a place (Accueil, and its Détails), a frise of the next 24 hours (Heures), and the activity verdicts of the spots
-followed near it (Mer).
+of a place (Accueil, and its Détails), a frise of the next 24 hours (Heures), and the beaches of the spots followed near
+it (Mer).
 The user chooses the places and their spots; two home screen widgets show one of them. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).
 - Data: `GET /v1/point`, `GET /v1/vigilances?lat&lon&lang=fr,en`, `GET /v1/activities/overview` and
-  `GET /v1/activities/{spot}?days=3` (the first spot) of `https://vigie.auxfilsdesidees.fr`, and the site's place search
+  `GET /v1/activities/{spot}?days=3` (the first spot) of `https://vigie.auxfilsdesidees.fr`; for the beach shown on the
+  Mer tab, `GET /v1/surf/spots/{spot}?days=2`, `GET /v1/activities/{spot}`, and at its point `GET /v1/point` (the water,
+  once an hour at most) and `GET /v1/sea/places?type=bathing` (once a day at most); and the site's place search
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search), which also names the place « Ici »
   (`?lat&lon`, the nearest town). Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
@@ -56,6 +58,17 @@ The user chooses the places and their spots; two home screen widgets show one of
   (« Sec → 14 h 50 », « Pluie faible », « Accalmie »), the hour to come by 5 minutes, AROME-PI by quarter hour (gusts and
   their peak, periods of precipitation, hail and visibility), 48 hours hour by hour (sky, rain, its chance, wind) and the
   chances of the ensembles PE-AROME by window of 3 hours, then who the values are from (`ui/board/DetailsBoard*.kt`).
+- Mer, as the Sea page of the Home Assistant card (`pageSea` of `vigie-card.js`, the sketch chosen on 2026-11-27), in the
+  card under its head: a tab per followed spot of the place (« Corsaires », « Côte des Basques »), then for the beach
+  shown its name, whether the sea rises or falls, the next high or low water and the coefficient, the water; six tiles
+  (waves and the state of the sea, swell, wind and whether it blows from the sea or the land, the baïnes from three hours
+  before to three hours after low water on the coast from Charente-Maritime to the Basque Country, the class of the
+  water of its monitored bathing site, its lifeguards, else the sun), shorter words when one would be cut; the four
+  activities with their verdict, their best slot or why, and their 24 hours; the tide of 24 hours; the next hours by 3
+  hours (waves, period, wind); then who the values are from (`ui/board/SeaBoard*.kt`). A beach is read when it is
+  shown, its copy on the phone first (`data/Beach.kt`, a folder of its own): again after 10 minutes, or after a minute
+  when the place is read again. Its water is asked once an hour at most, since `/v1/point` is limited per address on the
+  public server, and its bathing site once a day. A copy shown because the read failed says how old it is.
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -180,9 +193,10 @@ Firebase config above, or the app sent has no bell.
 | `data/VigieRepository.kt` | the requests of a place's refresh, run together; the spot catalogue; the place search |
 | `data/VigieParser.kt` | JSON to models; an unknown field is ignored, a missing one stays null |
 | `data/PlacesStore.kt` | the followed places and their spots, and every change to them (tested on the JVM) |
+| `data/Beach.kt` | a beach of the Mer tab: its four answers cut down and kept, read back, asked again (tested on the JVM) |
 | `data/OfflineCopies.kt` | the last good read of each place, kept on the phone for the launch and the offline (tested on the JVM) |
 | `data/Geo.kt` | distances, the nearest spots, the rounding of a position (tested on the JVM) |
-| `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget |
+| `data/AppData.kt` | the places, the copies and the API client, shared by the app and the widget; the beaches' reader |
 | `widget/WidgetModel.kt` | the warnings, the age and the words of the rain of the hour, read from a place's copy as the site's widget reads them (tested on the JVM) |
 | `widget/BoardWidget.kt` | what both widgets show, in the card's rules: the rain of the hour and its sentence, the frise's columns, the card's blocks and the height they need, the scale, the look by the room (tested on the JVM) |
 | `widget/BoardArt.kt` | both widgets drawn into one picture each: the frise, and the card's home page at a scale, its hours and days drawn by `ui/board/BoardColumns.kt` |
@@ -209,11 +223,14 @@ Firebase config above, or the app sent has no bell.
 | `ui/Frise.kt` | the frise's days and hours, tide between extremes (tested on the JVM) |
 | `ui/HoursTab.kt` | the hours tab: day pills, the frise drawn on a canvas, the reading of an hour |
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
-| `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, the cards of Mer |
+| `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, Mer |
+| `ui/SeaViewModel.kt` | the beaches of Mer: the copy first, then the network when it is older than asked |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |
 | `ui/board/DetailsBoardView.kt` | the Details page drawn, and the bar of pages « Accueil \| Détails » |
+| `ui/board/SeaBoard.kt` | what the Sea page says, worked out as the card's Sea page (tested on the JVM) |
+| `ui/board/SeaBoardView.kt` | the Sea page drawn: the tabs of the beaches, the head, the tiles, the activities, the tide, the table |
 | `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
 | `ui/board/BoardColumns.kt` | the hours and the days of the home page and their heights, drawn once for the app and the widgets |
 | `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |
