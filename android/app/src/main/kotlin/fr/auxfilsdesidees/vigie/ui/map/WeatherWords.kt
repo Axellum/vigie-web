@@ -57,4 +57,15 @@ internal object WeatherWords {
     }
 
   private fun hour(h: Long) = "$h${NBSP}h"
+
+  /** A strength of the forecast wind's scale: « 40 km/h et plus ». */
+  fun flowStrong(kmh: Int): String = "${Words.kmh(kmh.toDouble())} et plus"
+
+  /** The layers of Météo-France shown, for one credit: « Radar de pluie, vent mesuré et vent prévu »; null for none. */
+  fun meteoFranceLayers(rain: Boolean, wind: Boolean, flow: Boolean): String? {
+    val names = listOfNotNull("radar de pluie".takeIf { rain }, "vent mesuré".takeIf { wind }, "vent prévu".takeIf { flow })
+    if (names.isEmpty()) return null
+    val text = if (names.size == 1) names[0] else names.dropLast(1).joinToString(", ") + " et " + names.last()
+    return text.replaceFirstChar { it.uppercaseChar() }
+  }
 }

@@ -19,7 +19,9 @@ The user chooses the places and their spots; two home screen widgets show one of
   view, again after 6 minutes) and rain radar `GET /data/radar.json?area=` with its tiles `GET /data/radar/…` (again
   after 5 minutes), both Météo-France's, never `/v1/point`; unless turned off there, the weather of the towns in view,
   `GET /data/towns.json?at=` (the cells of the site's grid the towns fall in, 40 at most a request, again after a
-  quarter of an hour).
+  quarter of an hour); when turned on, the forecast wind of the hour, `GET /data/wind-field.json` (again after 10
+  minutes or when the hour turns) and the images of the grids the view needs, `GET /data/wind-field/…` (the world's
+  always, Europe's and France's once close enough, each read once), drawn as trails only while the map is shown.
   Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account

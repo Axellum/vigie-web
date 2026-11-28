@@ -44,7 +44,7 @@ import kotlinx.coroutines.withContext
  * kept on the phone ([kept]); each style is read once. When the IGN cannot be read, the dark plan is shown, and said so.
  *
  * The rain radar and the wind measured, layers of the same menu, are held by [weather]; the weather of the towns, by
- * [townWeather].
+ * [townWeather]; the forecast wind, by [windField].
  */
 class SeaMapViewModel(
   private val reader: SeaMapReader,
@@ -61,6 +61,9 @@ class SeaMapViewModel(
 
   /** The weather of the towns the base map names: a pill each, on until turned off, the choice kept on the phone. */
   val townWeather = TownWeatherModel(viewModelScope, reader, clock, kept)
+
+  /** The forecast wind, drawn as trails: off until chosen, the choice kept on the phone. */
+  val windField = WindFieldModel(viewModelScope, reader, FieldImage::pixels, clock, kept)
 
   /** The address of the tiles of one radar image. */
   fun radarTiles(area: RadarArea, epoch: Long): String = reader.radarTiles(area, epoch)

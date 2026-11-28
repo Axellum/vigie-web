@@ -40,4 +40,13 @@ class WeatherWordsTest {
     assertEquals(listOf(0, 2), WeatherWords.radarMarks(3))
     assertEquals(listOf(20, 30, 40, 60), WeatherWords.windMarks)
   }
+
+  @Test
+  fun `the forecast wind's scale and the credit of the layers of Météo-France`() {
+    assertEquals("40${nb}km/h et plus", WeatherWords.flowStrong(40))
+    assertEquals(null, WeatherWords.meteoFranceLayers(rain = false, wind = false, flow = false))
+    assertEquals("Vent prévu", WeatherWords.meteoFranceLayers(rain = false, wind = false, flow = true))
+    assertEquals("Radar de pluie et vent mesuré", WeatherWords.meteoFranceLayers(rain = true, wind = true, flow = false))
+    assertEquals("Radar de pluie, vent mesuré et vent prévu", WeatherWords.meteoFranceLayers(rain = true, wind = true, flow = true))
+  }
 }

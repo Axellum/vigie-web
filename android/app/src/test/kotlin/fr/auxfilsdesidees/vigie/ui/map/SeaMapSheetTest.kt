@@ -46,7 +46,7 @@ class SeaMapSheetTest {
     }
     val gate = PointGate(clock = { now })
     val vm =
-      SeaMapViewModel(SeaMapReader("https://api.test", "https://site.test", gate, fetch), { emptyList() }, BeachReader("https://api.test", fetch = gate.gated(fetch)), clock = { now }, work = UnconfinedTestDispatcher(testScheduler))
+      SeaMapViewModel(SeaMapReader("https://api.test", "https://site.test", gate, fetch = fetch), { emptyList() }, BeachReader("https://api.test", fetch = gate.gated(fetch)), clock = { now }, work = UnconfinedTestDispatcher(testScheduler))
     val town = Place("Capbreton", 43.642, -1.428)
     vm.open(SeaMapViewModel.Sheet.Town(town))
     advanceUntilIdle()
