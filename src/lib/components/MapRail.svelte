@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	/** The drawing of a family's button. */
-	export type RailIcon = 'spots' | 'wind' | 'rain' | 'alerts' | 'tide';
+	export type RailIcon = 'spots' | 'wind' | 'rain' | 'alerts' | 'tide' | 'map';
 	export interface RailFamily {
 		id: string;
 		icon: RailIcon;
@@ -44,6 +44,8 @@
 					/>
 				{:else if f.icon === 'alerts'}
 					<path d="M12 3.5L2.8 19.5h18.4z" /><path d="M12 10v4.5" /><path d="M12 17.2v.1" />
+				{:else if f.icon === 'map'}
+					<path d="M2.5 19.5L9 8l3.6 6.2L15 10.5l6.5 9z" /><path d="M7.4 10.8l1.6 1.4 1.5-1.3" />
 				{:else}
 					<path d="M2.5 9.5c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0" /><path
 						d="M2.5 15c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0"
@@ -64,7 +66,7 @@
 		border-bottom: 1px solid var(--line);
 		min-width: 0;
 	}
-	/* The drawing over the name, on a phone as on a computer: four families share the row of a phone in equal buttons. */
+	/* The drawing over the name, on a phone as on a computer: the families share the row of a phone in equal buttons. */
 	.rail button {
 		position: relative;
 		flex: 1 1 0;
