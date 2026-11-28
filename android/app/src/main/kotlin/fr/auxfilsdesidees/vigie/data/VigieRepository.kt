@@ -103,6 +103,15 @@ class VigieRepository(
     return hits.sortedBy { if (it.country == "FR") 0 else 1 } to credit
   }
 
+  /**
+   * The town that names a point, for the place « Ici » (`/data/places.json?lat&lon` of the site, GeoNames): the point is
+   * sent at two decimals, about 1 km, as everything else that leaves the phone. Null when the site names none.
+   */
+  suspend fun nearestPlace(lat: Double, lon: Double): PlaceHit? {
+    val q = String.format(Locale.ROOT, "lat=%.2f&lon=%.2f", lat, lon)
+    return VigieParser.places(fetch("$siteUrl/data/places.json?$q")).first.firstOrNull()
+  }
+
   private suspend fun overviewText(fresh: Boolean): String {
     val cached = overviewCache
     if (!fresh && cached != null && clock() - cached.first < OVERVIEW_TTL_MS) return cached.second

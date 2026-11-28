@@ -38,7 +38,7 @@ object Bells {
               add(
                 buildJsonObject {
                   // The server keeps 60 characters of a name and two decimals of a point (about 1 km).
-                  put("name", f.place.name.take(60))
+                  put("name", f.place.name.ifBlank { f.place.label }.take(60))
                   put("lat", f.place.lat)
                   put("lon", f.place.lon)
                   put("radiusKm", RADIUS_KM)

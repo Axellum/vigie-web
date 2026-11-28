@@ -56,7 +56,7 @@ internal fun FirstLaunch(viewModel: HomeViewModel) {
       Spacer(Modifier.height(4.dp))
       MainButton(stringResource(R.string.first_next), enabled = place != null) { step = 2 }
     } else {
-      Text(stringResource(R.string.first_spots, Words.near(place.name)), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
+      Text(stringResource(R.string.first_spots, Words.near(place.nearName)), color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
       when (val c = catalogue) {
         CatalogueState.Idle,
         CatalogueState.Loading -> Text(stringResource(R.string.spots_loading), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
@@ -125,9 +125,12 @@ private fun MainButton(label: String, enabled: Boolean, onClick: () -> Unit) {
   }
 }
 
-/** A chosen place survives a rotation or the app being put away: its name, point and region in a list. */
+/** A chosen place survives a rotation or the app being put away: its name, point, region and « Ici » mark in a list. */
 private val PlaceSaver =
   Saver<Place?, ArrayList<Any>>(
-    save = { p -> if (p == null) arrayListOf() else arrayListOf(p.name, p.lat, p.lon, p.region.orEmpty()) },
-    restore = { l -> if (l.size < 3) null else Place(l[0] as String, l[1] as Double, l[2] as Double, (l.getOrNull(3) as? String)?.ifEmpty { null }) },
+    save = { p -> if (p == null) arrayListOf() else arrayListOf(p.name, p.lat, p.lon, p.region.orEmpty(), p.here) },
+    restore = { l ->
+      if (l.size < 3) null
+      else Place(l[0] as String, l[1] as Double, l[2] as Double, (l.getOrNull(3) as? String)?.ifEmpty { null }, l.getOrNull(4) as? Boolean ?: false)
+    },
   )

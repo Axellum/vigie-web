@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -55,8 +56,72 @@ data class Choices(val places: List<FollowedPlace>, val current: Int) {
   val belled: List<FollowedPlace>
     get() = places.filter { it.bell != null }
 
+  /** Where the place « Ici » is in the list; -1 without one. */
+  val hereIndex: Int
+    get() = places.indexOfFirst { it.place.here }
+
+  val herePlace: FollowedPlace?
+    get() = places.getOrNull(hereIndex)
+
+  /**
+   * « Utiliser ma position »: the place « Ici » goes to [place] and is shown. The first time it is added at the end with
+   * [spots]; after that it keeps its spots, its bell and its rank (the spots follow it as in [moveHere]).
+   */
+  fun useHere(place: Place, spots: List<String>, catalogue: List<CatalogueSpot>? = null): Choices {
+    val at = place.copy(here = true)
+    val index = hereIndex
+    return if (index < 0) Choices(places + FollowedPlace(at, spots.distinct()), places.size) else moveHere(at, catalogue).copy(current = index)
+  }
+
+  /**
+   * The place « Ici » at its new point. With the [catalogue], its spots follow the phone: those within
+   * [Geo.SUGGEST_KM] of the new point stay, in their order; the others are parked and come back when the phone comes back
+   * near them; none near, the nearest spots of the catalogue are followed. Without the catalogue the spots stay as they
+   * were. Nothing changes without a place « Ici ».
+   */
+  fun moveHere(place: Place, catalogue: List<CatalogueSpot>?): Choices {
+    val index = hereIndex
+    if (index < 0) return this
+    val before = places[index]
+    val at = place.copy(here = true)
+    val moved =
+      if (catalogue == null) {
+        before.copy(place = at)
+      } else {
+        val where = catalogue.associateBy { it.id }
+        val all = (before.spots + before.parked).distinct()
+        val near = all.filter { id -> where[id]?.let { Geo.km(at.lat, at.lon, it.lat, it.lon) <= Geo.SUGGEST_KM } == true }
+        val spots = near.ifEmpty { Geo.suggested(catalogue, at.lat, at.lon) }
+        before.copy(place = at, spots = spots, parked = all.filter { it !in spots })
+      }
+    return copy(places = places.mapIndexed { k, f -> if (k == index) moved else f })
+  }
+
+  /**
+   * The « Ma position » of before (a point taken once, named [names]) becomes the place « Ici », which then follows the
+   * phone: its spots, its bell and its rank stay; it has no town until the next position is read. Only the first one,
+   * and only when there is no place « Ici » yet.
+   */
+  fun adoptHere(names: Set<String>): Choices {
+    if (hereIndex >= 0) return this
+    val index = places.indexOfFirst { it.place.name in names }
+    if (index < 0) return this
+    return copy(places = places.mapIndexed { k, f -> if (k == index) f.copy(place = f.place.copy(name = "", region = null, here = true)) else f })
+  }
+
+  /** A spot followed again is no longer parked. */
   private fun spots(index: Int, change: (List<String>) -> List<String>): Choices =
-    copy(places = places.mapIndexed { k, f -> if (k == index) f.copy(spots = change(f.spots).distinct()) else f })
+    copy(
+      places =
+        places.mapIndexed { k, f ->
+          if (k != index) {
+            f
+          } else {
+            val next = change(f.spots).distinct()
+            f.copy(spots = next, parked = f.parked.filter { it !in next })
+          }
+        }
+    )
 
   companion object {
     val EMPTY = Choices(emptyList(), 0)
@@ -90,6 +155,8 @@ class PlacesStore(private val kv: KeyValue) {
                     f.place.region?.let { put("region", it) }
                     put("spots", JsonArray(f.spots.map(::JsonPrimitive)))
                     f.bell?.let { put("bell", it.name) }
+                    if (f.place.here) put("here", true)
+                    if (f.parked.isNotEmpty()) put("parked", JsonArray(f.parked.map(::JsonPrimitive)))
                   }
                 )
               }
@@ -101,6 +168,8 @@ class PlacesStore(private val kv: KeyValue) {
     fun decode(text: String): Choices? =
       try {
         val root = Json.parseToJsonElement(text) as? JsonObject ?: return null
+        // One place « Ici » at most: a second one would read as a fixed place at its last point.
+        var hereSeen = false
         val places =
           (root["places"] as? JsonArray).orEmpty().mapNotNull { e ->
             val o = e as? JsonObject ?: return@mapNotNull null
@@ -110,7 +179,10 @@ class PlacesStore(private val kv: KeyValue) {
             val region = (o["region"] as? JsonPrimitive)?.contentOrNull
             val spots = (o["spots"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
             val bell = Bell.of((o["bell"] as? JsonPrimitive)?.contentOrNull)
-            FollowedPlace(Place(name, lat, lon, region), spots, bell)
+            val here = !hereSeen && (o["here"] as? JsonPrimitive)?.booleanOrNull == true
+            if (here) hereSeen = true
+            val parked = (o["parked"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            FollowedPlace(Place(name, lat, lon, region, here), spots, bell, parked)
           }
         val current = root["current"]?.jsonPrimitive?.intOrNull ?: 0
         Choices(places, current.coerceIn(0, (places.size - 1).coerceAtLeast(0)))

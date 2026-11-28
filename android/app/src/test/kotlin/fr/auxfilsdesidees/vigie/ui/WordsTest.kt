@@ -39,6 +39,7 @@ class WordsTest {
     assertEquals("Brittany", Words.placeWhere("Brittany", "FR"))
     assertEquals("Texas, US", Words.placeWhere("Texas", "US"))
     assertEquals("", Words.placeWhere(null, "FR"))
+    assertEquals("Martinique", Words.placeWhere("Martinique", "MQ"))
   }
 
   @Test

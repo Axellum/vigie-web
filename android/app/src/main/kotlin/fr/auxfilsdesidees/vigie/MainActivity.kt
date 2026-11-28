@@ -19,6 +19,7 @@ import fr.auxfilsdesidees.vigie.notify.Bells
 import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.notify.VigieNotifications
 import fr.auxfilsdesidees.vigie.ui.theme.VigieTheme
+import fr.auxfilsdesidees.vigie.widget.WidgetRefresh
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -38,11 +39,15 @@ class MainActivity : ComponentActivity() {
       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
     )
     val baseUrl = localApi() ?: VigieRepository.BASE_URL
+    val siteUrl = (if (debuggable()) localSite() else null) ?: VigieRepository.BASE_URL
+    // « Ma position » of before becomes « Ici » before anything reads the places; its widgets follow it just after.
+    AppData.adoptHere(this)
+    lifecycleScope.launch { runCatching { WidgetRefresh.rekeyHere(this@MainActivity) } }
     if (savedInstanceState == null) {
       placeAsked.value = asked(intent)
       if (debuggable()) PhoneBells.useLocalSite(this, localSite())
     }
-    setContent { VigieTheme { MainNavigation(baseUrl, placeAsked) } }
+    setContent { VigieTheme { MainNavigation(baseUrl, siteUrl, placeAsked) } }
     if (savedInstanceState == null && debuggable() && intent?.getBooleanExtra(EXTRA_DEBUG_TOKEN, false) == true) {
       askDebugToken()
     }

@@ -100,8 +100,32 @@ object WidgetRefresh {
     }
   }
 
+  /**
+   * A widget set on the « Ma position » of before kept that point as its key; once it became the place « Ici »
+   * ([AppData.adoptHere]) the widget follows « Ici » instead. A key still followed, or another point, is left alone.
+   */
+  suspend fun rekeyHere(context: Context) {
+    val choices = AppData.places(context).load()
+    val here = choices.herePlace ?: return
+    val old = here.place.pointKey
+    if (choices.places.any { it.key == old }) return
+    val manager = GlanceAppWidgetManager(context)
+    for (widget in widgets()) {
+      for (id in manager.getGlanceIds(widget.javaClass)) {
+        if (getAppWidgetState(context, PreferencesGlanceStateDefinition, id)[PlaceWidget.PLACE] != old) continue
+        updateAppWidgetState(context, id) {
+          it[PlaceWidget.PLACE] = here.key
+          it[PlaceWidget.NAME] = here.place.label
+        }
+        widget.update(context, id)
+      }
+    }
+  }
+
   /** Read the places of the widgets that need it, then draw them all again. */
   internal suspend fun refresh(context: Context) {
+    AppData.adoptHere(context)
+    rekeyHere(context)
     val manager = GlanceAppWidgetManager(context)
     val keys =
       widgets()

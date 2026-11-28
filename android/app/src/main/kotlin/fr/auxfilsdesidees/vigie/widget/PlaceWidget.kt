@@ -118,9 +118,9 @@ class PlaceWidget : GlanceAppWidget() {
       val stamp = prefs[STAMP] ?: 0L
       if (key == null) return Content.NoPlace(stamp)
       val followed = AppData.places(context).load().places.firstOrNull { it.key == key } ?: return Content.Gone(key, stamp, prefs[NAME])
-      val snapshot = AppData.repository(context).saved(followed.place, followed.spots) ?: return Content.Waiting(key, stamp, followed.place.name)
+      val snapshot = AppData.repository(context).saved(followed.place, followed.spots) ?: return Content.Waiting(key, stamp, followed.place.label)
       val now = System.currentTimeMillis() / 1000
-      return Content.Ready(key, stamp, BoardWidget.view(followed.place.name, snapshot, now), snapshot, now)
+      return Content.Ready(key, stamp, BoardWidget.view(followed.place.label, snapshot, now), snapshot, now)
     }
   }
 }

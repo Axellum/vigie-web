@@ -14,9 +14,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The phone's position, approximate only (the « coarse » permission: a few hundred metres to a few kilometres), asked
- * once when the user touches « Utiliser ma position ». No Google service: the system's own location providers. The
- * caller rounds it to about 1 km before anything leaves the phone.
+ * The phone's position, approximate only (the « coarse » permission: a few hundred metres to a few kilometres). The
+ * permission is asked when the user touches « Utiliser ma position »; once given, the position of the place « Ici » is
+ * read again each time the app comes to the front, never in the background. No Google service: the system's own
+ * location providers. The caller rounds it to about 1 km before anything leaves the phone.
  */
 object Locator {
   const val PERMISSION = Manifest.permission.ACCESS_COARSE_LOCATION

@@ -68,9 +68,12 @@ object Words {
   /** A population with French grouping (« 58 112 hab. »), a narrow no-break space between the groups. */
   fun population(n: Long): String = "${n.toString().reversed().chunked(3).joinToString(" ").reversed()}${NBSP}hab."
 
-  /** Where a place of the search is: its region, and its country code when it is not France. */
+  /** Where a place of the search is: its region, and its country code when it is not France (overseas France included). */
   fun placeWhere(region: String?, country: String?): String =
-    listOfNotNull(region, country?.takeIf { it != "FR" }).joinToString(", ")
+    listOfNotNull(region, country?.takeIf { it !in FRANCE }).joinToString(", ")
+
+  /** France and its overseas lands as GeoNames codes them: « Martinique », not « Martinique, MQ ». */
+  private val FRANCE = setOf("FR", "GP", "MQ", "GF", "RE", "YT", "PM", "BL", "MF", "NC", "PF", "WF")
 
   /** « 0 mm », « 0,4 mm », « 12 mm »: French decimal comma, one decimal under 10 mm. */
   fun mm(v: Double?): String {

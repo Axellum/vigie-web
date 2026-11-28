@@ -67,8 +67,8 @@ class OfflineCopies(private val shelf: Shelf) {
   companion object {
     private const val VERSION = 1
 
-    /** « 47.7500_-3.3700 »: the followed place's key, the same four decimals, fit for a file name. */
-    fun nameOf(place: Place): String = FollowedPlace(place, emptyList()).key.replace(',', '_')
+    /** « 47.7500_-3.3700 »: the place's point at four decimals, fit for a file name (the place « Ici » too). */
+    fun nameOf(place: Place): String = place.pointKey.replace(',', '_')
   }
 }
 
