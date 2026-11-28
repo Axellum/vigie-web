@@ -100,8 +100,8 @@ internal object MapLayers {
 
 /**
  * The label of a pin, drawn as the site draws it (`.epingle` of the sketches, the pins of `/sea`): a dark pill with the dot
- * of the verdict, the figures in white and the way the tide goes in yellow. Drawn at the screen's density, which MapLibre
- * reads from the bitmap.
+ * of the verdict, the figures in white, for the kite and the boat an arrow where the wind blows, and the way the tide goes
+ * in yellow. Drawn at the screen's density, which MapLibre reads from the bitmap.
  */
 internal object PinLabel {
   private val FILL = "#EB0D161E".toColorInt()
@@ -123,9 +123,10 @@ internal object PinLabel {
     val padRight = 9f * d
     val dot = 10f * d
     val gap = 5f * d
-    val arrow = if (pin.tide != null) 10f * d else 0f
+    val arrow = 10f * d
+    val arrows = listOfNotNull(pin.windFrom?.let { (it + 180f) to TEXT }, pin.tide?.let { (if (it == "rising") 0f else 180f) to TIDE })
     val textWidth = words.measureText(text)
-    val width = padLeft + dot + gap + textWidth + (if (arrow > 0) gap + arrow else 0f) + padRight
+    val width = padLeft + dot + gap + textWidth + arrows.size * (gap + arrow) + padRight
     val bitmap = Bitmap.createBitmap(ceil(width).toInt(), ceil(height).toInt(), Bitmap.Config.ARGB_8888)
     bitmap.density = densityDpi
     val canvas = Canvas(bitmap)
@@ -148,32 +149,41 @@ internal object PinLabel {
     val metrics = words.fontMetrics
     val x = padLeft + dot + gap
     canvas.drawText(text, x, height / 2 - (metrics.ascent + metrics.descent) / 2, words)
-    if (arrow > 0) {
-      val ax = x + textWidth + gap + arrow / 2
-      val top = height / 2 - arrow / 2
-      val bottom = height / 2 + arrow / 2
-      val up = pin.tide == "rising"
-      val tip = if (up) top else bottom
-      val back = if (up) top + arrow * 0.45f else bottom - arrow * 0.45f
-      val path =
-        Path().apply {
-          moveTo(ax, if (up) bottom else top)
-          lineTo(ax, tip)
-          moveTo(ax - arrow * 0.4f, back)
-          lineTo(ax, tip)
-          lineTo(ax + arrow * 0.4f, back)
-        }
-      canvas.drawPath(
-        path,
-        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-          style = Paint.Style.STROKE
-          strokeWidth = 1.8f * d
-          strokeCap = Paint.Cap.ROUND
-          strokeJoin = Paint.Join.ROUND
-          color = TIDE
-        },
-      )
+    var ax = x + textWidth + gap + arrow / 2
+    arrows.forEach { (angle, colour) ->
+      drawArrow(canvas, ax, height / 2, arrow, angle, colour, 1.8f * d)
+      ax += gap + arrow
     }
     return bitmap
+  }
+
+  /**
+   * The site's arrow (`M8 13V3M4 7l4-4 4 4`), [size] high, centred on ([cx], [cy]), pointing up turned by [angle] degrees
+   * clockwise: the wind where it blows to (its direction + 180°), the tide up when it rises.
+   */
+  private fun drawArrow(canvas: Canvas, cx: Float, cy: Float, size: Float, angle: Float, colour: Int, stroke: Float) {
+    val top = cy - size / 2
+    val back = top + size * 0.45f
+    val path =
+      Path().apply {
+        moveTo(cx, cy + size / 2)
+        lineTo(cx, top)
+        moveTo(cx - size * 0.4f, back)
+        lineTo(cx, top)
+        lineTo(cx + size * 0.4f, back)
+      }
+    canvas.save()
+    canvas.rotate(angle, cx, cy)
+    canvas.drawPath(
+      path,
+      Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = stroke
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        color = colour
+      },
+    )
+    canvas.restore()
   }
 }

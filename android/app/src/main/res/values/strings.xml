@@ -184,6 +184,7 @@
     <string name="map_open">Ouvrir la carte</string>
     <string name="map_search_hint">Chercher une plage, une ville…</string>
     <string name="map_search_none">Aucune plage ni ville trouvée.</string>
+    <string name="map_search_clear">Effacer la recherche</string>
     <string name="map_loading">Lecture de la carte…</string>
     <string name="map_failed">La carte n\'a pas pu être lue.</string>
     <string name="map_locate">Aller à ma position</string>

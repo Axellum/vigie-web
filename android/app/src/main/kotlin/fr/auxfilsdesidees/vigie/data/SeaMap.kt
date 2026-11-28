@@ -38,6 +38,11 @@ data class MapPin(
   val text: String?,
   /** rising or falling, on every spot the tide model reaches; null elsewhere. */
   val tide: String?,
+  /**
+   * Where the wind of the hour comes from, in degrees, for the kite and the boat (whose figure is the wind), as the site's
+   * arrow after the speed; to 15° (a few pictures for the whole coast, the same arrow to the eye). Null otherwise.
+   */
+  val windFrom: Int? = null,
 )
 
 /**
@@ -109,6 +114,9 @@ object SeaMap {
         rank = rank(verdict),
         text = pinText(activity, hour),
         tide = hour?.get("tide").objOrNull()?.get("trend").str()?.takeIf { it == "rising" || it == "falling" },
+        windFrom =
+          if (activity == MapActivity.Kite || activity == MapActivity.Boat) hour?.get("wind").objOrNull()?.get("from_deg").dbl()?.let(::windStep)
+          else null,
       )
     }
   }
@@ -141,11 +149,14 @@ object SeaMap {
     }
   }
 
+  /** A direction to the nearest 15°, from 0 to 345. */
+  internal fun windStep(deg: Double): Int = ((Math.round(deg / 15.0) * 15) % 360 + 360).toInt() % 360
+
   /**
    * The name of the picture of a pin's label: pins that look the same share one (the verdict's band, the way the tide
-   * goes, the figures). Null for a pin without figures, which is a dot only.
+   * goes, the wind's direction, the figures). Null for a pin without figures, which is a dot only.
    */
-  fun labelKey(pin: MapPin): String? = pin.text?.let { "vigie-pin:${band(pin.verdict)}:${pin.tide ?: "-"}:$it" }
+  fun labelKey(pin: MapPin): String? = pin.text?.let { "vigie-pin:${band(pin.verdict)}:${pin.tide ?: "-"}:${pin.windFrom ?: "-"}:$it" }
 
   /**
    * The pins as GeoJSON for the map: a point each, with its id, its band (the colour of its dot), its rank (the lower is

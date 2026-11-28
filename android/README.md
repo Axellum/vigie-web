@@ -74,9 +74,10 @@ The user chooses the places and their spots; two home screen widgets show one of
 - The sea map, as the site's `/sea` (the sketch chosen by the author on 2026-11-28): the map button in the head of the
   card, next to the gear, opens it on the place shown (France when there is none). The site's dark OpenFreeMap base map,
   its names in French and its land and water in the site's colours, drawn by MapLibre Native (about 13 MB more on the
-  phone). A dot per spot of the activity chosen (Surf, Kite, Bateau, Pêche du bord) in the colour of its verdict now,
-  and, as on the site, a label of the hour for those the map has room for, the best first: the swell and its period for
-  surf (`/v1/surf/overview`), the wind for kite and boat, the stage of the tide and its arrow for fishing. A search of
+  phone). A dot per spot of the activity chosen (Surf, Kite / wing, Bateau, Pêche à pied) in the colour of its verdict
+  (`/v1/activities/overview`), and, as on the site, a label of the hour for those the map has room for, the best first: the swell and its period for
+  surf (`/v1/surf/overview`), the wind and where it blows for kite and boat, the stage of the tide for fishing, and the
+  arrow of the tide on all. A search of
   the spots of the map and of the site's towns, the phone's position on request (asked when touched), a legend, and
   the credits of OpenFreeMap, OpenMapTiles and OpenStreetMap, touched to open the copyright page. The pins are read
   again when the map opens after 10 minutes; the base map once (`data/SeaMap.kt`, `ui/map/`).

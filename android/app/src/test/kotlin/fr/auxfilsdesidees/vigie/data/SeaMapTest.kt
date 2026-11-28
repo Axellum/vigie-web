@@ -51,6 +51,18 @@ class SeaMapTest {
   }
 
   @Test
+  fun `the kite and the boat say where the wind comes from, to 15 degrees, and the others do not`() {
+    assertEquals(195, SeaMap.pins(overview, surf, MapActivity.Kite).single { it.id == "trevou-treguignec-plage-de-trestel" }.windFrom)
+    assertEquals(180, SeaMap.pins(overview, surf, MapActivity.Boat).single { it.id == "plouharnel-la-grande-plage" }.windFrom)
+    SeaMap.pins(overview, surf, MapActivity.Surf).forEach { assertNull(it.windFrom) }
+    SeaMap.pins(overview, surf, MapActivity.ShoreFishing).forEach { assertNull(it.windFrom) }
+    assertEquals(0, SeaMap.windStep(352.6))
+    assertEquals(0, SeaMap.windStep(7.0))
+    assertEquals(15, SeaMap.windStep(8.0))
+    assertEquals(345, SeaMap.windStep(-15.0))
+  }
+
+  @Test
   fun `without the figures of the hour, the pins keep their verdict and nothing else`() {
     val pins = SeaMap.pins(overview, null, MapActivity.Surf)
     assertEquals(3, pins.size)
@@ -91,8 +103,8 @@ class SeaMapTest {
     assertEquals("trevou-treguignec-plage-de-trestel", properties.getValue("id").jsonPrimitive.content)
     assertEquals(0, properties.getValue("band").jsonPrimitive.content.toInt())
     assertEquals(2, properties.getValue("rank").jsonPrimitive.content.toInt())
-    // Trestel and Kerou: poor, 26 km/h, the tide falling: one picture for both.
-    assertEquals("vigie-pin:0:falling:26 km/h", properties.getValue("label").jsonPrimitive.content)
+    // Trestel and Kerou: poor, from 189° and 192° (195° to 15°), 26 km/h, the tide falling: one picture for both.
+    assertEquals("vigie-pin:0:falling:195:26 km/h", properties.getValue("label").jsonPrimitive.content)
     assertEquals(properties.getValue("label"), features[1].getValue("properties").jsonObject.getValue("label"))
     // A pin without figures is a dot only.
     val bare = Json.parseToJsonElement(SeaMap.features(SeaMap.pins(overview, null, MapActivity.Kite))).jsonObject.getValue("features").jsonArray

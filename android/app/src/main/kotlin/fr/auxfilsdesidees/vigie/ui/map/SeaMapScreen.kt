@@ -183,16 +183,19 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, start: Place?, onBack: () -> Unit) 
         Round(R.drawable.ic_locate, stringResource(R.string.map_locate)) { if (Locator.granted(context)) locate() else askPosition.launch(Locator.PERMISSION) }
       }
       if (locateFailed) Small(stringResource(R.string.map_locate_none), VigieColors.Warning)
+      // On the legend's glass, so that a pin under them never makes them hard to read.
       Small(
         stringResource(R.string.map_credits),
         VigieColors.Text2,
-        Modifier.clickable {
-          try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OSM_COPYRIGHT)))
-          } catch (err: ActivityNotFoundException) {
-            // No browser: the credits stay on screen all the same.
+        Modifier.background(VigieColors.Bar, RoundedCornerShape(10.dp))
+          .clickable {
+            try {
+              context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OSM_COPYRIGHT)))
+            } catch (err: ActivityNotFoundException) {
+              // No browser: the credits stay on screen all the same.
+            }
           }
-        },
+          .padding(horizontal = 8.dp, vertical = 4.dp),
       )
     }
   }
@@ -203,7 +206,15 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, start: Place?, onBack: () -> Unit) 
 private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMapViewModel.Hit) -> Unit) {
   val search by viewModel.search.collectAsStateWithLifecycle()
   var text by rememberSaveable { mutableStateOf("") }
+  // A line touched closes the list until the next letter typed (its name may be the very word searched: « Capbreton »).
+  var closed by rememberSaveable { mutableStateOf(false) }
   val focus = LocalFocusManager.current
+  fun pick(hit: SeaMapViewModel.Hit) {
+    text = hit.name
+    closed = true
+    onHit(hit)
+    focus.clearFocus()
+  }
   Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Round(R.drawable.ic_back, stringResource(R.string.back), onBack)
@@ -220,41 +231,40 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMa
             value = text,
             onValueChange = {
               text = it
+              closed = false
               viewModel.search(it)
             },
             singleLine = true,
             textStyle = TextStyle(color = VigieColors.Text, fontSize = 15.sp),
             cursorBrush = SolidColor(VigieColors.Accent),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { search.hits.firstOrNull()?.let(onHit); focus.clearFocus() }),
+            keyboardActions = KeyboardActions(onSearch = { search.hits.firstOrNull()?.let(::pick) ?: focus.clearFocus() }),
             modifier = Modifier.fillMaxWidth(),
           )
         }
         if (text.isNotEmpty()) {
           Icon(
             painterResource(R.drawable.ic_close),
-            stringResource(R.string.back),
+            stringResource(R.string.map_search_clear),
             tint = VigieColors.Text3,
             modifier =
               Modifier.size(20.dp).clickable(role = Role.Button) {
                 text = ""
+                closed = false
                 viewModel.search("")
               },
           )
         }
       }
     }
-    val current = search.query == text && text.trim().length >= 2
+    val current = !closed && search.query == text && text.trim().length >= 2
     if (current && (search.hits.isNotEmpty() || search.done)) {
       Column(Modifier.fillMaxWidth().background(VigieColors.Bar, RoundedCornerShape(18.dp)).padding(vertical = 4.dp)) {
         if (search.hits.isEmpty()) Small(stringResource(R.string.map_search_none), VigieColors.Text3, Modifier.padding(12.dp))
         search.hits.forEach { hit ->
           Row(
             Modifier.fillMaxWidth()
-              .clickable {
-                onHit(hit)
-                focus.clearFocus()
-              }
+              .clickable { pick(hit) }
               .padding(horizontal = 14.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
           ) {
@@ -274,7 +284,8 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMa
 /** The four activities, as the chips of `/sea`: the one chosen in the accent colour. */
 @Composable
 private fun Chips(chosen: MapActivity, onChoose: (MapActivity) -> Unit) {
-  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+  // Compact, so that the four fit across a phone at the usual text size; they scroll when the text is larger.
+  Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
     MapActivity.entries.forEach { a ->
       val on = a == chosen
       val ink = if (on) VigieColors.OnPill else VigieColors.Text
@@ -284,12 +295,12 @@ private fun Chips(chosen: MapActivity, onChoose: (MapActivity) -> Unit) {
           .background(if (on) VigieColors.Accent else VigieColors.Bar)
           .border(1.dp, if (on) VigieColors.Accent else VigieColors.GlassBorder, RoundedCornerShape(17.dp))
           .clickable(role = Role.Tab) { onChoose(a) }
-          .padding(horizontal = 13.dp),
+          .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        ActivityGlyph(a.id, ink, 17.dp)
-        Spacer(Modifier.size(6.dp))
-        Text(Words.activity(a.id), color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        ActivityGlyph(a.id, ink, 15.dp)
+        Spacer(Modifier.size(5.dp))
+        Text(Words.activity(a.id), color = ink, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
       }
     }
   }
@@ -310,7 +321,7 @@ private fun Legend(modifier: Modifier) {
         Spacer(Modifier.size(3.dp))
       }
     }
-    Small(stringResource(R.string.map_legend), VigieColors.Text3)
+    Small(stringResource(R.string.map_legend), VigieColors.Text2, Modifier.background(VigieColors.Bar, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 3.dp))
   }
 }
 
