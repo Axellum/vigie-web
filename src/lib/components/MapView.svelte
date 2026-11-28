@@ -182,6 +182,9 @@
 	let currentTheme: 'light' | 'dark' = 'light';
 
 	const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	// The tint of a warning: as strong as before up to the scale of a department (zoom 8), then fainter, so that close up (the
+	// map goes to zoom 16) the relief, the names and the IGN's details stay readable inside a warned area. Its outline stays.
+	const ZONE_FILL_OPACITY: ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 0.12];
 	const levelColor = (key: string): ExpressionSpecification => [
 		'match',
 		['get', key],
@@ -883,7 +886,7 @@
 			minzoom: zonesFrom,
 			filter: isArea,
 			layout: { 'fill-sort-key': levelOrder },
-			paint: { 'fill-color': levelColor('level'), 'fill-opacity': 0.4 }
+			paint: { 'fill-color': levelColor('level'), 'fill-opacity': ZONE_FILL_OPACITY }
 		});
 		addUnderRain({
 			id: 'zone-outline',

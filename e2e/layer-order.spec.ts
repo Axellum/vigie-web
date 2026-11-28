@@ -167,3 +167,37 @@ test('warnings under the rain, the forecast wind over both, the measured wind on
 	await expect(page.locator('.vigie-wind-popup')).toBeVisible();
 	expect(await z('.vigie-wind-popup')).toBeGreaterThan(badge!);
 });
+
+test('the tint of a warning fades up close, so that the map stays readable inside a warned area', async ({
+	page
+}) => {
+	await open(page);
+	// The opacity MapLibre draws the warnings' tint with at a zoom (a constant of the zoom, not of the zone).
+	const opacityAt = (zoom: number) =>
+		page.evaluate(
+			(z) =>
+				new Promise<number | undefined>((ok) => {
+					const map = (
+						window as unknown as {
+							vigieMap?: {
+								jumpTo(o: object): void;
+								once(event: string, f: () => void): void;
+								getLayer(
+									id: string
+								):
+									| { paint?: { get(name: string): { constantOr(v: undefined): number | undefined } } }
+									| undefined;
+							};
+						}
+					).vigieMap!;
+					map.once('idle', () =>
+						ok(map.getLayer('zone-fill')?.paint?.get('fill-opacity').constantOr(undefined))
+					);
+					map.jumpTo({ center: [2.35, 46.6], zoom: z });
+				}),
+			zoom
+		);
+	expect(await opacityAt(6)).toBeCloseTo(0.4);
+	expect(await opacityAt(10)).toBeCloseTo(0.26);
+	expect(await opacityAt(14)).toBeCloseTo(0.12);
+});
