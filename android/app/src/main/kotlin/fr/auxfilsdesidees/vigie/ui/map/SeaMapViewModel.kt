@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.auxfilsdesidees.vigie.data.BeachReader
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
+import fr.auxfilsdesidees.vigie.data.KeyValue
 import fr.auxfilsdesidees.vigie.data.MapActivity
+import fr.auxfilsdesidees.vigie.data.MapBackground
 import fr.auxfilsdesidees.vigie.data.MapPin
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
@@ -36,6 +38,9 @@ import kotlinx.coroutines.withContext
  *
  * The sheet of a spot or a town touched ([sheet]) reads its beach ([beaches], with [beachReader], kept in memory only) or
  * its weather ([towns], `/v1/point` through the map's gate): again after [FRESH_MS], never more often.
+ *
+ * The base map is the site's dark plan, or the IGN's plan or photographs when chosen ([chooseBackground]): the choice is
+ * kept on the phone ([kept]); each style is read once. When the IGN cannot be read, the dark plan is shown, and said so.
  */
 class SeaMapViewModel(
   private val reader: SeaMapReader,
@@ -44,6 +49,8 @@ class SeaMapViewModel(
   private val clock: () -> Long = System::currentTimeMillis,
   /** Where the overview and the style are parsed: off the main thread (a test gives its own). */
   private val work: CoroutineContext = Dispatchers.Default,
+  /** Where the background chosen is kept (the app's settings); nowhere in a test. */
+  private val kept: KeyValue? = null,
 ) : ViewModel() {
   /** What the sheet shows: a spot of the map (its Mer page) or a town (its Accueil). */
   sealed interface Sheet {
@@ -136,6 +143,14 @@ class SeaMapViewModel(
     val pins: List<MapPin> = emptyList(),
     /** The layers of the base map that name the towns, a touch on which opens a town's sheet. */
     val townLayers: List<String> = emptyList(),
+    /** The base map of [style] (the one chosen, before the first style is read). */
+    val background: MapBackground = MapBackground.Dark,
+    /** The background touched last: [background] once read, another one while it is read ([backgroundBusy]). */
+    val chosen: MapBackground = background,
+    /** A background chosen is being read. */
+    val backgroundBusy: Boolean = false,
+    /** The background chosen that could not be read: the dark plan is shown instead. */
+    val backgroundFailed: MapBackground? = null,
   )
 
   /** A line of the search: a spot of the map or a town of the site's search, and where to take the map. */
@@ -143,11 +158,15 @@ class SeaMapViewModel(
 
   data class Search(val query: String = "", val hits: List<Hit> = emptyList(), val busy: Boolean = false, val done: Boolean = false)
 
-  private val _ui = MutableStateFlow(Ui())
+  private val _ui = MutableStateFlow(MapBackground.of(kept?.read(BACKGROUND_KEY)).let { Ui(background = it, chosen = it) })
   val ui: StateFlow<Ui> = _ui.asStateFlow()
   private val _search = MutableStateFlow(Search())
   val search: StateFlow<Search> = _search.asStateFlow()
 
+  private var dark: String? = null
+  private var planIgn: String? = null
+  private var photos: String? = null
+  private var backgroundJob: Job? = null
   private var overview: String? = null
   private var catalogue: List<CatalogueSpot> = emptyList()
   private var surf: String? = null
@@ -164,10 +183,10 @@ class SeaMapViewModel(
         _ui.update { it.copy(loading = true, failed = false) }
         try {
           coroutineScope {
-            val style = if (_ui.value.style == null) async { reader.style() } else null
+            val style = if (dark == null) async { reader.style() } else null
             val o = async { reader.overview() }
             val s = async { reader.surf() }
-            val read = style?.await()
+            style?.await()?.let { dark = it }
             overview = o.await()
             surf = s.await()
             readAt = clock()
@@ -176,16 +195,53 @@ class SeaMapViewModel(
             if (spots != null) catalogue = spots
             // A search typed before the spots were read is run again with them.
             if (first && catalogue.isNotEmpty() && _search.value.query.trim().length >= 2) search(_search.value.query)
-            val towns = read?.let { withContext(work) { SeaMap.townLayers(it) } }
             val pins = pinsOf(_ui.value.activity)
-            _ui.update { it.copy(style = read ?: it.style, loading = false, pins = pins, townLayers = towns ?: it.townLayers) }
+            _ui.update { it.copy(loading = false, pins = pins) }
           }
+          if (_ui.value.style == null) show(_ui.value.background)
         } catch (err: CancellationException) {
           throw err
         } catch (err: Exception) {
           _ui.update { it.copy(loading = false, failed = it.style == null || overview == null) }
         }
       }
+  }
+
+  /** Shows [background] and keeps it on the phone: the next opening shows it too. */
+  fun chooseBackground(background: MapBackground) {
+    kept?.write(BACKGROUND_KEY, background.id)
+    val now = _ui.value
+    if (background == now.background && background == now.chosen && !now.backgroundBusy) return
+    backgroundJob?.cancel()
+    if (dark == null) {
+      // Nothing read yet: the map opens on it once the dark plan is read.
+      _ui.update { it.copy(background = background, chosen = background, backgroundFailed = null) }
+      return
+    }
+    _ui.update { it.copy(chosen = background, backgroundBusy = true, backgroundFailed = null) }
+    backgroundJob = viewModelScope.launch { show(background) }
+  }
+
+  /** The style of [background], read or built once; the dark plan's when the IGN cannot be read. */
+  private suspend fun show(background: MapBackground) {
+    val base = dark ?: return
+    val style =
+      try {
+        when (background) {
+          MapBackground.Dark -> base
+          MapBackground.PhotoIgn -> photos ?: withContext(work) { SeaMap.styleWithPhotos(base) }.also { photos = it }
+          MapBackground.PlanIgn -> planIgn ?: reader.planIgn().also { planIgn = it }
+        }
+      } catch (err: CancellationException) {
+        _ui.update { it.copy(chosen = it.background, backgroundBusy = false) }
+        throw err
+      } catch (err: Exception) {
+        null
+      }
+    val shown = if (style == null) MapBackground.Dark else background
+    val json = style ?: base
+    val towns = withContext(work) { SeaMap.townLayers(json) }
+    _ui.update { it.copy(style = json, background = shown, chosen = shown, townLayers = towns, backgroundFailed = background.takeIf { style == null }, backgroundBusy = false) }
   }
 
   fun choose(activity: MapActivity) {
@@ -240,6 +296,8 @@ class SeaMapViewModel(
   companion object {
     /** The verdicts and the figures of the hour, read again when the map opens later than this. */
     const val FRESH_MS = 10 * 60_000L
+    /** The key of the background chosen, in the app's settings. */
+    const val BACKGROUND_KEY = "map_background"
     private const val KEPT = 8
     private const val SPOTS_SHOWN = 4
     private const val TOWNS_SHOWN = 4

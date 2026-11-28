@@ -69,6 +69,7 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
       SeaMapReader(baseUrl, siteUrl, gate),
       { q -> places.searchPlaces(q).first },
       BeachReader(baseUrl, fetch = gate.gated(VigieRepository::httpGet)),
+      kept = AppData.settings(context),
     )
   }
   val backStack = rememberNavBackStack(Main)

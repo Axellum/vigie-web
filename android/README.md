@@ -14,7 +14,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search), which also names the place « Ici »
   (`?lat&lon`, the nearest town); for the sea map, `GET /v1/activities/overview`, `GET /v1/surf/overview` and the site's
   base map `GET /data/basemap/dark.json`, whose tiles, fonts and icons come from `tiles.openfreemap.org` (it sees the
-  area shown, as any web map does). Nothing is sent but the search typed and the coordinates of the places; the choices stay
+  area shown, as any web map does), or, when chosen, the IGN's plan and photographs from `data.geopf.fr` (the same).
+  Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
   (below) is the other: the site keeps its notification address with the account.
@@ -87,7 +88,11 @@ The user chooses the places and their spots; two home screen widgets show one of
   joins the nearest followed place within 60 km, else it comes with its town (the site's, as « Ici »), which becomes a
   followed place; a town is followed alone. The Accueil, the Mer tab and the widgets read it as any other; a note says
   where it went, with « Annuler » for 6 seconds. A followed spot has a star in place of its dot, a followed place a pill
-  with its name. The map's reads of `/v1/point` keep to 4 a minute (`data/PointGate.kt`), under the server's 10.
+  with its name. The map's reads of `/v1/point` keep to 4 a minute (`data/PointGate.kt`), under the server's 10. The
+  layers button, right of the search, puts another base map under the pins: the IGN's plan (its own style and colours,
+  France and its overseas departments), or its aerial photographs under the dark plan's names, the dark sea over them
+  (out at sea the IGN serves white pictures). Licence Ouverte 2.0, no key; the credits follow the base map. The choice
+  is kept on the phone; when the IGN cannot be read, the map stays on the dark plan and says so.
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -244,11 +249,11 @@ Firebase config above, or the app sent has no bell.
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
 | `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, Mer |
 | `ui/SeaViewModel.kt` | the beaches of Mer: the copy first, then the network when it is older than asked |
-| `data/SeaMap.kt` | the sea map's data: the pins of an activity and their labels, as the site's `src/lib/sea/map.ts`; the base map in the app's colours and in French; its reader (tested on the JVM) |
+| `data/SeaMap.kt` | the sea map's data: the pins of an activity and their labels, as the site's `src/lib/sea/map.ts`; the base map in the app's colours and in French, the IGN's plan and photographs; its reader (tested on the JVM) |
 | `data/Favourites.kt` | the star of the sea map: a spot or a town followed in the places the app has, and « Annuler » (tested on the JVM) |
 | `data/PointGate.kt` | the sea map's share of `/v1/point`: 4 a minute (tested on the JVM) |
-| `ui/map/SeaMapViewModel.kt` | the sea map's state: the base map read once, the pins again after 10 minutes, the activity, the search, the sheet and what it reads |
-| `ui/map/SeaMapScreen.kt` | the sea map: MapLibre's view and its life, the search, the activities, the legend, the position, the credits, the sheet, its star and its note |
+| `ui/map/SeaMapViewModel.kt` | the sea map's state: the base map chosen and kept, each read once, the pins again after 10 minutes, the activity, the search, the sheet and what it reads |
+| `ui/map/SeaMapScreen.kt` | the sea map: MapLibre's view and its life, the search, the base maps, the activities, the legend, the position, the credits, the sheet, its star and its note |
 | `ui/map/MapLayers.kt` | the pins on the map: their source, their dots, their labels drawn as pictures and kept apart by MapLibre; the stars of the followed spots, the pills of the followed places, what a touch finds |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
