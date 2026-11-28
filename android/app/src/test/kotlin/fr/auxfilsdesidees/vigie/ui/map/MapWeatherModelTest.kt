@@ -5,6 +5,7 @@ import fr.auxfilsdesidees.vigie.data.KeyValue
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.RadarArea
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
+import fr.auxfilsdesidees.vigie.data.WindUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -181,5 +182,20 @@ class MapWeatherModelTest {
     m.showWind(false)
     assertNull(m.state.value.windMap)
     assertEquals("off", kept.map[MapWeatherModel.WIND_KEY])
+  }
+
+  @Test
+  fun `the wind's unit is km per hour at first, and the knots chosen are kept on the phone`() = runTest {
+    val kept = Memory()
+    val m = MapWeatherModel(backgroundScope, reader, { now }, kept)
+    assertEquals(WindUnit.Kmh, m.state.value.unit)
+    m.setUnit(WindUnit.Kn)
+    assertEquals(WindUnit.Kn, m.state.value.unit)
+    assertEquals("kn", kept.map[MapWeatherModel.UNIT_KEY])
+    // Nothing is asked for a unit: the badges are only drawn again.
+    assertTrue(asked.isEmpty())
+    assertEquals(WindUnit.Kn, MapWeatherModel(backgroundScope, reader, { now }, kept).state.value.unit)
+    m.setUnit(WindUnit.Kmh)
+    assertEquals("kmh", kept.map[MapWeatherModel.UNIT_KEY])
   }
 }

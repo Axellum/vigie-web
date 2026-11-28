@@ -7,6 +7,7 @@ import fr.auxfilsdesidees.vigie.data.Radar
 import fr.auxfilsdesidees.vigie.data.RadarArea
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.WindMap
+import fr.auxfilsdesidees.vigie.data.WindUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -54,6 +55,8 @@ class MapWeatherModel(
     /** The wind read last, for a box wider than the view. */
     val windRead: WindMap? = null,
     val windStatus: Status = Status.Idle,
+    /** The unit of the wind on the map, chosen in the card of the wind measured: its badges, its legend and the forecast's. */
+    val unit: WindUnit = WindUnit.Kmh,
   ) {
     /** The radar's area in view; null far out, or where there is none. */
     val area: RadarArea?
@@ -78,7 +81,10 @@ class MapWeatherModel(
       get() = windRead?.takeIf { wind }
   }
 
-  private val _state = MutableStateFlow(State(rain = kept?.read(RAIN_KEY) == ON, wind = kept?.read(WIND_KEY) == ON))
+  private val _state =
+    MutableStateFlow(
+      State(rain = kept?.read(RAIN_KEY) == ON, wind = kept?.read(WIND_KEY) == ON, unit = if (kept?.read(UNIT_KEY) == KNOTS) WindUnit.Kn else WindUnit.Kmh)
+    )
   val state: StateFlow<State> = _state.asStateFlow()
 
   private var radarAt = 0L
@@ -101,6 +107,12 @@ class MapWeatherModel(
     kept?.write(WIND_KEY, if (on) ON else OFF)
     _state.update { it.copy(wind = on) }
     sync()
+  }
+
+  /** The unit of the wind, kept on the phone as the site keeps it in the browser. */
+  fun setUnit(unit: WindUnit) {
+    kept?.write(UNIT_KEY, if (unit == WindUnit.Kn) KNOTS else KMH)
+    _state.update { it.copy(unit = unit) }
   }
 
   /** Where the map looks, after each move. */
@@ -207,6 +219,9 @@ class MapWeatherModel(
   companion object {
     const val RAIN_KEY = "map_rain"
     const val WIND_KEY = "map_wind"
+    const val UNIT_KEY = "map_wind_unit"
+    private const val KMH = "kmh"
+    private const val KNOTS = "kn"
     private const val ON = "on"
     private const val OFF = "off"
   }

@@ -223,7 +223,7 @@
     <string name="map_wind_failed">Le vent n\'a pas pu être chargé.</string>
     <string name="map_wind_empty">Aucune mesure de vent dans cette zone.</string>
     <string name="map_wind_hide">Masquer le vent</string>
-    <string name="map_wind_legend">Vitesse moyenne du vent en km/h : moins de 20, 20 à 30, 30 à 40, 40 à 60, 60 et plus.</string>
+    <string name="map_wind_unit">Unité du vent</string>
     <string name="map_rain">Pluie au radar</string>
     <string name="map_rain_detail">Météo-France, une image toutes les 5 minutes.</string>
     <string name="map_rain_hint">Les images du radar, là où il y en a (France, Antilles, La Réunion, Nouvelle-Calédonie).</string>

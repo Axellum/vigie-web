@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +41,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -113,6 +116,7 @@ import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.Starred
 import fr.auxfilsdesidees.vigie.data.TownWeather
 import fr.auxfilsdesidees.vigie.data.WindField
+import fr.auxfilsdesidees.vigie.data.WindUnit
 import fr.auxfilsdesidees.vigie.ui.ActivityGlyph
 import fr.auxfilsdesidees.vigie.ui.BeachState
 import fr.auxfilsdesidees.vigie.ui.Credits
@@ -227,7 +231,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       is MapLayers.Pick.Wind ->
         viewModel.weather.state.value.windMap?.points?.firstOrNull { it.id == pick.id }?.let { p ->
           val now = System.currentTimeMillis()
-          val lines = WeatherWords.windLines(p, TimeZone.getDefault().getOffset(now) / 1000)
+          val lines = WeatherWords.windLines(p, TimeZone.getDefault().getOffset(now) / 1000, viewModel.weather.state.value.unit)
           note = Note(lines.joinToString("\n"), title = WeatherWords.windName(p))
         }
       null -> viewModel.close()
@@ -324,13 +328,13 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     MapLayers.showRadar(s, radar, weather.epoch, weather.preload) { epoch -> viewModel.radarTiles(radar!!.area, epoch) }
   }
   // The wind's badges kept on screen, the strongest first where two would touch.
-  LaunchedEffect(style, weather.windMap, windView) {
+  LaunchedEffect(style, weather.windMap, windView, weather.unit) {
     val s = style ?: return@LaunchedEffect
     val (view, zoom) = windView ?: return@LaunchedEffect
     val radius = MapWeather.badgeRadius(zoom)
     val points = weather.windMap?.points.orEmpty()
     val kept = if (points.isEmpty()) emptyList() else withContext(Dispatchers.Default) { MapWeather.declutter(points, view, zoom, radius) }
-    MapLayers.showWind(s, kept, radius, context)
+    MapLayers.showWind(s, kept, radius, weather.unit, context)
   }
   // The towns' pills at the moment chosen; none while the layer is off.
   val pills = remember(towns) { towns.pills }
@@ -481,8 +485,8 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       // While the menu is open, the chips and the wind's legend would be pushed under it, over the cards at the foot of the map.
       if (!layersOpen) {
         Chips(ui.activity, viewModel::choose)
-        if (flow.on) FlowCard(flow, onHide = { viewModel.windField.show(false) }, Modifier.padding(horizontal = 12.dp))
-        if (weather.wind) WindCard(weather, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
+        if (flow.on) FlowCard(flow, weather.unit, onHide = { viewModel.windField.show(false) }, Modifier.padding(horizontal = 12.dp))
+        if (weather.wind) WindCard(weather, onUnit = viewModel.weather::setUnit, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
         // The foot of the controls above the map, where the towns' pills may begin.
         Spacer(Modifier.height(0.dp).onGloballyPositioned { free[0] = it.positionInRoot().y })
       }
@@ -894,7 +898,7 @@ private fun BackgroundMenu(
           val now = System.currentTimeMillis()
           val old = flow.answer?.stale == true || valid != WindField.nearestHour(now)
           MenuNote(stringResource(if (old) R.string.map_flow_legend_old else R.string.map_flow_legend, Words.clock(valid, TimeZone.getDefault().getOffset(valid * 1000) / 1000)))
-          FlowScale(Modifier.padding(start = 48.dp, end = 16.dp, bottom = 6.dp))
+          FlowScale(weather.unit, Modifier.padding(start = 48.dp, end = 16.dp, bottom = 6.dp))
           MenuNote(stringResource(R.string.map_flow_note))
         }
         else -> MenuNote(stringResource(R.string.map_flow_loading))
@@ -960,11 +964,11 @@ private fun CardNote(text: String) {
   Text(text, color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp, modifier = Modifier.padding(end = 8.dp))
 }
 
-/** The two inks of the forecast wind's trails, each with the strength from which it is drawn (the site's `FlowScale`). */
+/** The two inks of the forecast wind's trails, each with the strength from which it is drawn in the [unit] chosen (the site's `FlowScale`). */
 @Composable
-private fun FlowScale(modifier: Modifier) {
-  val strong = WeatherWords.flowStrong(WindField.STRONG_KMH[0])
-  val stronger = WeatherWords.flowStrong(WindField.STRONG_KMH[1])
+private fun FlowScale(unit: WindUnit, modifier: Modifier) {
+  val strong = WeatherWords.flowStrong(WindField.STRONG_KMH[0], unit)
+  val stronger = WeatherWords.flowStrong(WindField.STRONG_KMH[1], unit)
   val scale = stringResource(R.string.map_flow_scale, strong, stronger)
   Row(modifier.semantics(mergeDescendants = true) { contentDescription = scale }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
     listOf(1 to strong, 2 to stronger).forEach { (ink, text) ->
@@ -982,7 +986,7 @@ private fun FlowScale(modifier: Modifier) {
  * wind and a cross that turns the layer off. Its legend in full is in the layers' menu, as on the site.
  */
 @Composable
-private fun FlowCard(flow: WindFieldModel.State, onHide: () -> Unit, modifier: Modifier) {
+private fun FlowCard(flow: WindFieldModel.State, unit: WindUnit, onHide: () -> Unit, modifier: Modifier) {
   val valid = flow.valid
   WeatherCard(modifier.widthIn(max = 300.dp)) {
     CardHead(valid?.let { stringResource(R.string.map_flow_at, Words.clock(it, TimeZone.getDefault().getOffset(it * 1000) / 1000)) } ?: stringResource(R.string.map_flow), stringResource(R.string.map_flow_hide), onHide)
@@ -990,7 +994,7 @@ private fun FlowCard(flow: WindFieldModel.State, onHide: () -> Unit, modifier: M
       flow.answer?.status == "off" -> CardNote(stringResource(R.string.map_flow_off))
       flow.answer?.status == "unavailable" || (flow.status == WindFieldModel.Status.Failed && flow.answer == null) -> CardNote(stringResource(R.string.map_flow_failed))
       valid == null || flow.shown == null -> CardNote(stringResource(R.string.map_flow_loading))
-      else -> FlowScale(Modifier.padding(end = 8.dp))
+      else -> FlowScale(unit, Modifier.padding(end = 8.dp))
     }
   }
 }
@@ -1033,27 +1037,58 @@ private fun flowView(m: MapLibreMap, view: View, density: Float): FlowView? {
 
 /**
  * The card of the wind measured, under the chips while the layer is on (the site's `WindCard`): the time of the newest
- * observation, the legend of the five colours and their limits in km/h, a cross that turns the layer off.
+ * observation, the unit (km/h or knots, kept on the phone), the legend of the five colours and their limits in that unit, a
+ * cross that turns the layer off.
  */
 @Composable
-private fun WindCard(weather: MapWeatherModel.State, onHide: () -> Unit, modifier: Modifier) {
+private fun WindCard(weather: MapWeatherModel.State, onUnit: (WindUnit) -> Unit, onHide: () -> Unit, modifier: Modifier) {
   val data = weather.windMap
   val now = System.currentTimeMillis()
   val offset = TimeZone.getDefault().getOffset(now) / 1000
-  val legend = stringResource(R.string.map_wind_legend)
+  val unit = weather.unit
+  val legend = WeatherWords.windLegend(unit)
   WeatherCard(modifier.widthIn(max = 240.dp)) {
     CardHead(data?.measured?.let { stringResource(R.string.map_wind_at, Words.clock(it, offset)) } ?: stringResource(R.string.map_wind), stringResource(R.string.map_wind_hide), onHide)
+    UnitChoice(unit, onUnit, Modifier.padding(end = 8.dp))
     Column(Modifier.padding(end = 8.dp).semantics { contentDescription = legend }) {
       Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))) {
         (1..5).forEach { step -> Box(Modifier.weight(1f).fillMaxHeight().background(hexColour(MapWeather.WIND_COLOURS.getValue(step)))) }
       }
       Spacer(Modifier.height(2.dp))
-      Marks(WeatherWords.windMarks.mapIndexed { i, v -> Mark((i + 1) / 5f, v.toString(), 0) } + Mark(1f, "km/h", 1))
+      Marks(WeatherWords.windMarks(unit).mapIndexed { i, v -> Mark((i + 1) / 5f, v.toString(), 0) } + Mark(1f, WeatherWords.unitName(unit), 1))
     }
     when {
       weather.windStatus == MapWeatherModel.Status.Failed && data == null -> CardNote(stringResource(R.string.map_wind_failed))
       data == null -> CardNote(stringResource(R.string.map_wind_loading))
       data.points.isEmpty() -> CardNote(stringResource(R.string.map_wind_empty))
+    }
+  }
+}
+
+/** The two buttons of the wind's unit (the site's `.units`): the one chosen ringed and written in the accent colour. */
+@Composable
+private fun UnitChoice(unit: WindUnit, onUnit: (WindUnit) -> Unit, modifier: Modifier) {
+  val label = stringResource(R.string.map_wind_unit)
+  Row(modifier.fillMaxWidth().selectableGroup().semantics { contentDescription = label }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    WindUnit.entries.forEach { u ->
+      val on = u == unit
+      Box(
+        Modifier.weight(1f)
+          .heightIn(min = 30.dp)
+          .clip(RoundedCornerShape(50))
+          .background(if (on) VigieColors.Accent.copy(alpha = 0.16f) else Color.Transparent)
+          .border(1.dp, if (on) VigieColors.Accent else VigieColors.GlassBorder, RoundedCornerShape(50))
+          .selectable(selected = on, role = Role.RadioButton) { onUnit(u) },
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          WeatherWords.unitName(u),
+          color = if (on) VigieColors.Accent else VigieColors.Text3,
+          fontSize = 12.sp,
+          fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+          maxLines = 1,
+        )
+      }
     }
   }
 }

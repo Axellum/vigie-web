@@ -67,6 +67,12 @@ data class Radar(
   val stale: Boolean,
 )
 
+/** The unit of the wind on the map, chosen in the card of the wind measured (the site's `WindUnit`): km/h or knots. */
+enum class WindUnit {
+  Kmh,
+  Kn,
+}
+
 /** The wind measured at a station of Météo-France or at a buoy offshore (`/data/wind.json` of the site). */
 data class WindPoint(
   val id: String,
@@ -124,8 +130,11 @@ object MapWeather {
   /** The step (1 to 5) of a mean wind, for its colour. */
   fun windStep(kmh: Double): Int = WIND_STEPS.indexOfFirst { kmh < it }.let { if (it == -1) 5 else it + 1 }
 
-  /** A speed on a badge: a whole number (the badges have room for three digits). */
-  fun windValue(kmh: Double): Int = kmh.roundToInt()
+  /** A speed in the [unit] chosen, rounded to a whole number (the badges have room for three digits), as the site's `windValue`. */
+  fun windValue(kmh: Double, unit: WindUnit = WindUnit.Kmh): Int = (if (unit == WindUnit.Kn) kmh / KMH_PER_KNOT else kmh).roundToInt()
+
+  /** A knot is a nautical mile an hour: 1.852 km/h. */
+  const val KMH_PER_KNOT = 1.852
 
   fun gustShown(p: WindPoint): Boolean = p.gustKmh != null && p.gustKmh >= p.kmh + GUST_SHOWN_ABOVE_KMH
 
@@ -252,9 +261,12 @@ object MapWeather {
 
   private fun cell(i: Long, j: Long): Long = (i shl 32) xor (j and 0xffffffffL)
 
-  /** The picture of a badge without its beak: the step's colour, a round (a square for a buoy), the figure, the gust. */
-  fun badgeKey(p: WindPoint, radius: Int): String =
-    "vigie-wind:${windStep(p.kmh)}:${windValue(p.kmh)}:${if (p.buoy) "b" else "s"}:${if (gustShown(p)) windValue(p.gustKmh!!) else "-"}:$radius"
+  /**
+   * The picture of a badge without its beak: the step's colour, a round (a square for a buoy), the figure and the gust in the
+   * [unit] chosen. The colour always follows the speed in km/h, whatever the unit.
+   */
+  fun badgeKey(p: WindPoint, radius: Int, unit: WindUnit = WindUnit.Kmh): String =
+    "vigie-wind:${windStep(p.kmh)}:${windValue(p.kmh, unit)}:${if (p.buoy) "b" else "s"}:${if (gustShown(p)) windValue(p.gustKmh!!, unit) else "-"}:$radius"
 
   /** The picture of a beak, pointing up: turned on the map toward where the wind goes. */
   fun beakKey(p: WindPoint, radius: Int): String = "vigie-beak:${windStep(p.kmh)}:$radius"
@@ -263,7 +275,7 @@ object MapWeather {
    * The badges as GeoJSON for the map: a point each, with its id, its badge's picture, and for a wind that has a direction
    * its beak's picture and the angle it is turned by (where the wind goes, clockwise from the north).
    */
-  fun windFeatures(points: List<WindPoint>, radius: Int): String =
+  fun windFeatures(points: List<WindPoint>, radius: Int, unit: WindUnit = WindUnit.Kmh): String =
     JsonObject(
         mapOf(
           "type" to JsonPrimitive("FeatureCollection"),
@@ -273,7 +285,7 @@ object MapWeather {
                 val props =
                   buildMap<String, JsonElement> {
                     put("id", JsonPrimitive(p.id))
-                    put("badge", JsonPrimitive(badgeKey(p, radius)))
+                    put("badge", JsonPrimitive(badgeKey(p, radius, unit)))
                     p.fromDeg?.let {
                       put("beak", JsonPrimitive(beakKey(p, radius)))
                       put("rot", JsonPrimitive((it + 180) % 360))
