@@ -186,12 +186,14 @@ fun WindArrow(degFrom: Double?, size: Dp, color: Color, modifier: Modifier = Mod
 
 private val GLYPHS: Map<String, Path> by lazy {
   mapOf(
+    // The kite of the family (`Glyph.svelte` of the site's widget): a diamond and its two spars.
+    "kite" to PathParser().parsePathString("M12 2 L19 10 L12 22 L5 10 Z M12 2 V22 M5 10 H19").toPath(),
     "boat" to PathParser().parsePathString("M12 3 V17 M12 3 L19 14 H12 M10 6 L5 14 H10 M3 18 H21 L19 21 H5 Z").toPath(),
     "shore_fishing" to PathParser().parsePathString("M5 9 h14 l-1.6 11 H6.6 Z M8 9 a4 4 0 0 1 8 0").toPath(),
   )
 }
 
-/** The stroke glyph of an activity (board, sailing boat, bucket), on the family's 24 × 24 grid. */
+/** The stroke glyph of an activity (board, kite, sailing boat, bucket), on the family's 24 × 24 grid. */
 @Composable
 fun ActivityGlyph(id: String, color: Color, size: Dp, modifier: Modifier = Modifier) {
   Canvas(modifier.size(size)) {

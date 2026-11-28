@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pictogram « ma position » of the Vigie charter: a ring and its four marks, 2 px stroke, round caps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M18.5,12 A6.5,6.5 0 1,1 5.5,12 A6.5,6.5 0 1,1 18.5,12 Z M12,2 L12,5.5 M12,18.5 L12,22 M2,12 L5.5,12 M18.5,12 L22,12"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M14,12 A2,2 0 1,1 10,12 A2,2 0 1,1 14,12 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

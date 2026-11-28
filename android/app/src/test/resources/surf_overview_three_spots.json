@@ -1,0 +1,129 @@
+{
+ "generated_utc": 1795860000,
+ "count": 3,
+ "swell_model": "MFWAM (Météo-France, Copernicus Marine), through Open-Meteo Marine",
+ "stale": false,
+ "attribution": "Weather data by Open-Meteo.com (https://open-meteo.com/) | Generated using E.U. Copernicus Marine Service Information; https://doi.org/10.48670/moi-00017 | Surf spots: © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright); chosen and their facing worked out by Vigie | Beaches of Nouvelle-Aquitaine: GIP Littoral, \"Plages de Nouvelle-Aquitaine\" (PIGMA / data.gouv.fr, read on 2026-11-15), Licence Ouverte 2.0 | Shom, 2025. Natures de fond au 1/50 000, https://dx.doi.org/10.17183/HOM_GEOL_NATURES_FOND_50 (not for navigation) | Tides computed by Vigie from the EOT20 ocean tide model (Hart-Davis et al. 2021, DGFI-TUM, SEANOE, https://doi.org/10.17882/79489), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); constants kept near the coasts and rounded by Vigie. Not for navigation",
+ "spots": [
+  {
+   "id": "trevou-treguignec-plage-de-trestel",
+   "name": "Plage de Trestel",
+   "place": "Trévou-Tréguignec",
+   "lat": 48.8225,
+   "lon": -3.3552,
+   "facing_deg": 322,
+   "now": {
+    "time_utc": 1795860000,
+    "daylight": true,
+    "swell": {
+     "height_m": 1.0,
+     "period_s": 11.2,
+     "from_deg": 290
+    },
+    "wind": {
+     "speed_kmh": 26.1,
+     "gust_kmh": 46.4,
+     "from_deg": 189,
+     "relative": "cross-shore"
+    },
+    "tide": {
+     "height_m": 1.86,
+     "trend": "falling",
+     "stage": "high"
+    },
+    "rating": {
+     "points": 5,
+     "out_of": 8,
+     "unknown": [
+      "tide"
+     ]
+    }
+   },
+   "best_slot": {
+    "time_utc": 1795863600,
+    "points": 6,
+    "out_of": 8
+   }
+  },
+  {
+   "id": "le-pouldu-plage-du-kerou",
+   "name": "Plage du Kerou",
+   "place": "Le Pouldu",
+   "lat": 47.7678,
+   "lon": -3.5635,
+   "facing_deg": 209,
+   "now": {
+    "time_utc": 1795860000,
+    "daylight": true,
+    "swell": {
+     "height_m": 1.4,
+     "period_s": 10.7,
+     "from_deg": 275
+    },
+    "wind": {
+     "speed_kmh": 26.0,
+     "gust_kmh": 48.6,
+     "from_deg": 192,
+     "relative": "onshore"
+    },
+    "tide": {
+     "height_m": -0.7,
+     "trend": "falling",
+     "stage": "low"
+    },
+    "rating": {
+     "points": 3,
+     "out_of": 8,
+     "unknown": [
+      "tide"
+     ]
+    }
+   },
+   "best_slot": {
+    "time_utc": 1795939200,
+    "points": 6,
+    "out_of": 8
+   }
+  },
+  {
+   "id": "plouharnel-la-grande-plage",
+   "name": "La Grande Plage",
+   "place": "Plouharnel",
+   "lat": 47.5832,
+   "lon": -3.1499,
+   "facing_deg": 247,
+   "now": {
+    "time_utc": 1795860000,
+    "daylight": true,
+    "swell": {
+     "height_m": 1.62,
+     "period_s": 10.3,
+     "from_deg": 279
+    },
+    "wind": {
+     "speed_kmh": 27.8,
+     "gust_kmh": 49.0,
+     "from_deg": 184,
+     "relative": "cross-shore"
+    },
+    "tide": {
+     "height_m": -0.68,
+     "trend": "falling",
+     "stage": "low"
+    },
+    "rating": {
+     "points": 4,
+     "out_of": 8,
+     "unknown": [
+      "tide"
+     ]
+    }
+   },
+   "best_slot": {
+    "time_utc": 1795939200,
+    "points": 7,
+    "out_of": 8
+   }
+  }
+ ]
+}
