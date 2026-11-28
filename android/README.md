@@ -12,7 +12,9 @@ The user chooses the places and their spots; two home screen widgets show one of
   Mer tab, `GET /v1/surf/spots/{spot}?days=2`, `GET /v1/activities/{spot}`, and at its point `GET /v1/point` (the water,
   once an hour at most) and `GET /v1/sea/places?type=bathing` (once a day at most); and the site's place search
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search), which also names the place « Ici »
-  (`?lat&lon`, the nearest town). Nothing is sent but the search typed and the coordinates of the places; the choices stay
+  (`?lat&lon`, the nearest town); for the sea map, `GET /v1/activities/overview`, `GET /v1/surf/overview` and the site's
+  base map `GET /data/basemap/dark.json`, whose tiles, fonts and icons come from `tiles.openfreemap.org` (it sees the
+  area shown, as any web map does). Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
   (below) is the other: the site keeps its notification address with the account.
@@ -69,6 +71,15 @@ The user chooses the places and their spots; two home screen widgets show one of
   shown, its copy on the phone first (`data/Beach.kt`, a folder of its own): again after 10 minutes, or after a minute
   when the place is read again. Its water is asked once an hour at most, since `/v1/point` is limited per address on the
   public server, and its bathing site once a day. A copy shown because the read failed says how old it is.
+- The sea map, as the site's `/sea` (the sketch chosen by the author on 2026-11-28): the map button in the head of the
+  card, next to the gear, opens it on the place shown (France when there is none). The site's dark OpenFreeMap base map,
+  its names in French and its land and water in the site's colours, drawn by MapLibre Native (about 13 MB more on the
+  phone). A dot per spot of the activity chosen (Surf, Kite, Bateau, Pêche du bord) in the colour of its verdict now,
+  and, as on the site, a label of the hour for those the map has room for, the best first: the swell and its period for
+  surf (`/v1/surf/overview`), the wind for kite and boat, the stage of the tide and its arrow for fishing. A search of
+  the spots of the map and of the site's towns, the phone's position on request (asked when touched), a legend, and
+  the credits of OpenFreeMap, OpenMapTiles and OpenStreetMap, touched to open the copyright page. The pins are read
+  again when the map opens after 10 minutes; the base map once (`data/SeaMap.kt`, `ui/map/`).
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -225,6 +236,10 @@ Firebase config above, or the app sent has no bell.
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
 | `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, Mer |
 | `ui/SeaViewModel.kt` | the beaches of Mer: the copy first, then the network when it is older than asked |
+| `data/SeaMap.kt` | the sea map's data: the pins of an activity and their labels, as the site's `src/lib/sea/map.ts`; the base map in the app's colours and in French; its reader (tested on the JVM) |
+| `ui/map/SeaMapViewModel.kt` | the sea map's state: the base map read once, the pins again after 10 minutes, the activity, the search |
+| `ui/map/SeaMapScreen.kt` | the sea map: MapLibre's view and its life, the search, the activities, the legend, the position, the credits |
+| `ui/map/MapLayers.kt` | the pins on the map: their source, their dots, their labels drawn as pictures and kept apart by MapLibre |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |

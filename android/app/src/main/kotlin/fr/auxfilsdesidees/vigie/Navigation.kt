@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import fr.auxfilsdesidees.vigie.data.AppData
+import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
@@ -22,12 +23,14 @@ import fr.auxfilsdesidees.vigie.ui.SeaViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
 import fr.auxfilsdesidees.vigie.ui.WarningsScreen
+import fr.auxfilsdesidees.vigie.ui.map.SeaMapScreen
+import fr.auxfilsdesidees.vigie.ui.map.SeaMapViewModel
 import fr.auxfilsdesidees.vigie.widget.WidgetRefresh
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Three destinations: the three tabs ([Main]), the page « Mes lieux et mes spots » ([Settings]) and the official warnings
- * of the place shown ([WarningsPage]). One view model for all, held by the activity, so a choice made in the settings is
+ * Four destinations: the tabs ([Main]), the page « Mes lieux et mes spots » ([Settings]), the official warnings of the
+ * place shown ([WarningsPage]) and the sea map ([MapPage]), which opens on the place shown. One view model for all, held by the activity, so a choice made in the settings is
  * on the tabs when the user comes back. Instant, by taste.
  *
  * [placeAsked] is the place a widget or a notification was touched for: the tabs come back and show it (with its warnings
@@ -54,6 +57,11 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
 
   // The beaches of the Sea page, read when it shows one.
   val sea: SeaViewModel = viewModel { SeaViewModel(AppData.beaches(context, baseUrl)) }
+  // The sea map: its base map read once, its pins again when it opens after ten minutes; its search of towns is the site's.
+  val seaMap: SeaMapViewModel = viewModel {
+    val places = AppData.repository(context, baseUrl, siteUrl)
+    SeaMapViewModel(SeaMapReader(baseUrl, siteUrl), { q -> places.searchPlaces(q).first })
+  }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }
   val asked by placeAsked.collectAsStateWithLifecycle()
@@ -73,9 +81,18 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
     predictivePopTransitionSpec = { instant() },
     entryProvider =
       entryProvider {
-        entry<Main> { VigieApp(viewModel, sea, onSettings = { backStack.add(Settings) }, onWarnings = { backStack.add(WarningsPage) }) }
+        entry<Main> {
+          VigieApp(
+            viewModel,
+            sea,
+            onSettings = { backStack.add(Settings) },
+            onWarnings = { backStack.add(WarningsPage) },
+            onMap = { backStack.add(MapPage) },
+          )
+        }
         entry<Settings> { SettingsScreen(viewModel) { backStack.removeLastOrNull() } }
         entry<WarningsPage> { WarningsScreen(viewModel) { backStack.removeLastOrNull() } }
+        entry<MapPage> { SeaMapScreen(seaMap, viewModel.app.value.choices.currentPlace?.place) { backStack.removeLastOrNull() } }
       },
   )
 }

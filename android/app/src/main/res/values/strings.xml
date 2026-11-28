@@ -179,4 +179,16 @@
     <string name="account_note_dropped">Ce téléphone n\'est plus relié au compte : il a été retiré sur la page du compte.</string>
     <string name="account_note_unlinked">Téléphone délié : il ne reçoit plus les alertes du compte.</string>
     <string name="account_privacy">Relié à un compte : Vigie garde l\'adresse de notification de ce téléphone avec le compte, jusqu\'à ce que vous le déliiez ici ou sur la page du compte.</string>
+
+    <!-- The sea map (the site's /sea page), opened by the map button of the head of the card -->
+    <string name="map_open">Ouvrir la carte</string>
+    <string name="map_search_hint">Chercher une plage, une ville…</string>
+    <string name="map_search_none">Aucune plage ni ville trouvée.</string>
+    <string name="map_loading">Lecture de la carte…</string>
+    <string name="map_failed">La carte n\'a pas pu être lue.</string>
+    <string name="map_locate">Aller à ma position</string>
+    <string name="map_locate_none">Position indisponible.</string>
+    <!-- Required by OpenFreeMap (« © OpenMapTiles Data from OpenStreetMap »); touched, it opens the OpenStreetMap licence. -->
+    <string name="map_credits">© OpenFreeMap © OpenMapTiles · données © contributeurs OpenStreetMap</string>
+    <string name="map_legend">Point : verdict de l\'activité. Chiffres : l\'heure en cours.</string>
 </resources>

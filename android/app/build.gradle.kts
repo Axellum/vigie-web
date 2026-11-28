@@ -172,4 +172,7 @@ dependencies {
   // Play services bring Fragment 1.1.0, older than the activity-result API needs (1.3.0): the release build's
   // lint stops on it (InvalidFragmentVersionForActivityResult). The app has no fragment of its own.
   implementation(libs.androidx.fragment)
+
+  // The sea map: MapLibre Native draws the site's base map (OpenFreeMap, vector tiles) and the pins of the spots
+  implementation(libs.maplibre.android)
 }

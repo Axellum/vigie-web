@@ -37,6 +37,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,6 +46,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,10 +90,11 @@ private enum class Tab(@StringRes val label: Int) {
  * Accueil · Détails · Heures · Mer; everything scrolls, the system bars included, and a tab is changed at the top of the page.
  * The tabs switch instantly (no animation, by taste). No place followed yet: the first-launch steps instead. Accueil and
  * Détails swipe between the followed places; Heures and Mer show the place shown last (their frise and cards keep the finger).
- * The gear and « Choisir des spots » open [onSettings]; the warning banner and the warning mark of the head open [onWarnings].
+ * The gear and « Choisir des spots » open [onSettings]; the warning banner and the warning mark of the head open [onWarnings];
+ * the map button of the head, beside the gear, opens the sea map ([onMap]).
  */
 @Composable
-fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit, onWarnings: () -> Unit) {
+fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit, onWarnings: () -> Unit, onMap: () -> Unit) {
   val app by viewModel.app.collectAsStateWithLifecycle()
   if (app.firstLaunch) {
     FirstLaunch(viewModel)
@@ -100,6 +103,14 @@ fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit
   var shown by rememberSaveable { mutableIntStateOf(0) }
   val tab = Tab.entries[shown]
   val onTab = { t: Tab -> shown = t.ordinal }
+  CompositionLocalProvider(LocalOpenMap provides onMap) { Frame(app, viewModel, sea, tab, onTab, onSettings, onWarnings) }
+}
+
+/** The map button of the head of the card, on every tab: given once here rather than through every page. */
+private val LocalOpenMap = staticCompositionLocalOf<(() -> Unit)?> { null }
+
+@Composable
+private fun Frame(app: AppState, viewModel: HomeViewModel, sea: SeaViewModel, tab: Tab, onTab: (Tab) -> Unit, onSettings: () -> Unit, onWarnings: () -> Unit) {
   Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(VigieColors.SkyTop, VigieColors.SkyBottom)))) {
     val place = app.choices.currentPlace
     if (place != null) {
@@ -282,6 +293,15 @@ private fun CardHead(
         }
         Spacer(Modifier.width(6.dp))
         VigilMark(vigil, onWarnings)
+        LocalOpenMap.current?.let { onMap ->
+          Spacer(Modifier.width(6.dp))
+          Box(
+            Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(role = Role.Button, onClick = onMap),
+            contentAlignment = Alignment.Center,
+          ) {
+            Icon(painterResource(R.drawable.ic_map), stringResource(R.string.map_open), tint = VigieColors.Text, modifier = Modifier.size(18.dp))
+          }
+        }
         Spacer(Modifier.width(6.dp))
         Box(
           Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(role = Role.Button, onClick = onSettings),

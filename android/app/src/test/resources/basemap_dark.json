@@ -1,0 +1,164 @@
+{
+ "version": 8,
+ "sources": {
+  "openmaptiles": {
+   "tiles": [
+    "https://tiles.openfreemap.org/backup_planet/20261122_124456_pt/{z}/{x}/{y}.pbf"
+   ],
+   "minzoom": 0,
+   "maxzoom": 14,
+   "attribution": "<a href=\"https://openfreemap.org\" target=\"_blank\">OpenFreeMap</a> <a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> Data from <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">OpenStreetMap</a>",
+   "bounds": [
+    -180,
+    -85.05113,
+    180,
+    85.05113
+   ],
+   "type": "vector"
+  }
+ },
+ "sprite": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
+ "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+ "layers": [
+  {
+   "id": "background",
+   "type": "background",
+   "paint": {
+    "background-color": "rgb(12,12,12)"
+   }
+  },
+  {
+   "id": "water",
+   "type": "fill",
+   "source": "openmaptiles",
+   "source-layer": "water",
+   "filter": [
+    "all",
+    [
+     "match",
+     [
+      "geometry-type"
+     ],
+     [
+      "MultiPolygon",
+      "Polygon"
+     ],
+     true,
+     false
+    ],
+    [
+     "!=",
+     [
+      "get",
+      "brunnel"
+     ],
+     "tunnel"
+    ]
+   ],
+   "paint": {
+    "fill-antialias": false,
+    "fill-color": "rgb(27 ,27 ,29)"
+   }
+  },
+  {
+   "id": "water_name",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "water_name",
+   "filter": [
+    "match",
+    [
+     "geometry-type"
+    ],
+    [
+     "LineString",
+     "MultiLineString"
+    ],
+    true,
+    false
+   ],
+   "layout": {
+    "symbol-placement": "line",
+    "symbol-spacing": 500,
+    "text-field": [
+     "case",
+     [
+      "has",
+      "name:nonlatin"
+     ],
+     [
+      "concat",
+      [
+       "get",
+       "name:latin"
+      ],
+      "\n",
+      [
+       "get",
+       "name:nonlatin"
+      ]
+     ],
+     [
+      "coalesce",
+      [
+       "get",
+       "name_en"
+      ],
+      [
+       "get",
+       "name"
+      ]
+     ]
+    ],
+    "text-font": [
+     "Noto Sans Regular"
+    ],
+    "text-rotation-alignment": "map",
+    "text-size": 12
+   },
+   "paint": {
+    "text-color": "hsla(0,0%,0%,0.7)",
+    "text-halo-color": "hsl(0,0%,27%)"
+   }
+  },
+  {
+   "id": "road_oneway",
+   "type": "symbol",
+   "source": "openmaptiles",
+   "source-layer": "transportation",
+   "minzoom": 15,
+   "filter": [
+    "==",
+    [
+     "get",
+     "oneway"
+    ],
+    1
+   ],
+   "layout": {
+    "icon-image": "oneway",
+    "icon-padding": 2,
+    "icon-rotate": 90,
+    "icon-rotation-alignment": "map",
+    "icon-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     15,
+     0.5,
+     19,
+     1
+    ],
+    "symbol-placement": "line",
+    "symbol-spacing": 200
+   },
+   "paint": {
+    "icon-opacity": 0.5
+   }
+  }
+ ]
+}
