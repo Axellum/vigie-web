@@ -283,4 +283,11 @@
 		font-weight: 600;
 		cursor: pointer;
 	}
+	@media (max-width: 520px) {
+		/* On a phone the credits of the map take the whole foot and the bar of the moments stands over them (54px): with the bar,
+		   the button stands where the card does; without it (`--map-foot` unset), where it always stood (26px). */
+		.fold {
+			bottom: calc(54px + var(--map-foot, -28px));
+		}
+	}
 </style>
