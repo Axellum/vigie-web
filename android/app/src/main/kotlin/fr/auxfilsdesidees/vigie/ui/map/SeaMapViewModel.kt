@@ -43,7 +43,8 @@ import kotlinx.coroutines.withContext
  * The base map is the site's dark plan, or the IGN's plan or photographs when chosen ([chooseBackground]): the choice is
  * kept on the phone ([kept]); each style is read once. When the IGN cannot be read, the dark plan is shown, and said so.
  *
- * The rain radar and the wind measured, layers of the same menu, are held by [weather].
+ * The rain radar and the wind measured, layers of the same menu, are held by [weather]; the weather of the towns, by
+ * [townWeather].
  */
 class SeaMapViewModel(
   private val reader: SeaMapReader,
@@ -57,6 +58,9 @@ class SeaMapViewModel(
 ) : ViewModel() {
   /** The weather layers of the map: the rain radar and the wind measured, off until chosen, the choice kept on the phone. */
   val weather = MapWeatherModel(viewModelScope, reader, clock, kept)
+
+  /** The weather of the towns the base map names: a pill each, on until turned off, the choice kept on the phone. */
+  val townWeather = TownWeatherModel(viewModelScope, reader, clock, kept)
 
   /** The address of the tiles of one radar image. */
   fun radarTiles(area: RadarArea, epoch: Long): String = reader.radarTiles(area, epoch)

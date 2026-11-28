@@ -64,6 +64,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -81,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -99,6 +102,7 @@ import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.Starred
+import fr.auxfilsdesidees.vigie.data.TownWeather
 import fr.auxfilsdesidees.vigie.ui.ActivityGlyph
 import fr.auxfilsdesidees.vigie.ui.BeachState
 import fr.auxfilsdesidees.vigie.ui.Credits
@@ -145,6 +149,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   val app by home.app.collectAsStateWithLifecycle()
   val sheet by viewModel.sheet.collectAsStateWithLifecycle()
   val weather by viewModel.weather.state.collectAsStateWithLifecycle()
+  val towns by viewModel.townWeather.state.collectAsStateWithLifecycle()
   val choices = app.choices
   val followedSpots = remember(choices) { Favourites.spots(choices) }
   val followedPlaces = remember(choices) { Favourites.places(choices) }
@@ -212,8 +217,23 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     }
   }
 
+  // The towns in view, read from the tiles once the map is drawn after a move or a new style (not again for the same view).
+  val styleNow by rememberUpdatedState(style)
+  val townsSeen = remember { arrayOfNulls<Any>(1) }
+  // The part of the map not under the search and the chips (above) nor the cards (below), px from its top: the towns' pills go there.
+  val free = remember { floatArrayOf(0f, Float.MAX_VALUE) }
   LaunchedEffect(mapView) {
     val m = mapView.awaitMap()
+    mapView.addOnDidBecomeIdleListener {
+      val s = styleNow ?: return@addOnDidBecomeIdleListener
+      val c = m.cameraPosition
+      val seen = Triple(s, c.target, c.zoom)
+      if (seen == townsSeen[0]) return@addOnDidBecomeIdleListener
+      townsSeen[0] = seen
+      viewModel.townWeather.towns(
+        if (c.zoom < TownWeather.MIN_ZOOM) emptyList() else TownPicker.inView(m, s, mapView.width, mapView.height, density.density, free[0], free[1])
+      )
+    }
     m.uiSettings.apply {
       // The credits are drawn by the app, always visible (below); MapLibre's own button and logo would repeat them.
       isAttributionEnabled = false
@@ -227,6 +247,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       m.cameraPosition.target?.let { camera = listOf(it.latitude, it.longitude, m.cameraPosition.zoom) }
       val view = viewOf(m)
       viewModel.weather.move(view, m.cameraPosition.zoom)
+      viewModel.townWeather.move(m.cameraPosition.zoom)
       windView = view to m.cameraPosition.zoom
     }
     // While zooming, the badges are laid out again every third of a level, so that they never pile up for long.
@@ -241,6 +262,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     map = m
     val first = viewOf(m)
     viewModel.weather.move(first, m.cameraPosition.zoom)
+    viewModel.townWeather.move(m.cameraPosition.zoom)
     windView = first to m.cameraPosition.zoom
   }
   // The base map chosen: its style set once, again when another background is chosen (the pins are added to it again).
@@ -288,13 +310,17 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     val kept = if (points.isEmpty()) emptyList() else withContext(Dispatchers.Default) { MapWeather.declutter(points, view, zoom, radius) }
     MapLayers.showWind(s, kept, radius, context)
   }
-  // While the map is shown: the radar and the wind asked again when old (every minute at most); the animation stops in the background.
+  // The towns' pills at the moment chosen; none while the layer is off.
+  val pills = remember(towns) { towns.pills }
+  LaunchedEffect(style, pills) { style?.let { MapLayers.showTowns(it, pills, context) } }
+  // While the map is shown: the radar, the wind and the towns asked again when old (every minute at most); the animation stops in the background.
   val owner = LocalLifecycleOwner.current
   LaunchedEffect(owner) {
     owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
       try {
         while (true) {
           viewModel.weather.sync()
+          viewModel.townWeather.sync()
           delay(SYNC_MS)
         }
       } finally {
@@ -368,7 +394,8 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   Box(Modifier.fillMaxSize().background(Color(LAND))) {
     AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
 
-    Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Above the cards and the bar at the foot of the map while the menu is open: it is long enough to reach them.
+    Column(Modifier.zIndex(if (layersOpen) 1f else 0f).fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       TopBar(viewModel, onBack, onLayers = { layersOpen = !layersOpen }) { hit ->
         layersOpen = false
         goTo(hit.lat, hit.lon, if (hit.spot) SPOT_ZOOM else TOWN_ZOOM, open = true)
@@ -379,15 +406,22 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
         BackgroundMenu(
           ui,
           weather,
+          towns,
           Modifier.align(Alignment.End),
+          onTowns = viewModel.townWeather::show,
           onRain = viewModel.weather::showRain,
           onWind = viewModel.weather::showWind,
         ) {
           viewModel.chooseBackground(it)
           layersOpen = false
         }
-      Chips(ui.activity, viewModel::choose)
-      if (weather.wind) WindCard(weather, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
+      // While the menu is open, the chips and the wind's legend would be pushed under it, over the cards at the foot of the map.
+      if (!layersOpen) {
+        Chips(ui.activity, viewModel::choose)
+        if (weather.wind) WindCard(weather, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
+        // The foot of the controls above the map, where the towns' pills may begin.
+        Spacer(Modifier.height(0.dp).onGloballyPositioned { free[0] = it.positionInRoot().y })
+      }
     }
 
     if (ui.style == null || ui.failed) {
@@ -406,10 +440,14 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       }
     }
 
-    Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(
+      Modifier.align(Alignment.BottomStart).fillMaxWidth().onGloballyPositioned { free[1] = it.positionInRoot().y }.windowInsetsPadding(WindowInsets.navigationBars),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
       Column(Modifier.padding(horizontal = 8.dp).padding(bottom = if (sheet == null) 8.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         note?.let { n -> NoteBar(n) { note = null } }
         if (sheet == null && weather.rain && weather.area != null) RadarCard(weather, viewModel.weather)
+        if (sheet == null && towns.on && towns.near) MomentBar(towns, viewModel.townWeather::choose)
         if (sheet == null) {
           Row(verticalAlignment = Alignment.Bottom) {
             Legend(Modifier.weight(1f))
@@ -446,9 +484,11 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
             weather.wind -> R.string.map_credits_wind
             else -> null
           }
-        meteo?.let {
+        val townsCredit = if (towns.on && towns.near) stringResource(R.string.map_credits_towns) else null
+        val meteoCredit = meteo?.let { stringResource(it) }
+        listOfNotNull(townsCredit, meteoCredit).joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
           Small(
-            stringResource(it),
+            it,
             VigieColors.Text2,
             Modifier.background(VigieColors.Bar, RoundedCornerShape(10.dp))
               .clickable {
@@ -738,13 +778,15 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onLayers: () 
 private fun BackgroundMenu(
   ui: SeaMapViewModel.Ui,
   weather: MapWeatherModel.State,
+  towns: TownWeatherModel.State,
   modifier: Modifier,
+  onTowns: (Boolean) -> Unit,
   onRain: (Boolean) -> Unit,
   onWind: (Boolean) -> Unit,
   onChoose: (MapBackground) -> Unit,
 ) {
   Column(
-    modifier.padding(horizontal = 12.dp).widthIn(max = 320.dp).background(VigieColors.Bar.copy(alpha = 1f), RoundedCornerShape(18.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(18.dp)).padding(vertical = 6.dp)
+    modifier.padding(horizontal = 12.dp).widthIn(max = 320.dp).background(VigieColors.Bar.copy(alpha = 1f), RoundedCornerShape(18.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(18.dp)).verticalScroll(rememberScrollState()).padding(vertical = 6.dp)
   ) {
     Text(stringResource(R.string.map_background_title), color = VigieColors.Text3, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
     MapBackground.entries.forEach { b ->
@@ -775,6 +817,12 @@ private fun BackgroundMenu(
     }
     Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(VigieColors.GlassBorder))
     Text(stringResource(R.string.map_layers_title), color = VigieColors.Text3, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+    LayerRow(stringResource(R.string.map_towns), stringResource(R.string.map_towns_detail), towns.on) { onTowns(!towns.on) }
+    if (towns.on) {
+      MenuNote(stringResource(if (towns.near) R.string.map_towns_hint else R.string.map_towns_zoom_in))
+      if (towns.paused) MenuNote(stringResource(R.string.map_towns_paused))
+      if (towns.failed) MenuNote(stringResource(R.string.map_towns_failed))
+    }
     LayerRow(stringResource(R.string.map_wind), stringResource(R.string.map_wind_detail), weather.wind) { onWind(!weather.wind) }
     if (weather.wind) MenuNote(stringResource(R.string.map_wind_note))
     LayerRow(stringResource(R.string.map_rain), stringResource(R.string.map_rain_detail), weather.rain) { onRain(!weather.rain) }
@@ -989,6 +1037,40 @@ private fun Chips(chosen: MapActivity, onChoose: (MapActivity) -> Unit) {
         Spacer(Modifier.size(5.dp))
         Text(Words.activity(a.id), color = ink, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
       }
+    }
+  }
+}
+
+/**
+ * The bar under the map while the towns' layer is on (the site's `MomentBar`): the moment the pills show, now, in 3, 6 and 9
+ * hours, tomorrow at 8 and 14 h at each town's clock, the two days after; one pressed at a time, the hours at the phone's clock.
+ */
+@Composable
+private fun MomentBar(towns: TownWeatherModel.State, onChoose: (Int) -> Unit) {
+  val offset = TimeZone.getDefault().getOffset(towns.nowS * 1000) / 1000
+  val label = stringResource(R.string.map_towns_moment)
+  Row(
+    Modifier.background(VigieColors.Bar, RoundedCornerShape(12.dp))
+      .border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(12.dp))
+      .horizontalScroll(rememberScrollState())
+      .padding(horizontal = 5.dp, vertical = 5.dp)
+      .semantics { contentDescription = label },
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    towns.choices.forEachIndexed { i, m ->
+      val on = i == towns.moment
+      Text(
+        WeatherWords.moment(m, towns.nowS, offset),
+        color = if (on) VigieColors.OnPill else VigieColors.Text,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        modifier =
+          Modifier.clip(RoundedCornerShape(8.dp))
+            .background(if (on) VigieColors.Accent else Color.Transparent)
+            .clickable(role = Role.Tab) { onChoose(i) }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+      )
     }
   }
 }

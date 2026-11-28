@@ -14,6 +14,7 @@ import fr.auxfilsdesidees.vigie.data.MapPin
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.Radar
 import fr.auxfilsdesidees.vigie.data.SeaMap
+import fr.auxfilsdesidees.vigie.data.TownWeather
 import fr.auxfilsdesidees.vigie.data.WindPoint
 import java.util.WeakHashMap
 import kotlin.math.ceil
@@ -43,6 +44,7 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOffset
+import org.maplibre.android.style.layers.PropertyFactory.iconPadding
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
 import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
 import org.maplibre.android.style.layers.PropertyFactory.rasterFadeDuration
@@ -62,7 +64,10 @@ import org.maplibre.geojson.Point
  * asked for.
  *
  * Under them all, the weather layers of the layers' menu ([MapWeatherModel]): the badges of the wind measured, and lower,
- * under the names of the base map so that they stay readable, the images of the rain radar.
+ * under the names of the base map so that they stay readable, the images of the rain radar. Under the wind, the pills of the
+ * towns' weather ([TownWeatherModel]): MapLibre places them before the names of the base map and the spots' labels (the
+ * lowest of the app's), so that a name or a label a pill would cover is not written (the pill writes its town's name), and
+ * keeps the larger town where two would touch.
  */
 internal object MapLayers {
   private const val PINS = "vigie-pins"
@@ -75,6 +80,7 @@ internal object MapLayers {
   private const val BEAKS = "vigie-wind-beaks"
   private const val BADGES = "vigie-wind-badges"
   private const val RADAR = "vigie-radar-"
+  private const val TOWNS = "vigie-towns"
   private const val STAR = "vigie-star:"
   private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
 
@@ -94,6 +100,34 @@ internal object MapLayers {
 
   fun add(style: Style, context: Context) {
     val metrics = context.resources.displayMetrics
+    style.addSource(GeoJsonSource(PINS, EMPTY))
+    // The spots' labels, at the bottom of the app's layers: MapLibre places the layers above first, so a label that would touch a
+    // town's pill is not written (its spot's dot stays, above the pills). Without that, a city of the coast (Brest, Lorient) had
+    // no pill at the scale of a region: the label of a spot beside it was placed first, and its neighbours had been left out for it.
+    style.addLayer(
+      SymbolLayer(LABELS, PINS)
+        .withFilter(has("label"))
+        .withProperties(
+          iconImage(get("label")),
+          iconAnchor(Property.ICON_ANCHOR_RIGHT),
+          iconOffset(arrayOf(-9f, 0f)),
+          iconAllowOverlap(false),
+          symbolSortKey(get("rank")),
+        )
+    )
+    // The towns' pills: placed by MapLibre, the most important first (`order`), 2 dp apart; a name of the base map they cover is not written.
+    style.addSource(GeoJsonSource(TOWNS, EMPTY))
+    style.addLayer(
+      SymbolLayer(TOWNS, TOWNS)
+        .withProperties(
+          iconImage(get("image")),
+          iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+          iconOffset(arrayOf(0f, TownPillArt.OFFSET)),
+          iconAllowOverlap(false),
+          iconPadding(2f),
+          symbolSortKey(get("order")),
+        )
+    )
     // The wind's badges: the beak under its round, turned toward where the wind goes; badges placed by MapWeather.declutter.
     style.addSource(GeoJsonSource(WIND, EMPTY))
     style.addLayer(
@@ -107,7 +141,6 @@ internal object MapLayers {
     style.addLayer(
       SymbolLayer(PLACES, PLACES).withProperties(iconImage(get("image")), iconAnchor(Property.ICON_ANCHOR_BOTTOM), iconAllowOverlap(true), iconIgnorePlacement(true))
     )
-    style.addSource(GeoJsonSource(PINS, EMPTY))
     style.addLayer(
       CircleLayer(DOTS, PINS)
         .withFilter(not(has("followed")))
@@ -128,17 +161,6 @@ internal object MapLayers {
       SymbolLayer(STARS, PINS)
         .withFilter(has("followed"))
         .withProperties(iconImage(concat(literal(STAR), toString(get("band")))), iconAllowOverlap(true), iconIgnorePlacement(true))
-    )
-    style.addLayer(
-      SymbolLayer(LABELS, PINS)
-        .withFilter(has("label"))
-        .withProperties(
-          iconImage(get("label")),
-          iconAnchor(Property.ICON_ANCHOR_RIGHT),
-          iconOffset(arrayOf(-9f, 0f)),
-          iconAllowOverlap(false),
-          symbolSortKey(get("rank")),
-        )
     )
     style.addSource(GeoJsonSource(ME, EMPTY))
     style.addLayer(
@@ -237,6 +259,32 @@ internal object MapLayers {
 
   private const val KEPT_WIND_IMAGES = 400
 
+  /** The pictures of the towns' pills drawn on each style. */
+  private val townImages = WeakHashMap<Style, MutableSet<String>>()
+
+  /** The towns' pills ([TownWeatherModel.State.pills]); none when [pills] is null or empty. Each picture is drawn once. */
+  fun showTowns(style: Style, pills: List<TownPill>?, context: Context) {
+    val metrics = context.resources.displayMetrics
+    val list = pills.orEmpty()
+    val drawn = townImages.getOrPut(style) { HashSet() }
+    val used = HashSet<String>()
+    val missing = HashMap<String, Bitmap>()
+    for (p in list) {
+      val key = TownWeather.pillKey(p.reading, p.town.name)
+      used += key
+      if (key !in drawn && key !in missing) missing[key] = TownPillArt.draw(p.town, p.reading, metrics.density, metrics.densityDpi)
+    }
+    if (missing.isNotEmpty()) style.addImages(missing)
+    drawn += missing.keys
+    style.getSourceAs<GeoJsonSource>(TOWNS)?.setGeoJson(TownPicker.features(list))
+    if (drawn.size > KEPT_TOWN_IMAGES) {
+      (drawn - used).forEach(style::removeImage)
+      drawn.retainAll(used)
+    }
+  }
+
+  private const val KEPT_TOWN_IMAGES = 200
+
   /** The phone's position, a blue dot (it never leaves the phone). */
   fun showMe(style: Style, lat: Double, lon: Double) {
     style.getSourceAs<GeoJsonSource>(ME)?.setGeoJson("""{"type":"Point","coordinates":[$lon,$lat]}""")
@@ -251,6 +299,11 @@ internal object MapLayers {
     map.queryRenderedFeatures(box, STARS, DOTS, LABELS).firstNotNullOfOrNull { it.getStringProperty("id") }?.let { return Pick.Spot(it) }
     map.queryRenderedFeatures(box, PLACES).firstNotNullOfOrNull { it.getStringProperty("key") }?.let { return Pick.Followed(it) }
     map.queryRenderedFeatures(box, BADGES).firstNotNullOfOrNull { it.getStringProperty("id") }?.let { return Pick.Wind(it) }
+    // A town's pill: its sheet, as a touch on its name.
+    map.queryRenderedFeatures(box, TOWNS).firstNotNullOfOrNull { f ->
+      val name = if (f.hasProperty("name")) f.getStringProperty("name") else null
+      if (name == null || !f.hasProperty("lat") || !f.hasProperty("lon")) null else Pick.Town(name, f.getNumberProperty("lat").toDouble(), f.getNumberProperty("lon").toDouble())
+    }?.let { return it }
     if (townLayers.isEmpty()) return null
     return map.queryRenderedFeatures(box, *townLayers.toTypedArray()).firstNotNullOfOrNull { f ->
       val point = f.geometry() as? Point ?: return@firstNotNullOfOrNull null

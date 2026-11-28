@@ -242,4 +242,12 @@
     <string name="map_credits_rain">Radar de pluie : Météo-France · Licence Ouverte</string>
     <string name="map_credits_wind">Vent mesuré : Météo-France · Licence Ouverte</string>
     <string name="map_credits_weather">Radar de pluie et vent mesuré : Météo-France · Licence Ouverte</string>
+    <string name="map_credits_towns">Météo des villes : Météo-France et Open-Meteo</string>
+    <string name="map_towns">Météo des villes</string>
+    <string name="map_towns_detail">Icône du ciel et température ; goutte si pluie dans les 3 h, vent s\'il souffle fort.</string>
+    <string name="map_towns_hint">Touchez une ville pour sa fiche ; l\'échéance se choisit sous la carte.</string>
+    <string name="map_towns_zoom_in">Rapprochez la carte d\'un pays pour voir ses villes.</string>
+    <string name="map_towns_paused">La météo de nouvelles villes est en pause pour aujourd\'hui : celles déjà lues restent affichées.</string>
+    <string name="map_towns_failed">La météo des villes ne répond pas pour l\'instant.</string>
+    <string name="map_towns_moment">Échéance de la météo des villes</string>
 </resources>

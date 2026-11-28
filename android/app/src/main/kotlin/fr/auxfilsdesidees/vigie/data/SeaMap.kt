@@ -389,6 +389,9 @@ class SeaMapReader(
   /** The address of the tiles of one radar image. */
   fun radarTiles(area: RadarArea, epoch: Long): String = MapWeather.radarTiles(siteUrl, area, epoch)
 
+  /** The weather of the towns' [cells] (at most [TownWeather.PER_REQUEST]), on the site: never `/v1/points` from the phone. */
+  suspend fun towns(cells: List<TownCell>): TownsAnswer = TownWeather.towns(fetch(TownWeather.url(siteUrl, cells)))
+
   /** The figures of the hour are a bonus: without them the pins keep their verdict. */
   suspend fun surf(): String? =
     try {
