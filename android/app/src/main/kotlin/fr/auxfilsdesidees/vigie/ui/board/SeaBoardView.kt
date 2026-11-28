@@ -63,7 +63,8 @@ import fr.auxfilsdesidees.vigie.ui.windArrow
  * water, the six tiles, the activities hour by hour, the tide of 24 hours, the next hours by 3 hours and who the values are
  * from. Without its [beach] yet: its [name] and [status] (« Chargement… », or why it is not there). [note]: a line under
  * the name when the beach shown is an old copy. The logic is [SeaBoard]'s; the sizes are the card's px in dp, the texts keep
- * their size whatever the phone's font scale, with the card's « normal » line height (its `.pile`).
+ * their size whatever the phone's font scale, with the card's « normal » line height (its `.pile`). [named] false: the beach's name is not
+ * written, its sheet on the sea map already says it.
  */
 @Composable
 fun SeaBoardView(
@@ -77,6 +78,7 @@ fun SeaBoardView(
   now: Long,
   offsetS: Int,
   modifier: Modifier = Modifier,
+  named: Boolean = true,
 ) {
   val pal = BoardPalette.Dark
   ProvideTextStyle(TextStyle(lineHeight = 1.17.em)) {
@@ -86,11 +88,11 @@ fun SeaBoardView(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
           if (tabs.size > 1) BeachTabs(tabs, selected, onSelect, pal)
           if (beach == null) {
-            HeadView(SeaBoard.Head(name, null, null), pal)
+            if (named) HeadView(SeaBoard.Head(name, null, null), pal)
             if (note != null) Text(note, color = pal.t3, fontSize = fs(12f), fontWeight = FontWeight.Medium)
             if (status != null) Text(status, color = pal.t2, fontSize = fs(14f), fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 8.dp))
           } else {
-            HeadView(SeaBoard.head(beach, name, now, offsetS), pal)
+            HeadView(SeaBoard.head(beach, name, now, offsetS), pal, named)
             if (note != null) Text(note, color = pal.t3, fontSize = fs(12f), fontWeight = FontWeight.Medium)
             TilesView(beach, now, offsetS, w, pal)
             SeaBoard.activities(beach, now, offsetS).takeIf { it.isNotEmpty() }?.let { ActivitiesView(it, SeaBoard.ticks(now, offsetS), w, pal) }
@@ -157,10 +159,10 @@ private fun BeachTabs(tabs: List<String>, selected: Int, onSelect: (Int) -> Unit
 }
 
 @Composable
-private fun HeadView(h: SeaBoard.Head, pal: BoardPalette) {
+private fun HeadView(h: SeaBoard.Head, pal: BoardPalette, named: Boolean = true) {
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-      Text(h.name, color = pal.text, fontSize = fs(19f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+      if (named) Text(h.name, color = pal.text, fontSize = fs(19f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
       if (h.line != null) Text(h.line, color = pal.t2, fontSize = fs(12.5f), fontWeight = FontWeight.Medium, lineHeight = 1.25.em)
     }
     if (h.water != null) {

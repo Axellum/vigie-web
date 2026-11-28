@@ -160,34 +160,44 @@ object SeaMap {
 
   /**
    * The pins as GeoJSON for the map: a point each, with its id, its band (the colour of its dot), its rank (the lower is
-   * placed first where labels would touch) and the name of its label's picture when it has one.
+   * placed first where labels would touch), the name of its label's picture when it has one, and `followed` for the spots
+   * in [followed] (a star in place of the dot).
    */
-  fun features(pins: List<MapPin>): String =
-    JsonObject(
-        mapOf(
-          "type" to JsonPrimitive("FeatureCollection"),
-          "features" to
-            JsonArray(
-              pins.map { p ->
-                val properties =
-                  buildMap<String, JsonElement> {
-                    put("id", JsonPrimitive(p.id))
-                    put("band", JsonPrimitive(band(p.verdict)))
-                    put("rank", JsonPrimitive(p.rank))
-                    labelKey(p)?.let { put("label", JsonPrimitive(it)) }
-                  }
-                JsonObject(
-                  mapOf(
-                    "type" to JsonPrimitive("Feature"),
-                    "geometry" to JsonObject(mapOf("type" to JsonPrimitive("Point"), "coordinates" to JsonArray(listOf(JsonPrimitive(p.lon), JsonPrimitive(p.lat))))),
-                    "properties" to JsonObject(properties),
-                  )
-                )
-              }
-            ),
+  fun features(pins: List<MapPin>, followed: Set<String> = emptySet()): String =
+    collection(
+      pins.map { p ->
+        point(
+          p.lat,
+          p.lon,
+          buildMap {
+            put("id", JsonPrimitive(p.id))
+            put("band", JsonPrimitive(band(p.verdict)))
+            put("rank", JsonPrimitive(p.rank))
+            labelKey(p)?.let { put("label", JsonPrimitive(it)) }
+            if (p.id in followed) put("followed", JsonPrimitive(true))
+          },
         )
+      }
+    )
+
+  /** The name of the picture of a followed place on the map: a star and its name in a pill. */
+  fun placeKey(name: String): String = "vigie-place:$name"
+
+  /** The followed places the map marks ([Favourites.places]), as GeoJSON: their key and the name of their picture. */
+  fun placeFeatures(places: List<FollowedPlace>): String =
+    collection(places.map { f -> point(f.place.lat, f.place.lon, mapOf("key" to JsonPrimitive(f.key), "image" to JsonPrimitive(placeKey(f.place.label)))) })
+
+  private fun collection(features: List<JsonObject>): String =
+    JsonObject(mapOf("type" to JsonPrimitive("FeatureCollection"), "features" to JsonArray(features))).toString()
+
+  private fun point(lat: Double, lon: Double, properties: Map<String, JsonElement>): JsonObject =
+    JsonObject(
+      mapOf(
+        "type" to JsonPrimitive("Feature"),
+        "geometry" to JsonObject(mapOf("type" to JsonPrimitive("Point"), "coordinates" to JsonArray(listOf(JsonPrimitive(lon), JsonPrimitive(lat))))),
+        "properties" to JsonObject(properties),
       )
-      .toString()
+    )
 
   /**
    * A number as the site writes it in French (`toLocaleString('fr-FR', { maximumFractionDigits })`): at most [digits]
@@ -217,6 +227,22 @@ object SeaMap {
       }
     return JsonObject(root + ("layers" to JsonArray(layers))).toString()
   }
+
+  /**
+   * The layers of the base map that name the towns (OpenMapTiles' `place` layer), the ones a touch opens a town's sheet
+   * from; the names of countries, regions and seas are not towns. Empty for a style that is not read.
+   */
+  fun townLayers(style: String): List<String> =
+    runCatching { Json.parseToJsonElement(style).obj()["layers"].arr() }
+      .getOrDefault(emptyList())
+      .mapNotNull { it.objOrNull() }
+      .filter { it["type"].str() == "symbol" && it["source-layer"].str() == "place" }
+      .filter { layer -> TOWN_WORDS.any { layer["id"].str().orEmpty().contains(it) } || TOWN_CLASSES.any { layer["filter"].toString().contains("\"$it\"") } }
+      .mapNotNull { it["id"].str() }
+
+  /** The classes of OpenMapTiles' places that are towns: a touch on another (a country, a region) opens nothing. */
+  val TOWN_CLASSES = setOf("city", "town", "village", "hamlet", "suburb")
+  private val TOWN_WORDS = setOf("city", "town", "village", "hamlet", "suburb")
 
   private fun JsonObject.withPaint(key: String, value: String): JsonObject {
     val paint = this["paint"].objOrNull() ?: JsonObject(emptyMap())
@@ -251,14 +277,22 @@ object SeaMap {
 }
 
 /**
- * The reads of the sea map: the site's dark style, the API's verdicts of every spot and the figures of their current hour.
- * Two requests to the API each time the map opens, none to `/v1/point` (limited per address on the public server).
+ * The reads of the sea map: the site's dark style, the API's verdicts of every spot and the figures of their current hour
+ * (two requests to the API each time the map opens, none to `/v1/point`), and the weather of a town whose sheet is opened:
+ * `/v1/point` there, as the Accueil reads it, through the map's [gate] (the server limits that route per address).
  */
 class SeaMapReader(
   private val baseUrl: String = VigieRepository.BASE_URL,
   private val siteUrl: String = VigieRepository.BASE_URL,
+  private val gate: PointGate = PointGate(),
   private val fetch: suspend (String) -> String = VigieRepository::httpGet,
 ) {
+  /** The weather of [place] for its sheet, after waiting for the gate. */
+  suspend fun point(place: Place): PointNow {
+    gate.take()
+    return VigieParser.point(fetch(String.format(java.util.Locale.ROOT, "%s/v1/point?lat=%.4f&lon=%.4f&compact=false", baseUrl, place.lat, place.lon)))
+  }
+
   suspend fun style(): String = SeaMap.styleForApp(fetch("$siteUrl/data/basemap/dark.json"))
 
   suspend fun overview(): String = fetch("$baseUrl/v1/activities/overview")

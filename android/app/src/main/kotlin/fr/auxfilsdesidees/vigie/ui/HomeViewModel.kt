@@ -6,12 +6,14 @@ import fr.auxfilsdesidees.vigie.data.ApiException
 import fr.auxfilsdesidees.vigie.data.Bell
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Choices
+import fr.auxfilsdesidees.vigie.data.Favourites
 import fr.auxfilsdesidees.vigie.data.FollowedPlace
 import fr.auxfilsdesidees.vigie.data.Geo
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
 import fr.auxfilsdesidees.vigie.data.PlacesStore
 import fr.auxfilsdesidees.vigie.data.Snapshot
+import fr.auxfilsdesidees.vigie.data.Starred
 import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.notify.BellState
 import java.io.IOException
@@ -312,6 +314,85 @@ class HomeViewModel(
   fun unfollow(spot: String) = changeSpots { c, i -> c.unfollow(i, spot) }
 
   fun star(spot: String) = changeSpots { c, i -> c.star(i, spot) }
+
+  // ------------------------------------------------------------------------------------------ the star of the sea map
+
+  /**
+   * The star of the sea map on [spot] ([Favourites.starSpot]): it joins the nearest followed place within 60 km, else it
+   * comes with its town, named by the site (`/data/places.json?lat&lon`, as « Ici »), which becomes a followed place. The
+   * shown place stays. The place concerned is read again (the Mer tab names its spots from that read) and the widgets
+   * redraw. Null when the spot is followed already.
+   */
+  suspend fun starSpot(spot: CatalogueSpot): Starred? {
+    val before = _app.value.choices
+    if (spot.id in Favourites.spots(before)) return null
+    val town =
+      if (Favourites.nearestPlace(before, spot.lat, spot.lon) >= 0) null
+      else bonus { repository.nearestPlace(spot.lat, spot.lon) }?.let { Place(it.name, it.lat, it.lon, Words.placeWhere(it.region, it.country).ifEmpty { null }) }
+    // Read again after the town: a star given meanwhile is seen.
+    val (next, starred) = Favourites.starSpot(_app.value.choices, spot, town) ?: return null
+    afterStar(next, starred.place)
+    return starred
+  }
+
+  /** The star of the sea map on a town: followed alone ([Favourites.starTown]); null when a place there is followed already. */
+  fun starTown(place: Place): Starred? {
+    val (next, starred) = Favourites.starTown(_app.value.choices, place) ?: return null
+    afterStar(next, starred.place)
+    return starred
+  }
+
+  /**
+   * What a star taken away on the map changed, for its « Annuler »: the choices before and after, and the place to read
+   * again when they come back.
+   */
+  class Unstarred(val before: Choices, val after: Choices, val place: String)
+
+  /** The star taken away from a spot on the map: as its cross in « Mes lieux », wherever it is followed. */
+  fun unstarSpot(spotId: String): Unstarred? {
+    val choices = _app.value.choices
+    val holder = choices.places.firstOrNull { spotId in it.spots || spotId in it.parked } ?: return null
+    val next = Favourites.unstarSpot(choices, spotId)
+    save(next)
+    next.places.firstOrNull { it.key == holder.key }?.let(::load)
+    return Unstarred(choices, next, holder.key)
+  }
+
+  /** The star taken away from a town on the map: the place is no longer followed, its spots with it, as its cross in « Mes lieux ». */
+  fun unstarTown(key: String): Unstarred? {
+    val before = _app.value.choices
+    val index = before.places.indexOfFirst { it.key == key }
+    if (index < 0) return null
+    removePlace(index)
+    return Unstarred(before, _app.value.choices, key)
+  }
+
+  /**
+   * « Annuler » after a star taken away: the choices of before come back exactly (the place with its spots, its bell and its
+   * rank), but only when nothing else changed them meanwhile; false then, and nothing is done.
+   */
+  fun undoUnstar(u: Unstarred): Boolean {
+    if (_app.value.choices != u.after) return false
+    save(u.before)
+    val back = u.before.places.firstOrNull { it.key == u.place } ?: return true
+    load(back)
+    if (back.bell != null) syncBells()
+    return true
+  }
+
+  /** « Annuler » after a star: the spot that joined, or the place that came, goes away. */
+  fun undoStar(starred: Starred) {
+    when (starred) {
+      is Starred.Joined -> unstarSpot(starred.spot)
+      is Starred.WithPlace,
+      is Starred.Town -> unstarTown(starred.place)
+    }
+  }
+
+  private fun afterStar(next: Choices, key: String) {
+    save(next)
+    next.places.firstOrNull { it.key == key }?.let(::load)
+  }
 
   /** A change of the shown place's spots: saved, then the place is read again (its old data stays meanwhile). */
   private fun changeSpots(change: (Choices, Int) -> Choices) {
