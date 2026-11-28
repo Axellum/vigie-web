@@ -1289,6 +1289,11 @@
 		map.setStyle(STYLE[next], { diff: false });
 	}
 
+	/** Whether the map is made (it is made after the page, once MapLibre is loaded): `show` does nothing before. */
+	export function made(): boolean {
+		return map != null;
+	}
+
 	/** Frames a box (with a margin) or a point. */
 	export function show(target: Box | [number, number], maxZoom = 7) {
 		if (!map) return;

@@ -6,9 +6,23 @@ import type { Page } from '@playwright/test';
 export const layerRail = (page: Page) =>
 	page.getByRole('group', { name: /^(Couches de la carte|Map layers)$/ });
 
+// On the home map the rain and the wind are layers of the weather family, the tide one of the sea family; the sea map keeps
+// them as families of their own.
+const HOME_FAMILY: Record<string, string> = {
+	Pluie: 'Météo',
+	Vent: 'Météo',
+	Marée: 'Mer',
+	Rain: 'Weather',
+	Wind: 'Weather',
+	Tide: 'Sea'
+};
+
 /** Opens a family of layers ("Pluie", "Vent"…), unless it is open already. */
 export async function openLayers(page: Page, family: string) {
-	const button = layerRail(page).getByRole('button', { name: new RegExp(`^${family}`) });
+	const rail = layerRail(page);
+	let button = rail.getByRole('button', { name: new RegExp(`^${family}`) });
+	if (!(await button.count()) && HOME_FAMILY[family])
+		button = rail.getByRole('button', { name: new RegExp(`^${HOME_FAMILY[family]}`) });
 	if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
 }
 

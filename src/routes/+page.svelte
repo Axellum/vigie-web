@@ -36,6 +36,8 @@
 	import { nearestHour, WindFieldLayer } from '#lib/windFieldLayer.svelte.js';
 	import { windTime } from '#lib/wind.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
+	import HerePanel from '#lib/components/HerePanel.svelte';
+	import { PlaceState } from '#lib/placeState.svelte.js';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
 	import MapView, { type Selection } from '#lib/components/MapView.svelte';
@@ -70,7 +72,16 @@
 	} from '#lib/filters.js';
 	import { readFollowed, sameSpot, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
 	import { PROFILES } from '#lib/profiles.js';
-	import { countriesNear, countryAt, placeHash, warningsAt, type Borders } from '#lib/near.js';
+	import {
+		countriesNear,
+		countryAt,
+		distanceKm,
+		parsePlace,
+		placeHash,
+		warningsAt,
+		type Borders,
+		type Place
+	} from '#lib/near.js';
 	import { placeLine, placeStatus, type PlaceStatus } from '#lib/placeStatus.js';
 	import { untilPhrase, type OfficialState } from '#lib/sentence.js';
 	import { cardWarnings, type CardWarnings } from '#lib/widget/homeCard.js';
@@ -414,33 +425,147 @@
 		};
 	});
 
-	// --- the frame of the map: the families of layers on its rail, their choices over the map (as on the sea map) -----------
-	type MapFamily = 'alerts' | 'weather' | 'rain' | 'wind' | 'tide' | 'map';
-	const MAP_FAMILIES: MapFamily[] = ['alerts', 'weather', 'rain', 'wind', 'tide', 'map'];
+	// --- "here": a place of the visitor's (their position or a place searched), its cards in the side panel, the map on it ------
+	// The place is in the address (`#lat,lon,km`, as on "near me") and never leaves the browser but rounded, for the weather.
+	const HERE_KM = 50;
+	let herePlace = $state<Place | null>(null);
+	let hereName = $state<string | null>(null);
+	let hereOn = $state(false);
+	let locate = $state<'idle' | 'busy' | 'denied' | 'unsupported'>('idle');
+	const hereState = new PlaceState(() => ({
+		place: hereOn ? herePlace : null,
+		radiusKm: HERE_KM,
+		profile: null,
+		lang,
+		now,
+		hazards,
+		hazardsAttribution,
+		hazardsDisclaimer,
+		served: data.served,
+		uncovered: data.uncovered
+	}));
+	const round3 = (v: number) => Math.round(v * 1000) / 1000 + 0;
+	// A position has no name: the town the map names nearest to it, when there is one within a few kilometres.
+	const HERE_NAME_KM = 8;
+	const hereTown = $derived.by(() => {
+		const at = herePlace;
+		if (!at || hereName) return null;
+		let best: { name: string; km: number } | null = null;
+		for (const t of towns.towns) {
+			const km = distanceKm(at, t);
+			if (km <= HERE_NAME_KM && (!best || km < best.km)) best = { name: t.name, km };
+		}
+		return best?.name ?? null;
+	});
+	function setHere(at: Place, name: string | null) {
+		herePlace = { lat: round3(at.lat), lon: round3(at.lon) };
+		hereName = name;
+		hereOn = true;
+		locate = 'idle';
+		selection = null;
+		layerFamily = null;
+		goto(`/${filterQuery(filter)}${placeHash(herePlace, HERE_KM)}`, { shallow: true, replace: true });
+		// The map may not be drawn yet (a place in the address): it goes to the place on its first move.
+		hereToShow = true;
+		showHere();
+		showRail();
+	}
+	let hereToShow = false;
+	function showHere() {
+		if (!hereToShow || !hereState.frame || !mapView?.made()) return;
+		hereToShow = false;
+		mapView.show(hereState.frame, 10);
+	}
+	function leaveHere() {
+		hereOn = false;
+		locate = 'idle';
+		goto(`/${filterQuery(filter)}`, { shallow: true, replace: true });
+	}
+	function locateMe() {
+		hereOn = true;
+		selection = null;
+		layerFamily = null;
+		if (!navigator.geolocation) {
+			locate = 'unsupported';
+			return;
+		}
+		locate = 'busy';
+		navigator.geolocation.getCurrentPosition(
+			(pos) => setHere({ lat: pos.coords.latitude, lon: pos.coords.longitude }, null),
+			() => (locate = 'denied'),
+			{ enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
+		);
+	}
+	function pickHere() {
+		if (hereOn) leaveHere();
+		else if (herePlace) setHere(herePlace, hereName);
+		else locateMe();
+	}
+	onMount(() => {
+		const at = parsePlace(location.hash);
+		if (at) setHere(at, readFollowed().find((f) => sameSpot(f, at))?.name ?? null);
+	});
+
+	// --- the frame of the map: the families on its rail; those of layers open their choices over the map (as on the sea map) --
+	// "Here" changes the side panel; the sky and travel are still pages of their own.
+	type MapFamily = 'alerts' | 'weather' | 'sea' | 'map';
 	let layerFamily = $state<MapFamily | null>(null);
 	// How many layers of a family are shown; the warnings and the hazards are always there, the fires are counted.
 	const layerCount = (f: MapFamily): number =>
 		f === 'alerts'
 			? Number(showFires)
 			: f === 'weather'
-				? Number(towns.on)
-				: f === 'rain'
-					? Number(radar.open && radar.covered) + Number(observedRain.on) + Number(rainField.on)
-					: f === 'wind'
-						? Number(flow.on) + Number(wind.on)
-						: f === 'map'
-							? ign.count
-							: Number(tides.on);
-	const railFamilies = $derived<RailFamily[]>(
-		MAP_FAMILIES.map((f) => ({
-			id: f,
-			icon: f,
-			label: tr(`frame.family.${f}` as Key),
-			count: layerCount(f),
-			countSaid: tr(layerCount(f) > 1 ? 'frame.countMany' : 'frame.count', { count: layerCount(f) }),
-			on: f === 'alerts' || layerCount(f) > 0
-		}))
-	);
+				? Number(towns.on) +
+					Number(radar.open && radar.covered) +
+					Number(observedRain.on) +
+					Number(rainField.on) +
+					Number(flow.on) +
+					Number(wind.on)
+				: f === 'map'
+					? ign.count
+					: Number(tides.on);
+	const layerFamilyOf = (f: MapFamily): RailFamily => ({
+		id: f,
+		icon: f === 'sea' ? 'tide' : f,
+		label: tr(`frame.family.${f}` as Key),
+		count: layerCount(f),
+		countSaid: tr(layerCount(f) > 1 ? 'frame.countMany' : 'frame.count', { count: layerCount(f) }),
+		on: f === 'alerts' || layerCount(f) > 0
+	});
+	const railFamilies = $derived<RailFamily[]>([
+		{
+			id: 'here',
+			icon: 'here',
+			label: tr('frame.family.here'),
+			count: 0,
+			countSaid: '',
+			on: hereOn,
+			current: hereOn,
+			onpick: pickHere
+		},
+		layerFamilyOf('alerts'),
+		layerFamilyOf('weather'),
+		layerFamilyOf('sea'),
+		{
+			id: 'sky',
+			icon: 'sky',
+			label: tr('frame.family.sky'),
+			count: 0,
+			countSaid: '',
+			on: false,
+			href: '/sky'
+		},
+		{
+			id: 'travel',
+			icon: 'travel',
+			label: tr('frame.family.travel'),
+			count: 0,
+			countSaid: '',
+			on: false,
+			href: '/travel'
+		},
+		layerFamilyOf('map')
+	]);
 
 	// --- warnings of the countries in view -------------------------------------------------------------
 	// The same list as long as the same countries are in view: a move of the map inside them starts nothing again.
@@ -890,14 +1015,12 @@
 		<div class="lookup">
 			<PlaceSearch
 				{lang}
-				onpick={(p, label) => {
-					const saved = places.find((f) => sameSpot(f, p));
-					const hash = placeHash(p, saved?.radiusKm ?? 300, saved?.profile);
-					goto('/near' + hash, { state: { searchedPlace: { hash, label: saved?.name ?? label } } });
-				}}
+				onpick={(p, label) => setHere(p, places.find((f) => sameSpot(f, p))?.name ?? label)}
 			/>
 		</div>
-		<a class="local-link" href="/near">{tr('nav.near')}</a>
+		<button type="button" class="local-link" onclick={locateMe} disabled={locate === 'busy'}
+			>{locate === 'busy' ? tr('here.locating') : tr('nav.near')}</button
+		>
 	</section>
 	<aside class="rail" bind:this={rail} aria-label={tr('list.title')}>
 		{#if selection}
@@ -975,6 +1098,24 @@
 					{/if}
 				{:else}
 					<p class="muted">{tr('detail.failed')}</p>
+				{/if}
+			</section>
+		{:else if hereOn}
+			<section class="block">
+				{#if herePlace}
+					<HerePanel state={hereState} name={hereName ?? hereTown} radiusKm={HERE_KM} onback={leaveHere} />
+				{:else}
+					<p class="eyebrow">{tr('here.eyebrow')}</p>
+					<p class="muted">
+						{locate === 'busy'
+							? tr('here.locating')
+							: locate === 'denied'
+								? tr('near.denied')
+								: locate === 'unsupported'
+									? tr('near.unsupported')
+									: tr('near.choose')}
+					</p>
+					<button type="button" class="btn quiet" onclick={leaveHere}>{tr('here.back')}</button>
 				{/if}
 			</section>
 		{:else}
@@ -1225,11 +1366,14 @@
 				ontowns={(list) => (towns.towns = list)}
 				ontownhover={onTownHover}
 				ontownpick={onTownPick}
+				place={hereOn ? hereState.mapPlace : null}
+				onpick={hereOn && !herePlace ? (at) => setHere(at, null) : undefined}
 				globe
 				onselect={onMapSelect}
 				onmove={(v, z) => {
 					view = v;
 					zoom = z;
+					showHere();
 				}}
 			/>
 			<RadarCard {lang} {radar} />
@@ -1344,7 +1488,20 @@
 								<p class="muted small">{tr('fires.notAlert')}</p>
 							{/if}
 						{/if}
-					{:else if layerFamily === 'rain'}
+					{:else if layerFamily === 'weather'}
+						<p class="small">{tr('frame.weatherDesc')}</p>
+						<LayerRow
+							name={tr('towns.layer')}
+							source={tr('towns.layerSub')}
+							testid="towns-toggle"
+							bind:checked={towns.on}
+						/>
+						{#if towns.on}
+							<p class="muted small">{towns.near ? tr('towns.hint') : tr('towns.zoomIn')}</p>
+							{#if towns.paused}<p class="muted small">{tr('towns.paused')}</p>{/if}
+							{#if towns.failed}<p class="muted small">{tr('towns.failed')}</p>{/if}
+						{/if}
+						<h3 class="eyebrow layer-group">{tr('frame.rainTitle')}</h3>
 						<p class="small">{tr('frame.rainDesc')}</p>
 						<LayerRow
 							name={tr('frame.radar')}
@@ -1526,20 +1683,7 @@
 								<p class="muted small">{tr('rainField.loading')}</p>
 							{/if}
 						{/if}
-					{:else if layerFamily === 'weather'}
-						<p class="small">{tr('frame.weatherDesc')}</p>
-						<LayerRow
-							name={tr('towns.layer')}
-							source={tr('towns.layerSub')}
-							testid="towns-toggle"
-							bind:checked={towns.on}
-						/>
-						{#if towns.on}
-							<p class="muted small">{towns.near ? tr('towns.hint') : tr('towns.zoomIn')}</p>
-							{#if towns.paused}<p class="muted small">{tr('towns.paused')}</p>{/if}
-							{#if towns.failed}<p class="muted small">{tr('towns.failed')}</p>{/if}
-						{/if}
-					{:else if layerFamily === 'wind'}
+						<h3 class="eyebrow layer-group">{tr('frame.windTitle')}</h3>
 						<p class="small">{tr('frame.windDesc')}</p>
 						<LayerRow
 							name={tr('frame.flow')}
@@ -1620,6 +1764,7 @@
 							{#if tides.failed}<p class="muted small">{tr('tide.layerFailed')}</p>{/if}
 							<p class="muted small">{tr('tide.limits')}</p>
 						{/if}
+						<a class="small" href="/sea">{tr('frame.seaPage')}</a>
 					{/if}
 				</LayersPanel>
 			{/if}
@@ -1657,9 +1802,22 @@
 		max-height: 40vh;
 		overflow-y: auto;
 	}
+	/* "Near me" acts on this map now ("here"): a button that reads as the link it was. */
 	.local-link {
+		padding: 0;
+		border: 0;
+		background: none;
 		color: var(--accent);
+		font: inherit;
 		font-weight: 600;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	/* The groups of the weather family's layers: the towns, then the rain, then the wind. */
+	.layer-group {
+		margin-top: 10px;
+		padding-top: 10px;
+		border-top: 1px solid var(--line);
 	}
 	.stamp {
 		font-size: 0.875rem;

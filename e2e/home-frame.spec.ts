@@ -37,14 +37,17 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	const rail = layerRail(page);
 	// The weather of the towns, the relief and the details of the IGN are on at first: their families say so.
+	// "Here" acts on the side panel; the sky and travel are still pages of their own, linked from the rail.
 	await expect(rail.getByRole('button')).toHaveText([
+		'Ici',
 		'Alertes',
 		'Météo1(1 couche affichée)',
-		'Pluie',
-		'Vent',
-		'Marée',
+		'Mer',
 		/^Carte/
 	]);
+	await expect(rail.getByRole('link')).toHaveText(['Ciel', 'Voyager']);
+	await expect(rail.getByRole('link', { name: 'Ciel' })).toHaveAttribute('href', '/sky');
+	await expect(rail.getByRole('link', { name: 'Voyager' })).toHaveAttribute('href', '/travel');
 	await expect(rail.getByRole('button', { name: /^Carte/ })).toHaveAccessibleName(
 		'Carte (2 couches affichées)'
 	);
@@ -80,16 +83,22 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await expect(panel.getByRole('heading', { name: 'Météo' })).toBeVisible();
 	await expect(page.getByTestId('towns-toggle')).toBeChecked();
 
-	// One family at a time; its own button folds it again.
-	await openLayers(page, 'Pluie');
+	// The rain and the wind are in the weather family, under their own headings.
 	await expect(panel.getByRole('heading', { name: 'Pluie' })).toBeVisible();
-	for (const id of ['radar-toggle', 'observed-rain-toggle', 'rain-field-toggle'])
-		await expect(page.getByTestId(id)).toBeVisible();
-	await openLayers(page, 'Vent');
-	await expect(rail.getByRole('button', { name: /^Pluie/ })).toHaveAttribute('aria-expanded', 'false');
-	for (const id of ['flow-toggle', 'wind-toggle']) await expect(page.getByTestId(id)).toBeVisible();
-	await openLayers(page, 'Marée');
+	await expect(panel.getByRole('heading', { name: 'Vent' })).toBeVisible();
+	for (const id of [
+		'radar-toggle',
+		'observed-rain-toggle',
+		'rain-field-toggle',
+		'flow-toggle',
+		'wind-toggle'
+	])
+		await expect(page.getByTestId(id)).toBeAttached();
+	// One family at a time; its own button folds it again. The sea holds the tide, and leads to the sea page.
+	await openLayers(page, 'Mer');
+	await expect(rail.getByRole('button', { name: /^Météo/ })).toHaveAttribute('aria-expanded', 'false');
 	await expect(page.getByTestId('tide-toggle')).toBeVisible();
+	await expect(panel.getByRole('link', { name: /page Mer/ })).toHaveAttribute('href', '/sea');
 	await openLayers(page, 'Carte');
 	for (const id of ['relief-toggle', 'contours-toggle', 'photo-toggle', 'details-toggle'])
 		await expect(page.getByTestId(id)).toBeVisible();
@@ -98,12 +107,46 @@ test('the rail of the home map stands beside it, and each family opens its layer
 
 	await page.goto('/?lang=en');
 	await expect(layerRail(page).getByRole('button')).toHaveText([
+		'Here',
 		'Alerts',
 		/^Weather1/,
-		'Rain',
-		'Wind',
-		'Tide',
+		'Sea',
 		/^Map/
 	]);
+	await expect(layerRail(page).getByRole('link')).toHaveText(['Sky', 'Travel']);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('"here" puts the map on a place of the address, its cards in short beside it, and goes back to the world', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/#42.306,9.15,50');
+	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	const here = layerRail(page).getByRole('button', { name: 'Ici' });
+	await expect(here).toHaveAttribute('aria-pressed', 'true');
+	// The side panel holds the place: what counts there, the cards of "near me" in short, and the way to all of them.
+	const panel = page.locator('section.here');
+	await expect(panel.getByText('Autour de moi')).toBeVisible();
+	await expect(panel.locator('.said')).not.toBeEmpty();
+	await expect(panel.locator('.near-card').first()).toBeVisible();
+	await expect(panel.getByRole('heading', { name: 'Vigilances officielles' })).toBeVisible();
+	await expect(panel.getByRole('link', { name: 'Tout voir pour ce lieu' })).toHaveAttribute(
+		'href',
+		'/near#42.306,9.15,50'
+	);
+	// The list of the world is not there while the place is.
+	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toHaveCount(0);
+	// The map went to the place.
+	await expect.poll(async () => page.evaluate(() => location.hash)).toBe('#42.306,9.15,50');
+
+	// The same button goes back to the world, and the address forgets the place.
+	await here.click();
+	await expect(here).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
+	await expect.poll(async () => page.evaluate(() => location.hash)).toBe('');
+	// And comes back to the place, kept in the page.
+	await here.click();
+	await expect(panel.getByRole('heading', { name: 'Vigilances officielles' })).toBeVisible();
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });

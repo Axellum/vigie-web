@@ -46,12 +46,12 @@ const marker = (page: Page, title: string) =>
 		.and(page.getByRole('button', { name: title, exact: true }))
 		.first();
 
-test('searching on the map opens the named local bulletin', async ({ page }) => {
+test('searching on the map puts it on the place named, with its cards beside it', async ({ page }) => {
 	await page.goto('/');
 	await page.locator('#place-search').fill('Corte');
 	await page.locator('.lookup .results button').filter({ hasText: 'Corte' }).first().click();
-	await expect(page).toHaveURL(/\/near#/);
-	await expect(page.locator('main').getByText(/Corte/).first()).toBeVisible();
+	await expect(page).toHaveURL(/\/#-?[\d.]+,-?[\d.]+,50$/);
+	await expect(page.locator('section.here h2')).toContainText('Corte');
 });
 
 test('the world map draws the recorded hazards', async ({ page }) => {
