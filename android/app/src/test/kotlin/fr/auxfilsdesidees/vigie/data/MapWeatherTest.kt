@@ -99,6 +99,9 @@ class MapWeatherTest {
     assertEquals(listOf(10, 12, 12, 14), listOf(5.9, 6.0, 7.9, 8.0).map(MapWeather::badgeRadius))
     assertEquals("vigie-wind:2:30:s:-:12", MapWeather.badgeKey(p, 12))
     assertEquals("vigie-wind:2:30:b:45:12", MapWeather.badgeKey(p.copy(buoy = true, gustKmh = 45.2), 12))
+    // In knots: the figures change, the colour still follows the km/h.
+    assertEquals("vigie-wind:2:16:b:24:12", MapWeather.badgeKey(p.copy(buoy = true, gustKmh = 45.2), 12, WindUnit.Kn))
+    assertEquals(listOf(0, 1, 11, 54, 30), listOf(0.0, 1.852, 20.0, 100.0, 55.0).map { MapWeather.windValue(it, WindUnit.Kn) })
     assertEquals("vigie-beak:2:12", MapWeather.beakKey(p, 12))
   }
 

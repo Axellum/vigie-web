@@ -1,0 +1,1 @@
+- Android: the sea map's wind can be read in knots, as on the site: two buttons in the card of the wind measured choose km/h or knots, kept on the phone; the badges, their gusts, a badge's note, the colours' legend and the forecast wind's scale follow. The colours of the badges still follow the speed in km/h.

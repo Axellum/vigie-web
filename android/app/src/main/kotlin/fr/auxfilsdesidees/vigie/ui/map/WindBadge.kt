@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import androidx.core.graphics.toColorInt
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.WindPoint
+import fr.auxfilsdesidees.vigie.data.WindUnit
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -23,12 +24,12 @@ internal object WindBadge {
   private val INK = "#e2e9ed".toColorInt()
   private val SHADOW = 0x4D000000
 
-  fun badge(p: WindPoint, radius: Int, density: Float, densityDpi: Int): Bitmap {
+  fun badge(p: WindPoint, radius: Int, unit: WindUnit, density: Float, densityDpi: Int): Bitmap {
     val d = density
     val r = radius * d
     val step = MapWeather.windStep(p.kmh)
-    val value = MapWeather.windValue(p.kmh)
-    val gust = if (MapWeather.gustShown(p)) MapWeather.windValue(p.gustKmh!!).toString() else null
+    val value = MapWeather.windValue(p.kmh, unit)
+    val gust = if (MapWeather.gustShown(p)) MapWeather.windValue(p.gustKmh!!, unit).toString() else null
     val small =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.DEFAULT_BOLD

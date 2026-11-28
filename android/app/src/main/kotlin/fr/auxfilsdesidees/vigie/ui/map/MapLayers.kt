@@ -16,6 +16,7 @@ import fr.auxfilsdesidees.vigie.data.Radar
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.TownWeather
 import fr.auxfilsdesidees.vigie.data.WindPoint
+import fr.auxfilsdesidees.vigie.data.WindUnit
 import java.util.WeakHashMap
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -232,16 +233,16 @@ internal object MapLayers {
   /** The pictures of the wind drawn on each style, to let go of those no longer shown when they pile up. */
   private val windImages = WeakHashMap<Style, MutableSet<String>>()
 
-  /** The wind's badges kept on screen ([MapWeather.declutter]), [radius] dp; the pictures not drawn yet are drawn once. */
-  fun showWind(style: Style, points: List<WindPoint>, radius: Int, context: Context) {
+  /** The wind's badges kept on screen ([MapWeather.declutter]), [radius] dp, in the [unit] chosen; each picture is drawn once. */
+  fun showWind(style: Style, points: List<WindPoint>, radius: Int, unit: WindUnit, context: Context) {
     val metrics = context.resources.displayMetrics
     val drawn = windImages.getOrPut(style) { HashSet() }
     val used = HashSet<String>()
     val missing = HashMap<String, Bitmap>()
     for (p in points) {
-      val badge = MapWeather.badgeKey(p, radius)
+      val badge = MapWeather.badgeKey(p, radius, unit)
       used += badge
-      if (badge !in drawn && badge !in missing) missing[badge] = WindBadge.badge(p, radius, metrics.density, metrics.densityDpi)
+      if (badge !in drawn && badge !in missing) missing[badge] = WindBadge.badge(p, radius, unit, metrics.density, metrics.densityDpi)
       if (p.fromDeg != null) {
         val beak = MapWeather.beakKey(p, radius)
         used += beak
@@ -250,7 +251,7 @@ internal object MapLayers {
     }
     if (missing.isNotEmpty()) style.addImages(missing)
     drawn += missing.keys
-    style.getSourceAs<GeoJsonSource>(WIND)?.setGeoJson(MapWeather.windFeatures(points, radius))
+    style.getSourceAs<GeoJsonSource>(WIND)?.setGeoJson(MapWeather.windFeatures(points, radius, unit))
     if (drawn.size > KEPT_WIND_IMAGES) {
       (drawn - used).forEach(style::removeImage)
       drawn.retainAll(used)
