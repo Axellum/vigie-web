@@ -77,6 +77,10 @@ const fr = {
 	'here.all': 'Tout voir pour ce lieu',
 	'here.back': 'Revenir au point du monde',
 	'here.near': 'Les cartes de ce lieu, en court',
+	'sea.intro':
+		'Un avis par spot, d’après des règles de Vigie : regardez la mer et les drapeaux avant d’y aller.',
+	'sea.best': 'Les meilleurs maintenant',
+	'sea.loading': 'Lecture des verdicts des spots…',
 	'frame.alertsDesc':
 		'Les vigilances officielles et les risques naturels. Touchez une zone ou un point pour sa fiche, dans le panneau.',
 	'frame.types': 'Ce que montre la carte',
@@ -1223,6 +1227,9 @@ const en: Record<Key, string> = {
 	'here.all': 'Everything about this place',
 	'here.back': 'Back to the world at a glance',
 	'here.near': 'The cards of this place, in short',
+	'sea.intro': 'A verdict per spot, by rules of Vigie: look at the sea and the flags before you go.',
+	'sea.best': 'The best now',
+	'sea.loading': 'Reading the verdicts of the spots…',
 	'frame.alertsDesc':
 		'The official warnings and the natural hazards. Tap an area or a dot for its card, in the panel.',
 	'frame.types': 'What the map shows',

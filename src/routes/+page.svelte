@@ -2,7 +2,7 @@
 	import PlaceSearch from '#lib/components/PlaceSearch.svelte';
 	import Time from '#lib/components/Time.svelte';
 	import Seo from '#lib/components/Seo.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -37,6 +37,10 @@
 	import { windTime } from '#lib/wind.js';
 	import ForecastDetails from '#lib/components/ForecastDetails.svelte';
 	import HerePanel from '#lib/components/HerePanel.svelte';
+	import { SeaFamily } from '#lib/sea/seaFamily.svelte.js';
+	import SeaPanel from '#lib/sea/SeaPanel.svelte';
+	import SpotBubble from '#lib/sea/SpotBubble.svelte';
+	import { seaText } from '#lib/sea/text.js';
 	import { PlaceState } from '#lib/placeState.svelte.js';
 	import HazardFacts from '#lib/components/HazardFacts.svelte';
 	import LevelPill from '#lib/components/LevelPill.svelte';
@@ -404,6 +408,7 @@
 	}
 	function onTownPick(id: string) {
 		townHover = null;
+		sea.chosen = null;
 		townPicked = towns.towns.find((t) => t.id === id) ?? null;
 	}
 	const townHoverWeather = $derived(townHover ? towns.weatherOf(townHover.town) : null);
@@ -461,6 +466,7 @@
 		herePlace = { lat: round3(at.lat), lon: round3(at.lon) };
 		hereName = name;
 		hereOn = true;
+		leaveSea();
 		locate = 'idle';
 		selection = null;
 		layerFamily = null;
@@ -483,6 +489,7 @@
 	}
 	function locateMe() {
 		hereOn = true;
+		leaveSea();
 		selection = null;
 		layerFamily = null;
 		if (!navigator.geolocation) {
@@ -496,6 +503,61 @@
 			{ enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
 		);
 	}
+	// --- the sea: "should you go?" in the side panel, the pins of the spots on the map and the card of a spot over it ----------
+	// Ranked around the place of "here" when there is one; the verdicts are read when the family is first chosen.
+	let seaOn = $state(false);
+	const sea = new SeaFamily(() => ({ lang, at: herePlace }));
+	const seaPlace = $derived(herePlace ? (hereName ?? hereTown ?? seaText(lang, 'myPosition')) : null);
+	let seaToShow = false;
+	let bubbleBox = $state<HTMLDivElement>();
+	function pickSea() {
+		if (seaOn) {
+			leaveSea();
+			return;
+		}
+		seaOn = true;
+		hereOn = false;
+		selection = null;
+		layerFamily = null;
+		townPicked = null;
+		void sea.load();
+		seaToShow = true;
+		showSea();
+		showRail();
+	}
+	function showSea() {
+		if (!seaToShow || !seaOn || !sea.frame || !mapView?.made()) return;
+		seaToShow = false;
+		mapView.show(sea.frame, 9);
+	}
+	$effect(() => {
+		void sea.frame;
+		untrack(showSea);
+	});
+	function leaveSea() {
+		seaOn = false;
+		sea.chosen = null;
+	}
+	async function openSpot(id: string) {
+		sea.chosen = id;
+		townPicked = null;
+		await tick();
+		const spot = sea.overview?.spots.find((x) => x.id === id);
+		if (!spot || !mapwrap || !bubbleBox) return;
+		// The card covers the right of the map on a computer, the bottom of the screen on a phone: the spot comes out from under it.
+		const sheet = matchMedia('(max-width: 899px)').matches;
+		const m = mapwrap.getBoundingClientRect();
+		const b = bubbleBox.getBoundingClientRect();
+		mapView?.reveal([spot.lon, spot.lat], {
+			right: sheet ? 0 : Math.max(0, m.right - b.left),
+			bottom: sheet ? Math.max(0, m.bottom - b.top) : 0
+		});
+	}
+	function closeSpot() {
+		const id = sea.chosen;
+		sea.chosen = null;
+		if (id) void tick().then(() => document.querySelector<HTMLElement>(`[data-spot="${id}"]`)?.focus());
+	}
 	function pickHere() {
 		if (hereOn) leaveHere();
 		else if (herePlace) setHere(herePlace, hereName);
@@ -507,8 +569,8 @@
 	});
 
 	// --- the frame of the map: the families on its rail; those of layers open their choices over the map (as on the sea map) --
-	// "Here" changes the side panel; the sky and travel are still pages of their own.
-	type MapFamily = 'alerts' | 'weather' | 'sea' | 'map';
+	// "Here" and the sea change the side panel; the sky and travel are still pages of their own.
+	type MapFamily = 'alerts' | 'weather' | 'map';
 	let layerFamily = $state<MapFamily | null>(null);
 	// How many layers of a family are shown; the warnings and the hazards are always there, the fires are counted.
 	const layerCount = (f: MapFamily): number =>
@@ -521,12 +583,10 @@
 					Number(rainField.on) +
 					Number(flow.on) +
 					Number(wind.on)
-				: f === 'map'
-					? ign.count
-					: Number(tides.on);
+				: ign.count;
 	const layerFamilyOf = (f: MapFamily): RailFamily => ({
 		id: f,
-		icon: f === 'sea' ? 'tide' : f,
+		icon: f,
 		label: tr(`frame.family.${f}` as Key),
 		count: layerCount(f),
 		countSaid: tr(layerCount(f) > 1 ? 'frame.countMany' : 'frame.count', { count: layerCount(f) }),
@@ -545,7 +605,16 @@
 		},
 		layerFamilyOf('alerts'),
 		layerFamilyOf('weather'),
-		layerFamilyOf('sea'),
+		{
+			id: 'sea',
+			icon: 'tide',
+			label: tr('frame.family.sea'),
+			count: Number(tides.on),
+			countSaid: tr('frame.count', { count: Number(tides.on) }),
+			on: seaOn || tides.on,
+			current: seaOn,
+			onpick: pickSea
+		},
 		{
 			id: 'sky',
 			icon: 'sky',
@@ -779,6 +848,10 @@
 
 	// --- selection and detail ---------------------------------------------------------------------------
 	function onMapSelect(s: Selection) {
+		if (s.kind === 'spot') {
+			void openSpot(s.id);
+			return;
+		}
 		if (s.kind === 'hazard') selection = { kind: 'hazard', id: s.id };
 		else if (s.kind === 'fire') selection = { ...s, cellDeg: fireLevelNow.cellDeg };
 		else if (s.kind === 'tide') selection = { kind: 'tide', lon: s.lon, lat: s.lat };
@@ -937,6 +1010,11 @@
 </script>
 
 <Seo title={tr('nav.map')} description={tr('home.description')} />
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape' && seaOn && sea.chosen) closeSpot();
+	}}
+/>
 
 <!-- What the site is, for search engines: a WebSite in schema.org terms. -->
 <svelte:head>
@@ -1099,6 +1177,24 @@
 				{:else}
 					<p class="muted">{tr('detail.failed')}</p>
 				{/if}
+			</section>
+		{:else if seaOn}
+			<section class="block">
+				<SeaPanel {lang} {sea} place={seaPlace}>
+					{#snippet layers()}
+						<LayerRow
+							name={tr('frame.tides')}
+							source={tr('frame.tidesSub')}
+							testid="tide-toggle"
+							bind:checked={tides.on}
+						/>
+						{#if tides.on}
+							<p class="muted small">{tides.tooFar ? tr('tide.zoomIn') : tr('tide.legend')}</p>
+							{#if tides.failed}<p class="muted small">{tr('tide.layerFailed')}</p>{/if}
+							<p class="muted small">{tr('tide.limits')}</p>
+						{/if}
+					{/snippet}
+				</SeaPanel>
 			</section>
 		{:else if hereOn}
 			<section class="block">
@@ -1339,14 +1435,20 @@
 			bind:open={() => layerFamily, (next) => (layerFamily = next as MapFamily | null)}
 			controls="home-layers"
 		/>
-		<div class="mapwrap" bind:this={mapwrap} style:--map-foot={towns.on && towns.near ? '44px' : null}>
+		<div
+			class="mapwrap"
+			bind:this={mapwrap}
+			style:--map-foot={!seaOn && towns.on && towns.near ? '44px' : null}
+		>
 			<MapView
 				bind:this={mapView}
 				{lang}
 				hazards={mapHazards}
 				{zones}
 				zonesFrom={WARNINGS_MIN_ZOOM}
-				selected={mapSelected}
+				selected={seaOn && sea.chosen ? { kind: 'spot', id: sea.chosen } : mapSelected}
+				spots={seaOn ? sea.dots : null}
+				pins={seaOn ? sea.pins : null}
 				forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
 				{fires}
 				tides={tides.features}
@@ -1362,7 +1464,7 @@
 				})}
 				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 				flow={flow.grids}
-				towns={townPills}
+				towns={seaOn ? null : townPills}
 				ontowns={(list) => (towns.towns = list)}
 				ontownhover={onTownHover}
 				ontownpick={onTownPick}
@@ -1374,10 +1476,11 @@
 					view = v;
 					zoom = z;
 					showHere();
+					showSea();
 				}}
 			/>
 			<RadarCard {lang} {radar} />
-			{#if towns.on && towns.near}
+			{#if !seaOn && towns.on && towns.near}
 				<MomentBar {lang} choices={towns.choices} now={towns.now} bind:selected={towns.moment} />
 			{/if}
 			{#if townHover && townHoverWeather}
@@ -1391,6 +1494,21 @@
 					top={townHover.top}
 					above={townHover.above}
 				/>
+			{/if}
+			{#if seaOn && sea.chosenSpot}
+				<div class="bubble-slot" bind:this={bubbleBox}>
+					{#key sea.chosenSpot.id}
+						<SpotBubble
+							{lang}
+							spot={sea.chosenSpot}
+							surf={sea.chosenSurf}
+							activity={sea.active}
+							unit={sea.choice.unit}
+							onpick={(id) => sea.choose(id)}
+							onclose={closeSpot}
+						/>
+					{/key}
+				</div>
 			{/if}
 			{#if townPicked}
 				<TownCard
@@ -1723,7 +1841,7 @@
 							<p class="muted small">{tr('wind.hint')}</p>
 							<p class="muted small">{tr('wind.note')}</p>
 						{/if}
-					{:else if layerFamily === 'map'}
+					{:else}
 						<p class="small">{tr('frame.mapDesc')}</p>
 						<LayerRow
 							name={tr('frame.relief')}
@@ -1751,20 +1869,6 @@
 							bind:checked={ign.details}
 						/>
 						<p class="muted small">{tr('relief.note')}</p>
-					{:else}
-						<p class="small">{tr('frame.tideDesc')}</p>
-						<LayerRow
-							name={tr('frame.tides')}
-							source={tr('frame.tidesSub')}
-							testid="tide-toggle"
-							bind:checked={tides.on}
-						/>
-						{#if tides.on}
-							<p class="muted small">{tides.tooFar ? tr('tide.zoomIn') : tr('tide.legend')}</p>
-							{#if tides.failed}<p class="muted small">{tr('tide.layerFailed')}</p>{/if}
-							<p class="muted small">{tr('tide.limits')}</p>
-						{/if}
-						<a class="small" href="/sea">{tr('frame.seaPage')}</a>
 					{/if}
 				</LayersPanel>
 			{/if}
@@ -1803,6 +1907,37 @@
 		overflow-y: auto;
 	}
 	/* "Near me" acts on this map now ("here"): a button that reads as the link it was. */
+	/* The card of a spot: over the right of the map on a computer, a sheet at the bottom of the screen on a phone. */
+	.bubble-slot {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 30;
+		max-height: 62dvh;
+		display: flex;
+		flex-direction: column;
+	}
+	.bubble-slot :global(.bubble) {
+		border-radius: 16px 16px 0 0;
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
+	@media (min-width: 900px) {
+		.bubble-slot {
+			position: absolute;
+			left: auto;
+			top: 10px;
+			right: 52px;
+			bottom: 12px;
+			width: min(400px, calc(100% - 120px));
+			max-height: none;
+			z-index: 7;
+			justify-content: flex-start;
+		}
+		.bubble-slot :global(.bubble) {
+			border-radius: 14px;
+		}
+	}
 	.local-link {
 		padding: 0;
 		border: 0;
