@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	/** The drawing of a family's button. */
-	export type RailIcon = 'spots' | 'weather' | 'wind' | 'rain' | 'alerts' | 'tide' | 'map';
+	export type RailIcon =
+		'spots' | 'weather' | 'wind' | 'rain' | 'alerts' | 'tide' | 'map' | 'here' | 'sky' | 'travel';
 	export interface RailFamily {
 		id: string;
 		icon: RailIcon;
@@ -11,6 +12,12 @@
 		countSaid: string;
 		/** Coloured as shown: a family whose layers are on, or that is always there. */
 		on: boolean;
+		/** A family that is still a page of its own: its button is a link to it. */
+		href?: string;
+		/** A family that is not a set of layers: its button acts instead of opening a panel. */
+		onpick?: () => void;
+		/** Pressed: the family the map shows now (one that is not a set of layers). */
+		current?: boolean;
 	}
 </script>
 
@@ -26,38 +33,61 @@
 </script>
 
 <div class="rail" role="group" aria-label={label}>
+	{#snippet face(f: RailFamily)}
+		<svg viewBox="0 0 24 24" aria-hidden="true">
+			{#if f.icon === 'spots'}
+				<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" />
+			{:else if f.icon === 'weather'}
+				<circle cx="9" cy="9" r="3.2" /><path d="M9 2.6v1.4M3.6 9H2.2M4.5 4.5l1 1M13.5 4.5l-1 1" /><path
+					d="M8.5 19.5a3.5 3.5 0 0 1 .3-7 4.8 4.8 0 0 1 9.2 1.2 2.9 2.9 0 0 1-.3 5.8z"
+				/>
+			{:else if f.icon === 'wind'}
+				<path d="M3 8h11a3 3 0 1 0-3-3" /><path d="M3 12h16a3 3 0 1 1-3 3" /><path d="M3 16h8" />
+			{:else if f.icon === 'rain'}
+				<path d="M7 15a4 4 0 0 1 .5-8A5.5 5.5 0 0 1 18 8.5 3.5 3.5 0 0 1 17.5 15z" /><path
+					d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"
+				/>
+			{:else if f.icon === 'alerts'}
+				<path d="M12 3.5L2.8 19.5h18.4z" /><path d="M12 10v4.5" /><path d="M12 17.2v.1" />
+			{:else if f.icon === 'here'}
+				<circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="7.5" /><path
+					d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3"
+				/>
+			{:else if f.icon === 'sky'}
+				<path d="M15.5 3.5a7.5 7.5 0 1 0 5 12.6A8 8 0 0 1 15.5 3.5z" /><path
+					d="M6 3.5l.6 1.4L8 5.5l-1.4.6L6 7.5l-.6-1.4L4 5.5l1.4-.6z"
+				/>
+			{:else if f.icon === 'travel'}
+				<circle cx="12" cy="12" r="9" /><path
+					d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"
+				/>
+			{:else if f.icon === 'map'}
+				<path d="M2.5 19.5L9 8l3.6 6.2L15 10.5l6.5 9z" /><path d="M7.4 10.8l1.6 1.4 1.5-1.3" />
+			{:else}
+				<path d="M2.5 9.5c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0" /><path
+					d="M2.5 15c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0"
+				/>
+			{/if}
+		</svg><span class="name">{f.label}</span>{#if f.count}<i class="count" aria-hidden="true">{f.count}</i
+			><span class="visually-hidden">({f.countSaid})</span>{/if}
+	{/snippet}
 	{#each families as f (f.id)}
-		<button
-			type="button"
-			class:on={f.on}
-			aria-expanded={open === f.id}
-			aria-controls={controls}
-			onclick={() => (open = open === f.id ? null : f.id)}
-			><svg viewBox="0 0 24 24" aria-hidden="true">
-				{#if f.icon === 'spots'}
-					<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" />
-				{:else if f.icon === 'weather'}
-					<circle cx="9" cy="9" r="3.2" /><path d="M9 2.6v1.4M3.6 9H2.2M4.5 4.5l1 1M13.5 4.5l-1 1" /><path
-						d="M8.5 19.5a3.5 3.5 0 0 1 .3-7 4.8 4.8 0 0 1 9.2 1.2 2.9 2.9 0 0 1-.3 5.8z"
-					/>
-				{:else if f.icon === 'wind'}
-					<path d="M3 8h11a3 3 0 1 0-3-3" /><path d="M3 12h16a3 3 0 1 1-3 3" /><path d="M3 16h8" />
-				{:else if f.icon === 'rain'}
-					<path d="M7 15a4 4 0 0 1 .5-8A5.5 5.5 0 0 1 18 8.5 3.5 3.5 0 0 1 17.5 15z" /><path
-						d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"
-					/>
-				{:else if f.icon === 'alerts'}
-					<path d="M12 3.5L2.8 19.5h18.4z" /><path d="M12 10v4.5" /><path d="M12 17.2v.1" />
-				{:else if f.icon === 'map'}
-					<path d="M2.5 19.5L9 8l3.6 6.2L15 10.5l6.5 9z" /><path d="M7.4 10.8l1.6 1.4 1.5-1.3" />
-				{:else}
-					<path d="M2.5 9.5c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0" /><path
-						d="M2.5 15c2.4-2 4.7-2 7 0s4.7 2 7 0 4.2-1.6 5 0"
-					/>
-				{/if}
-			</svg><span class="name">{f.label}</span>{#if f.count}<i class="count" aria-hidden="true">{f.count}</i
-				><span class="visually-hidden">({f.countSaid})</span>{/if}</button
-		>
+		{#if f.href}
+			<a class="item" class:on={f.on} href={f.href}>{@render face(f)}</a>
+		{:else if f.onpick}
+			<button type="button" class="item" class:on={f.on} aria-pressed={f.current ?? false} onclick={f.onpick}
+				>{@render face(f)}</button
+			>
+		{:else}
+			<button
+				type="button"
+				class="item"
+				class:on={f.on}
+				aria-expanded={open === f.id}
+				aria-controls={controls}
+				onclick={() => (open = open === f.id ? null : f.id)}>{@render face(f)}</button
+			>
+		{/if}
 	{/each}
 </div>
 
@@ -71,7 +101,7 @@
 		min-width: 0;
 	}
 	/* The drawing over the name, on a phone as on a computer: the families share the row of a phone in equal buttons. */
-	.rail button {
+	.rail .item {
 		position: relative;
 		flex: 1 1 0;
 		min-width: 0;
@@ -98,7 +128,7 @@
 			border-bottom: 0;
 			border-right: 1px solid var(--line);
 		}
-		.rail button {
+		.rail .item {
 			flex: none;
 			gap: 3px;
 			min-height: 58px;
@@ -106,7 +136,7 @@
 			font-size: 11.5px;
 		}
 	}
-	.rail button svg {
+	.rail .item svg {
 		width: 22px;
 		height: 22px;
 		flex: none;
@@ -122,7 +152,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.rail button.on {
+	.rail .item.on {
 		color: var(--accent);
 	}
 	/* How many layers of the family are shown, on the corner of its button. */
@@ -140,12 +170,18 @@
 		font-style: normal;
 		text-align: center;
 	}
-	.rail button:hover,
-	.rail button[aria-expanded='true'] {
+	.rail .item:hover,
+	.rail .item[aria-expanded='true'] {
 		border-color: var(--accent);
 		color: var(--accent);
 	}
-	.rail button[aria-expanded='true'] {
+	.rail .item[aria-expanded='true'],
+	.rail .item[aria-pressed='true'] {
 		background: var(--accent-soft);
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.rail a.item {
+		text-decoration: none;
 	}
 </style>
