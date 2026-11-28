@@ -11,6 +11,7 @@ import fr.auxfilsdesidees.vigie.data.MapPin
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
 import fr.auxfilsdesidees.vigie.data.PointNow
+import fr.auxfilsdesidees.vigie.data.RadarArea
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.VigieParser
@@ -41,6 +42,8 @@ import kotlinx.coroutines.withContext
  *
  * The base map is the site's dark plan, or the IGN's plan or photographs when chosen ([chooseBackground]): the choice is
  * kept on the phone ([kept]); each style is read once. When the IGN cannot be read, the dark plan is shown, and said so.
+ *
+ * The rain radar and the wind measured, layers of the same menu, are held by [weather].
  */
 class SeaMapViewModel(
   private val reader: SeaMapReader,
@@ -52,6 +55,12 @@ class SeaMapViewModel(
   /** Where the background chosen is kept (the app's settings); nowhere in a test. */
   private val kept: KeyValue? = null,
 ) : ViewModel() {
+  /** The weather layers of the map: the rain radar and the wind measured, off until chosen, the choice kept on the phone. */
+  val weather = MapWeatherModel(viewModelScope, reader, clock, kept)
+
+  /** The address of the tiles of one radar image. */
+  fun radarTiles(area: RadarArea, epoch: Long): String = reader.radarTiles(area, epoch)
+
   /** What the sheet shows: a spot of the map (its Mer page) or a town (its Accueil). */
   sealed interface Sheet {
     data class Spot(val spot: CatalogueSpot) : Sheet

@@ -11,7 +11,11 @@ import android.graphics.Typeface
 import androidx.core.graphics.toColorInt
 import fr.auxfilsdesidees.vigie.data.FollowedPlace
 import fr.auxfilsdesidees.vigie.data.MapPin
+import fr.auxfilsdesidees.vigie.data.MapWeather
+import fr.auxfilsdesidees.vigie.data.Radar
 import fr.auxfilsdesidees.vigie.data.SeaMap
+import fr.auxfilsdesidees.vigie.data.WindPoint
+import java.util.WeakHashMap
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
@@ -27,6 +31,8 @@ import org.maplibre.android.style.expressions.Expression.not
 import org.maplibre.android.style.expressions.Expression.stop
 import org.maplibre.android.style.expressions.Expression.toString
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.RasterLayer
+import org.maplibre.android.style.layers.TransitionOptions
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
@@ -37,9 +43,15 @@ import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconOffset
+import org.maplibre.android.style.layers.PropertyFactory.iconRotate
+import org.maplibre.android.style.layers.PropertyFactory.iconRotationAlignment
+import org.maplibre.android.style.layers.PropertyFactory.rasterFadeDuration
+import org.maplibre.android.style.layers.PropertyFactory.rasterOpacity
 import org.maplibre.android.style.layers.PropertyFactory.symbolSortKey
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.RasterSource
+import org.maplibre.android.style.sources.TileSet
 import org.maplibre.geojson.Point
 
 /**
@@ -48,6 +60,9 @@ import org.maplibre.geojson.Point
  * verdict (`symbol-sort-key` = the rank) and the dots stay. A followed spot has a star in the blue of its verdict in place
  * of its dot; a followed place, a pill with a star and its name, under the pins. Over them, the phone's position when
  * asked for.
+ *
+ * Under them all, the weather layers of the layers' menu ([MapWeatherModel]): the badges of the wind measured, and lower,
+ * under the names of the base map so that they stay readable, the images of the rain radar.
  */
 internal object MapLayers {
   private const val PINS = "vigie-pins"
@@ -56,6 +71,10 @@ internal object MapLayers {
   private const val LABELS = "vigie-labels"
   private const val PLACES = "vigie-places"
   private const val ME = "vigie-me"
+  private const val WIND = "vigie-wind"
+  private const val BEAKS = "vigie-wind-beaks"
+  private const val BADGES = "vigie-wind-badges"
+  private const val RADAR = "vigie-radar-"
   private const val STAR = "vigie-star:"
   private const val EMPTY = """{"type":"FeatureCollection","features":[]}"""
 
@@ -69,10 +88,20 @@ internal object MapLayers {
     data class Followed(val key: String) : Pick
 
     data class Town(val name: String, val lat: Double, val lon: Double) : Pick
+
+    data class Wind(val id: String) : Pick
   }
 
   fun add(style: Style, context: Context) {
     val metrics = context.resources.displayMetrics
+    // The wind's badges: the beak under its round, turned toward where the wind goes; badges placed by MapWeather.declutter.
+    style.addSource(GeoJsonSource(WIND, EMPTY))
+    style.addLayer(
+      SymbolLayer(BEAKS, WIND)
+        .withFilter(has("beak"))
+        .withProperties(iconImage(get("beak")), iconRotate(get("rot")), iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), iconAllowOverlap(true), iconIgnorePlacement(true))
+    )
+    style.addLayer(SymbolLayer(BADGES, WIND).withProperties(iconImage(get("badge")), iconAllowOverlap(true), iconIgnorePlacement(true)))
     style.addImages(HashMap((listOf(-1) + SeaMap.BAND_COLOURS.keys).associate { "$STAR$it" to Marks.star(SeaMap.BAND_COLOURS[it] ?: NO_VERDICT, metrics.density, metrics.densityDpi) }))
     style.addSource(GeoJsonSource(PLACES, EMPTY))
     style.addLayer(
@@ -141,6 +170,73 @@ internal object MapLayers {
     style.getSourceAs<GeoJsonSource>(PLACES)?.setGeoJson(SeaMap.placeFeatures(places))
   }
 
+  /**
+   * The rain radar: a raster layer per image drawn, under the first name of the base map. Only the image shown ([active])
+   * until [preload], then all of them, the others see-through, so that the slider and the animation wait for no tile. Null
+   * [radar]: none.
+   */
+  fun showRadar(style: Style, radar: Radar?, active: Long?, preload: Boolean, tiles: (Long) -> String) {
+    val wanted = if (radar == null || active == null) emptyList() else radar.frames.filter { preload || it == active }
+    val keep = wanted.map { radarId(radar!!, it) }.toSet()
+    style.layers.filter { it.id.startsWith(RADAR) && it.id !in keep }.forEach {
+      style.removeLayer(it)
+      style.removeSource(it.id)
+    }
+    if (radar == null) return
+    val below = style.layers.firstOrNull { it is SymbolLayer && !it.id.startsWith("vigie-") }?.id ?: style.layers.firstOrNull { it.id.startsWith("vigie-") }?.id
+    for (epoch in wanted) {
+      val id = radarId(radar, epoch)
+      val opacity = if (epoch == active) MapWeather.RADAR_OPACITY else 0f
+      val known = style.getLayerAs<RasterLayer>(id)
+      if (known != null) {
+        known.setProperties(rasterOpacity(opacity))
+        continue
+      }
+      val set =
+        TileSet("2.1.0", tiles(epoch)).apply {
+          setMinZoom(radar.minZoom.toFloat())
+          setMaxZoom(radar.maxZoom.toFloat())
+          setBounds(radar.bounds.west.toFloat(), radar.bounds.south.toFloat(), radar.bounds.east.toFloat(), radar.bounds.north.toFloat())
+        }
+      style.addSource(RasterSource(id, set, 256))
+      val layer = RasterLayer(id, id).withProperties(rasterOpacity(opacity), rasterFadeDuration(0f))
+      layer.rasterOpacityTransition = TransitionOptions(0, 0)
+      if (below != null) style.addLayerBelow(layer, below) else style.addLayer(layer)
+    }
+  }
+
+  private fun radarId(radar: Radar, epoch: Long) = "$RADAR${radar.area.id}-$epoch"
+
+  /** The pictures of the wind drawn on each style, to let go of those no longer shown when they pile up. */
+  private val windImages = WeakHashMap<Style, MutableSet<String>>()
+
+  /** The wind's badges kept on screen ([MapWeather.declutter]), [radius] dp; the pictures not drawn yet are drawn once. */
+  fun showWind(style: Style, points: List<WindPoint>, radius: Int, context: Context) {
+    val metrics = context.resources.displayMetrics
+    val drawn = windImages.getOrPut(style) { HashSet() }
+    val used = HashSet<String>()
+    val missing = HashMap<String, Bitmap>()
+    for (p in points) {
+      val badge = MapWeather.badgeKey(p, radius)
+      used += badge
+      if (badge !in drawn && badge !in missing) missing[badge] = WindBadge.badge(p, radius, metrics.density, metrics.densityDpi)
+      if (p.fromDeg != null) {
+        val beak = MapWeather.beakKey(p, radius)
+        used += beak
+        if (beak !in drawn && beak !in missing) missing[beak] = WindBadge.beak(p, radius, metrics.density, metrics.densityDpi)
+      }
+    }
+    if (missing.isNotEmpty()) style.addImages(missing)
+    drawn += missing.keys
+    style.getSourceAs<GeoJsonSource>(WIND)?.setGeoJson(MapWeather.windFeatures(points, radius))
+    if (drawn.size > KEPT_WIND_IMAGES) {
+      (drawn - used).forEach(style::removeImage)
+      drawn.retainAll(used)
+    }
+  }
+
+  private const val KEPT_WIND_IMAGES = 400
+
   /** The phone's position, a blue dot (it never leaves the phone). */
   fun showMe(style: Style, lat: Double, lon: Double) {
     style.getSourceAs<GeoJsonSource>(ME)?.setGeoJson("""{"type":"Point","coordinates":[$lon,$lat]}""")
@@ -154,6 +250,7 @@ internal object MapLayers {
     val box = RectF(at.x - slop, at.y - slop, at.x + slop, at.y + slop)
     map.queryRenderedFeatures(box, STARS, DOTS, LABELS).firstNotNullOfOrNull { it.getStringProperty("id") }?.let { return Pick.Spot(it) }
     map.queryRenderedFeatures(box, PLACES).firstNotNullOfOrNull { it.getStringProperty("key") }?.let { return Pick.Followed(it) }
+    map.queryRenderedFeatures(box, BADGES).firstNotNullOfOrNull { it.getStringProperty("id") }?.let { return Pick.Wind(it) }
     if (townLayers.isEmpty()) return null
     return map.queryRenderedFeatures(box, *townLayers.toTypedArray()).firstNotNullOfOrNull { f ->
       val point = f.geometry() as? Point ?: return@firstNotNullOfOrNull null
