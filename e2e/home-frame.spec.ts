@@ -21,7 +21,9 @@ const TOGGLES = [
 	'rain-field-toggle',
 	'flow-toggle',
 	'wind-toggle',
-	'tide-toggle'
+	'tide-toggle',
+	'relief-toggle',
+	'contours-toggle'
 ];
 
 test('the rail of the home map stands beside it, and each family opens its layers over the map', async ({
@@ -31,7 +33,11 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await page.goto('/');
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	const rail = layerRail(page);
-	await expect(rail.getByRole('button')).toHaveText(['Alertes', 'Pluie', 'Vent', 'Marée']);
+	// The relief is on at first: its family says so.
+	await expect(rail.getByRole('button')).toHaveText(['Alertes', 'Pluie', 'Vent', 'Marée', /^Carte/]);
+	await expect(rail.getByRole('button', { name: /^Carte/ })).toHaveAccessibleName(
+		'Carte (1 couche affichée)'
+	);
 	// The rail does not cover the map.
 	const r = (await rail.boundingBox())!;
 	const m = (await page.locator('.mapwrap').boundingBox())!;
@@ -70,10 +76,12 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	for (const id of ['flow-toggle', 'wind-toggle']) await expect(page.getByTestId(id)).toBeVisible();
 	await openLayers(page, 'Marée');
 	await expect(page.getByTestId('tide-toggle')).toBeVisible();
-	await rail.getByRole('button', { name: /^Marée/ }).click();
+	await openLayers(page, 'Carte');
+	for (const id of ['relief-toggle', 'contours-toggle']) await expect(page.getByTestId(id)).toBeVisible();
+	await rail.getByRole('button', { name: /^Carte/ }).click();
 	await expect(panel).toHaveCount(0);
 
 	await page.goto('/?lang=en');
-	await expect(layerRail(page).getByRole('button')).toHaveText(['Alerts', 'Rain', 'Wind', 'Tide']);
+	await expect(layerRail(page).getByRole('button')).toHaveText(['Alerts', 'Rain', 'Wind', 'Tide', /^Map/]);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });

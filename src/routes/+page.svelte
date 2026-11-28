@@ -19,6 +19,7 @@
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
+	import { ReliefLayer } from '#lib/reliefLayer.svelte.js';
 	import { pollWhileVisible } from '#lib/pollVisible.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
@@ -261,6 +262,10 @@
 	const tides = new TideLayer();
 	$effect(() => tides.move(view, zoom));
 
+	// --- the relief of France (the IGN's shading; on until the visitor turns it off, the choice kept in this browser) ----------
+	const relief = new ReliefLayer();
+	onMount(() => relief.restore());
+
 	// --- the rain radar (a card over the map, on while the map is on France or an overseas area it covers) ---------------------------
 	const radar = new RadarLayer();
 	$effect(() => radar.move(view, zoom));
@@ -333,8 +338,8 @@
 	});
 
 	// --- the frame of the map: the families of layers on its rail, their choices over the map (as on the sea map) -----------
-	type MapFamily = 'alerts' | 'rain' | 'wind' | 'tide';
-	const MAP_FAMILIES: MapFamily[] = ['alerts', 'rain', 'wind', 'tide'];
+	type MapFamily = 'alerts' | 'rain' | 'wind' | 'tide' | 'map';
+	const MAP_FAMILIES: MapFamily[] = ['alerts', 'rain', 'wind', 'tide', 'map'];
 	let layerFamily = $state<MapFamily | null>(null);
 	// How many layers of a family are shown; the warnings and the hazards are always there, the fires are counted.
 	const layerCount = (f: MapFamily): number =>
@@ -344,7 +349,9 @@
 				? Number(radar.open && radar.covered) + Number(observedRain.on) + Number(rainField.on)
 				: f === 'wind'
 					? Number(flow.on) + Number(wind.on)
-					: Number(tides.on);
+					: f === 'map'
+						? relief.count
+						: Number(tides.on);
 	const railFamilies = $derived<RailFamily[]>(
 		MAP_FAMILIES.map((f) => ({
 			id: f,
@@ -1057,6 +1064,7 @@
 					{radar.nowcastAttribution}
 				</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
+			{#if relief.on}<p class="credit">{tr('relief.credit')}</p>{/if}
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
 	</aside>
@@ -1081,6 +1089,7 @@
 				radar={radar.onMap(tr('radar.credit'))}
 				rainField={rainField.onMap(tr('rainField.credit'))}
 				observedRain={observedRain.onMap(tr('observedRain.credit'))}
+				relief={relief.onMap(tr('relief.credit'))}
 				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 				flow={flow.grids}
 				globe
@@ -1398,6 +1407,22 @@
 							<p class="muted small">{tr('wind.hint')}</p>
 							<p class="muted small">{tr('wind.note')}</p>
 						{/if}
+					{:else if layerFamily === 'map'}
+						<p class="small">{tr('frame.mapDesc')}</p>
+						<LayerRow
+							name={tr('frame.relief')}
+							source={tr('frame.reliefSub')}
+							testid="relief-toggle"
+							bind:checked={relief.on}
+						/>
+						<LayerRow
+							name={tr('frame.contours')}
+							source={tr('frame.contoursSub')}
+							testid="contours-toggle"
+							disabled={!relief.on}
+							bind:checked={relief.contours}
+						/>
+						<p class="muted small">{tr('relief.note')}</p>
 					{:else}
 						<p class="small">{tr('frame.tideDesc')}</p>
 						<LayerRow

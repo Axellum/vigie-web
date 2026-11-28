@@ -61,6 +61,7 @@ const fr = {
 	'frame.family.rain': 'Pluie',
 	'frame.family.wind': 'Vent',
 	'frame.family.tide': 'Marée',
+	'frame.family.map': 'Carte',
 	'frame.alertsDesc':
 		'Les vigilances officielles et les risques naturels. Touchez une zone ou un point pour sa fiche, dans le panneau.',
 	'frame.types': 'Ce que montre la carte',
@@ -85,6 +86,14 @@ const fr = {
 	'frame.tideDesc': 'La marée le long des côtes, calculée par Vigie.',
 	'frame.tides': 'Marées',
 	'frame.tidesSub': 'Calculées par un modèle, pas mesurées',
+	'frame.mapDesc': "Le fond de la carte : le relief de la France, d'après l'IGN.",
+	'frame.relief': 'Relief',
+	'frame.reliefSub': "Ombrage de l'IGN, plus fin de près (LiDAR HD)",
+	'frame.contours': 'Courbes de niveau',
+	'frame.contoursSub': "De l'IGN, la carte zoomée au plus près",
+	'relief.note':
+		"En France seulement (métropole, Corse et outre-mer). Les images viennent directement de l'IGN, qui reçoit donc votre adresse IP.",
+	'relief.credit': 'Relief © IGN',
 	'fires.notAlert':
 		'Une détection n’est pas une alerte : c’est un pixel de 375 m qui ressemble à un feu. Un satellite passe quelques fois par jour et les nuages cachent le sol : sans détection, il peut y avoir un feu.',
 	'fires.loading': 'Chargement des feux…',
@@ -1131,6 +1140,7 @@ const en: Record<Key, string> = {
 	'frame.family.rain': 'Rain',
 	'frame.family.wind': 'Wind',
 	'frame.family.tide': 'Tide',
+	'frame.family.map': 'Map',
 	'frame.alertsDesc':
 		'The official warnings and the natural hazards. Tap an area or a dot for its card, in the panel.',
 	'frame.types': 'What the map shows',
@@ -1155,6 +1165,14 @@ const en: Record<Key, string> = {
 	'frame.tideDesc': 'The tide along the coasts, computed by Vigie.',
 	'frame.tides': 'Tides',
 	'frame.tidesSub': 'Computed by a model, not measured',
+	'frame.mapDesc': 'The ground of the map: the relief of France, from the IGN.',
+	'frame.relief': 'Relief',
+	'frame.reliefSub': 'Shading by the IGN, finer up close (LiDAR HD)',
+	'frame.contours': 'Contour lines',
+	'frame.contoursSub': 'From the IGN, with the map zoomed in all the way',
+	'relief.note':
+		'In France only (mainland, Corsica and overseas). The images come straight from the IGN, which therefore receives your IP address.',
+	'relief.credit': 'Relief © IGN',
 	'fires.notAlert':
 		'A detection is not an alert: it is a 375 m pixel that looks like a fire. A satellite passes a few times a day and clouds hide the ground: there may be a fire where nothing was detected.',
 	'fires.loading': 'Loading the fires…',

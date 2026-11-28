@@ -30,6 +30,7 @@
 	import type { RainFieldOnMap } from '#lib/rainField.js';
 	import { RainFieldPainter, type PaintedRain } from '#lib/rainFieldPainter.js';
 	import type { ObservedRainOnMap } from '#lib/observedRain.js';
+	import { RELIEF_HOST, RELIEF_PREFIX, reliefBefore, reliefPieces, type ReliefOnMap } from '#lib/relief.js';
 	import { bandOf, keepLabels, LABEL_OFFSET, type SeaPin } from '#lib/sea/map.js';
 	import { townOf, type Town } from '#lib/sea/town.js';
 	import { compass } from '#lib/surf.js';
@@ -80,6 +81,8 @@
 		rainField?: RainFieldOnMap[] | null;
 		/** Global observed satellite precipitation raster tiles (NASA GIBS IMERG), drawn above warnings and below radar & labels. Null: off. */
 		observedRain?: ObservedRainOnMap | null;
+		/** The IGN's relief of France ($lib/relief), over the land colours of the base map and under all the rest. Null: off. */
+		relief?: ReliefOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
 		 * Null: no wind. */
 		wind?: WindOnMap | null;
@@ -118,6 +121,7 @@
 		radar = null,
 		rainField = null,
 		observedRain = null,
+		relief = null,
 		wind = null,
 		flow = null,
 		spots = null,
@@ -506,7 +510,8 @@
 		}
 	}
 
-	// The order of the map, from the bottom: the base map, the warnings (zones, rivers, earthquakes, a cyclone's forecast, with
+	// The order of the map, from the bottom: the base map (its land, water and woods, then the IGN's relief of France when it is
+	// on, then its rivers, roads and borders), the warnings (zones, rivers, earthquakes, a cyclone's forecast, with
 	// the aurora and the eclipse under them as before), the rain radar, the names of the base map (readable over the rain), the
 	// site's other layers and selections; then the forecast wind's canvas and, on top, the badges of the measured wind (z-index
 	// in the styles below). The warnings and the radar both go under the first label of the base map: the warnings when the
@@ -550,6 +555,25 @@
 		if (changes && !changes.add.length && !changes.remove.length) return;
 		if (changes?.kept) source.updateData({ add: changes.add, remove: changes.remove });
 		else source.setData(zones);
+	}
+
+	// The relief: what is drawn now (its contour lines, the theme, the credit), so that a page that gives the same again changes nothing.
+	let reliefKey: string | null = null;
+
+	function syncRelief() {
+		if (!map || !overlayAdded) return;
+		const nextKey = relief ? `${currentTheme}|${relief.contours}|${relief.credit}` : null;
+		if (nextKey === reliefKey) return;
+		const style = map.getStyle();
+		for (const layer of style.layers) if (layer.id.startsWith(RELIEF_PREFIX)) map.removeLayer(layer.id);
+		for (const id of Object.keys(style.sources)) if (id.startsWith(RELIEF_PREFIX)) map.removeSource(id);
+		reliefKey = nextKey;
+		if (!relief) return;
+		const before = reliefBefore(style.layers.filter((l) => !l.id.startsWith(RELIEF_PREFIX)));
+		for (const piece of reliefPieces(relief, currentTheme)) {
+			map.addSource(piece.id, piece.source);
+			map.addLayer(piece.layer as Parameters<MlMap['addLayer']>[0], before);
+		}
 	}
 
 	function syncObservedRain() {
@@ -829,6 +853,9 @@
 		addForecastLayers();
 		// Global observed rain, forecast rain and radar after every warning: over them, under the labels of the base map.
 		overlayAdded = true;
+		// A new style has no relief: drawn again, under the rivers and roads of the base map.
+		reliefKey = null;
+		syncRelief();
 		syncObservedRain();
 		syncRainField();
 		syncRadar();
@@ -1393,6 +1420,10 @@
 		if (ready) syncObservedRain();
 	});
 	$effect(() => {
+		void relief;
+		if (ready) syncRelief();
+	});
+	$effect(() => {
 		void wind;
 		void lang;
 		if (ready) syncWind();
@@ -1448,6 +1479,8 @@
 <svelte:head>
 	<!-- The tiles, glyphs and sprites of the base map come from there: the connection opens while the page loads. -->
 	<link rel="preconnect" href={BASEMAP_HOST} crossorigin="anonymous" />
+	<!-- The relief's tiles come from the IGN (only when the page gives the map a relief). -->
+	{#if relief}<link rel="preconnect" href={RELIEF_HOST} crossorigin="anonymous" />{/if}
 </svelte:head>
 
 <!-- data-ready: the base map is loaded and the map answers clicks (the end-to-end tests wait for it). -->
