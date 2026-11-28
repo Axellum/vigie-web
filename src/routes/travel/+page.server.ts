@@ -1,15 +1,8 @@
 import { ApiError, getTravel, getTravelHealth } from '#lib/server/vigie.js';
-import { mapLevel, wholeCountry, type Health, type Ministry } from '#lib/travel.js';
-import type { Level } from '#lib/types.js';
+import { travelRows, type Health, type Ministry, type TravelRow } from '#lib/travel.js';
 import type { PageServerLoad } from './$types';
 
-/** One country of the page: the colour of each ministry's advice for the whole country (Vigie's), and the comparison. */
-export interface TravelRow {
-	cc: string;
-	marks: Record<string, Level | null>;
-	disagree: boolean | null;
-	gap: number | null;
-}
+export type { TravelRow };
 
 // The same page for everybody. The overview of the API (every advice of every country) is reduced here to what the map
 // and the list show, so that the page stays light.
@@ -24,18 +17,7 @@ export const load: PageServerLoad = async ({ setHeaders }) => {
 		ministries = overview.ministries;
 		attribution = overview.attribution;
 		generated = overview.generated || null;
-		const read = ministries.filter((m) => m.read).map((m) => m.id);
-		rows = overview.countries.map((c) => ({
-			cc: c.country,
-			marks: Object.fromEntries(
-				read.map((id) => {
-					const advice = wholeCountry(c.advices, id);
-					return [id, advice ? mapLevel(advice) : null];
-				})
-			),
-			disagree: c.comparison.disagree,
-			gap: c.comparison.gap
-		}));
+		rows = travelRows(overview);
 	} catch (e) {
 		if (!(e instanceof ApiError)) throw e;
 		apiDown = true;

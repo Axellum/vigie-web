@@ -1568,6 +1568,14 @@
 		void spots;
 		if (ready && map?.getSource('spots')) (map.getSource('spots') as GeoJSONSource).setData(spotData());
 	});
+	// The zoom the zones start from can change with the page's choice (the warnings from a region's scale, the countries of
+	// the travel advice from the world's).
+	$effect(() => {
+		const from = zonesFrom;
+		if (!ready || !map) return;
+		for (const id of ['zone-fill', 'zone-outline', 'zone-river', 'zone-selected'])
+			if (map.getLayer(id)) map.setLayerZoomRange(id, from, 24);
+	});
 	$effect(() => {
 		void pins;
 		void selected;
