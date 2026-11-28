@@ -1,0 +1,1 @@
+- Close up, the tint of a warning fades (from 40 % up to zoom 8 to 12 % from zoom 12), so that the relief, the names and the IGN's details stay readable inside a warned area now that the map zooms to 16; the outline of the area is unchanged.
