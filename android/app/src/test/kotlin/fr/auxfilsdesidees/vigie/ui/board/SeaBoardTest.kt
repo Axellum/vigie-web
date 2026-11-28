@@ -77,6 +77,17 @@ class SeaBoardTest {
   }
 
   @Test
+  fun `the wind tile says where the wind blows from, along the coast too`() {
+    // The API says `cross-shore` (with a hyphen): at 12 h UTC the wind blows along the coast, at 11 h UTC the next day from the sea.
+    val along = SeaBoard.tiles(beach, t0 + 3 * 3600 + 600, offset)
+    assertEquals("Vent le long de la côte", text(along[2].key))
+    assertEquals("t2", along[2].key[1].tone)
+    // The shortest tiles drop it, as the card does.
+    assertEquals("Vent", text(SeaBoard.tiles(beach, t0 + 3 * 3600 + 600, offset, level = 2)[2].key))
+    assertEquals("Vent de mer", text(SeaBoard.tiles(beach, t0 + 26 * 3600 + 600, offset)[2].key))
+  }
+
+  @Test
   fun `no baïnes on rock, and the sun fills the tiles left`() {
     val rock = beach.copy(spot = beach.spot.copy(bottom = "rock", lifeguarded = false), bathing = null)
     val t = SeaBoard.tiles(rock, now, offset)

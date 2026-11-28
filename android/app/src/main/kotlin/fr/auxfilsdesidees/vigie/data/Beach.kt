@@ -46,7 +46,7 @@ data class SeaHour(
   val windKmh: Double?,
   val gustKmh: Double?,
   val windFromDeg: Double?,
-  /** `onshore`, `offshore`, or what the API says of a wind along the shore. */
+  /** `onshore`, `offshore` or `cross-shore` (along the shore), as the API says it. */
   val windRelative: String?,
   val tideM: Double?,
   /** `rising` or `falling`. */

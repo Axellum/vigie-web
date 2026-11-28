@@ -132,8 +132,10 @@ internal object SeaBoard {
       tiles += Tile(listOf(Part("Houle")), "${HomeBoard.fmt(m, 1)}${NBSP}m", "text", h0.swellFromDeg, line(h0.swellPeriodS?.let { "${HomeBoard.fmt(it)}${NBSP}s" }, dir(h0.swellFromDeg)))
     }
     h0?.windKmh?.let { v ->
-      val rel = mapOf("onshore" to ("de mer" to "orange"), "offshore" to ("de terre" to "green"), "cross_shore" to ("le long de la côte" to "t2"))[h0.windRelative]
-      val key = if (rel != null && !(tight && h0.windRelative == "cross_shore")) listOf(Part("Vent "), Part(rel.first, rel.second, bold = true)) else listOf(Part("Vent"))
+      // The API says `cross-shore`; the words are keyed `cross_shore`, as in the card.
+      val rk = h0.windRelative?.replace('-', '_')
+      val rel = mapOf("onshore" to ("de mer" to "orange"), "offshore" to ("de terre" to "green"), "cross_shore" to ("le long de la côte" to "t2"))[rk]
+      val key = if (rel != null && !(tight && rk == "cross_shore")) listOf(Part("Vent "), Part(rel.first, rel.second, bold = true)) else listOf(Part("Vent"))
       val detail = mutableListOf<Part>()
       h0.gustKmh?.let { g ->
         detail += Part("rafales ")
