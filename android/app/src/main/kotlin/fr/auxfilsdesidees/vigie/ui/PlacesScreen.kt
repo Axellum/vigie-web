@@ -162,7 +162,7 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
         ) {
           Column(Modifier.weight(1f)) {
             Text(f.place.label, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
-            val where = listOfNotNull(f.place.region, if (shown) stringResource(R.string.place_shown) else null).joinToString(" · ")
+            val where = listOfNotNull(Words.where(f.place.region), if (shown) stringResource(R.string.place_shown) else null).joinToString(" · ")
             if (where.isNotEmpty()) Text(where, color = if (shown) VigieColors.Accent else VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
           }
           if (canNotify) BellPill(f.bell, f.place.label) { bellFor = i }

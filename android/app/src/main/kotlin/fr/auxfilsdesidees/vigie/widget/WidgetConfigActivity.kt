@@ -42,6 +42,7 @@ import fr.auxfilsdesidees.vigie.data.FollowedPlace
 import fr.auxfilsdesidees.vigie.ui.AccentAction
 import fr.auxfilsdesidees.vigie.ui.Glass
 import fr.auxfilsdesidees.vigie.ui.SkyPage
+import fr.auxfilsdesidees.vigie.ui.Words
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import fr.auxfilsdesidees.vigie.ui.theme.VigieTheme
 import kotlinx.coroutines.launch
@@ -144,7 +145,7 @@ private fun ChoosePlace(
             Icon(painterResource(R.drawable.ic_location), contentDescription = null, tint = VigieColors.Text2, modifier = Modifier.size(20.dp))
             Column(Modifier.padding(start = 12.dp)) {
               Text(f.place.label, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
-              f.place.region?.let { Text(it, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
+              Words.where(f.place.region)?.let { Text(it, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
             }
           }
         }

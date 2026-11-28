@@ -36,10 +36,25 @@ class WordsTest {
     assertEquals("58 112${nb}hab.", Words.population(58112))
     assertEquals("5 430${nb}hab.", Words.population(5430))
     assertEquals("812${nb}hab.", Words.population(812))
-    assertEquals("Brittany", Words.placeWhere("Brittany", "FR"))
-    assertEquals("Texas, US", Words.placeWhere("Texas", "US"))
+    assertEquals("Bretagne", Words.placeWhere("Brittany", "FR"))
+    assertEquals("Auvergne-Rhône-Alpes", Words.placeWhere("Auvergne-Rhône-Alpes", "FR"))
+    assertEquals("Texas, États-Unis", Words.placeWhere("Texas", "US"))
+    assertEquals("Genève, Suisse", Words.placeWhere("Geneva", "CH"))
     assertEquals("", Words.placeWhere(null, "FR"))
     assertEquals("Martinique", Words.placeWhere("Martinique", "MQ"))
+    assertEquals("La Réunion", Words.placeWhere("Reunion", "RE"))
+    assertEquals("Espagne", Words.placeWhere(null, "ES"))
+  }
+
+  @Test
+  fun `a place kept in English before is shown in French`() {
+    assertEquals("Bretagne", Words.where("Brittany"))
+    assertEquals("Catalonia, Espagne", Words.where("Catalonia, ES"))
+    assertEquals("Bretagne", Words.where("Bretagne"))
+    assertEquals("Province Sud", Words.where("South Province"))
+    assertEquals(null, Words.where(null))
+    // A code the phone does not know stays as it is.
+    assertEquals("Lieu, XZ", Words.where("Lieu, XZ"))
   }
 
   @Test
