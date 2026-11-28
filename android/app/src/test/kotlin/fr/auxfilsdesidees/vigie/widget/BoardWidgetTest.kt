@@ -140,6 +140,10 @@ class BoardWidgetTest {
     assertEquals(6, fromToday.size)
     // No days under two.
     assertTrue(BoardWidget.friseColumns(p.copy(days = p.days.take(1)), server, Forecast.Days, 5, afterBox = false).isEmpty())
+    // An answer without today (AROME Outre-mer in the afternoon): tomorrow is not left out, nor named « Auj. ».
+    val noToday = p.copy(days = p.days.drop(1))
+    assertEquals(days, BoardWidget.friseColumns(noToday, server, Forecast.Days, 5, afterBox = true))
+    assertTrue(BoardWidget.friseColumns(noToday, server, Forecast.Days, 6, afterBox = false).none { it.name == "Auj." })
   }
 
   @Test

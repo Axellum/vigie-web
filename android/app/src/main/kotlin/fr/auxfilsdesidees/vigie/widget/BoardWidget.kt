@@ -130,12 +130,13 @@ object BoardWidget {
 
   /**
    * The columns of the frise: [count] hours one by one, or [count] days, from now; [afterBox]: the box of the hour stands
-   * before them and is « now », so they start one step later (the site's `friseColumns`). No days under two.
+   * before them and is « now », so they start one step later (the site's `friseColumns`); by days, after today only (an
+   * answer without today starts with tomorrow, which is not left out). No days under two.
    */
   fun friseColumns(p: PointNow, now: Long, forecast: Forecast, count: Int, afterBox: Boolean): List<FriseColumn> {
     val skip = if (afterBox) 1 else 0
     if (forecast == Forecast.Days) {
-      val days = HomeBoard.days(p, now, count + skip).drop(skip)
+      val days = HomeBoard.days(p, now, count + skip).let { d -> if (afterBox) d.filterNot { it.today } else d }.take(count)
       return if (days.size < 2) emptyList() else days.map { FriseColumn(null, it.nameShort, it.kind, it.sun, true, it.tmax, it.tmin, it.rainMm) }
     }
     return slots(p, now, 1).take(count + skip).drop(skip).map { FriseColumn(it.ts, null, it.kind, it.sun, it.day, it.temp, null, it.mm) }
