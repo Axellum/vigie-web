@@ -5,9 +5,13 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.graphics.Paint
 import android.graphics.PointF
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,17 +56,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -103,6 +112,7 @@ import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.Starred
 import fr.auxfilsdesidees.vigie.data.TownWeather
+import fr.auxfilsdesidees.vigie.data.WindField
 import fr.auxfilsdesidees.vigie.ui.ActivityGlyph
 import fr.auxfilsdesidees.vigie.ui.BeachState
 import fr.auxfilsdesidees.vigie.ui.Credits
@@ -150,6 +160,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   val sheet by viewModel.sheet.collectAsStateWithLifecycle()
   val weather by viewModel.weather.state.collectAsStateWithLifecycle()
   val towns by viewModel.townWeather.state.collectAsStateWithLifecycle()
+  val flow by viewModel.windField.state.collectAsStateWithLifecycle()
   val choices = app.choices
   val followedSpots = remember(choices) { Favourites.spots(choices) }
   val followedPlaces = remember(choices) { Favourites.places(choices) }
@@ -170,6 +181,12 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   var starring by remember { mutableStateOf(false) }
   // Where the wind's badges were laid out last: the view and the zoom (again after each move, and while zooming).
   var windView by remember { mutableStateOf<Pair<GeoBox, Double>?>(null) }
+  // The forecast wind's trails, still when the phone's animations are off (the site's "reduce motion"), or on a phone too old to
+  // draw them as triangles (Android 9 and before): stroked one by one, they are drawn once after each move.
+  val flowEngine = remember {
+    val animationsOff = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    WindFlow(still = animationsOff || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+  }
 
   /** The share of the screen the sheet takes, and how far down the top bar goes: the point touched stays between them. */
   fun sheetPx(): Double = mapView.height * (if (tall) SHEET_TALL else SHEET_SHORT).toDouble()
@@ -248,10 +265,14 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       val view = viewOf(m)
       viewModel.weather.move(view, m.cameraPosition.zoom)
       viewModel.townWeather.move(m.cameraPosition.zoom)
+      viewModel.windField.move(view, m.cameraPosition.zoom)
       windView = view to m.cameraPosition.zoom
+      flowEngine.moveEnd()
     }
     // While zooming, the badges are laid out again every third of a level, so that they never pile up for long.
     m.addOnCameraMoveListener {
+      // No trail lags behind the base map: none is drawn while it moves.
+      flowEngine.moveStart()
       val zoom = m.cameraPosition.zoom
       if (abs(zoom - (windView?.second ?: zoom)) >= WIND_RELAYOUT_ZOOM) windView = viewOf(m) to zoom
     }
@@ -263,6 +284,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     val first = viewOf(m)
     viewModel.weather.move(first, m.cameraPosition.zoom)
     viewModel.townWeather.move(m.cameraPosition.zoom)
+    viewModel.windField.move(first, m.cameraPosition.zoom)
     windView = first to m.cameraPosition.zoom
   }
   // The base map chosen: its style set once, again when another background is chosen (the pins are added to it again).
@@ -321,10 +343,35 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
         while (true) {
           viewModel.weather.sync()
           viewModel.townWeather.sync()
+          viewModel.windField.sync()
           delay(SYNC_MS)
         }
       } finally {
         viewModel.weather.pause()
+      }
+    }
+  }
+  // The forecast wind: its grids followed by the trails, about 30 images a second while the map is shown and the layer on;
+  // nothing is computed while the app is in the background or the screen off (battery).
+  val flowGrids = flow.shown
+  LaunchedEffect(flowGrids) { flowEngine.setGrids(flowGrids.orEmpty()) }
+  var flowTick by remember { mutableIntStateOf(0) }
+  LaunchedEffect(owner, map, flowGrids != null) {
+    val m = map
+    if (m == null || flowGrids == null) {
+      flowTick = flowEngine.version
+      return@LaunchedEffect
+    }
+    owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      var last = 0L
+      while (true) {
+        val now = withFrameNanos { it }
+        val dt = if (last == 0L) WindFlow.FRAME_MS / 1000.0 else (now - last) / 1e9
+        last = now
+        flowView(m, mapView, density.density)?.let { flowEngine.frame(it, dt) }
+        flowTick = flowEngine.version
+        // Still trails are drawn again only after a move: looked at a few times a second.
+        delay(if (flowEngine.still) STILL_MS else WindFlow.FRAME_MS - FRAME_SLACK_MS)
       }
     }
   }
@@ -393,6 +440,20 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
 
   Box(Modifier.fillMaxSize().background(Color(LAND))) {
     AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+    // The forecast wind's trails, over the map and under its cards, with nothing to touch: a touch goes to the map below.
+    if (flowGrids != null) {
+      val inks = if (ui.background == MapBackground.PlanIgn) WindField.INKS_LIGHT else WindField.INKS_DARK
+      val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND } }
+      val mesh = remember { FlowMesh() }
+      Spacer(
+        // A layer of its own: each image draws the trails again, not the rest of the screen.
+        Modifier.fillMaxSize().graphicsLayer().drawBehind {
+          // Read here, so that each image only draws again, without composing the screen.
+          if (flowTick < 0) return@drawBehind
+          drawFlow(drawContext.canvas.nativeCanvas, flowEngine, mesh, inks, density.density, paint)
+        }
+      )
+    }
 
     // Above the cards and the bar at the foot of the map while the menu is open: it is long enough to reach them.
     Column(Modifier.zIndex(if (layersOpen) 1f else 0f).fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -407,10 +468,12 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
           ui,
           weather,
           towns,
+          flow,
           Modifier.align(Alignment.End),
           onTowns = viewModel.townWeather::show,
           onRain = viewModel.weather::showRain,
           onWind = viewModel.weather::showWind,
+          onFlow = viewModel.windField::show,
         ) {
           viewModel.chooseBackground(it)
           layersOpen = false
@@ -418,6 +481,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       // While the menu is open, the chips and the wind's legend would be pushed under it, over the cards at the foot of the map.
       if (!layersOpen) {
         Chips(ui.activity, viewModel::choose)
+        if (flow.on) FlowCard(flow, onHide = { viewModel.windField.show(false) }, Modifier.padding(horizontal = 12.dp))
         if (weather.wind) WindCard(weather, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
         // The foot of the controls above the map, where the towns' pills may begin.
         Spacer(Modifier.height(0.dp).onGloballyPositioned { free[0] = it.positionInRoot().y })
@@ -477,15 +541,9 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
             .padding(horizontal = 8.dp, vertical = 4.dp),
         )
         val rainShown = weather.rain && weather.area != null
-        val meteo =
-          when {
-            rainShown && weather.wind -> R.string.map_credits_weather
-            rainShown -> R.string.map_credits_rain
-            weather.wind -> R.string.map_credits_wind
-            else -> null
-          }
+        val meteo = WeatherWords.meteoFranceLayers(rain = rainShown, wind = weather.wind, flow = flowGrids != null)
         val townsCredit = if (towns.on && towns.near) stringResource(R.string.map_credits_towns) else null
-        val meteoCredit = meteo?.let { stringResource(it) }
+        val meteoCredit = meteo?.let { stringResource(R.string.map_credits_meteo_france, it) }
         listOfNotNull(townsCredit, meteoCredit).joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
           Small(
             it,
@@ -779,10 +837,12 @@ private fun BackgroundMenu(
   ui: SeaMapViewModel.Ui,
   weather: MapWeatherModel.State,
   towns: TownWeatherModel.State,
+  flow: WindFieldModel.State,
   modifier: Modifier,
   onTowns: (Boolean) -> Unit,
   onRain: (Boolean) -> Unit,
   onWind: (Boolean) -> Unit,
+  onFlow: (Boolean) -> Unit,
   onChoose: (MapBackground) -> Unit,
 ) {
   Column(
@@ -822,6 +882,23 @@ private fun BackgroundMenu(
       MenuNote(stringResource(if (towns.near) R.string.map_towns_hint else R.string.map_towns_zoom_in))
       if (towns.paused) MenuNote(stringResource(R.string.map_towns_paused))
       if (towns.failed) MenuNote(stringResource(R.string.map_towns_failed))
+    }
+    // The forecast wind, then the wind measured, as in the site's menu.
+    LayerRow(stringResource(R.string.map_flow), stringResource(R.string.map_flow_detail), flow.on) { onFlow(!flow.on) }
+    if (flow.on) {
+      val valid = flow.valid
+      when {
+        flow.answer?.status == "off" -> MenuNote(stringResource(R.string.map_flow_off))
+        flow.answer?.status == "unavailable" || (flow.status == WindFieldModel.Status.Failed && flow.answer == null) -> MenuNote(stringResource(R.string.map_flow_failed))
+        valid != null -> {
+          val now = System.currentTimeMillis()
+          val old = flow.answer?.stale == true || valid != WindField.nearestHour(now)
+          MenuNote(stringResource(if (old) R.string.map_flow_legend_old else R.string.map_flow_legend, Words.clock(valid, TimeZone.getDefault().getOffset(valid * 1000) / 1000)))
+          FlowScale(Modifier.padding(start = 48.dp, end = 16.dp, bottom = 6.dp))
+          MenuNote(stringResource(R.string.map_flow_note))
+        }
+        else -> MenuNote(stringResource(R.string.map_flow_loading))
+      }
     }
     LayerRow(stringResource(R.string.map_wind), stringResource(R.string.map_wind_detail), weather.wind) { onWind(!weather.wind) }
     if (weather.wind) MenuNote(stringResource(R.string.map_wind_note))
@@ -881,6 +958,77 @@ private fun CardHead(title: String, hide: String, onHide: () -> Unit) {
 @Composable
 private fun CardNote(text: String) {
   Text(text, color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp, modifier = Modifier.padding(end = 8.dp))
+}
+
+/** The two inks of the forecast wind's trails, each with the strength from which it is drawn (the site's `FlowScale`). */
+@Composable
+private fun FlowScale(modifier: Modifier) {
+  val strong = WeatherWords.flowStrong(WindField.STRONG_KMH[0])
+  val stronger = WeatherWords.flowStrong(WindField.STRONG_KMH[1])
+  val scale = stringResource(R.string.map_flow_scale, strong, stronger)
+  Row(modifier.semantics(mergeDescendants = true) { contentDescription = scale }, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    listOf(1 to strong, 2 to stronger).forEach { (ink, text) ->
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(width = 16.dp, height = 2.dp).clip(RoundedCornerShape(1.dp)).background(Color(WindField.INKS_DARK[ink])))
+        Spacer(Modifier.size(6.dp))
+        Text(text, color = VigieColors.Text3, fontSize = 11.5.sp, lineHeight = 14.sp, maxLines = 1)
+      }
+    }
+  }
+}
+
+/**
+ * The card of the forecast wind, under the chips while the layer is on: the hour of the forecast drawn, the two inks of a strong
+ * wind and a cross that turns the layer off. Its legend in full is in the layers' menu, as on the site.
+ */
+@Composable
+private fun FlowCard(flow: WindFieldModel.State, onHide: () -> Unit, modifier: Modifier) {
+  val valid = flow.valid
+  WeatherCard(modifier.widthIn(max = 300.dp)) {
+    CardHead(valid?.let { stringResource(R.string.map_flow_at, Words.clock(it, TimeZone.getDefault().getOffset(it * 1000) / 1000)) } ?: stringResource(R.string.map_flow), stringResource(R.string.map_flow_hide), onHide)
+    when {
+      flow.answer?.status == "off" -> CardNote(stringResource(R.string.map_flow_off))
+      flow.answer?.status == "unavailable" || (flow.status == WindFieldModel.Status.Failed && flow.answer == null) -> CardNote(stringResource(R.string.map_flow_failed))
+      valid == null || flow.shown == null -> CardNote(stringResource(R.string.map_flow_loading))
+      else -> FlowScale(Modifier.padding(end = 8.dp))
+    }
+  }
+}
+
+/** The trails of an image: in one go as triangles, or stroked one by one on Android 9 and before (still, drawn once a move). */
+private fun drawFlow(canvas: android.graphics.Canvas, flow: WindFlow, mesh: FlowMesh, inks: IntArray, density: Float, paint: Paint) {
+  val segments = flow.segments()
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    mesh.build(segments, flow.segmentCount, inks, density)
+    var from = 0
+    while (from < mesh.count) {
+      val n = minOf(FlowMesh.CHUNK, mesh.count - from)
+      canvas.drawVertices(android.graphics.Canvas.VertexMode.TRIANGLES, n * 8, mesh.xy, from * 8, null, 0, mesh.colors, from * 4, mesh.indices, 0, n * 6, paint)
+      from += n
+    }
+    return
+  }
+  for (k in 0 until flow.segmentCount) {
+    val o = k * WindFlow.SEGMENT_FLOATS
+    val ink = segments[o + 6].toInt()
+    paint.color = inks[ink]
+    paint.alpha = (segments[o + 4] * 255).roundToInt().coerceIn(0, 255)
+    paint.strokeWidth = WindFlow.widthDp(ink) * density
+    canvas.drawLine(segments[o], segments[o + 1], segments[o + 2], segments[o + 3], paint)
+  }
+}
+
+/** Where the map lies on the screen for one image of the trails; null before it has a size. */
+private fun flowView(m: MapLibreMap, view: View, density: Float): FlowView? {
+  val target = m.cameraPosition.target ?: return null
+  if (view.width < 2 || view.height < 2) return null
+  // A degree to the east, or to the west near the antimeridian: its length in pixels sizes the whole map.
+  val d = if (target.longitude > 0) -1.0 else 1.0
+  val p0 = m.projection.toScreenLocation(target)
+  val p1 = m.projection.toScreenLocation(LatLng(target.latitude, target.longitude + d))
+  val pxPerDeg = (p1.x - p0.x) / d
+  if (!(pxPerDeg > 0)) return null
+  return FlowView(p0.x.toDouble(), p0.y.toDouble(), target.longitude, target.latitude, pxPerDeg, view.width, view.height, density.toDouble())
 }
 
 /**
@@ -1180,6 +1328,10 @@ private const val PULL = 40f
 private const val NOTE_MS = 6_000L
 /** The weather layers are asked again, when old, this often while the map is shown. */
 private const val SYNC_MS = 60_000L
+/** Still trails (the phone's animations off) are looked at this often, to be drawn again after a move. */
+private const val STILL_MS = 250L
+/** The trails' next image is asked a little before its time: the screen's next frame comes after. */
+private const val FRAME_SLACK_MS = 8L
 /** While zooming, the wind's badges are laid out again each time the zoom moves this much. */
 private const val WIND_RELAYOUT_ZOOM = 0.33
 /** A town of the base map this near a followed place of the same name is that place. */

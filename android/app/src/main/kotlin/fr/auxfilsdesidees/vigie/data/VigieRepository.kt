@@ -124,17 +124,20 @@ class VigieRepository(
 
     private const val USER_AGENT = "vigie-android (+https://github.com/Axellum/vigie-web)"
 
-    suspend fun httpGet(url: String): String =
+    suspend fun httpGet(url: String): String = httpGetBytes(url, "application/json").toString(Charsets.UTF_8)
+
+    /** The bytes of an answer (an image of the forecast wind). */
+    suspend fun httpGetBytes(url: String, accept: String = "image/png"): ByteArray =
       withContext(Dispatchers.IO) {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
           c.connectTimeout = 15_000
           c.readTimeout = 30_000
           c.setRequestProperty("User-Agent", USER_AGENT)
-          c.setRequestProperty("Accept", "application/json")
+          c.setRequestProperty("Accept", accept)
           val code = c.responseCode
           if (code !in 200..299) throw ApiException(code)
-          c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+          c.inputStream.use { it.readBytes() }
         } finally {
           c.disconnect()
         }

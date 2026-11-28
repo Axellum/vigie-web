@@ -365,6 +365,8 @@ class SeaMapReader(
   private val baseUrl: String = VigieRepository.BASE_URL,
   private val siteUrl: String = VigieRepository.BASE_URL,
   private val gate: PointGate = PointGate(),
+  /** The images of the forecast wind. */
+  private val fetchBytes: suspend (String) -> ByteArray = { VigieRepository.httpGetBytes(it) },
   private val fetch: suspend (String) -> String = VigieRepository::httpGet,
 ) {
   /** The weather of [place] for its sheet, after waiting for the gate. */
@@ -388,6 +390,12 @@ class SeaMapReader(
 
   /** The address of the tiles of one radar image. */
   fun radarTiles(area: RadarArea, epoch: Long): String = MapWeather.radarTiles(siteUrl, area, epoch)
+
+  /** The grids of the forecast wind of the hour, on the site. */
+  suspend fun windField(): WindFieldAnswer = WindField.answer(fetch("$siteUrl/data/wind-field.json"))
+
+  /** The image of one grid (a PNG), on the site: it never changes, its address holds its hour. */
+  suspend fun windFieldImage(level: FieldLevel): ByteArray = fetchBytes("$siteUrl${level.image}")
 
   /** The weather of the towns' [cells] (at most [TownWeather.PER_REQUEST]), on the site: never `/v1/points` from the phone. */
   suspend fun towns(cells: List<TownCell>): TownsAnswer = TownWeather.towns(fetch(TownWeather.url(siteUrl, cells)))
