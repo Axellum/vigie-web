@@ -2,12 +2,17 @@ package fr.auxfilsdesidees.vigie.ui.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import fr.auxfilsdesidees.vigie.data.BeachReader
+import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.MapActivity
 import fr.auxfilsdesidees.vigie.data.MapPin
+import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
+import fr.auxfilsdesidees.vigie.data.PointNow
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.VigieParser
+import fr.auxfilsdesidees.vigie.ui.BeachState
 import fr.auxfilsdesidees.vigie.ui.Words
 import java.text.Normalizer
 import kotlinx.coroutines.CancellationException
@@ -27,12 +32,100 @@ import kotlinx.coroutines.withContext
  * The sea map's state, held by the activity: the base map's style read once, the verdicts and the figures of every spot read
  * again when the map opens after [FRESH_MS], the activity chosen and its pins, and the search. A read that fails keeps
  * what was read before; the map says it failed only when it has nothing to show.
+ *
+ * The sheet of a spot or a town touched ([sheet]) reads its beach ([beaches], with [beachReader], kept in memory only) or
+ * its weather ([towns], `/v1/point` through the map's gate): again after [FRESH_MS], never more often.
  */
 class SeaMapViewModel(
   private val reader: SeaMapReader,
   private val searchPlaces: suspend (String) -> List<PlaceHit>,
+  private val beachReader: BeachReader = BeachReader(),
   private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
+  /** What the sheet shows: a spot of the map (its Mer page) or a town (its Accueil). */
+  sealed interface Sheet {
+    data class Spot(val spot: CatalogueSpot) : Sheet
+
+    data class Town(val place: Place) : Sheet
+  }
+
+  /** The weather of a town's sheet: the last good read (null before one), whether it is being read, whether it failed. */
+  data class TownState(val point: PointNow? = null, val readAt: Long = 0, val reading: Boolean = false, val failed: Boolean = false)
+
+  private val _sheet = MutableStateFlow<Sheet?>(null)
+  val sheet: StateFlow<Sheet?> = _sheet.asStateFlow()
+  private val _beaches = MutableStateFlow<Map<String, BeachState>>(emptyMap())
+  val beaches: StateFlow<Map<String, BeachState>> = _beaches.asStateFlow()
+  private val _towns = MutableStateFlow<Map<String, TownState>>(emptyMap())
+  val towns: StateFlow<Map<String, TownState>> = _towns.asStateFlow()
+  private var sheetJob: Job? = null
+
+  /** Opens the sheet of [sheet] and reads what it shows, when it was not read in the last [FRESH_MS]. */
+  fun open(sheet: Sheet) {
+    _sheet.value = sheet
+    sheetJob?.cancel()
+    sheetJob =
+      viewModelScope.launch {
+        when (sheet) {
+          is Sheet.Spot -> readBeach(sheet.spot.id)
+          is Sheet.Town -> readTown(sheet.place)
+        }
+      }
+  }
+
+  fun close() {
+    _sheet.value = null
+    sheetJob?.cancel()
+  }
+
+  /** Reads the sheet's beach or town again (its retry), whatever its age. */
+  fun retry() {
+    val sheet = _sheet.value ?: return
+    when (sheet) {
+      is Sheet.Spot -> _beaches.update { it - sheet.spot.id }
+      is Sheet.Town -> _towns.update { it - sheet.place.pointKey }
+    }
+    open(sheet)
+  }
+
+  private suspend fun readBeach(id: String) {
+    val known = _beaches.value[id]?.beach
+    if (known != null && clock() / 1000 - known.readUtc < FRESH_MS / 1000) return
+    _beaches.update { it + (id to (it[id] ?: BeachState()).copy(reading = true, failed = false)) }
+    try {
+      val beach = beachReader.read(id)
+      _beaches.update { it + (id to BeachState(beach)) }
+      // A few beaches in memory, the last ones opened.
+      _beaches.update { all -> if (all.size <= KEPT) all else all.entries.sortedByDescending { it.value.beach?.readUtc ?: 0 }.take(KEPT).associate { it.key to it.value } }
+    } catch (err: CancellationException) {
+      _beaches.update { it + (id to (it[id] ?: BeachState()).copy(reading = false)) }
+      throw err
+    } catch (err: Exception) {
+      _beaches.update { it + (id to (it[id] ?: BeachState()).copy(reading = false, failed = true)) }
+    }
+  }
+
+  private suspend fun readTown(place: Place) {
+    val key = place.pointKey
+    val known = _towns.value[key]
+    if (known?.point != null && clock() - known.readAt < FRESH_MS) return
+    _towns.update { it + (key to (it[key] ?: TownState()).copy(reading = true, failed = false)) }
+    try {
+      val point = reader.point(place)
+      _towns.update { it + (key to TownState(point, clock())) }
+      _towns.update { all -> if (all.size <= KEPT) all else all.entries.sortedByDescending { it.value.readAt }.take(KEPT).associate { it.key to it.value } }
+    } catch (err: CancellationException) {
+      _towns.update { it + (key to (it[key] ?: TownState()).copy(reading = false)) }
+      throw err
+    } catch (err: Exception) {
+      _towns.update { it + (key to (it[key] ?: TownState()).copy(reading = false, failed = true)) }
+    }
+  }
+
+  /** The spot of the map of this [id], to open its sheet or to star it; null when the overview does not have it. */
+  fun spot(id: String): CatalogueSpot? =
+    overview?.let { o -> runCatching { VigieParser.catalogue(o) }.getOrNull() }?.firstOrNull { it.id == id }
+
   data class Ui(
     val style: String? = null,
     val loading: Boolean = false,
@@ -138,6 +231,7 @@ class SeaMapViewModel(
   companion object {
     /** The verdicts and the figures of the hour, read again when the map opens later than this. */
     const val FRESH_MS = 10 * 60_000L
+    private const val KEPT = 8
     private const val SPOTS_SHOWN = 4
     private const val TOWNS_SHOWN = 4
     private val MARKS = Regex("\\p{M}+")

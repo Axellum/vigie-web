@@ -157,4 +157,32 @@ class SeaMapTest {
     assertNull(reader.surf())
     assertEquals(listOf("https://site.test/data/basemap/dark.json", "https://api.test/v1/activities/overview", "https://api.test/v1/surf/overview"), asked)
   }
+
+  @Test
+  fun `a followed spot is marked for its star, and the followed places get a picture of their name`() {
+    val pins = SeaMap.pins(overview, surf, MapActivity.Surf)
+    val features = Json.parseToJsonElement(SeaMap.features(pins, setOf("le-pouldu-plage-du-kerou"))).jsonObject.getValue("features").jsonArray.map { it.jsonObject.getValue("properties").jsonObject }
+    assertEquals(listOf(null, "true", null), features.map { it["followed"]?.jsonPrimitive?.content })
+    val places = Json.parseToJsonElement(SeaMap.placeFeatures(listOf(FollowedPlace(Place("Quiberon", 47.484, -3.119), emptyList())))).jsonObject.getValue("features").jsonArray
+    val quiberon = places.single().jsonObject
+    assertEquals("47.4840,-3.1190", quiberon.getValue("properties").jsonObject.getValue("key").jsonPrimitive.content)
+    assertEquals("vigie-place:Quiberon", quiberon.getValue("properties").jsonObject.getValue("image").jsonPrimitive.content)
+    assertEquals(listOf(-3.119, 47.484), quiberon.getValue("geometry").jsonObject.getValue("coordinates").jsonArray.map { it.jsonPrimitive.content.toDouble() })
+  }
+
+  @Test
+  fun `the weather of a town's sheet is the Accueil's point, through the map's gate`() = runTest {
+    val asked = mutableListOf<String>()
+    var now = 0L
+    val waits = mutableListOf<Long>()
+    val gate = PointGate(max = 1, clock = { now }, sleep = { waits += it; now += it })
+    val reader = SeaMapReader("https://api.test", "https://site.test", gate) { url -> asked += url; fixture("point_lorient.json") }
+    val town = Place("Capbreton", 43.642, -1.428)
+    reader.point(town)
+    reader.point(town)
+    assertEquals(listOf("https://api.test/v1/point?lat=43.6420&lon=-1.4280&compact=false"), asked.distinct())
+    assertEquals(2, asked.size)
+    // The second waited for the minute of the first.
+    assertEquals(listOf(60_000L), waits)
+  }
 }
