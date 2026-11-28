@@ -4,12 +4,21 @@ import {
 	VIGIE_API_URL,
 	VIGIE_ME_POINT_LOOKUPS_PER_DAY,
 	VIGIE_POINT_LOOKUPS_PER_DAY,
+	VIGIE_TOWN_LOOKUPS_PER_DAY,
 	VIGIE_TV_POINT_LOOKUPS_PER_DAY,
 	VIGIE_WARM_LOOKUPS_PER_DAY
 } from '$app/env/private';
 import { tileBox, type FireLevel } from '#lib/fires.js';
 import { hasBox } from '#lib/geo.js';
 import { snapToGrid } from '#lib/near.js';
+import {
+	cellKey,
+	TOWN_DAYS,
+	TOWN_HOURS,
+	townsFromApi,
+	type TownsAnswer,
+	type TownWeather
+} from '#lib/townWeather.js';
 import {
 	eclipseFromApi,
 	eclipseListFromApi,
@@ -442,6 +451,76 @@ export function getPointAnswer(lat: number, lon: number, accountId?: string): Pr
 		pointCache.put(`point:${cell.lat},${cell.lon}:marine`, pointFromApi(body), TTL_S.point * 1000);
 		return body;
 	});
+}
+
+// --- the weather of the towns of the home map (`/data/towns.json`) ----------------------------------------------------------------
+
+// A town's weather is kept as long as a point's: the same forecast, read the same way by the API (its `/v1/points`, ADR 0047).
+// A map of France names about forty towns; 3,000 cells cover the towns of many views.
+const townCache = new TtlCache(Date.now, 15_000, 3000);
+/** A town the API could not read is asked again after a minute, not after the quarter of an hour of a weather. */
+const TOWN_MISSING_TTL_MS = 60_000;
+
+/**
+ * The towns' daily share of the weather requests (`VIGIE_TOWN_LOOKUPS_PER_DAY`, 4,000 cells by default, 0 turns the pills off),
+ * apart from the share of the places (`VIGIE_POINT_LOOKUPS_PER_DAY`): a visitor moving the map asks many towns, and the weather
+ * of "near me" must not stop for it. Each cell asked of the API counts, whether or not the API had it in its own cache.
+ */
+let townBudget: SlidingBudget | null = null;
+function townShare(): SlidingBudget {
+	if (!townBudget) {
+		const value = Number(VIGIE_TOWN_LOOKUPS_PER_DAY || 4000);
+		townBudget = new SlidingBudget(Number.isFinite(value) && value >= 0 ? Math.floor(value) : 4000);
+	}
+	return townBudget;
+}
+
+async function readTowns(cells: { lat: number; lon: number }[]): Promise<(TownWeather | null)[]> {
+	const query = new URLSearchParams(cells.map((c) => ['at', `${c.lat},${c.lon}`]));
+	query.set('hours', String(TOWN_HOURS));
+	query.set('days', String(TOWN_DAYS));
+	const { places, attribution } = townsFromApi(await getJson(`/v1/points?${query}`, 40_000));
+	if (attribution) townAttribution = attribution;
+	if (places.length !== cells.length) throw new ApiError('Vigie API answered another number of places', null);
+	return places;
+}
+let townAttribution: string | null = null;
+
+/**
+ * The weather of the cells of some towns (at most `TOWNS_PER_REQUEST`, already on the grid), in the order given. The cells not in
+ * the cache are asked of the API in one request; two visitors asking the same cell at the same moment share it. A cell beyond the
+ * day's share keeps its last weather if it has one, else none, and the answer says the share is used up.
+ */
+export async function getTowns(cells: { lat: number; lon: number }[]): Promise<TownsAnswer> {
+	const asked: { lat: number; lon: number }[] = [];
+	let paused = false;
+	let batch: Promise<(TownWeather | null)[]> | null = null;
+	const results = await Promise.allSettled(
+		cells.map((cell) =>
+			townCache.get<TownWeather | null>(
+				`town:${cellKey(cell)}`,
+				(value) => (value ? TTL_S.point * 1000 : TOWN_MISSING_TTL_MS),
+				() => {
+					if (!townShare().take()) {
+						paused = true;
+						return Promise.reject(new BudgetError('The towns of the day are used up'));
+					}
+					const index = asked.push(cell) - 1;
+					// The loads of this call are all registered before the request goes: one request for all of them.
+					batch ??= Promise.resolve().then(() => readTowns(asked));
+					return batch.then((places) => places[index]);
+				}
+			)
+		)
+	);
+	return {
+		towns: cells.map((cell, i) => {
+			const r = results[i];
+			return { lat: cell.lat, lon: cell.lon, weather: r.status === 'fulfilled' ? r.value.value : null };
+		}),
+		attribution: townAttribution,
+		paused
+	};
 }
 
 /**

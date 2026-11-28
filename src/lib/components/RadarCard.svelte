@@ -138,7 +138,8 @@
 	.card {
 		position: absolute;
 		left: 10px;
-		bottom: 34px;
+		/* Over the bar of the moments of the towns' weather when the page shows it (`--map-foot`). */
+		bottom: calc(34px + var(--map-foot, 0px));
 		z-index: 3;
 		width: min(300px, calc(100% - 20px));
 		box-sizing: border-box;
@@ -153,7 +154,7 @@
 	}
 	@media (max-width: 520px) {
 		.card {
-			bottom: 54px;
+			bottom: calc(54px + var(--map-foot, 0px));
 		}
 	}
 	.head {
@@ -271,7 +272,7 @@
 	.fold {
 		position: absolute;
 		left: 10px;
-		bottom: 26px;
+		bottom: calc(26px + var(--map-foot, 0px));
 		z-index: 3;
 		padding: 5px 10px;
 		border: 1px solid var(--line);

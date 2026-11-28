@@ -134,8 +134,8 @@ page): the snippet `(api)` of the `Caddyfile`, imported by `(site)`.
   timeout, no buffer). Any other method gets 405 from Caddy; the API would answer 401 anyway without its admin
   token. The API's dashboard and docs stay internal.
 - A rate limit per visitor address (an IPv6 `/64` counts as one): 300 requests a minute on `/v1`, and on
-  `/v1/point`, the one route that costs calls to a provider, 10 a minute and 120 an hour. Over it: 429 with
-  `Retry-After`. The module is not in the standard Caddy image: `caddy/Containerfile` builds one with xcaddy
+  `/v1/point`, the one route that costs calls to a provider, 10 a minute and 120 an hour; on `/v1/points`, which
+  reads up to 40 places at once, 3 a minute and 30 an hour. Over it: 429 with `Retry-After`. The module is not in the standard Caddy image: `caddy/Containerfile` builds one with xcaddy
   (`deploy.sh caddy`). Addresses exempt from it, for a load test only: `VIGIE_RATE_LIMIT_EXEMPT` in
   `~/vigie/caddy.env`, then `systemctl --user restart caddy`; remove them after.
 - A `Cache-Control` on each answer that has none, from how often its data changes.

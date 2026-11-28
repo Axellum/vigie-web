@@ -14,12 +14,18 @@
 	import LayerRow from '#lib/components/LayerRow.svelte';
 	import LayersPanel from '#lib/components/LayersPanel.svelte';
 	import MapRail, { type RailFamily } from '#lib/components/MapRail.svelte';
+	import MomentBar from '#lib/components/MomentBar.svelte';
+	import TownCard from '#lib/components/TownCard.svelte';
+	import TownTip from '#lib/components/TownTip.svelte';
 	import RadarCard from '#lib/components/RadarCard.svelte';
 	import RainScale from '#lib/components/RainScale.svelte';
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
 	import { ReliefLayer } from '#lib/reliefLayer.svelte.js';
+	import { TownLayer } from '#lib/townLayer.svelte.js';
+	import type { TownInView } from '#lib/townMarkers.js';
+	import { rainShown } from '#lib/townWeather.js';
 	import { pollWhileVisible } from '#lib/pollVisible.js';
 	import { RadarLayer } from '#lib/radarLayer.svelte.js';
 	import { RainFieldLayer } from '#lib/rainFieldLayer.svelte.js';
@@ -64,9 +70,10 @@
 	} from '#lib/filters.js';
 	import { readFollowed, sameSpot, type AccountPlace, type FollowedPlace } from '#lib/followed.js';
 	import { PROFILES } from '#lib/profiles.js';
-	import { countriesNear, countryAt, placeHash, type Borders } from '#lib/near.js';
+	import { countriesNear, countryAt, placeHash, warningsAt, type Borders } from '#lib/near.js';
 	import { placeLine, placeStatus, type PlaceStatus } from '#lib/placeStatus.js';
-	import { untilPhrase } from '#lib/sentence.js';
+	import { untilPhrase, type OfficialState } from '#lib/sentence.js';
+	import { cardWarnings, type CardWarnings } from '#lib/widget/homeCard.js';
 	import { fireLevel, tilesInView } from '#lib/fires.js';
 	import { boxesOverlap, coveredInView, geometryBox, grow, pointInBox, type Box } from '#lib/geo.js';
 	import { countryName, t, tOr, translator, type Key } from '#lib/i18n.js';
@@ -337,21 +344,93 @@
 		untrack(() => tides.sync());
 	});
 
+	// --- the weather of the towns the base map names (on until the visitor turns it off, the choice kept in this browser) ------
+	const towns = new TownLayer();
+	onMount(() => towns.restore());
+	$effect(() => towns.move(zoom));
+	$effect(() => {
+		void towns.towns;
+		void towns.on;
+		void towns.near;
+		untrack(() => towns.sync());
+	});
+	// A town's weather is asked again after a quarter of an hour (`TownLayer.sync` keeps the delay), "now" moves on each minute.
+	$effect(() => pollWhileVisible(() => towns.sync(), 60_000));
+	const townPills = $derived(
+		towns.pills?.map((p) => {
+			const r = p.reading;
+			if (!r) return p;
+			const parts = [
+				tr('towns.pill', { name: p.name, t: r.temp == null ? '–' : number(lang, Math.round(r.temp) || 0, 0) })
+			];
+			if (rainShown(r)) parts.push(tr('towns.pillRain', { mm: number(lang, r.rainMm, 1) }));
+			if (r.wind != null) parts.push(tr('towns.pillWind', { v: number(lang, r.wind, 0) }));
+			return { ...p, label: parts.join(', ') };
+		}) ?? null
+	);
+	// The short card under the pointer (not on a touch screen, where a tap opens the whole card), the whole card once clicked.
+	let mapwrap: HTMLDivElement | undefined = $state();
+	let townHover = $state<{ town: TownInView; left: number; top: number; above: boolean } | null>(null);
+	let townPicked = $state<TownInView | null>(null);
+	const TIP_W = 300;
+	const TIP_H = 290;
+	function onTownHover(id: string | null, at: DOMRect | null) {
+		const town = id ? towns.towns.find((t) => t.id === id) : null;
+		if (!town || !at || !mapwrap || townPicked || !matchMedia('(hover: hover)').matches) {
+			townHover = null;
+			return;
+		}
+		const box = mapwrap.getBoundingClientRect();
+		const x = at.left - box.left + at.width / 2 - TIP_W / 2;
+		const below = at.bottom - box.top + 8;
+		const above = below + TIP_H > box.height && at.top - box.top - 8 - TIP_H >= 0;
+		townHover = {
+			town,
+			left: Math.max(8, Math.min(x, box.width - TIP_W - 8)),
+			top: above ? at.top - box.top - 8 : Math.min(below, Math.max(8, box.height - TIP_H - 8)),
+			above
+		};
+	}
+	function onTownPick(id: string) {
+		townHover = null;
+		townPicked = towns.towns.find((t) => t.id === id) ?? null;
+	}
+	const townHoverWeather = $derived(townHover ? towns.weatherOf(townHover.town) : null);
+	// The palette of the cards follows the site's theme (the visitor's choice, else the system's).
+	let dark = $state(false);
+	onMount(() => {
+		const read = () => {
+			const set = document.documentElement.dataset.theme;
+			dark = set === 'dark' || (set !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+		};
+		read();
+		const observer = new MutationObserver(read);
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+		const media = matchMedia('(prefers-color-scheme: dark)');
+		media.addEventListener('change', read);
+		return () => {
+			observer.disconnect();
+			media.removeEventListener('change', read);
+		};
+	});
+
 	// --- the frame of the map: the families of layers on its rail, their choices over the map (as on the sea map) -----------
-	type MapFamily = 'alerts' | 'rain' | 'wind' | 'tide' | 'map';
-	const MAP_FAMILIES: MapFamily[] = ['alerts', 'rain', 'wind', 'tide', 'map'];
+	type MapFamily = 'alerts' | 'weather' | 'rain' | 'wind' | 'tide' | 'map';
+	const MAP_FAMILIES: MapFamily[] = ['alerts', 'weather', 'rain', 'wind', 'tide', 'map'];
 	let layerFamily = $state<MapFamily | null>(null);
 	// How many layers of a family are shown; the warnings and the hazards are always there, the fires are counted.
 	const layerCount = (f: MapFamily): number =>
 		f === 'alerts'
 			? Number(showFires)
-			: f === 'rain'
-				? Number(radar.open && radar.covered) + Number(observedRain.on) + Number(rainField.on)
-				: f === 'wind'
-					? Number(flow.on) + Number(wind.on)
-					: f === 'map'
-						? relief.count
-						: Number(tides.on);
+			: f === 'weather'
+				? Number(towns.on)
+				: f === 'rain'
+					? Number(radar.open && radar.covered) + Number(observedRain.on) + Number(rainField.on)
+					: f === 'wind'
+						? Number(flow.on) + Number(wind.on)
+						: f === 'map'
+							? relief.count
+							: Number(tides.on);
 	const railFamilies = $derived<RailFamily[]>(
 		MAP_FAMILIES.map((f) => ({
 			id: f,
@@ -423,10 +502,51 @@
 			for (const cc of wanted) void loadCountry(cc);
 		});
 	});
-	// The country a place is in, from simplified borders (100 kB) loaded only when places are followed.
+	// The country a place is in, from simplified borders (100 kB) loaded only when places are followed or a town's card is open.
 	$effect(() => {
-		if (places.length && !borders)
+		if ((places.length || townPicked) && !borders)
 			import('#lib/data/borders.json').then((m) => (borders = m.default as unknown as Borders));
+	});
+	// The official warnings of the town whose card is open, for the card as the widget gives them (`cardWarnings`): those of the
+	// countries around it, which the map has mostly read already; null while one of them is still read (the card then waits).
+	const townCountries = $derived(townPicked ? countriesNear(townPicked, data.served) : []);
+	$effect(() => {
+		const wanted = townCountries;
+		untrack(() => {
+			for (const cc of wanted) void loadCountry(cc);
+		});
+	});
+	const townWarnings = $derived.by((): CardWarnings | null => {
+		const town = townPicked;
+		if (!town) return null;
+		const here = townCountries
+			.flatMap((cc) => {
+				const d = countries.get(cc)?.data;
+				return d ? warningsAt(d, town).here : [];
+			})
+			.sort((a, b) => byLevelThenTime(warningRow(a.warning), warningRow(b.warning)));
+		const country = borders ? countryAt(borders, town) : undefined;
+		let state: OfficialState;
+		if (
+			townCountries.length === 0 ||
+			(here.length === 0 && (country === null || (country !== undefined && !data.served.includes(country))))
+		)
+			state = 'nosource';
+		else if (here.length) state = 'warnings';
+		else {
+			const states = townCountries.map((cc) => countries.get(cc)?.status);
+			if (states.includes('loading') || states.includes(undefined) || country === undefined) return null;
+			state = states.includes('error') ? 'failed' : 'none';
+		}
+		const credits = new Set(
+			townCountries.flatMap((cc) => {
+				const d = countries.get(cc)?.data;
+				return d && here.some((h) => h.warning.cc === cc)
+					? [...d.attributions, ...(d.disclaimer ? [d.disclaimer] : [])]
+					: [];
+			})
+		);
+		return cardWarnings(state, here, lang, towns.now, [...credits].join(' · ') || null);
 	});
 	const cards = $derived(
 		places.map((p, i) => {
@@ -1048,6 +1168,7 @@
 					<p class="credit">{fireFirst.disclaimer}</p>
 				{/if}
 			{/if}
+			{#if towns.on && towns.attribution}<p class="credit">{towns.attribution}</p>{/if}
 			{#if tides.on && tides.attribution}<p class="credit">{tides.attribution}</p>{/if}
 			{#if observedRain.on && observedRain.data?.attribution}<p class="credit">
 					{observedRain.data.attribution}
@@ -1075,7 +1196,7 @@
 			bind:open={() => layerFamily, (next) => (layerFamily = next as MapFamily | null)}
 			controls="home-layers"
 		/>
-		<div class="mapwrap">
+		<div class="mapwrap" bind:this={mapwrap} style:--map-foot={towns.on && towns.near ? '44px' : null}>
 			<MapView
 				bind:this={mapView}
 				{lang}
@@ -1092,6 +1213,10 @@
 				relief={relief.onMap(tr('relief.credit'))}
 				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 				flow={flow.grids}
+				towns={townPills}
+				ontowns={(list) => (towns.towns = list)}
+				ontownhover={onTownHover}
+				ontownpick={onTownPick}
 				globe
 				onselect={onMapSelect}
 				onmove={(v, z) => {
@@ -1100,6 +1225,32 @@
 				}}
 			/>
 			<RadarCard {lang} {radar} />
+			{#if towns.on && towns.near}
+				<MomentBar {lang} choices={towns.choices} now={towns.now} bind:selected={towns.moment} />
+			{/if}
+			{#if townHover && townHoverWeather}
+				<TownTip
+					{lang}
+					name={townHover.town.name}
+					weather={townHoverWeather}
+					now={towns.now}
+					{dark}
+					left={townHover.left}
+					top={townHover.top}
+					above={townHover.above}
+				/>
+			{/if}
+			{#if townPicked}
+				<TownCard
+					{lang}
+					name={townPicked.name}
+					lat={townPicked.lat}
+					lon={townPicked.lon}
+					{dark}
+					warnings={townWarnings}
+					onclose={() => (townPicked = null)}
+				/>
+			{/if}
 			<!-- The card of the measured wind holds the top left, where the layers of a family open: it comes back once folded. -->
 			{#if !layerFamily}<WindCard {lang} {wind} />{/if}
 			{#if !layerFamily && !wind.on && ((observedRain.on && observedRain.activeFrame) || (rainField.on && rainField.active))}
@@ -1366,6 +1517,19 @@
 							{:else}
 								<p class="muted small">{tr('rainField.loading')}</p>
 							{/if}
+						{/if}
+					{:else if layerFamily === 'weather'}
+						<p class="small">{tr('frame.weatherDesc')}</p>
+						<LayerRow
+							name={tr('towns.layer')}
+							source={tr('towns.layerSub')}
+							testid="towns-toggle"
+							bind:checked={towns.on}
+						/>
+						{#if towns.on}
+							<p class="muted small">{towns.near ? tr('towns.hint') : tr('towns.zoomIn')}</p>
+							{#if towns.paused}<p class="muted small">{tr('towns.paused')}</p>{/if}
+							{#if towns.failed}<p class="muted small">{tr('towns.failed')}</p>{/if}
 						{/if}
 					{:else if layerFamily === 'wind'}
 						<p class="small">{tr('frame.windDesc')}</p>

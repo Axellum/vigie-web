@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	/** The drawing of a family's button. */
-	export type RailIcon = 'spots' | 'wind' | 'rain' | 'alerts' | 'tide' | 'map';
+	export type RailIcon = 'spots' | 'weather' | 'wind' | 'rain' | 'alerts' | 'tide' | 'map';
 	export interface RailFamily {
 		id: string;
 		icon: RailIcon;
@@ -36,6 +36,10 @@
 			><svg viewBox="0 0 24 24" aria-hidden="true">
 				{#if f.icon === 'spots'}
 					<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" />
+				{:else if f.icon === 'weather'}
+					<circle cx="9" cy="9" r="3.2" /><path d="M9 2.6v1.4M3.6 9H2.2M4.5 4.5l1 1M13.5 4.5l-1 1" /><path
+						d="M8.5 19.5a3.5 3.5 0 0 1 .3-7 4.8 4.8 0 0 1 9.2 1.2 2.9 2.9 0 0 1-.3 5.8z"
+					/>
 				{:else if f.icon === 'wind'}
 					<path d="M3 8h11a3 3 0 1 0-3-3" /><path d="M3 12h16a3 3 0 1 1-3 3" /><path d="M3 16h8" />
 				{:else if f.icon === 'rain'}

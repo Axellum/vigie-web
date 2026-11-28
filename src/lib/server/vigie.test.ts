@@ -4,7 +4,8 @@ vi.mock('$app/env/private', () => ({
 	VIGIE_API_URL: 'http://vigie-api.test',
 	VIGIE_POINT_LOOKUPS_PER_DAY: '1',
 	VIGIE_ME_POINT_LOOKUPS_PER_DAY: '2',
-	VIGIE_TV_POINT_LOOKUPS_PER_DAY: '1'
+	VIGIE_TV_POINT_LOOKUPS_PER_DAY: '1',
+	VIGIE_TOWN_LOOKUPS_PER_DAY: '3'
 }));
 
 describe('weather point and TV budgets', () => {
@@ -216,5 +217,60 @@ describe('PIAF tile cache', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe('weather of the towns', () => {
+	let fetches: URL[];
+
+	beforeEach(() => {
+		vi.resetModules();
+		fetches = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: string | URL) => {
+				const url = new URL(String(input));
+				fetches.push(url);
+				const places = url.searchParams.getAll('at').map((at, i) => {
+					const [lat, lon] = at.split(',').map(Number);
+					return { lat, lon, utc_offset_s: 3600, current: { temp_c: 10 + i }, hourly: [], daily: [] };
+				});
+				return new Response(JSON.stringify({ places, attribution: 'Weather data by Open-Meteo.com' }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' }
+				});
+			})
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('asks the towns missing from its cache in one request, within their own share of the day', async () => {
+		const { getTowns } = await import('./vigie');
+		const paris = { lat: 48.85, lon: 2.35 };
+		const lyon = { lat: 45.75, lon: 4.85 };
+		const nice = { lat: 43.7, lon: 7.25 };
+
+		const first = await getTowns([paris, lyon]);
+		expect(fetches).toHaveLength(1);
+		expect(fetches[0].pathname).toBe('/v1/points');
+		expect(fetches[0].searchParams.getAll('at')).toEqual(['48.85,2.35', '45.75,4.85']);
+		expect(first.towns.map((t) => t.weather?.current?.tempC)).toEqual([10, 11]);
+		expect(first).toMatchObject({ attribution: 'Weather data by Open-Meteo.com', paused: false });
+
+		// Paris and Lyon come from the cache: only Nice is asked.
+		const second = await getTowns([paris, nice, lyon]);
+		expect(fetches).toHaveLength(2);
+		expect(fetches[1].searchParams.getAll('at')).toEqual(['43.7,7.25']);
+		expect(second.towns.map((t) => t.weather?.current?.tempC)).toEqual([10, 10, 11]);
+
+		// The share of the day (3 cells) is used up: a new town has no weather, the others keep theirs.
+		const third = await getTowns([{ lat: 47.2, lon: -1.55 }, paris]);
+		expect(fetches).toHaveLength(2);
+		expect(third.paused).toBe(true);
+		expect(third.towns[0].weather).toBeNull();
+		expect(third.towns[1].weather?.current?.tempC).toBe(10);
 	});
 });

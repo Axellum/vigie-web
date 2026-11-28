@@ -16,6 +16,7 @@ function collectErrors(page: Page): string[] {
 
 const TOGGLES = [
 	'fires-toggle',
+	'towns-toggle',
 	'radar-toggle',
 	'observed-rain-toggle',
 	'rain-field-toggle',
@@ -33,8 +34,15 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await page.goto('/');
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	const rail = layerRail(page);
-	// The relief is on at first: its family says so.
-	await expect(rail.getByRole('button')).toHaveText(['Alertes', 'Pluie', 'Vent', 'Marée', /^Carte/]);
+	// The weather of the towns and the relief are on at first: their families say so.
+	await expect(rail.getByRole('button')).toHaveText([
+		'Alertes',
+		'Météo1(1 couche affichée)',
+		'Pluie',
+		'Vent',
+		'Marée',
+		/^Carte/
+	]);
 	await expect(rail.getByRole('button', { name: /^Carte/ })).toHaveAccessibleName(
 		'Carte (1 couche affichée)'
 	);
@@ -66,6 +74,10 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await closeLayers(page);
 	await expect(panel).toHaveCount(0);
 
+	await openLayers(page, 'Météo');
+	await expect(panel.getByRole('heading', { name: 'Météo' })).toBeVisible();
+	await expect(page.getByTestId('towns-toggle')).toBeChecked();
+
 	// One family at a time; its own button folds it again.
 	await openLayers(page, 'Pluie');
 	await expect(panel.getByRole('heading', { name: 'Pluie' })).toBeVisible();
@@ -82,6 +94,13 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await expect(panel).toHaveCount(0);
 
 	await page.goto('/?lang=en');
-	await expect(layerRail(page).getByRole('button')).toHaveText(['Alerts', 'Rain', 'Wind', 'Tide', /^Map/]);
+	await expect(layerRail(page).getByRole('button')).toHaveText([
+		'Alerts',
+		/^Weather1/,
+		'Rain',
+		'Wind',
+		'Tide',
+		/^Map/
+	]);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
