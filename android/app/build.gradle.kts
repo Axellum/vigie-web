@@ -6,6 +6,11 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
+/** `local.properties` (not committed): the SDK's path, and the path of the Firebase config below. */
+val localProperties = Properties().apply {
+  rootProject.file("local.properties").takeIf { it.isFile }?.reader()?.use { load(it) }
+}
+
 /**
  * The app's Firebase config (notifications through Firebase Cloud Messaging), kept outside this public
  * repository: its path comes from `vigie.firebase.config` in `local.properties` or from the environment
@@ -15,9 +20,7 @@ plugins {
  * app is built without notifications: Firebase finds no options and the app does not offer them.
  */
 val firebaseResources: Map<String, String> = run {
-  val props = Properties()
-  rootProject.file("local.properties").takeIf { it.isFile }?.reader()?.use { props.load(it) }
-  val path = props.getProperty("vigie.firebase.config") ?: System.getenv("VIGIE_FIREBASE_CONFIG")
+  val path = localProperties.getProperty("vigie.firebase.config") ?: System.getenv("VIGIE_FIREBASE_CONFIG")
   val config = path?.let { File(it) }?.takeIf { it.isFile } ?: return@run emptyMap()
   @Suppress("UNCHECKED_CAST")
   val json = groovy.json.JsonSlurper().parse(config) as Map<String, Any?>
@@ -37,6 +40,28 @@ val firebaseResources: Map<String, String> = run {
   }
 }
 
+/**
+ * The upload key of the builds sent to Google Play, which signs them again with the app's own key (Play App
+ * Signing). Kept outside this public repository, and named by the environment only: `VIGIE_UPLOAD_KEYSTORE` (the
+ * path of a PKCS12 keystore), `VIGIE_UPLOAD_ALIAS` (`upload` when unset) and `VIGIE_UPLOAD_KEYSTORE_PASSWORD`
+ * (also the key's: a PKCS12 keystore has one password). Without `VIGIE_UPLOAD_KEYSTORE` (the CI), the release
+ * build is left unsigned.
+ */
+val uploadKeystore: File? =
+  System.getenv("VIGIE_UPLOAD_KEYSTORE")?.let { File(it) }?.also {
+    require(it.isFile) { "VIGIE_UPLOAD_KEYSTORE names no file: $it" }
+  }
+
+/**
+ * The version sent to Google Play, which takes a build only with a higher `versionCode` than the last one:
+ * `./gradlew bundleRelease -Pvigie.versionCode=2 -Pvigie.versionName=1.1`. Unset, 1 and « 1.0 ».
+ */
+val vigieVersionCode: Int =
+  providers.gradleProperty("vigie.versionCode").orNull?.let {
+    requireNotNull(it.toIntOrNull()?.takeIf { code -> code > 0 }) { "vigie.versionCode is not a positive number: $it" }
+  } ?: 1
+val vigieVersionName: String = providers.gradleProperty("vigie.versionName").orNull ?: "1.0"
+
 android {
   namespace = "fr.auxfilsdesidees.vigie"
   compileSdk = 37
@@ -44,13 +69,28 @@ android {
     applicationId = "fr.auxfilsdesidees.vigie"
     minSdk = 24
     targetSdk = 37
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = vigieVersionCode
+    versionName = vigieVersionName
     firebaseResources.forEach { (name, value) -> resValue("string", name, value) }
+  }
+
+  signingConfigs {
+    if (uploadKeystore != null) {
+      create("upload") {
+        storeFile = uploadKeystore
+        storeType = "pkcs12"
+        storePassword =
+          System.getenv("VIGIE_UPLOAD_KEYSTORE_PASSWORD")
+            ?: error("VIGIE_UPLOAD_KEYSTORE_PASSWORD is not set: the password of $uploadKeystore")
+        keyAlias = System.getenv("VIGIE_UPLOAD_ALIAS") ?: "upload"
+        keyPassword = storePassword
+      }
+    }
   }
 
   buildTypes {
     release {
+      signingConfig = signingConfigs.findByName("upload")
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
@@ -129,4 +169,7 @@ dependencies {
   // Notifications: Firebase Cloud Messaging (its config stays outside the repository, see above)
   implementation(platform(libs.firebase.bom))
   implementation(libs.firebase.messaging)
+  // Play services bring Fragment 1.1.0, older than the activity-result API needs (1.3.0): the release build's
+  // lint stops on it (InvalidFragmentVersionForActivityResult). The app has no fragment of its own.
+  implementation(libs.androidx.fragment)
 }

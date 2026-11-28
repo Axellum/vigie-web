@@ -149,6 +149,22 @@ Only the loopback address is accepted, and plain HTTP is allowed for it in the d
 (`app/src/debug/res/xml/network_security_config.xml`). The place search still asks the public site (an API alone does
 not serve it).
 
+### A build for Google Play
+
+Google Play takes an Android App Bundle signed with an upload key, then signs the app with its own key (Play App
+Signing). The upload key stays outside the repository; the build reads it from the environment only:
+
+```sh
+export VIGIE_UPLOAD_KEYSTORE=/path/to/upload.p12   # a PKCS12 keystore
+export VIGIE_UPLOAD_ALIAS=upload                    # the default
+export VIGIE_UPLOAD_KEYSTORE_PASSWORD=...           # the keystore's and the key's
+./gradlew bundleRelease -Pvigie.versionCode=2 -Pvigie.versionName=1.1   # app/build/outputs/bundle/release/app-release.aab
+```
+
+Each build sent needs a higher `versionCode` than the last one Google Play took (1 and « 1.0 » when unset). Without
+`VIGIE_UPLOAD_KEYSTORE` (the CI), `bundleRelease` and `assembleRelease` leave their output unsigned. Build it with the
+Firebase config above, or the app sent has no bell.
+
 ## Layout
 
 | File | Role |
