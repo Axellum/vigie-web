@@ -4,6 +4,7 @@ import fr.auxfilsdesidees.vigie.data.GeoBox
 import fr.auxfilsdesidees.vigie.data.KeyValue
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.RadarArea
+import fr.auxfilsdesidees.vigie.data.RadarFrame
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.WindUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +36,10 @@ class MapWeatherModelTest {
   private var now = 1_000_000L
   private val asked = mutableListOf<String>()
   private var fails = false
+  /** The site's nowcast PIAF; null answers as the site without one (a 404). */
+  private var nowcast: String? = null
+  private val radarAsked
+    get() = asked.filter { "/data/radar.json" in it }
 
   private val reader =
     SeaMapReader("https://api.test", "https://site.test") { url ->
@@ -42,6 +47,7 @@ class MapWeatherModelTest {
       if (fails) throw java.io.IOException("offline")
       when {
         url.contains("/data/radar.json") -> fixture("radar_france.json")
+        url.endsWith("/data/radar/france/nowcast") -> nowcast ?: throw java.io.IOException("404")
         url.contains("/data/wind.json") -> fixture("wind_bretagne.json")
         else -> error("unexpected $url")
       }
@@ -64,10 +70,13 @@ class MapWeatherModelTest {
     m.move(brittany, 8.0)
     m.showRain(true)
     runCurrent()
-    assertEquals(listOf("https://site.test/data/radar.json?area=france"), asked)
+    // On France, the nowcast is asked with the radar; the site has none here: the radar is shown without it.
+    assertEquals(setOf("https://site.test/data/radar.json?area=france", "https://site.test/data/radar/france/nowcast"), asked.toSet())
     assertEquals("on", kept.map[MapWeatherModel.RAIN_KEY])
     val s = m.state.value
+    assertEquals(MapWeatherModel.Status.Ok, s.radarStatus)
     assertEquals(RadarArea.France, s.area)
+    assertFalse(s.radar!!.hasNowcast)
     assertEquals(7, s.index)
     assertEquals(1795876500L, s.epoch)
 
@@ -76,25 +85,26 @@ class MapWeatherModelTest {
     m.move(GeoBox(-4.0, 47.2, -2.1, 48.5), 8.2)
     m.sync()
     runCurrent()
-    assertEquals(1, asked.size)
+    assertEquals(1, radarAsked.size)
 
     // Five minutes after the read: asked again.
     now += MapWeather.RADAR_REFRESH_MS
     m.sync()
     runCurrent()
-    assertEquals(2, asked.size)
+    assertEquals(2, radarAsked.size)
 
-    // Guadeloupe: the radar of the Antilles.
+    // Guadeloupe: the radar of the Antilles, without a nowcast.
     m.move(GeoBox(-62.0, 15.8, -61.0, 16.6), 9.0)
     runCurrent()
     assertEquals("https://site.test/data/radar.json?area=antilles", asked.last())
+    assertEquals(2, asked.count { it.endsWith("/nowcast") })
 
     // Far out: no radar, nothing asked.
     m.move(GeoBox(-40.0, 30.0, -30.0, 40.0), 5.0)
     runCurrent()
     assertNull(m.state.value.area)
     assertNull(m.state.value.radar)
-    assertEquals(3, asked.size)
+    assertEquals(5, asked.size)
 
     // The choice is read back at the next opening.
     assertTrue(MapWeatherModel(backgroundScope, reader, { now }, kept).state.value.rain)
@@ -111,7 +121,7 @@ class MapWeatherModelTest {
     assertNull(m.state.value.radar)
     m.sync()
     runCurrent()
-    assertEquals(1, asked.size)
+    assertEquals(1, radarAsked.size)
     fails = false
     now += MapWeather.RETRY_MS + 1
     m.sync()
@@ -151,6 +161,57 @@ class MapWeatherModelTest {
     assertEquals(3, m.state.value.index)
     m.choose(99)
     assertEquals(7, m.state.value.index)
+  }
+
+  @Test
+  fun `with the nowcast, the slider goes on into the forecast, from the newest image measured, and play stops a while on it`() = runTest {
+    nowcast = fixture("radar_france_nowcast.json")
+    val m = MapWeatherModel(backgroundScope, reader, { now })
+    m.move(brittany, 8.0)
+    m.showRain(true)
+    runCurrent()
+    val s = m.state.value
+    val r = s.radar!!
+    assertTrue(r.hasNowcast)
+    assertEquals(25, r.timeline.size)
+    // The newest image measured is shown first, not the forecast.
+    assertEquals(7, s.index)
+    assertEquals(RadarFrame(1795876500L), s.frame)
+
+    m.togglePlay()
+    runCurrent()
+    assertEquals(0, m.state.value.index)
+    advanceTimeBy(MapWeather.STEP_MS + 1)
+    assertEquals(1, m.state.value.index)
+    advanceTimeBy(6 * MapWeather.STEP_MS)
+    assertEquals(7, m.state.value.index)
+    // The newest measured stays 1,5 s before the forecast.
+    advanceTimeBy(MapWeather.STEP_MS + 1)
+    assertEquals(7, m.state.value.index)
+    advanceTimeBy(MapWeather.LAST_STEP_MS - MapWeather.STEP_MS)
+    assertEquals(8, m.state.value.index)
+    assertEquals(10, m.state.value.frame?.leadMinutes)
+    advanceTimeBy(16 * MapWeather.STEP_MS)
+    assertEquals(24, m.state.value.index)
+    // The last forecast stays 1,5 s too, then the animation starts again from the oldest.
+    advanceTimeBy(MapWeather.STEP_MS + 1)
+    assertEquals(24, m.state.value.index)
+    advanceTimeBy(MapWeather.LAST_STEP_MS - MapWeather.STEP_MS)
+    assertEquals(0, m.state.value.index)
+
+    // « Prévision PIAF » goes to the first forecast and pauses; « Observé » back to the newest measured.
+    m.choose(r.observedCount)
+    assertFalse(m.state.value.playing)
+    assertEquals(RadarFrame(1795876800L, 10), m.state.value.frame)
+    // Read again five minutes later: the forecast chosen is still there, still shown.
+    now += MapWeather.RADAR_REFRESH_MS + 1
+    m.sync()
+    runCurrent()
+    assertEquals(8, m.state.value.index)
+    m.choose(r.observedCount - 1)
+    assertEquals(RadarFrame(1795876500L), m.state.value.frame)
+    m.choose(99)
+    assertEquals(24, m.state.value.index)
   }
 
   @Test

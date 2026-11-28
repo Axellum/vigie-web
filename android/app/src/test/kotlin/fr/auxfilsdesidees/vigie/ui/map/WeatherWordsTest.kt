@@ -63,5 +63,7 @@ class WeatherWordsTest {
     assertEquals("Vent prévu", WeatherWords.meteoFranceLayers(rain = false, wind = false, flow = true))
     assertEquals("Radar de pluie et vent mesuré", WeatherWords.meteoFranceLayers(rain = true, wind = true, flow = false))
     assertEquals("Radar de pluie, vent mesuré et vent prévu", WeatherWords.meteoFranceLayers(rain = true, wind = true, flow = true))
+    // A forecast image of the rain says how far ahead it is, as the site's title (« Prévision PIAF (+15 min) »).
+    assertEquals("+15${nb}min", WeatherWords.lead(15))
   }
 }

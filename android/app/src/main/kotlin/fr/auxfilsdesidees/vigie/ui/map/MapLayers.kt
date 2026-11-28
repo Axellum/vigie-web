@@ -13,6 +13,7 @@ import fr.auxfilsdesidees.vigie.data.FollowedPlace
 import fr.auxfilsdesidees.vigie.data.MapPin
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.Radar
+import fr.auxfilsdesidees.vigie.data.RadarFrame
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.TownWeather
 import fr.auxfilsdesidees.vigie.data.WindPoint
@@ -196,10 +197,10 @@ internal object MapLayers {
   /**
    * The rain radar: a raster layer per image drawn, under the first name of the base map. Only the image shown ([active])
    * until [preload], then all of them, the others see-through, so that the slider and the animation wait for no tile. Null
-   * [radar]: none.
+   * [radar]: none. The images of the nowcast have the zooms and the box of its own grid.
    */
-  fun showRadar(style: Style, radar: Radar?, active: Long?, preload: Boolean, tiles: (Long) -> String) {
-    val wanted = if (radar == null || active == null) emptyList() else radar.frames.filter { preload || it == active }
+  fun showRadar(style: Style, radar: Radar?, active: Long?, preload: Boolean, tiles: (RadarFrame) -> String) {
+    val wanted = if (radar == null || active == null) emptyList() else radar.timeline.filter { preload || it.epoch == active }
     val keep = wanted.map { radarId(radar!!, it) }.toSet()
     style.layers.filter { it.id.startsWith(RADAR) && it.id !in keep }.forEach {
       style.removeLayer(it)
@@ -207,19 +208,23 @@ internal object MapLayers {
     }
     if (radar == null) return
     val below = style.layers.firstOrNull { it is SymbolLayer && !it.id.startsWith("vigie-") }?.id ?: style.layers.firstOrNull { it.id.startsWith("vigie-") }?.id
-    for (epoch in wanted) {
-      val id = radarId(radar, epoch)
-      val opacity = if (epoch == active) MapWeather.RADAR_OPACITY else 0f
+    for (frame in wanted) {
+      val id = radarId(radar, frame)
+      val opacity = if (frame.epoch == active) MapWeather.RADAR_OPACITY else 0f
       val known = style.getLayerAs<RasterLayer>(id)
       if (known != null) {
         known.setProperties(rasterOpacity(opacity))
         continue
       }
+      val nowcast = radar.nowcast?.takeIf { frame.forecast }
+      val minZoom = nowcast?.minZoom ?: radar.minZoom
+      val maxZoom = nowcast?.maxZoom ?: radar.maxZoom
+      val bounds = nowcast?.bounds ?: radar.bounds
       val set =
-        TileSet("2.1.0", tiles(epoch)).apply {
-          setMinZoom(radar.minZoom.toFloat())
-          setMaxZoom(radar.maxZoom.toFloat())
-          setBounds(radar.bounds.west.toFloat(), radar.bounds.south.toFloat(), radar.bounds.east.toFloat(), radar.bounds.north.toFloat())
+        TileSet("2.1.0", tiles(frame)).apply {
+          setMinZoom(minZoom.toFloat())
+          setMaxZoom(maxZoom.toFloat())
+          setBounds(bounds.west.toFloat(), bounds.south.toFloat(), bounds.east.toFloat(), bounds.north.toFloat())
         }
       style.addSource(RasterSource(id, set, 256))
       val layer = RasterLayer(id, id).withProperties(rasterOpacity(opacity), rasterFadeDuration(0f))
@@ -228,7 +233,9 @@ internal object MapLayers {
     }
   }
 
-  private fun radarId(radar: Radar, epoch: Long) = "$RADAR${radar.area.id}-$epoch"
+  /** A layer per image; a forecast's names its run, so that the next run draws its time again rather than keep the old one. */
+  private fun radarId(radar: Radar, frame: RadarFrame) =
+    if (frame.forecast) "${RADAR}piaf-${radar.nowcast?.run ?: 0}-${frame.epoch}" else "$RADAR${radar.area.id}-${frame.epoch}"
 
   /** The pictures of the wind drawn on each style, to let go of those no longer shown when they pile up. */
   private val windImages = WeakHashMap<Style, MutableSet<String>>()

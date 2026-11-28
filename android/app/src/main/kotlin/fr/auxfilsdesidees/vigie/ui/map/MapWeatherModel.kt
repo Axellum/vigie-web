@@ -5,6 +5,7 @@ import fr.auxfilsdesidees.vigie.data.KeyValue
 import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.Radar
 import fr.auxfilsdesidees.vigie.data.RadarArea
+import fr.auxfilsdesidees.vigie.data.RadarFrame
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.WindMap
 import fr.auxfilsdesidees.vigie.data.WindUnit
@@ -47,7 +48,7 @@ class MapWeatherModel(
     /** The radar's images read last, maybe of another area than the one in view. */
     val loaded: Radar? = null,
     val radarStatus: Status = Status.Idle,
-    /** The image chosen by the slider or the animation (epoch seconds); null follows the newest. */
+    /** The image chosen by the slider or the animation (epoch seconds); null follows the newest measured. */
     val chosen: Long? = null,
     val playing: Boolean = false,
     /** Set at the first Play or slider touch: from then on every image is drawn, so that none waits for its tiles. */
@@ -66,15 +67,20 @@ class MapWeatherModel(
     val radar: Radar?
       get() = loaded?.takeIf { rain && it.area == area }
 
-    /** The image shown: the one chosen, else the newest; -1 without images. */
+    /** The image shown in the slider's [Radar.timeline]: the one chosen, else the newest measured (not the forecast); -1 without images. */
     val index: Int
       get() {
-        val frames = radar?.frames ?: return -1
-        return chosen?.let { frames.indexOf(it) }?.takeIf { it >= 0 } ?: frames.lastIndex
+        val r = radar ?: return -1
+        if (r.timeline.isEmpty()) return -1
+        return chosen?.let { c -> r.timeline.indexOfFirst { it.epoch == c } }?.takeIf { it >= 0 } ?: (r.observedCount - 1)
       }
 
+    /** The image shown, measured or forecast. */
+    val frame: RadarFrame?
+      get() = radar?.timeline?.getOrNull(index)
+
     val epoch: Long?
-      get() = radar?.frames?.getOrNull(index)
+      get() = frame?.epoch
 
     /** The wind read for the view, while the layer is on. */
     val windMap: WindMap?
@@ -148,8 +154,8 @@ class MapWeatherModel(
       scope.launch {
         try {
           val radar = reader.radar(area)
-          // An image no longer listed is not chosen any more: the newest is shown.
-          _state.update { it.copy(loaded = radar, radarStatus = Status.Ok, chosen = it.chosen?.takeIf { c -> c in radar.frames }) }
+          // An image no longer listed is not chosen any more: the newest measured is shown.
+          _state.update { s -> s.copy(loaded = radar, radarStatus = Status.Ok, chosen = s.chosen?.takeIf { c -> radar.timeline.any { it.epoch == c } }) }
         } catch (err: CancellationException) {
           throw err
         } catch (err: Exception) {
@@ -180,25 +186,29 @@ class MapWeatherModel(
       }
   }
 
-  /** Play from the oldest image (or from the one chosen), or pause. */
+  /**
+   * Play from the oldest image (or from the one chosen), or pause. As on the site, the newest measured image stays longer
+   * before the forecast, and so does the last one before the animation starts again.
+   */
   fun togglePlay() {
     if (_state.value.playing) return pause()
     val s = _state.value
-    val frames = s.radar?.frames ?: return
-    if (frames.size < 2) return
-    val from = if (s.index == frames.lastIndex || s.chosen == null) frames.first() else s.chosen
+    val list = s.radar?.timeline ?: return
+    if (list.size < 2) return
+    val from = if (s.index == list.lastIndex || s.chosen == null) list.first().epoch else s.chosen
     _state.update { it.copy(playing = true, preload = true, chosen = from) }
     playJob?.cancel()
     playJob =
       scope.launch {
         while (true) {
           val now = _state.value
-          val list = now.radar?.frames ?: break
-          delay(if (now.index == list.lastIndex) MapWeather.LAST_STEP_MS else MapWeather.STEP_MS)
+          val r = now.radar ?: break
+          val pauseHere = now.index == r.timeline.lastIndex || (r.hasNowcast && now.index == r.observedCount - 1)
+          delay(if (pauseHere) MapWeather.LAST_STEP_MS else MapWeather.STEP_MS)
           val next = _state.value
           if (!next.playing) break
-          val shown = next.radar?.frames ?: break
-          _state.update { it.copy(chosen = shown[(next.index + 1) % shown.size]) }
+          val shown = next.radar?.timeline ?: break
+          _state.update { it.copy(chosen = shown[(next.index + 1) % shown.size].epoch) }
         }
       }
   }
@@ -209,11 +219,11 @@ class MapWeatherModel(
     if (_state.value.playing) _state.update { it.copy(playing = false) }
   }
 
-  /** The image at [index] of the slider. */
+  /** The image at [index] of the slider (measured, then forecast). */
   fun choose(index: Int) {
     pause()
-    val frames = _state.value.radar?.frames ?: return
-    _state.update { it.copy(chosen = frames[index.coerceIn(0, frames.lastIndex)], preload = true) }
+    val list = _state.value.radar?.timeline?.takeIf { it.isNotEmpty() } ?: return
+    _state.update { it.copy(chosen = list[index.coerceIn(0, list.lastIndex)].epoch, preload = true) }
   }
 
   companion object {

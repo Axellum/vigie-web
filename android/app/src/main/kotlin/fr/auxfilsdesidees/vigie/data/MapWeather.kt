@@ -56,6 +56,21 @@ enum class RadarArea(val id: String, val box: GeoBox) {
 /** A class of the radar's legend: from [minMmH] millimetres an hour, in [color] (`#rrggbb`). */
 data class RadarClass(val minMmH: Double, val color: String, val alpha: Double)
 
+/**
+ * One image of the radar's slider (the site's `RadarTimelineFrame`): measured by the radar, or forecast by the rain nowcast
+ * PIAF of Météo-France [leadMinutes] after the run that drew it.
+ */
+data class RadarFrame(val epoch: Long, val leadMinutes: Int? = null) {
+  val forecast: Boolean
+    get() = leadMinutes != null
+}
+
+/**
+ * The rain nowcast PIAF of the next hour on metropolitan France (`/data/radar/france/nowcast` of the site): an image every
+ * 5 minutes after the [run] (epoch seconds; null when the site does not say it), drawn as tiles by the API, in its own box.
+ */
+data class RadarNowcast(val run: Long?, val frames: List<RadarFrame>, val minZoom: Double, val maxZoom: Double, val bounds: GeoBox)
+
 /** The images of the radar of an [area], the oldest first (epoch seconds), and how to draw them. */
 data class Radar(
   val area: RadarArea,
@@ -65,7 +80,21 @@ data class Radar(
   val bounds: GeoBox,
   val legend: List<RadarClass>,
   val stale: Boolean,
-)
+  /** The forecast of the next hour, on France only; null where the site has none. */
+  val nowcast: RadarNowcast? = null,
+) {
+  /** The slider's images, the oldest first: those measured, then those forecast after the newest measured (the site's `timeline`). */
+  val timeline: List<RadarFrame> =
+    frames.lastOrNull()?.let { last -> frames.map { RadarFrame(it) } + nowcast?.frames.orEmpty().filter { it.epoch > last } } ?: emptyList()
+
+  /** The images measured, at the start of the slider. */
+  val observedCount: Int
+    get() = frames.size
+
+  /** The slider goes on into the forecast. */
+  val hasNowcast: Boolean
+    get() = timeline.size > frames.size
+}
 
 /** The unit of the wind on the map, chosen in the card of the wind measured (the site's `WindUnit`): km/h or knots. */
 enum class WindUnit {
@@ -96,8 +125,9 @@ data class WindMap(val box: GeoBox, val points: List<WindPoint>, val measured: L
 
 /**
  * The weather layers of the sea map, as the site's (`src/lib/radar.ts`, `src/lib/wind.ts` of vigie-web): the rain radar
- * of Météo-France (the last 35 minutes, an image every 5 minutes, drawn as tiles by the site) and the wind measured now by
- * its stations and the buoys offshore, a badge each. Measured, never a forecast and never a warning.
+ * of Météo-France (the last 35 minutes, an image every 5 minutes, drawn as tiles by the site), followed on France by its
+ * rain nowcast PIAF of the next hour, and the wind measured now by its stations and the buoys offshore, a badge each. Never
+ * a warning; the forecast images are said to be a forecast.
  */
 object MapWeather {
   /** The images kept for the animation: the last 35 minutes. */
@@ -181,8 +211,45 @@ object MapWeather {
     )
   }
 
+  /**
+   * The site's answer for the rain nowcast PIAF (`/data/radar/france/nowcast`, the API's relayed in the site's words): null
+   * for one without a forecast image. Its images are kept in time order; one without a time ahead is not a forecast.
+   */
+  fun nowcast(text: String): RadarNowcast? {
+    val o = Json.parseToJsonElement(text) as? JsonObject ?: return null
+    val frames =
+      o["frames"].arr().mapNotNull { it as? JsonObject }.mapNotNull { f ->
+        val epoch = f["epoch"].num()?.toLong() ?: return@mapNotNull null
+        val lead = f["leadMinutes"].num()?.takeIf { it > 0 } ?: return@mapNotNull null
+        RadarFrame(epoch, lead.roundToInt())
+      }
+    if (frames.isEmpty()) return null
+    val b = o["bounds"].arr().mapNotNull { it.num() }
+    return RadarNowcast(
+      run = o["runUtc"].num()?.toLong(),
+      frames = frames.sortedBy { it.epoch },
+      minZoom = o["minZoom"].num() ?: 3.0,
+      maxZoom = o["maxZoom"].num() ?: 10.0,
+      bounds = if (b.size == 4) GeoBox(b[0], b[1], b[2], b[3]) else NOWCAST_BOX,
+    )
+  }
+
+  /** The box of the nowcast's grid when the site does not give it (the site's default). */
+  val NOWCAST_BOX = GeoBox(-6.0, 41.0, 10.5, 51.5)
+
   /** The address of the tiles of one image, on the site (it relays the API's). */
   fun radarTiles(siteUrl: String, area: RadarArea, epoch: Long): String = "$siteUrl/data/radar/${area.id}/$epoch/{z}/{x}/{y}.png"
+
+  /**
+   * The address of the tiles of one image of the nowcast, with the run that drew it (the site's `radarNowcastTiles`): the
+   * next run draws the same time again, so the address changes with it and a tile kept by the map is never an old forecast.
+   */
+  fun nowcastTiles(siteUrl: String, epoch: Long, run: Long?): String =
+    "$siteUrl/data/radar/france/nowcast/tiles/$epoch/{z}/{x}/{y}.png" + (run?.let { "?run=$it" } ?: "")
+
+  /** The address of the tiles of one image of the slider: measured by the radar of its area, or forecast. */
+  fun frameTiles(siteUrl: String, radar: Radar, frame: RadarFrame): String =
+    if (frame.forecast && radar.nowcast != null) nowcastTiles(siteUrl, frame.epoch, radar.nowcast.run) else radarTiles(siteUrl, radar.area, frame.epoch)
 
   /** The box asked to the site for a view: whole degrees with a margin, so that a small move asks nothing new. */
   fun windQueryBox(view: GeoBox): GeoBox {
