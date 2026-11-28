@@ -15,8 +15,10 @@ object AppData {
   private const val COPIES = "places"
   private const val BEACHES = "beaches"
 
-  fun places(context: Context): PlacesStore =
-    PlacesStore(PrefsKeyValue(context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)))
+  fun places(context: Context): PlacesStore = PlacesStore(settings(context))
+
+  /** The app's private preferences, where the followed places are kept, and the app's few settings (the sea map's background). */
+  fun settings(context: Context): KeyValue = PrefsKeyValue(context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
 
   fun copies(context: Context): OfflineCopies = OfflineCopies(FolderShelf(File(context.applicationContext.noBackupFilesDir, COPIES)))
 

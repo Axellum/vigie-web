@@ -191,6 +191,17 @@
     <string name="map_locate_none">Position indisponible.</string>
     <!-- Required by OpenFreeMap (« © OpenMapTiles Data from OpenStreetMap »); touched, it opens the OpenStreetMap licence. -->
     <string name="map_credits">© OpenFreeMap © OpenMapTiles · données © contributeurs OpenStreetMap</string>
+    <string name="map_credits_plan_ign">© IGN · Plan IGN · Licence Ouverte</string>
+    <string name="map_credits_photo_ign">© IGN · photographies aériennes · Licence Ouverte · noms © OpenFreeMap © OpenMapTiles © contributeurs OpenStreetMap</string>
+    <string name="map_layers">Choisir le fond de carte</string>
+    <string name="map_background_title">Fond de carte</string>
+    <string name="map_background_dark">Plan sombre</string>
+    <string name="map_background_dark_detail">Le fond du site, dans le monde entier.</string>
+    <string name="map_background_plan_ign">Plan IGN</string>
+    <string name="map_background_plan_ign_detail">La carte de l\'IGN, en France et outre-mer.</string>
+    <string name="map_background_photo_ign">Photo IGN</string>
+    <string name="map_background_photo_ign_detail">Les photographies aériennes de l\'IGN, en France et outre-mer. La mer reste sombre.</string>
+    <string name="map_background_failed">Le fond de l\'IGN n\'a pas pu être lu : la carte reste sur le plan sombre.</string>
     <string name="map_legend">Point : verdict de l\'activité. Chiffres : l\'heure en cours.</string>
     <string name="map_star">Suivre %1$s</string>
     <string name="map_unstar">Ne plus suivre %1$s</string>

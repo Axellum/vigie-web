@@ -159,10 +159,13 @@ internal object MapLayers {
       val point = f.geometry() as? Point ?: return@firstNotNullOfOrNull null
       val kind = if (f.hasProperty("class")) f.getStringProperty("class") else null
       if (kind != null && kind !in SeaMap.TOWN_CLASSES) return@firstNotNullOfOrNull null
-      val name = listOf("name:fr", "name", "name_en").firstNotNullOfOrNull { k -> if (f.hasProperty(k)) f.getStringProperty(k)?.takeIf { it.isNotBlank() } else null }
+      // The IGN breaks a long name over two lines.
+      val name = SeaMap.TOWN_NAMES.firstNotNullOfOrNull { k -> if (f.hasProperty(k)) f.getStringProperty(k)?.replace(SPACES, " ")?.trim()?.takeIf { it.isNotBlank() } else null }
       name?.let { Pick.Town(it, point.latitude(), point.longitude()) }
     }
   }
+
+  private val SPACES = Regex("\\s+")
 }
 
 /** The marks of the followed spots and places, drawn at the screen's density, which MapLibre reads from the bitmap. */

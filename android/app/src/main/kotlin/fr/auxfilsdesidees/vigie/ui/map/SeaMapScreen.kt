@@ -1,6 +1,9 @@
 package fr.auxfilsdesidees.vigie.ui.map
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.PointF
 import android.net.Uri
@@ -60,6 +63,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -72,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -82,6 +87,7 @@ import fr.auxfilsdesidees.vigie.data.Choices
 import fr.auxfilsdesidees.vigie.data.Favourites
 import fr.auxfilsdesidees.vigie.data.Geo
 import fr.auxfilsdesidees.vigie.data.MapActivity
+import fr.auxfilsdesidees.vigie.data.MapBackground
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.Starred
@@ -112,7 +118,8 @@ import org.maplibre.android.maps.Style
  * The sea map, as the site's `/sea` (the sketches chosen by the author on 28/11/2026): the site's dark base map
  * (OpenFreeMap) in full screen, a pin per spot for the activity of the chip chosen, the search of a beach or a town, the
  * phone's position when asked for, and the credits of the base map, always shown. It opens on the place shown by the
- * tabs; the system's back, or the arrow, goes back to them.
+ * tabs; the system's back, or the arrow, goes back to them. The layers button, right of the search, puts the IGN's plan
+ * or its photographs under the pins instead, with their credits; the choice is kept.
  *
  * A touch on a spot, a followed place or a town of the base map opens its sheet from the bottom: the beach as the Mer tab
  * draws it, or the town's weather as the Accueil. Its star follows it ([Favourites]): the Accueil, the Mer tab and the
@@ -199,15 +206,34 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     }
     map = m
   }
+  // The base map chosen: its style set once, again when another background is chosen (the pins are added to it again).
+  var styleSet by remember { mutableStateOf<String?>(null) }
   LaunchedEffect(map, ui.style) {
     val m = map ?: return@LaunchedEffect
     val json = ui.style ?: return@LaunchedEffect
-    if (style != null) return@LaunchedEffect
+    if (json == styleSet) return@LaunchedEffect
+    styleSet = json
+    // The style before is no longer drawn: nothing is added to it while the next one loads.
+    style = null
     m.setStyle(Style.Builder().fromJson(json)) { loaded ->
       MapLayers.add(loaded, context)
       style = loaded
     }
   }
+  // On the IGN's plan, light, the clock and the icons of the system's bars are drawn dark; light again when the map closes.
+  val view = LocalView.current
+  DisposableEffect(ui.background, view) {
+    val bars = view.context.activity()?.window?.let { WindowCompat.getInsetsController(it, view) }
+    val light = ui.background == MapBackground.PlanIgn
+    bars?.isAppearanceLightStatusBars = light
+    bars?.isAppearanceLightNavigationBars = light
+    onDispose {
+      bars?.isAppearanceLightStatusBars = false
+      bars?.isAppearanceLightNavigationBars = false
+    }
+  }
+  var layersOpen by rememberSaveable { mutableStateOf(false) }
+  LaunchedEffect(ui.backgroundFailed) { if (ui.backgroundFailed != null) note = Note(context.getString(R.string.map_background_failed), null) }
   LaunchedEffect(style, ui.pins, followedSpots) { style?.let { MapLayers.show(it, ui.pins, followedSpots, context) } }
   LaunchedEffect(style, followedPlaces) { style?.let { MapLayers.showPlaces(it, followedPlaces, context) } }
   LaunchedEffect(style, me) {
@@ -277,11 +303,17 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
 
     Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      TopBar(viewModel, onBack) { hit ->
+      TopBar(viewModel, onBack, onLayers = { layersOpen = !layersOpen }) { hit ->
+        layersOpen = false
         goTo(hit.lat, hit.lon, if (hit.spot) SPOT_ZOOM else TOWN_ZOOM, open = true)
         val spot = hit.id?.let(viewModel::spot)
         viewModel.open(if (spot != null) SeaMapViewModel.Sheet.Spot(spot) else SeaMapViewModel.Sheet.Town(Place(hit.name, hit.lat, hit.lon, hit.detail)))
       }
+      if (layersOpen)
+        BackgroundMenu(ui, Modifier.align(Alignment.End)) {
+          viewModel.chooseBackground(it)
+          layersOpen = false
+        }
       Chips(ui.activity, viewModel::choose)
     }
 
@@ -312,13 +344,20 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
           if (locateFailed) Small(stringResource(R.string.map_locate_none), VigieColors.Warning)
         }
         // On the legend's glass, so that a pin under them never makes them hard to read; above the sheet when it is open.
+        val (credits, licence) =
+          when (ui.background) {
+            MapBackground.Dark -> R.string.map_credits to OSM_COPYRIGHT
+            MapBackground.PlanIgn -> R.string.map_credits_plan_ign to LICENCE_OUVERTE
+            // The names and the sea come from the dark plan: OpenStreetMap's licence asks for the link.
+            MapBackground.PhotoIgn -> R.string.map_credits_photo_ign to OSM_COPYRIGHT
+          }
         Small(
-          stringResource(R.string.map_credits),
+          stringResource(credits),
           VigieColors.Text2,
           Modifier.background(VigieColors.Bar, RoundedCornerShape(10.dp))
             .clickable {
               try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(OSM_COPYRIGHT)))
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(licence)))
               } catch (err: ActivityNotFoundException) {
                 // No browser: the credits stay on screen all the same.
               }
@@ -507,7 +546,7 @@ private fun TownBody(place: Place, viewModel: SeaMapViewModel) {
 }
 /** The back arrow and the search: the spots of the map first, then the towns of the site's search (two letters at least). */
 @Composable
-private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMapViewModel.Hit) -> Unit) {
+private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onLayers: () -> Unit, onHit: (SeaMapViewModel.Hit) -> Unit) {
   val search by viewModel.search.collectAsStateWithLifecycle()
   var text by rememberSaveable { mutableStateOf("") }
   // A line touched closes the list until the next letter typed (its name may be the very word searched: « Capbreton »).
@@ -560,6 +599,11 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMa
           )
         }
       }
+      Spacer(Modifier.size(8.dp))
+      Round(R.drawable.ic_layers, stringResource(R.string.map_layers)) {
+        focus.clearFocus()
+        onLayers()
+      }
     }
     val current = !closed && search.query == text && text.trim().length >= 2
     if (current && (search.hits.isNotEmpty() || search.done)) {
@@ -579,6 +623,45 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onHit: (SeaMa
               hit.detail?.let { Text(it, color = VigieColors.Text3, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
           }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The backgrounds of the map, under the layers button: the dark plan, the IGN's plan and its photographs, the one shown
+ * with its mark, a wheel on the one being read.
+ */
+@Composable
+private fun BackgroundMenu(ui: SeaMapViewModel.Ui, modifier: Modifier, onChoose: (MapBackground) -> Unit) {
+  Column(
+    modifier.padding(horizontal = 12.dp).widthIn(max = 320.dp).background(VigieColors.Bar.copy(alpha = 1f), RoundedCornerShape(18.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(18.dp)).padding(vertical = 6.dp)
+  ) {
+    Text(stringResource(R.string.map_background_title), color = VigieColors.Text3, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+    MapBackground.entries.forEach { b ->
+      val (name, detail) =
+        when (b) {
+          MapBackground.Dark -> R.string.map_background_dark to R.string.map_background_dark_detail
+          MapBackground.PlanIgn -> R.string.map_background_plan_ign to R.string.map_background_plan_ign_detail
+          MapBackground.PhotoIgn -> R.string.map_background_photo_ign to R.string.map_background_photo_ign_detail
+        }
+      val on = b == ui.chosen
+      Row(
+        Modifier.fillMaxWidth().clickable(role = Role.RadioButton) { onChoose(b) }.padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
+          when {
+            on && ui.backgroundBusy -> CircularProgressIndicator(color = VigieColors.Accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            on -> Box(Modifier.size(18.dp).border(2.dp, VigieColors.Accent, CircleShape).padding(4.dp).clip(CircleShape).background(VigieColors.Accent))
+            else -> Box(Modifier.size(18.dp).border(2.dp, VigieColors.Text3, CircleShape))
+          }
+        }
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+          Text(stringResource(name), color = VigieColors.Text, fontSize = 15.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+          Text(stringResource(detail), color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp)
         }
       }
     }
@@ -683,6 +766,13 @@ private fun rememberMapView(): MapView {
   return mapView
 }
 
+private tailrec fun Context.activity(): Activity? =
+  when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.activity()
+    else -> null
+  }
+
 private suspend fun MapView.awaitMap(): MapLibreMap = suspendCancellableCoroutine { cont -> getMapAsync { cont.resume(it) } }
 
 /** The site's `--map-land` (dark), under the map while it loads. */
@@ -694,6 +784,8 @@ private const val LOCATE_ZOOM = 11.0
 /** France as a whole, when no place is shown. */
 private val FRANCE = listOf(46.6, 2.4, 4.8)
 private const val OSM_COPYRIGHT = "https://www.openstreetmap.org/copyright"
+/** The licence of the IGN's data (Licence Ouverte 2.0, Etalab). */
+private const val LICENCE_OUVERTE = "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
 /** The sheet: half the screen, or most of it once pulled up. */
 private const val SHEET_SHORT = 0.5f
 private const val SHEET_TALL = 0.82f

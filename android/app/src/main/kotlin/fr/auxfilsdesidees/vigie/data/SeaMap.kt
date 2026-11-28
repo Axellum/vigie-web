@@ -12,6 +12,22 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 
+/**
+ * The base maps of the sea map (the sketches chosen by the author on 28/11/2026): the site's dark plan (OpenFreeMap, the
+ * whole world) at first, the IGN's plan and its photographs as options (France and its overseas departments). [id] is
+ * what the phone keeps of the choice.
+ */
+enum class MapBackground(val id: String) {
+  Dark("dark"),
+  PlanIgn("plan-ign"),
+  PhotoIgn("photo-ign");
+
+  companion object {
+    /** The background kept on the phone; the dark plan for anything else. */
+    fun of(id: String?): MapBackground = entries.firstOrNull { it.id == id } ?: Dark
+  }
+}
+
 /** The four activities of the sea map, as the chips of the site's `/sea` page (the API's ids). */
 enum class MapActivity(val id: String) {
   Surf("surf"),
@@ -229,20 +245,84 @@ object SeaMap {
   }
 
   /**
-   * The layers of the base map that name the towns (OpenMapTiles' `place` layer), the ones a touch opens a town's sheet
-   * from; the names of countries, regions and seas are not towns. Empty for a style that is not read.
+   * The layers of the base map that name the towns, the ones a touch opens a town's sheet from: OpenMapTiles' `place`
+   * layer (the dark plan and the photos), or the IGN's `toponyme_localite_ponc` (its plan). The names of countries,
+   * regions and seas are not towns. Empty for a style that is not read.
    */
   fun townLayers(style: String): List<String> =
     runCatching { Json.parseToJsonElement(style).obj()["layers"].arr() }
       .getOrDefault(emptyList())
       .mapNotNull { it.objOrNull() }
-      .filter { it["type"].str() == "symbol" && it["source-layer"].str() == "place" }
-      .filter { layer -> TOWN_WORDS.any { layer["id"].str().orEmpty().contains(it) } || TOWN_CLASSES.any { layer["filter"].toString().contains("\"$it\"") } }
+      .filter { it["type"].str() == "symbol" }
+      .filter { layer ->
+        val id = layer["id"].str().orEmpty()
+        when (layer["source-layer"].str()) {
+          "place" -> TOWN_WORDS.any { id.contains(it) } || TOWN_CLASSES.any { layer["filter"].toString().contains("\"$it\"") }
+          IGN_TOWNS -> id.contains("localite")
+          else -> false
+        }
+      }
       .mapNotNull { it["id"].str() }
 
   /** The classes of OpenMapTiles' places that are towns: a touch on another (a country, a region) opens nothing. */
   val TOWN_CLASSES = setOf("city", "town", "village", "hamlet", "suburb")
   private val TOWN_WORDS = setOf("city", "town", "village", "hamlet", "suburb")
+  private const val IGN_TOWNS = "toponyme_localite_ponc"
+
+  /** The names a town's label is read from: French first (OpenMapTiles), the IGN's `texte`, then the others. */
+  val TOWN_NAMES = listOf("name:fr", "texte", "name", "name_en")
+
+  /** Whether [text] is a map style: an object with its layers. */
+  fun isStyle(text: String): Boolean = runCatching { Json.parseToJsonElement(text).obj()["layers"] is JsonArray }.getOrDefault(false)
+
+  /** The style of the IGN's plan (the Géoplateforme's vector tiles), served as it is: in French, with its own colours. */
+  const val PLAN_IGN_STYLE = "https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json"
+
+  /** The IGN's aerial photographs (WMTS, zoom 0 to 19, France and its overseas departments). */
+  const val IGN_PHOTOS =
+    "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}"
+  private const val PHOTOS = "ign-photos"
+  private const val WATER_OVER = "water-over-photos"
+
+  /**
+   * The app's dark style ([styleForApp]) over the IGN's photographs (the sketch chosen on 28/11/2026): the photos under the
+   * names, and the dark sea over the photos, since out at sea the IGN serves white pictures. Nothing else of the base map
+   * is kept: its roads and borders are on the photos. The names are written in white, ringed with dark, to be read on them.
+   */
+  fun styleWithPhotos(appStyle: String): String {
+    val root = Json.parseToJsonElement(appStyle).obj()
+    val layers = root["layers"].arr().mapNotNull { it.objOrNull() }
+    val water = layers.firstOrNull { it["id"].str() == "water" }
+    val photos = JsonObject(mapOf("id" to JsonPrimitive(PHOTOS), "type" to JsonPrimitive("raster"), "source" to JsonPrimitive(PHOTOS), "paint" to JsonObject(mapOf("raster-fade-duration" to JsonPrimitive(0)))))
+    val kept =
+      buildList {
+        layers.firstOrNull { it["id"].str() == "background" }?.let(::add)
+        add(photos)
+        water?.let { add(JsonObject(it + ("id" to JsonPrimitive(WATER_OVER)))) }
+        layers.filter { it["type"].str() == "symbol" }.forEach { add(if (it["layout"].objOrNull()?.get("text-field") != null) it.onPhotos() else it) }
+      }
+    val source =
+      JsonObject(
+        mapOf(
+          "type" to JsonPrimitive("raster"),
+          "tiles" to JsonArray(listOf(JsonPrimitive(IGN_PHOTOS))),
+          "tileSize" to JsonPrimitive(256),
+          "maxzoom" to JsonPrimitive(19),
+          "attribution" to JsonPrimitive("© IGN"),
+        )
+      )
+    val sources = root["sources"].objOrNull() ?: JsonObject(emptyMap())
+    return JsonObject(root + mapOf("sources" to JsonObject(sources + (PHOTOS to source)), "layers" to JsonArray(kept))).toString()
+  }
+
+  private fun JsonObject.onPhotos(): JsonObject {
+    val paint = this["paint"].objOrNull() ?: JsonObject(emptyMap())
+    val white = mapOf("text-color" to JsonPrimitive(PHOTO_TEXT), "text-halo-color" to JsonPrimitive(PHOTO_HALO), "text-halo-width" to JsonPrimitive(1.6))
+    return JsonObject(this + ("paint" to JsonObject(paint + white)))
+  }
+
+  private const val PHOTO_TEXT = "#f6f8fb"
+  private const val PHOTO_HALO = "#0a141b"
 
   private fun JsonObject.withPaint(key: String, value: String): JsonObject {
     val paint = this["paint"].objOrNull() ?: JsonObject(emptyMap())
@@ -294,6 +374,9 @@ class SeaMapReader(
   }
 
   suspend fun style(): String = SeaMap.styleForApp(fetch("$siteUrl/data/basemap/dark.json"))
+
+  /** The IGN's plan, its style as the IGN serves it; an [Exception] when the answer is not a style (a page of maintenance). */
+  suspend fun planIgn(): String = fetch(SeaMap.PLAN_IGN_STYLE).also { require(SeaMap.isStyle(it)) { "the IGN's plan is not a style" } }
 
   suspend fun overview(): String = fetch("$baseUrl/v1/activities/overview")
 

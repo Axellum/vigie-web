@@ -1,0 +1,1 @@
+- Android: the sea map has a layers button, right of the search, to put the IGN's plan or its aerial photographs under the pins instead of the dark plan (France and its overseas departments), with their credits; the choice is kept.

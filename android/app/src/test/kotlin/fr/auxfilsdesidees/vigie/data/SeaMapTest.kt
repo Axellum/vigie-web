@@ -200,4 +200,57 @@ class SeaMapTest {
     // The second waited for the minute of the first.
     assertEquals(listOf(60_000L), waits)
   }
+
+  @Test
+  fun `the IGN's photographs lie under the names, the dark sea over them, and nothing else of the plan stays`() {
+    val dark = SeaMap.styleForApp(fixture("basemap_dark.json"))
+    val style = Json.parseToJsonElement(SeaMap.styleWithPhotos(dark)).jsonObject
+    val layers = style.getValue("layers").jsonArray.map { it.jsonObject }
+    assertEquals(listOf("background", "ign-photos", "water-over-photos", "water_name", "road_oneway"), layers.map { it.getValue("id").jsonPrimitive.content })
+    val byId = layers.associateBy { it.getValue("id").jsonPrimitive.content }
+    // The sea over the photos is the dark plan's, its colour and its filter.
+    val water = Json.parseToJsonElement(dark).jsonObject.getValue("layers").jsonArray.map { it.jsonObject }.single { it.getValue("id").jsonPrimitive.content == "water" }
+    assertEquals(water - "id", byId.getValue("water-over-photos") - "id")
+    // The names in white, ringed with dark; a symbol without a name (an arrow) as served.
+    val paint = byId.getValue("water_name").getValue("paint").jsonObject
+    assertEquals("#f6f8fb", paint.getValue("text-color").jsonPrimitive.content)
+    assertEquals("#0a141b", paint.getValue("text-halo-color").jsonPrimitive.content)
+    assertEquals(1.6, paint.getValue("text-halo-width").jsonPrimitive.content.toDouble(), 0.0)
+    assertNull(byId.getValue("road_oneway")["paint"]?.jsonObject?.get("text-color"))
+    // The photos' source: the IGN's WMTS, to zoom 19; the plan's own source kept for the names.
+    val sources = style.getValue("sources").jsonObject
+    assertEquals(setOf("openmaptiles", "ign-photos"), sources.keys)
+    val photos = sources.getValue("ign-photos").jsonObject
+    assertEquals("raster", photos.getValue("type").jsonPrimitive.content)
+    assertEquals(SeaMap.IGN_PHOTOS, photos.getValue("tiles").jsonArray.single().jsonPrimitive.content)
+    assertEquals(19, photos.getValue("maxzoom").jsonPrimitive.content.toInt())
+    assertEquals("ign-photos", byId.getValue("ign-photos").getValue("source").jsonPrimitive.content)
+  }
+
+  @Test
+  fun `on the IGN's plan, a touch opens a town from its localities, never from a country or a district`() {
+    // Layers of the IGN's plan of 28/11/2026, cut to their id and their source layer.
+    fun layer(id: String) = """{"id":"$id","type":"symbol","source":"plan_ign","source-layer":"toponyme_localite_ponc","layout":{"text-field":"{texte}"}}"""
+    val style = """{"layers":[""" + listOf("toponyme quartier ", "toponyme localite importance 3", "toponyme localite n0 typoA8 commune", "toponyme pays 1", "toponyme continent").joinToString(",") { layer(it) } + "]}"
+    assertEquals(listOf("toponyme localite importance 3", "toponyme localite n0 typoA8 commune"), SeaMap.townLayers(style))
+    assertEquals("texte", SeaMap.TOWN_NAMES[1])
+  }
+
+  @Test
+  fun `the IGN's plan is read as the IGN serves it, and an answer that is not a style fails`() = runTest {
+    val asked = mutableListOf<String>()
+    var answer = """{"version":8,"layers":[]}"""
+    val reader = SeaMapReader("https://api.test", "https://site.test") { url -> asked += url; answer }
+    assertEquals(answer, reader.planIgn())
+    assertEquals(listOf(SeaMap.PLAN_IGN_STYLE), asked)
+    answer = "<html>maintenance</html>"
+    assertEquals(true, runCatching { reader.planIgn() }.isFailure)
+  }
+
+  @Test
+  fun `a background kept on the phone is read back, anything else is the dark plan`() {
+    MapBackground.entries.forEach { assertEquals(it, MapBackground.of(it.id)) }
+    assertEquals(MapBackground.Dark, MapBackground.of(null))
+    assertEquals(MapBackground.Dark, MapBackground.of("satellite"))
+  }
 }
