@@ -24,6 +24,16 @@ class WeatherWordsTest {
   }
 
   @Test
+  fun `the moments of the towns' bar, at the phone's clock`() {
+    // 28/11/2026, 16 h 10 in France.
+    val now = 1795878600L
+    assertEquals(
+      listOf("Maintenant", "19${nb}h", "22${nb}h", "1${nb}h", "Demain 8${nb}h", "Demain 14${nb}h", "lun. 30", "mar. 1"),
+      fr.auxfilsdesidees.vigie.data.TownWeather.moments(now).map { WeatherWords.moment(it, now, off) },
+    )
+  }
+
+  @Test
   fun `the legends' figures`() {
     assertEquals(listOf("0,1", "0,5", "1", "2", "64"), listOf(0.1, 0.5, 1.0, 2.0, 64.0).map(WeatherWords::rate))
     assertEquals(listOf(0, 2, 5, 8), WeatherWords.radarMarks(9))

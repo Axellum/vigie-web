@@ -1,9 +1,13 @@
 package fr.auxfilsdesidees.vigie.ui.map
 
 import fr.auxfilsdesidees.vigie.data.MapWeather
+import fr.auxfilsdesidees.vigie.data.Moment
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.WindPoint
 import fr.auxfilsdesidees.vigie.ui.Words
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * The words of the map's weather layers, as the site's (`wind.*` and `radar.*` of `src/lib/i18n.ts`), with the app's
@@ -37,4 +41,20 @@ internal object WeatherWords {
 
   /** The figures under the wind's legend, in km/h: the limits of its five colours. */
   val windMarks: List<Int> = MapWeather.WIND_STEPS
+
+  private val SHORT_DAY = DateTimeFormatter.ofPattern("EEE d", Locale.FRENCH)
+
+  /**
+   * A moment of the towns' bar, at the phone's clock ([offsetS], seconds east of UTC), as the site's `MomentBar`: « Maintenant »,
+   * « 18 h », « Demain 8 h », « lun. 30 ».
+   */
+  fun moment(m: Moment, nowS: Long, offsetS: Int): String =
+    when (m) {
+      Moment.Now -> "Maintenant"
+      is Moment.Hour -> hour(Math.floorMod(m.t + offsetS, 86_400L) / 3600)
+      is Moment.Local -> "Demain ${hour(m.hour.toLong())}"
+      is Moment.Day -> LocalDate.ofEpochDay(Math.floorDiv(nowS + offsetS, 86_400L) + m.days).format(SHORT_DAY)
+    }
+
+  private fun hour(h: Long) = "$h${NBSP}h"
 }

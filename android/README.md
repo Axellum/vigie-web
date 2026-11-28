@@ -17,7 +17,9 @@ The user chooses the places and their spots; two home screen widgets show one of
   area shown, as any web map does), or, when chosen, the IGN's plan and photographs from `data.geopf.fr` (the same);
   when turned on in its layers' menu, the site's wind measured `GET /data/wind.json?bbox=` (whole degrees around the
   view, again after 6 minutes) and rain radar `GET /data/radar.json?area=` with its tiles `GET /data/radar/…` (again
-  after 5 minutes), both Météo-France's, never `/v1/point`.
+  after 5 minutes), both Météo-France's, never `/v1/point`; unless turned off there, the weather of the towns in view,
+  `GET /data/towns.json?at=` (the cells of the site's grid the towns fall in, 40 at most a request, again after a
+  quarter of an hour).
   Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
