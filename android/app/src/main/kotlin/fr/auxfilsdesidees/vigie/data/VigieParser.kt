@@ -31,6 +31,8 @@ object VigieParser {
           rainProbabilityPct = d["rain_probability_pct"].dbl(),
           windMaxKmh = d["wind_max"].dbl(),
           sunshineH = d["sunshine_h"].dbl(),
+          uvMax = d["uv_max"].dbl(),
+          snowfallCm = d["snowfall_cm"].dbl(),
         )
       }
     // `hourly` is absent from the compact payload and from an API older than ADR 0040: the list then stays empty.
@@ -48,6 +50,8 @@ object VigieParser {
           isDay = h["is_day"].bool(),
           rainProbabilityPct = h["precipitation_probability_pct"].dbl(),
           cloudCoverPct = h["cloud_cover_pct"].dbl(),
+          feelsLikeC = h["feels_like_c"].dbl(),
+          freezingLevelM = h["freezing_level_m"].dbl(),
         )
       }
     // A step without a number makes the whole hour unread rather than dry: nothing is claimed without data.
@@ -123,7 +127,27 @@ object VigieParser {
       season = season(root),
       probabilities = probabilities,
       weatherAttribution = root["weather_attribution"].str(),
+      marine = root["marine"].objOrNull()?.let(::marine),
+      elevationM = coordinates?.get("elevation_m").dbl(),
     )
+  }
+
+  /** `marine` of `/v1/point`; null when it holds neither waves nor water (a point the sea models do not reach). */
+  private fun marine(m: JsonObject): Marine? {
+    val sea =
+      Marine(
+        waveM = m["wave_height_m"].dbl(),
+        waveFromDeg = m["wave_direction_deg"].dbl(),
+        wavePeriodS = m["wave_period_s"].dbl(),
+        swellM = m["swell_wave_height_m"].dbl(),
+        swellFromDeg = m["swell_wave_direction_deg"].dbl(),
+        swellPeriodS = m["swell_wave_period_s"].dbl(),
+        currentKmh = m["ocean_current_velocity_kmh"].dbl(),
+        currentToDeg = m["ocean_current_direction_deg"].dbl(),
+        waterC = m["sea_surface_temperature_c"].dbl(),
+        attribution = m["attribution"].str(),
+      )
+    return sea.takeIf { it.waveM != null || it.waterC != null }
   }
 
   /** Avalanches, drought and pollen of `/v1/point`, as the Home Assistant card reads them (`seasonItems`). */

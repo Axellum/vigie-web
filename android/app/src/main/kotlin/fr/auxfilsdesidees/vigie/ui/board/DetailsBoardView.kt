@@ -124,7 +124,7 @@ internal fun Bloc(title: String, right: String, pal: BoardPalette, content: @Com
 }
 
 /** Writes [text] with its left edge ([align] −1), its centre (0) or its right edge (1) at [x] (card px), its line from [top]. */
-private fun DrawScope.textAt(
+internal fun DrawScope.textAt(
   m: TextMeasurer,
   text: String,
   x: Float,

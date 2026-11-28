@@ -394,6 +394,12 @@ object HomeBoard {
   private val DROUGHT_TONE = mapOf("vigilance" to "jaune", "alerte" to "orange", "alerte_renforcee" to "orange", "crise" to "rouge")
   private val DROUGHT_WORD = mapOf("vigilance" to "vigilance", "alerte" to "alerte", "alerte_renforcee" to "alerte renforcée", "crise" to "crise")
   private val AVALANCHE_WORD = listOf("", "faible", "limité", "marqué", "fort", "très fort")
+
+  /** The word of an avalanche risk level, 1 to 5 (« limité »); empty out of the scale. */
+  fun avalancheWord(level: Int): String = AVALANCHE_WORD.getOrElse(level) { "" }
+
+  /** The tone of an avalanche risk level: green to 1, yellow 2, orange 3, red from 4 (the season's line and the Pistes tab). */
+  fun avalancheTone(level: Int): String = if (level <= 1) "vert" else if (level == 2) "jaune" else if (level == 3) "orange" else "rouge"
   private val POLLEN_SPECIES = listOf("alder", "birch", "grass", "mugwort", "olive", "ragweed")
   private val SPECIES = mapOf("alder" to "aulne", "birch" to "bouleau", "grass" to "graminées", "mugwort" to "armoise", "olive" to "olivier", "ragweed" to "ambroisie")
 
@@ -408,8 +414,7 @@ object HomeBoard {
     val av = p.season.avalanche
     val l = av?.maxDangerLevel
     if (av != null && av.status == "active" && l != null && l in 1..5 && (av.validUntilUtc == null || av.validUntilUtc > now)) {
-      val tone = if (l <= 1) "vert" else if (l == 2) "jaune" else if (l == 3) "orange" else "rouge"
-      items += Item("montagne", tone, "Avalanches · risque $l (${AVALANCHE_WORD[l]})", av.regionName.orEmpty())
+      items += Item("montagne", avalancheTone(l), "Avalanches · risque $l (${avalancheWord(l)})", av.regionName.orEmpty())
     }
     val dr = p.season.drought
     val rank = DROUGHT_RANK[dr?.maxLevel] ?: 0
@@ -512,6 +517,8 @@ object HomeBoard {
     val share: Double? = null,
     /** The day under way at the place (« Auj. »); false for every day of an answer that has no today any more. */
     val today: Boolean = false,
+    /** Its date at the place (`2026-11-28`), to find what the column does not draw (the UV, the snow of the Plages and Pistes tab). */
+    val date: String = "",
   )
 
   /** The hours of daylight of a local [day] (days since 1970 at the place), counted by 10 minutes; null without the place. */
@@ -577,6 +584,7 @@ object HomeBoard {
         sun = share ?: sunOfHours(hrs.filter { it.isDay == true }) ?: sunOfCode(d.code),
         sunshineH = d.sunshineH,
         share = share,
+        date = d.date,
       )
     }
   }

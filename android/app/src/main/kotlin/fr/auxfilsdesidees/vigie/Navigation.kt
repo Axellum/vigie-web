@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import fr.auxfilsdesidees.vigie.data.AppData
 import fr.auxfilsdesidees.vigie.data.BeachReader
+import fr.auxfilsdesidees.vigie.data.KeptNearby
 import fr.auxfilsdesidees.vigie.data.PointGate
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.VigieRepository
@@ -22,6 +23,7 @@ import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
 import fr.auxfilsdesidees.vigie.ui.Locator
+import fr.auxfilsdesidees.vigie.ui.NearbyViewModel
 import fr.auxfilsdesidees.vigie.ui.SeaViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
@@ -60,6 +62,8 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
 
   // The beaches of the Sea page, read when it shows one.
   val sea: SeaViewModel = viewModel { SeaViewModel(AppData.beaches(context, baseUrl)) }
+  // The Plages and Pistes tab, where the fourth tab is not « Mer »: its reads on a share of `/v1/point` of their own, three a minute.
+  val nearby: NearbyViewModel = viewModel { NearbyViewModel(AppData.nearby(context, baseUrl), KeptNearby(AppData.settings(context))) }
   // The sea map: its base map read once, its pins again when it opens after ten minutes; its search of towns is the site's.
   // Its sheets read `/v1/point` (a town's weather, a beach's water) on a share of their own, four a minute.
   val seaMap: SeaMapViewModel = viewModel {
@@ -95,6 +99,7 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
           VigieApp(
             viewModel,
             sea,
+            nearby,
             onSettings = { backStack.add(Settings) },
             onWarnings = { backStack.add(WarningsPage) },
             onMap = { backStack.add(MapPage) },
