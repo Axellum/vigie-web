@@ -37,7 +37,7 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	const rail = layerRail(page);
 	// The weather of the towns, the relief and the details of the IGN are on at first: their families say so.
-	// "Here" acts on the side panel; the sky and travel are still pages of their own, linked from the rail.
+	// "Here" and the sea act on the side panel; the sky and travel are still pages of their own, linked from the rail.
 	await expect(rail.getByRole('button')).toHaveText([
 		'Ici',
 		'Alertes',
@@ -94,11 +94,19 @@ test('the rail of the home map stands beside it, and each family opens its layer
 		'wind-toggle'
 	])
 		await expect(page.getByTestId(id)).toBeAttached();
-	// One family at a time; its own button folds it again. The sea holds the tide, and leads to the sea page.
-	await openLayers(page, 'Mer');
+	// One family at a time; its own button folds it again. The sea takes the side panel, with the tide and the sea page.
+	const seaButton = rail.getByRole('button', { name: 'Mer' });
+	await seaButton.click();
+	await expect(seaButton).toHaveAttribute('aria-pressed', 'true');
 	await expect(rail.getByRole('button', { name: /^Météo/ })).toHaveAttribute('aria-expanded', 'false');
+	await expect(panel).toHaveCount(0);
+	const sea = page.locator('section.sea');
+	await expect(sea.getByRole('heading', { level: 2, name: 'Aller à l’eau ?' })).toBeVisible();
 	await expect(page.getByTestId('tide-toggle')).toBeVisible();
-	await expect(panel.getByRole('link', { name: /page Mer/ })).toHaveAttribute('href', '/sea');
+	await expect(sea.getByRole('link', { name: /page Mer/ })).toHaveAttribute('href', '/sea');
+	await seaButton.click();
+	await expect(seaButton).toHaveAttribute('aria-pressed', 'false');
+	await expect(sea).toHaveCount(0);
 	await openLayers(page, 'Carte');
 	for (const id of ['relief-toggle', 'contours-toggle', 'photo-toggle', 'details-toggle'])
 		await expect(page.getByTestId(id)).toBeVisible();
@@ -148,5 +156,45 @@ test('"here" puts the map on a place of the address, its cards in short beside i
 	// And comes back to the place, kept in the page.
 	await here.click();
 	await expect(panel.getByRole('heading', { name: 'Vigilances officielles' })).toBeVisible();
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('the sea family says where to go in the side panel, pins the spots on the map, and opens the card of a spot over it', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	const hossegor = 'soorts-hossegor-plage-sud-point-d-or';
+	await page.goto('/');
+	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	await layerRail(page).getByRole('button', { name: 'Mer' }).click();
+	const sea = page.locator('section.sea');
+	await expect(sea.locator('.said')).not.toBeEmpty();
+	// The activities as chips, the surf first; another is kept for the sea page too.
+	const chips = sea.getByRole('group', { name: 'Mon activité' }).getByRole('button');
+	await expect(chips).toHaveCount(4);
+	await expect(chips.first()).toHaveAttribute('aria-pressed', 'true');
+	await expect(sea.getByRole('heading', { name: 'Les meilleurs maintenant' })).toBeVisible();
+	await expect(sea.locator('.spots li').first()).toBeVisible();
+
+	// A pin opens the card of its spot over the map; Escape closes it.
+	await page.evaluate(() =>
+		(window as unknown as { vigieMap: { jumpTo(o: object): void } }).vigieMap.jumpTo({
+			center: [-1.44, 43.66],
+			zoom: 11
+		})
+	);
+	const pin = page.locator(`[data-testid="sea-pin"][data-spot="${hossegor}"]`);
+	await expect(pin).toBeVisible();
+	await pin.click();
+	const card = page.getByTestId('spot-bubble');
+	await expect(card).toBeVisible();
+	await expect(card.getByRole('tab', { name: 'Surf' })).toHaveAttribute('aria-selected', 'true');
+	await page.keyboard.press('Escape');
+	await expect(card).toHaveCount(0);
+
+	// Another activity: the chip is pressed, and the sea page reads it next time.
+	await chips.nth(1).click();
+	await expect(chips.nth(1)).toHaveAttribute('aria-pressed', 'true');
+	expect(await page.evaluate(() => localStorage.getItem('vigie-sea'))).toContain('kite');
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });

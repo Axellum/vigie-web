@@ -834,12 +834,29 @@ test('the tide layer is off until asked, and asks to come closer on the world ma
 	await page.goto('/');
 	await expect(page.getByRole('heading', { level: 2, name: 'Le point' })).toBeVisible();
 	await expect(page.getByText(/Pas pour la navigation/)).toHaveCount(0);
+	// The tide is in the side panel of the sea family, which puts the map on the coast: back to the world before asking.
 	await openLayers(page, 'Marée');
+	await expect(page.getByTestId('tide-toggle')).not.toBeChecked();
+	await expect(page.locator('section.sea .said')).not.toBeEmpty();
+	await expect
+		.poll(() =>
+			page.evaluate(() => (window as unknown as { vigieMap: { getZoom(): number } }).vigieMap.getZoom())
+		)
+		.toBeGreaterThan(4);
+	await page.evaluate(() =>
+		(window as unknown as { vigieMap: { jumpTo(o: object): void } }).vigieMap.jumpTo({
+			center: [0, 20],
+			zoom: 2
+		})
+	);
 	await page.getByTestId('tide-toggle').check();
 	await expect(page.getByText('Rapprochez la carte pour voir la marée le long des côtes.')).toBeVisible();
 	await expect(page.getByText(/Pas pour la navigation/)).toBeVisible();
-	// No tile at this distance, so no credit yet.
-	await expect(page.getByText(coast.metadata.attribution)).toHaveCount(0);
+	// No tile at this distance, so no credit of the layer yet (the verdicts of the sea panel credit the tide model themselves).
+	const credited = page.getByText(coast.metadata.attribution);
+	await expect(credited).toHaveCount(
+		await page.locator('section.sea').getByText(coast.metadata.attribution).count()
+	);
 });
 
 test('the tide of a point and a tile of the coast check what they are asked, and are cacheable', async ({
