@@ -33,6 +33,50 @@ class MapWeatherTest {
   }
 
   @Test
+  fun `the nowcast PIAF of the next hour follows the newest image measured, each forecast image with its run`() {
+    val n = requireNotNull(MapWeather.nowcast(fixture("radar_france_nowcast.json")))
+    assertEquals(1795876200L, n.run)
+    assertEquals(18, n.frames.size)
+    assertEquals(RadarFrame(1795876500L, 5), n.frames.first())
+    assertEquals(RadarFrame(1795881600L, 90), n.frames.last())
+    assertEquals(GeoBox(-6.0, 41.0, 10.5, 51.5), n.bounds)
+    assertEquals(3.0, n.minZoom, 0.0)
+    assertEquals(10.0, n.maxZoom, 0.0)
+
+    val measured = MapWeather.radar(fixture("radar_france.json"), RadarArea.France)
+    assertEquals(measured.frames.map { RadarFrame(it) }, measured.timeline)
+    assertFalse(measured.hasNowcast)
+    // The forecast of the newest image measured (+5 min) is left out: the slider goes from the measured to what comes after.
+    val r = measured.copy(nowcast = n)
+    assertEquals(8, r.observedCount)
+    assertEquals(25, r.timeline.size)
+    assertTrue(r.hasNowcast)
+    assertEquals(RadarFrame(1795876500L), r.timeline[7])
+    assertFalse(r.timeline[7].forecast)
+    assertEquals(RadarFrame(1795876800L, 10), r.timeline[8])
+    assertTrue(r.timeline[8].forecast)
+
+    val site = "https://site.test"
+    assertEquals("https://site.test/data/radar/france/1795874400/{z}/{x}/{y}.png", MapWeather.frameTiles(site, r, r.timeline.first()))
+    assertEquals("https://site.test/data/radar/france/nowcast/tiles/1795876800/{z}/{x}/{y}.png?run=1795876200", MapWeather.frameTiles(site, r, r.timeline[8]))
+    assertEquals("https://site.test/data/radar/france/nowcast/tiles/1795876800/{z}/{x}/{y}.png", MapWeather.nowcastTiles(site, 1795876800L, null))
+  }
+
+  @Test
+  fun `a nowcast without a forecast image is none, its images kept in time order`() {
+    for (text in listOf("<html>maintenance</html>", "{}", """{"frames":[]}""", """{"frames":[{"epoch":1795876800,"leadMinutes":0},{"epoch":1795877100}]}""")) {
+      assertNull(text, runCatching { MapWeather.nowcast(text) }.getOrNull())
+    }
+    val n = requireNotNull(MapWeather.nowcast("""{"runUtc":null,"frames":[{"epoch":1795877100,"leadMinutes":9.6},{"epoch":1795876800,"leadMinutes":5}]}"""))
+    assertNull(n.run)
+    assertEquals(listOf(RadarFrame(1795876800L, 5), RadarFrame(1795877100L, 10)), n.frames)
+    assertEquals(MapWeather.NOWCAST_BOX, n.bounds)
+    // A nowcast all before the newest image measured adds nothing to the slider.
+    val measured = MapWeather.radar(fixture("radar_france.json"), RadarArea.France)
+    assertFalse(measured.copy(nowcast = n.copy(frames = listOf(RadarFrame(1795876500L, 5)))).hasNowcast)
+  }
+
+  @Test
   fun `an answer without images is not a radar`() {
     for (text in listOf("<html>maintenance</html>", "{}", """{"frames":[],"legend":[{"minMmH":0.1,"color":"#a6cee3","alpha":1}]}""", """{"frames":[1795874400],"legend":[]}""")) {
       assertTrue(text, runCatching { MapWeather.radar(text, RadarArea.France) }.isFailure)

@@ -236,10 +236,15 @@
     <string name="map_rain_legend">Intensité de la pluie en millimètres par heure</string>
     <string name="map_rain_unit">mm/h</string>
     <string name="map_rain_measured">Mesuré par radar, pas une prévision.</string>
+    <string name="map_rain_nowcast_at">Prévision PIAF (%1$s) · %2$s</string>
+    <string name="map_rain_nowcast_note">Prévision immédiate PIAF (Météo-France), pas une mesure radar.</string>
+    <string name="map_rain_phase_observed">Observé</string>
+    <string name="map_rain_phase_nowcast">Prévision PIAF +1\u00A0h</string>
     <string name="map_rain_hide">Masquer le radar de pluie</string>
     <string name="map_rain_failed">Le radar de pluie n\'a pas pu être chargé.</string>
     <string name="map_rain_loading">Chargement du radar de pluie…</string>
     <string name="map_credits_meteo_france">%1$s : Météo-France · Licence Ouverte</string>
+    <string name="map_credits_piaf">Prévision de pluie PIAF : Météo-France</string>
     <string name="map_credits_towns">Météo des villes : Météo-France et Open-Meteo</string>
     <string name="map_flow">Vent prévu</string>
     <string name="map_flow_detail">Traits qui filent avec le vent (Météo-France).</string>

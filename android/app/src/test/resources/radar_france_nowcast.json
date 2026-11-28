@@ -1,0 +1,136 @@
+{
+  "runUtc": 1795876200,
+  "frames": [
+    {
+      "epoch": 1795876500,
+      "leadMinutes": 5
+    },
+    {
+      "epoch": 1795876800,
+      "leadMinutes": 10
+    },
+    {
+      "epoch": 1795877100,
+      "leadMinutes": 15
+    },
+    {
+      "epoch": 1795877400,
+      "leadMinutes": 20
+    },
+    {
+      "epoch": 1795877700,
+      "leadMinutes": 25
+    },
+    {
+      "epoch": 1795878000,
+      "leadMinutes": 30
+    },
+    {
+      "epoch": 1795878300,
+      "leadMinutes": 35
+    },
+    {
+      "epoch": 1795878600,
+      "leadMinutes": 40
+    },
+    {
+      "epoch": 1795878900,
+      "leadMinutes": 45
+    },
+    {
+      "epoch": 1795879200,
+      "leadMinutes": 50
+    },
+    {
+      "epoch": 1795879500,
+      "leadMinutes": 55
+    },
+    {
+      "epoch": 1795879800,
+      "leadMinutes": 60
+    },
+    {
+      "epoch": 1795880100,
+      "leadMinutes": 65
+    },
+    {
+      "epoch": 1795880400,
+      "leadMinutes": 70
+    },
+    {
+      "epoch": 1795880700,
+      "leadMinutes": 75
+    },
+    {
+      "epoch": 1795881000,
+      "leadMinutes": 80
+    },
+    {
+      "epoch": 1795881300,
+      "leadMinutes": 85
+    },
+    {
+      "epoch": 1795881600,
+      "leadMinutes": 90
+    }
+  ],
+  "intervalMinutes": 5,
+  "minZoom": 3,
+  "maxZoom": 10,
+  "bounds": [
+    -6,
+    41,
+    10.5,
+    51.5
+  ],
+  "legend": [
+    {
+      "minMmH": 0.1,
+      "color": "#a6cee3",
+      "alpha": 0.67
+    },
+    {
+      "minMmH": 0.5,
+      "color": "#60a5fa",
+      "alpha": 0.78
+    },
+    {
+      "minMmH": 1,
+      "color": "#2563eb",
+      "alpha": 0.84
+    },
+    {
+      "minMmH": 2,
+      "color": "#22c55e",
+      "alpha": 0.88
+    },
+    {
+      "minMmH": 4,
+      "color": "#facc15",
+      "alpha": 0.92
+    },
+    {
+      "minMmH": 8,
+      "color": "#f97316",
+      "alpha": 0.94
+    },
+    {
+      "minMmH": 16,
+      "color": "#dc2626",
+      "alpha": 0.96
+    },
+    {
+      "minMmH": 32,
+      "color": "#a21caf",
+      "alpha": 0.98
+    },
+    {
+      "minMmH": 64,
+      "color": "#581c87",
+      "alpha": 1
+    }
+  ],
+  "attribution": "Source: Météo-France, prévision immédiate des précipitations PIAF (https://portail-api.meteofrance.fr), 5-minute steps drawn as tiles by a vigie-meteo gateway: the intensity classes and their colours are ours",
+  "note": "Short-term rain nowcast (+5 to +60 min) from Météo-France PIAF, 5-minute steps drawn as tiles by a vigie-meteo gateway. A forecast, not a radar measure. Not for safety.",
+  "stale": false
+}

@@ -71,10 +71,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -88,6 +94,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -325,7 +332,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   LaunchedEffect(style, weather.radar, weather.epoch, weather.preload) {
     val s = style ?: return@LaunchedEffect
     val radar = weather.radar
-    MapLayers.showRadar(s, radar, weather.epoch, weather.preload) { epoch -> viewModel.radarTiles(radar!!.area, epoch) }
+    MapLayers.showRadar(s, radar, weather.epoch, weather.preload) { frame -> viewModel.radarTiles(radar!!, frame) }
   }
   // The wind's badges kept on screen, the strongest first where two would touch.
   LaunchedEffect(style, weather.windMap, windView, weather.unit) {
@@ -548,7 +555,9 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
         val meteo = WeatherWords.meteoFranceLayers(rain = rainShown, wind = weather.wind, flow = flowGrids != null)
         val townsCredit = if (towns.on && towns.near) stringResource(R.string.map_credits_towns) else null
         val meteoCredit = meteo?.let { stringResource(R.string.map_credits_meteo_france, it) }
-        listOfNotNull(townsCredit, meteoCredit).joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
+        // The forecast's own credit, without a licence: the one of PIAF is not checked yet (the API's `SOURCES.md`).
+        val piafCredit = if (rainShown && weather.radar?.hasNowcast == true) stringResource(R.string.map_credits_piaf) else null
+        listOfNotNull(townsCredit, meteoCredit, piafCredit).joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
           Small(
             it,
             VigieColors.Text2,
@@ -1096,7 +1105,9 @@ private fun UnitChoice(unit: WindUnit, onUnit: (WindUnit) -> Unit, modifier: Mod
 /**
  * The card of the rain radar, above the legend while the layer is on and the map on an area of the radar (the site's
  * `RadarCard`): the time of the image, Play or Pause, a slider over the last 35 minutes, the legend of the intensities,
- * and « Mesuré par radar, pas une prévision. ».
+ * and « Mesuré par radar, pas une prévision. ». On France the slider goes on into the rain nowcast PIAF of the next hour:
+ * two buttons go to the newest image measured or to the first forecast, a mark on the slider parts them, and the title
+ * and the note say when an image is a forecast.
  */
 @Composable
 private fun RadarCard(weather: MapWeatherModel.State, model: MapWeatherModel) {
@@ -1110,8 +1121,15 @@ private fun RadarCard(weather: MapWeatherModel.State, model: MapWeatherModel) {
       return@WeatherCard
     }
     val offset = TimeZone.getDefault().getOffset(epoch * 1000) / 1000
-    CardHead(stringResource(R.string.map_rain_at, Words.clock(epoch, offset)), hide) { model.showRain(false) }
-    val frames = radar.frames
+    val time = Words.clock(epoch, offset)
+    val lead = weather.frame?.leadMinutes
+    CardHead(if (lead != null) stringResource(R.string.map_rain_nowcast_at, WeatherWords.lead(lead), time) else stringResource(R.string.map_rain_at, time), hide) {
+      model.showRain(false)
+    }
+    if (radar.hasNowcast) PhaseChoice(forecast = lead != null, onObserved = { model.choose(radar.observedCount - 1) }, onForecast = { model.choose(radar.observedCount) })
+    val frames = radar.timeline
+    // Where the measured images end on the slider, as the site's mark between « Observé » and the forecast.
+    val split = if (radar.hasNowcast) (radar.observedCount - 1) / (frames.size - 1).toFloat() else null
     Row(Modifier.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
       Row(
         Modifier.height(32.dp)
@@ -1142,7 +1160,14 @@ private fun RadarCard(weather: MapWeatherModel.State, model: MapWeatherModel) {
               activeTickColor = VigieColors.Accent,
               inactiveTickColor = VigieColors.Text3,
             ),
-          modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = slider },
+          modifier =
+            Modifier.weight(1f)
+              .height(32.dp)
+              .drawBehind { split?.let { splitMark(it) } }
+              .semantics {
+                contentDescription = slider
+                stateDescription = if (lead != null) "$time (${WeatherWords.lead(lead)})" else time
+              },
         )
       }
     }
@@ -1160,7 +1185,64 @@ private fun RadarCard(weather: MapWeatherModel.State, model: MapWeatherModel) {
         }
       )
     }
-    CardNote(stringResource(R.string.map_rain_measured))
+    CardNote(stringResource(if (lead != null) R.string.map_rain_nowcast_note else R.string.map_rain_measured))
+  }
+}
+
+/**
+ * Where the ticks of Material's slider (1.4) start and end inside it: the first and the last image. Measured on the Pixel
+ * (a capture at 1 440 px): with 2 dp, the mark stood 10 px before the tick of the newest image measured.
+ */
+private val TICK_INSET = 12.dp
+
+/** The height of the mark: a little more than the track (16 dp), as the site's stands across its slider. */
+private val SPLIT_HEIGHT = 24.dp
+
+/** The site's `.split-mark`: 2 dp of the text's colour, a little see-through, on the tick at [at] (0 to 1), under the slider. */
+private fun DrawScope.splitMark(at: Float) {
+  val inset = TICK_INSET.toPx()
+  val width = 2.dp.toPx()
+  val height = SPLIT_HEIGHT.toPx()
+  val x = inset + at * (size.width - 2 * inset)
+  drawRect(VigieColors.Text.copy(alpha = 0.45f), topLeft = Offset(x - width / 2, (size.height - height) / 2), size = Size(width, height))
+}
+
+/**
+ * The two parts of the radar's slider (the site's `.phase`): « Observé » goes to the newest image measured, « Prévision PIAF
+ * +1 h » to the first forecast. The part shown is ringed and written in the accent colour, the forecast's ring dashed.
+ */
+@Composable
+private fun PhaseChoice(forecast: Boolean, onObserved: () -> Unit, onForecast: () -> Unit) {
+  Row(Modifier.padding(end = 8.dp).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+    PhasePart(stringResource(R.string.map_rain_phase_observed), on = !forecast, dashed = false, onObserved)
+    Text("|", color = VigieColors.Rule, fontSize = 12.sp)
+    PhasePart(stringResource(R.string.map_rain_phase_nowcast), on = forecast, dashed = true, onForecast)
+  }
+}
+
+@Composable
+private fun PhasePart(text: String, on: Boolean, dashed: Boolean, onClick: () -> Unit) {
+  Box(
+    Modifier.heightIn(min = 30.dp)
+      .clip(RoundedCornerShape(50))
+      .background(if (on) VigieColors.Accent.copy(alpha = 0.16f) else Color.Transparent)
+      .drawBehind {
+        if (!on) return@drawBehind
+        val stroke = 1.dp.toPx()
+        val dash = if (dashed) PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())) else null
+        drawRoundRect(
+          VigieColors.Accent,
+          topLeft = Offset(stroke / 2, stroke / 2),
+          size = Size(size.width - stroke, size.height - stroke),
+          cornerRadius = CornerRadius(size.height / 2),
+          style = Stroke(stroke, pathEffect = dash),
+        )
+      }
+      .selectable(selected = on, role = Role.RadioButton, onClick = onClick)
+      .padding(horizontal = 10.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(text, color = if (on) VigieColors.Accent else VigieColors.Text3, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
   }
 }
 

@@ -17,7 +17,8 @@ The user chooses the places and their spots; two home screen widgets show one of
   area shown, as any web map does), or, when chosen, the IGN's plan and photographs from `data.geopf.fr` (the same);
   when turned on in its layers' menu, the site's wind measured `GET /data/wind.json?bbox=` (whole degrees around the
   view, again after 6 minutes) and rain radar `GET /data/radar.json?area=` with its tiles `GET /data/radar/…` (again
-  after 5 minutes), both Météo-France's, never `/v1/point`; unless turned off there, the weather of the towns in view,
+  after 5 minutes), on France with the rain nowcast PIAF of the next hour `GET /data/radar/france/nowcast` and its
+  tiles `GET /data/radar/france/nowcast/tiles/…` (asked with the radar), all Météo-France's, never `/v1/point`; unless turned off there, the weather of the towns in view,
   `GET /data/towns.json?at=` (the cells of the site's grid the towns fall in, 40 at most a request, again after a
   quarter of an hour); when turned on, the forecast wind of the hour, `GET /data/wind-field.json` (again after 10
   minutes or when the hour turns) and the images of the grids the view needs, `GET /data/wind-field/…` (the world's

@@ -11,7 +11,8 @@ import fr.auxfilsdesidees.vigie.data.MapPin
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
 import fr.auxfilsdesidees.vigie.data.PointNow
-import fr.auxfilsdesidees.vigie.data.RadarArea
+import fr.auxfilsdesidees.vigie.data.Radar
+import fr.auxfilsdesidees.vigie.data.RadarFrame
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
 import fr.auxfilsdesidees.vigie.data.VigieParser
@@ -65,8 +66,8 @@ class SeaMapViewModel(
   /** The forecast wind, drawn as trails: off until chosen, the choice kept on the phone. */
   val windField = WindFieldModel(viewModelScope, reader, FieldImage::pixels, clock, kept)
 
-  /** The address of the tiles of one radar image. */
-  fun radarTiles(area: RadarArea, epoch: Long): String = reader.radarTiles(area, epoch)
+  /** The address of the tiles of one image of the radar's slider, measured or forecast. */
+  fun radarTiles(radar: Radar, frame: RadarFrame): String = reader.radarTiles(radar, frame)
 
   /** What the sheet shows: a spot of the map (its Mer page) or a town (its Accueil). */
   sealed interface Sheet {

@@ -43,6 +43,9 @@ internal object WeatherWords {
   /** A rain rate of the legend: « 0,1 », « 2 », « 64 ». */
   fun rate(mmH: Double): String = SeaMap.number(mmH, 1)
 
+  /** How far ahead a forecast image of the rain is, as the site writes it: « +15 min ». */
+  fun lead(minutes: Int): String = "+$minutes${NBSP}min"
+
   /** The marks under the radar's legend: the first class, about each step of the scale, and the last. */
   fun radarMarks(classes: Int): List<Int> = listOf(0, 2, 5, classes - 1).filter { it in 0 until classes }.distinct()
 

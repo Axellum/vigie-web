@@ -2,6 +2,9 @@ package fr.auxfilsdesidees.vigie.data
 
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -382,14 +385,30 @@ class SeaMapReader(
 
   suspend fun overview(): String = fetch("$baseUrl/v1/activities/overview")
 
-  /** The radar's images of [area] on the site (the API's, relayed and kept a few minutes by the site). */
-  suspend fun radar(area: RadarArea): Radar = MapWeather.radar(fetch("$siteUrl/data/radar.json?area=${area.id}"), area)
+  /**
+   * The radar's images of [area] on the site (the API's, relayed and kept a few minutes by the site); on France, with the
+   * rain nowcast PIAF of the next hour asked at the same time, as the site asks it.
+   */
+  suspend fun radar(area: RadarArea): Radar = coroutineScope {
+    val nowcast = if (area == RadarArea.France) async { nowcast() } else null
+    MapWeather.radar(fetch("$siteUrl/data/radar.json?area=${area.id}"), area).copy(nowcast = nowcast?.await())
+  }
+
+  /** The nowcast on the site; null when it has none (a 404) or it cannot be read: the radar is shown without it. */
+  private suspend fun nowcast(): RadarNowcast? =
+    try {
+      MapWeather.nowcast(fetch("$siteUrl/data/radar/france/nowcast"))
+    } catch (err: CancellationException) {
+      throw err
+    } catch (err: Exception) {
+      null
+    }
 
   /** The wind measured in [box] (whole degrees, [MapWeather.windQueryBox]), on the site. */
   suspend fun wind(box: GeoBox): WindMap = MapWeather.wind(fetch("$siteUrl/data/wind.json?bbox=${MapWeather.windBox(box)}"), box)
 
-  /** The address of the tiles of one radar image. */
-  fun radarTiles(area: RadarArea, epoch: Long): String = MapWeather.radarTiles(siteUrl, area, epoch)
+  /** The address of the tiles of one image of the radar's slider, measured or forecast. */
+  fun radarTiles(radar: Radar, frame: RadarFrame): String = MapWeather.frameTiles(siteUrl, radar, frame)
 
   /** The grids of the forecast wind of the hour, on the site. */
   suspend fun windField(): WindFieldAnswer = WindField.answer(fetch("$siteUrl/data/wind-field.json"))
