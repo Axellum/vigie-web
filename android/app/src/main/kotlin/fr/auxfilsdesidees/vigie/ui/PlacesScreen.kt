@@ -161,14 +161,14 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Column(Modifier.weight(1f)) {
-            Text(f.place.name, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
+            Text(f.place.label, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
             val where = listOfNotNull(f.place.region, if (shown) stringResource(R.string.place_shown) else null).joinToString(" · ")
             if (where.isNotEmpty()) Text(where, color = if (shown) VigieColors.Accent else VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
           }
-          if (canNotify) BellPill(f.bell, f.place.name) { bellFor = i }
+          if (canNotify) BellPill(f.bell, f.place.label) { bellFor = i }
           if (choices.places.size > 1) {
             IconButton(onClick = { viewModel.removePlace(i) }) {
-              Icon(painterResource(R.drawable.ic_close), stringResource(R.string.place_remove, f.place.name), tint = VigieColors.Text3)
+              Icon(painterResource(R.drawable.ic_close), stringResource(R.string.place_remove, f.place.label), tint = VigieColors.Text3)
             }
           }
         }
@@ -209,13 +209,13 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
         )
       }
       bellFor?.let { i ->
-        choices.places.getOrNull(i)?.let { f -> BellDialog(f.place.name, f.bell, onChoose = { chooseBell(i, it) }, onClose = { bellFor = null }) }
+        choices.places.getOrNull(i)?.let { f -> BellDialog(f.place.label, f.bell, onChoose = { chooseBell(i, it) }, onClose = { bellFor = null }) }
       }
     }
 
     val f = choices.currentPlace ?: return@SkyPage
     val bySpot = (catalogue as? CatalogueState.Ready)?.spots?.associateBy { it.id }.orEmpty()
-    Section(stringResource(R.string.spots_header, Words.near(f.place.name)))
+    Section(stringResource(R.string.spots_header, Words.near(f.place.nearName)))
     Text(stringResource(R.string.spots_star_hint), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
     Glass {
       if (f.spots.isEmpty()) Text(stringResource(R.string.spots_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
@@ -238,7 +238,7 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
       }
     }
 
-    Section(stringResource(R.string.spots_add_header, Words.near(f.place.name)))
+    Section(stringResource(R.string.spots_add_header, Words.near(f.place.nearName)))
     when (val c = catalogue) {
       CatalogueState.Idle,
       CatalogueState.Loading -> Text(stringResource(R.string.spots_loading), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
@@ -299,7 +299,7 @@ internal fun PlaceSearch(viewModel: HomeViewModel, picked: Place?, onPick: (Plac
       val at = Locator.locate(context)
       locating = false
       if (at == null) locateError = R.string.locate_none
-      else pick(Place(myPosition, Geo.roundKm(at.latitude), Geo.roundKm(at.longitude)))
+      else pick(Place("", Geo.roundKm(at.latitude), Geo.roundKm(at.longitude), here = true))
     }
   }
   val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) locate() else locateError = R.string.locate_denied }
@@ -335,7 +335,7 @@ internal fun PlaceSearch(viewModel: HomeViewModel, picked: Place?, onPick: (Plac
     current && search.done && search.hits.isEmpty() -> Hint(stringResource(R.string.search_none))
   }
   if (current) search.hits.forEach { hit -> HitLine(hit, picked != null && samePoint(picked, hit)) { pick(Place(hit.name, hit.lat, hit.lon, Words.placeWhere(hit.region, hit.country).ifEmpty { null })) } }
-  if (picked != null && picked.name == myPosition) HitLine(PlaceHit(myPosition, null, null, picked.lat, picked.lon, null), true) {}
+  if (picked != null && picked.here) HitLine(PlaceHit(myPosition, null, null, picked.lat, picked.lon, null), true) {}
 
   AccentAction(R.drawable.ic_location, stringResource(if (locating) R.string.locating else R.string.locate)) {
     if (!locating) {
@@ -343,6 +343,7 @@ internal fun PlaceSearch(viewModel: HomeViewModel, picked: Place?, onPick: (Plac
     }
   }
   locateError?.let { Hint(stringResource(it), VigieColors.Warning) }
+  if (picked?.here == true) Hint(stringResource(R.string.locate_follows))
   Credits(stringResource(R.string.credits_places))
 }
 

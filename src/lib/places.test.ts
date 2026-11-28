@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { countryName } from './i18n';
-import { fold, parsePlaceLine, searchPlaces, type PlaceEntry } from './places';
+import { fold, nearestPlace, parsePlaceLine, searchPlaces, type PlaceEntry } from './places';
 
 const entries = gunzipSync(readFileSync(join(process.cwd(), 'data', 'places.tsv.gz')))
 	.toString('utf-8')
@@ -63,5 +63,29 @@ describe('searchPlaces', () => {
 		const results = searchPlaces(entries, 'san', names, 5);
 		expect(results.length).toBe(5);
 		expect(Object.keys(results[0])).not.toContain('keys');
+	});
+});
+
+describe('nearestPlace', () => {
+	const at = (lat: number, lon: number) => nearestPlace(entries, lat, lon);
+
+	it('names a point by the town it is in, overseas too', () => {
+		expect(at(14.44, -60.88)).toMatchObject({ name: 'Sainte-Anne', cc: 'MQ' });
+		expect(at(16.24, -61.53)).toMatchObject({ name: 'Pointe-à-Pitre', cc: 'GP' });
+		expect(at(45.92, 6.87)).toMatchObject({ name: 'Chamonix-Mont-Blanc', cc: 'FR' });
+	});
+
+	it('gives the city rather than one of its districts', () => {
+		expect(at(48.86, 2.35)).toMatchObject({ name: 'Paris', cc: 'FR' });
+		expect(at(43.3, 5.37)).toMatchObject({ name: 'Marseille', cc: 'FR' });
+	});
+
+	it('takes the nearest town when no bigger one is about as near', () => {
+		expect(at(14.61, -61.0)).toMatchObject({ name: 'Le Lamentin', cc: 'MQ' });
+	});
+
+	it('names nothing far from any place, and leaves the search keys out', () => {
+		expect(at(30, -40)).toBeNull();
+		expect(Object.keys(at(14.44, -60.88) ?? {})).not.toContain('keys');
 	});
 });

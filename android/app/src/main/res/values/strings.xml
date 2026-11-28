@@ -93,7 +93,8 @@
     <string name="locating">Position en cours…</string>
     <string name="locate_denied">Position refusée : cherchez le lieu par son nom.</string>
     <string name="locate_none">Position indisponible : la localisation du téléphone est-elle activée ?</string>
-    <string name="my_position">Ma position</string>
+    <string name="my_position">Ici, là où vous êtes</string>
+    <string name="locate_follows">« Ici » suit le téléphone : sa position est relue à chaque ouverture de Vigie, jamais en arrière-plan, et ne quitte le téléphone qu\'arrondie à 1 km.</string>
 
     <!-- The first launch, in two steps -->
     <string name="first_step">%1$d / 2</string>

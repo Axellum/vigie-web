@@ -108,6 +108,12 @@
 			Google comme ci-dessus, avec les noms de vos lieux.
 		</p>
 		<p>
+			Le lieu « Ici » de l'appli suit le téléphone : sa position approximative est relue chaque fois que
+			l'appli s'ouvre, jamais en arrière-plan. Elle ne quitte le téléphone qu'arrondie à environ un kilomètre,
+			pour lire la météo de ce point et le nom de la ville la plus proche, comme un lieu cherché par son nom.
+			Si « Ici » a une cloche, le point gardé pour elle suit le téléphone de la même façon.
+		</p>
+		<p>
 			Éteindre toutes les cloches efface tout cela tout de suite. Sinon, le téléphone est oublié avec ses
 			lieux quand Google dit que l'appli n'y est plus, après 5 envois échoués de suite, ou après 60 jours sans
 			que l'appli se manifeste.
@@ -245,6 +251,12 @@
 			number of failed sendings in a row; the alerts that fell in these places, 30 days. Nothing that says who
 			you are: no name, no account, no IP address. The notifications go through Google as above, with the
 			names of your places.
+		</p>
+		<p>
+			The app's place « Ici » follows the phone: its approximate position is read again each time the app
+			opens, never in the background. It leaves the phone only rounded to about a kilometre, to read the
+			weather of that point and the name of the nearest town, as for a place searched by its name. If « Ici »
+			has a bell, the point kept for it follows the phone the same way.
 		</p>
 		<p>
 			Turning every bell off erases all this at once. Otherwise the phone is forgotten with its places when

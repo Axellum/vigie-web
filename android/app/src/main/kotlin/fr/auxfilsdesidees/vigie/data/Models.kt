@@ -1,16 +1,44 @@
 package fr.auxfilsdesidees.vigie.data
 
-/** A place: a name, coordinates and, from the place search, the region it is in. */
-data class Place(val name: String, val lat: Double, val lon: Double, val region: String? = null)
+/**
+ * A place: a name, coordinates and, from the place search, the region it is in. [here] marks the place « Ici », which
+ * follows the phone: its point is the phone's last position read (rounded to about 1 km) and its [name] the town nearest
+ * to it, empty while no town is known.
+ */
+data class Place(val name: String, val lat: Double, val lon: Double, val region: String? = null, val here: Boolean = false) {
+  /** The point at four decimals, « 47.7500,-3.3700 »: the name of the place's copy on the phone. */
+  val pointKey: String
+    get() = "%.4f,%.4f".format(java.util.Locale.ROOT, lat, lon)
+
+  /** What the screens and the widgets call the place: « Ici · Sainte-Anne » for the place that follows the phone. */
+  val label: String
+    get() = if (!here) name else if (name.isBlank()) HERE else "$HERE · $name"
+
+  /** The name after « près de »: the town of the place « Ici », or « vous » while it has none. */
+  val nearName: String
+    get() = if (here && name.isBlank()) "vous" else name
+
+  companion object {
+    const val HERE = "Ici"
+  }
+}
 
 /**
  * A place the user follows, with the spots followed near it; the first spot is the one drawn in the frise. [bell] is the
- * lowest level of alert Vigie sends a notification for at this place; null, none (the bell is off).
+ * lowest level of alert Vigie sends a notification for at this place; null, none (the bell is off). [parked] are the
+ * spots of the place « Ici » left behind by a journey: they come back to [spots] when the phone comes back near them.
  */
-data class FollowedPlace(val place: Place, val spots: List<String>, val bell: Bell? = null) {
-  /** Two followed places never share a key: the app refuses a second place at the same point. */
+data class FollowedPlace(val place: Place, val spots: List<String>, val bell: Bell? = null, val parked: List<String> = emptyList()) {
+  /**
+   * Two followed places never share a key: the app refuses a second place at the same point. The place « Ici » keeps the
+   * same key wherever the phone goes, so that its widgets and its page follow it.
+   */
   val key: String
-    get() = "%.4f,%.4f".format(java.util.Locale.ROOT, place.lat, place.lon)
+    get() = if (place.here) HERE_KEY else place.pointKey
+
+  companion object {
+    const val HERE_KEY = "here"
+  }
 }
 
 /** The lowest level a place's bell rings for, as the server names it (`minLevel` of `/account/app/device`). */

@@ -7,6 +7,7 @@ import fr.auxfilsdesidees.vigie.data.Bell
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Choices
 import fr.auxfilsdesidees.vigie.data.FollowedPlace
+import fr.auxfilsdesidees.vigie.data.Geo
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlaceHit
 import fr.auxfilsdesidees.vigie.data.PlacesStore
@@ -14,6 +15,7 @@ import fr.auxfilsdesidees.vigie.data.Snapshot
 import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.notify.BellState
 import java.io.IOException
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -89,13 +91,15 @@ class BellLink(val sync: suspend () -> BellState, val test: suspend () -> Result
  * at every change; each place is read on its own, when it is first shown and on « pull to refresh ».
  *
  * [onChange] runs after a new read is kept and after a place is removed: the home-screen widgets show the same data.
- * [bellLink] tells the site's server which places have a bell, after each change of a bell.
+ * [bellLink] tells the site's server which places have a bell, after each change of a bell. [phone] gives the phone's
+ * position (null without the permission or without a position): the place « Ici » goes there at each [followPhone].
  */
 class HomeViewModel(
   private val repository: VigieRepository,
   private val store: PlacesStore,
   private val onChange: suspend () -> Unit = {},
   private val bellLink: BellLink = BellLink.NONE,
+  private val phone: suspend () -> Pair<Double, Double>? = { null },
 ) : ViewModel() {
   private val _app = MutableStateFlow(AppState(store.load()))
   val app: StateFlow<AppState> = _app.asStateFlow()
@@ -111,6 +115,7 @@ class HomeViewModel(
 
   private val jobs = mutableMapOf<String, Job>()
   private var searchJob: Job? = null
+  private var hereJob: Job? = null
 
   /** One talk with the bells' server at a time, in the order asked: the last change is the one the server keeps. */
   private val bellTalk = Mutex()
@@ -148,7 +153,7 @@ class HomeViewModel(
     jobs[key] =
       viewModelScope.launch {
         // The last good read kept on the phone shows at once while the network answers, and stays when it does not.
-        val shown = previous ?: repository.saved(place.place, place.spots)?.also { setState(key, HomeState.Ready(it, refreshing = true)) }
+        val kept = previous ?: repository.saved(place.place, place.spots)?.also { setState(key, HomeState.Ready(it, refreshing = true)) }
         val next =
           try {
             HomeState.Ready(repository.load(place.place, place.spots))
@@ -156,7 +161,7 @@ class HomeViewModel(
             throw err
           } catch (err: Exception) {
             val message = describe(err)
-            if (shown != null) HomeState.Ready(shown, error = message) else HomeState.Failed(message)
+            if (kept != null) HomeState.Ready(kept, error = message) else HomeState.Failed(message)
           }
         setState(key, next)
         if (next.isFresh()) tell()
@@ -164,6 +169,8 @@ class HomeViewModel(
   }
 
   private fun HomeState.isFresh(): Boolean = this is HomeState.Ready && error == null
+
+  private fun Snapshot.named(place: Place): Snapshot = if (this.place == place) this else copy(place = place)
 
   /** The widgets redraw; their failure never reaches the app's screens. */
   private suspend fun tell() {
@@ -185,13 +192,94 @@ class HomeViewModel(
 
   // ------------------------------------------------------------------------------------------------- changing choices
 
-  /** Follow a new place with [spots] and show it; false when a place at the same point is already followed. */
+  /**
+   * Follow a new place with [spots] and show it; false when a place at the same point is already followed. The phone's
+   * position ([Place.here]) is the place « Ici »: the first time it is added, after that the one there is moved and
+   * shown; its town is asked to the site.
+   */
   fun addPlace(place: Place, spots: List<String>): Boolean {
-    val next = _app.value.choices.add(FollowedPlace(place, spots)) ?: return false
+    val choices = _app.value.choices
+    if (place.here) {
+      val before = choices.herePlace
+      val catalogue = (_catalogue.value as? CatalogueState.Ready)?.spots
+      val next = choices.useHere(place, spots, catalogue)
+      save(next)
+      if (before != null && far(before.place, place)) _app.update { it.copy(states = it.states - FollowedPlace.HERE_KEY) }
+      next.herePlace?.let(::load)
+      hereJob?.cancel()
+      hereJob = viewModelScope.launch { moveHere(place.lat, place.lon) }
+      viewModelScope.launch { repository.keepOnly(next.places.map { it.place }) }
+      if (before?.bell != null) syncBells()
+      return true
+    }
+    val next = choices.add(FollowedPlace(place, spots)) ?: return false
     save(next)
     next.currentPlace?.let(::load)
     return true
   }
+
+  // ------------------------------------------------------------------------------------------- the place « Ici »
+
+  /**
+   * The app comes to the front: the place « Ici » goes where the phone is now, rounded to about 1 km, and takes the name
+   * of the nearest town. Nothing without a place « Ici », without the permission (it is asked only when « Utiliser ma
+   * position » is touched) or without a position; never in the background.
+   */
+  fun followPhone() {
+    if (_app.value.choices.herePlace == null || hereJob?.isActive == true) return
+    hereJob =
+      viewModelScope.launch {
+        val at = bonus { phone() } ?: return@launch
+        moveHere(Geo.roundKm(at.first), Geo.roundKm(at.second))
+      }
+  }
+
+  /**
+   * The place « Ici » at the point [lat], [lon] (rounded already): named by the site's nearest town, its spots following
+   * it ([Choices.moveHere]), read again. A point that did not change only asks again for a town it does not have yet.
+   */
+  private suspend fun moveHere(lat: Double, lon: Double) {
+    val before = _app.value.choices.herePlace ?: return
+    val moved = abs(before.place.lat - lat) > SAME_POINT || abs(before.place.lon - lon) > SAME_POINT
+    if (!moved && before.place.name.isNotBlank()) return
+    val town = bonus { repository.nearestPlace(lat, lon) }
+    val name = town?.name ?: if (moved) "" else before.place.name
+    val region =
+      if (town != null) Words.placeWhere(town.region, town.country).ifEmpty { null } else if (moved) null else before.place.region
+    val catalogue = if (moved) bonus { repository.catalogue() } else null
+    val choices = _app.value.choices
+    val next = choices.moveHere(Place(name, lat, lon, region, here = true), catalogue)
+    if (next == choices) return
+    save(next)
+    val here = next.herePlace ?: return
+    if (moved) {
+      // Far away, the old page would show another sky under the new name: it waits for the new read instead.
+      if (far(before.place, here.place)) _app.update { it.copy(states = it.states - FollowedPlace.HERE_KEY) }
+      load(here)
+      repository.keepOnly(next.places.map { it.place })
+    } else {
+      // Only the town is new: the page takes the name, the weather stays.
+      _app.update { app ->
+        val state = app.states[FollowedPlace.HERE_KEY]
+        if (state is HomeState.Ready) app.copy(states = app.states + (FollowedPlace.HERE_KEY to state.copy(snapshot = state.snapshot.named(here.place)))) else app
+      }
+      tell()
+    }
+    // The server names the place of a bell and keeps its point: it learns the new ones.
+    if (here.bell != null) syncBells()
+  }
+
+  private fun far(a: Place, b: Place): Boolean = Geo.km(a.lat, a.lon, b.lat, b.lon) > KEEP_SHOWN_KM
+
+  /** A read that may fail without harm: null then; the cancellation still cancels. */
+  private suspend fun <T> bonus(read: suspend () -> T?): T? =
+    try {
+      read()
+    } catch (err: CancellationException) {
+      throw err
+    } catch (_: Exception) {
+      null
+    }
 
   fun removePlace(index: Int) {
     val choices = _app.value.choices
@@ -342,5 +430,11 @@ class HomeViewModel(
 
   private companion object {
     const val SEARCH_PAUSE_MS = 300L
+
+    /** Two rounded positions closer than this are the same point. */
+    const val SAME_POINT = 1e-6
+
+    /** A move shorter than this keeps the page of « Ici » on screen while it is read again. */
+    const val KEEP_SHOWN_KM = 5.0
   }
 }

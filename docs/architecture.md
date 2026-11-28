@@ -28,7 +28,9 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
 - **Search by name** (`/data/places.json?q=`). The server keeps the GeoNames places of at least 500 people
   (236,415, with the other names of the cities of 100,000 or more, so that "Genève" or "Londres" are found)
   in memory, read from `data/places.tsv.gz` on the first search. The browser asks after 250 ms without
-  typing; a chosen place goes through the same matching as the others.
+  typing; a chosen place goes through the same matching as the others. With `?lat&lon` instead, it names a point
+  (the Android app's place « Ici »): among the places within 1.5 km of the nearest, the most populated, so that a
+  city wins over its districts; none beyond 25 km.
 - **Forecasts of storms and tsunamis.** A hazard the API marks `has_forecast` gets its forecast from
   `/data/forecast/<id>.json` (`/v1/geojson/hazards/<id>/forecast`, cached 5 minutes): for a storm, the cone, the
   track, the forecast positions and the coastal watches and warnings of the advisory; for a tsunami, the

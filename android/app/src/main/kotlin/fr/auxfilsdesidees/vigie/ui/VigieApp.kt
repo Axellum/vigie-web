@@ -271,7 +271,7 @@ private fun CardHead(
           Icon(painterResource(R.drawable.ic_location), contentDescription = null, tint = VigieColors.Text3, modifier = Modifier.size(18.dp))
           Spacer(Modifier.width(6.dp))
           Text(
-            snap.place.name,
+            snap.place.label,
             color = VigieColors.Text,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
@@ -379,7 +379,7 @@ private fun SeaTab(state: HomeState.Ready, noneFollowed: Boolean, onSettings: ()
   // The place and the time of the read are in the head: verdicts read yesterday, without network, do not pass for today's.
   val snap = state.snapshot
   if (noneFollowed) {
-    Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.name)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
+    Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.nearName)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
   } else {
     if (snap.spotsStale) Text(stringResource(R.string.sea_stale), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
     if (snap.spots.isEmpty()) Text(stringResource(R.string.sea_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)

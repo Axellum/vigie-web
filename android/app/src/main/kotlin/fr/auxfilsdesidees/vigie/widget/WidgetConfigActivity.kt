@@ -93,7 +93,7 @@ class WidgetConfigActivity : ComponentActivity() {
       val id = GlanceAppWidgetManager(applicationContext).getGlanceIdBy(appWidgetId)
       updateAppWidgetState(applicationContext, id) {
         it[PlaceWidget.PLACE] = followed.key
-        it[PlaceWidget.NAME] = followed.place.name
+        it[PlaceWidget.NAME] = followed.place.label
         it[PlaceWidget.FORECAST] = BoardWidget.key(forecast)
         it[PlaceWidget.STAMP] = System.currentTimeMillis()
       }
@@ -143,7 +143,7 @@ private fun ChoosePlace(
           ) {
             Icon(painterResource(R.drawable.ic_location), contentDescription = null, tint = VigieColors.Text2, modifier = Modifier.size(20.dp))
             Column(Modifier.padding(start = 12.dp)) {
-              Text(f.place.name, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
+              Text(f.place.label, color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
               f.place.region?.let { Text(it, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium) }
             }
           }

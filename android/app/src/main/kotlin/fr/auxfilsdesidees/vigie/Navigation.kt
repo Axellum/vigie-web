@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
@@ -16,6 +17,7 @@ import fr.auxfilsdesidees.vigie.data.AppData
 import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
+import fr.auxfilsdesidees.vigie.ui.Locator
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
 import fr.auxfilsdesidees.vigie.ui.WarningsScreen
@@ -28,19 +30,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * on the tabs when the user comes back. Instant, by taste.
  *
  * [placeAsked] is the place a widget or a notification was touched for: the tabs come back and show it (with its warnings
- * for a notification), then it is cleared.
+ * for a notification), then it is cleared. Each time the app comes to the front, the place « Ici » goes where the phone is
+ * (with the permission already given: it is never asked here).
  */
 @Composable
-fun MainNavigation(baseUrl: String, placeAsked: MutableStateFlow<Asked?>) {
+fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlow<Asked?>) {
   val context = LocalContext.current.applicationContext
   val viewModel: HomeViewModel = viewModel {
     HomeViewModel(
-      AppData.repository(context, baseUrl),
+      AppData.repository(context, baseUrl, siteUrl),
       AppData.places(context),
       // The widgets show what the app reads: a new read or a place removed redraws them.
       onChange = { WidgetRefresh.redraw(context) },
       bellLink = BellLink({ PhoneBells.run(context) }, { PhoneBells.test(context) }),
+      phone = { if (Locator.granted(context)) Locator.locate(context)?.let { it.latitude to it.longitude } else null },
     )
+  }
+  LifecycleStartEffect(viewModel) {
+    viewModel.followPhone()
+    onStopOrDispose {}
   }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }

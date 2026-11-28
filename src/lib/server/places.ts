@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { VIGIE_PLACES_FILE } from '$app/env/private';
 import { countryName } from '#lib/i18n.js';
-import { parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '#lib/places.js';
+import { nearestPlace, parsePlaceLine, searchPlaces, type PlaceEntry, type PlaceMatch } from '#lib/places.js';
 
 let entries: PlaceEntry[] | null = null;
 let unavailable = false;
@@ -41,4 +41,12 @@ function countryNames(cc: string): string[] {
 export function findPlaces(query: string): PlaceMatch[] | null {
 	const list = load();
 	return list ? searchPlaces(list, query.slice(0, 80), countryNames) : null;
+}
+
+/** The place that names a point, in a list of one (none when no place is near); null when the places file could not be read. */
+export function placesAt(lat: number, lon: number): PlaceMatch[] | null {
+	const list = load();
+	if (!list) return null;
+	const place = nearestPlace(list, lat, lon);
+	return place ? [place] : [];
 }

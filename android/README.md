@@ -9,7 +9,8 @@ The user chooses the places and their spots; two home screen widgets show one of
 - Minimum Android 7.0 (API 24), compiled and targeted for Android 17 (API 37).
 - Data: `GET /v1/point`, `GET /v1/vigilances?lat&lon&lang=fr,en`, `GET /v1/activities/overview` and
   `GET /v1/activities/{spot}?days=3` (the first spot) of `https://vigie.auxfilsdesidees.fr`, and the site's place search
-  `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search). Nothing is sent but the search typed and the coordinates of the places; the choices stay
+  `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search), which also names the place « Ici »
+  (`?lat&lon`, the nearest town). Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
   (below) is the other: the site keeps its notification address with the account.
@@ -24,6 +25,13 @@ The user chooses the places and their spots; two home screen widgets show one of
   following it, « Ajouter un lieu »), the spots of the shown place (the star puts one first: the frise draws it) and the
   nearest other spots. Accueil and Détails swipe between the places; Heures and Mer show the place shown last. The
   search puts the places of France first (the site ranks equal matches by population).
+- « Ici » follows the phone: « Utiliser ma position » makes the place « Ici » (one at most), whose point is read again
+  each time the app comes to the front (approximate permission only, never in the background; Android itself blurs
+  it by a kilometre or two), rounded to about 1 km, and named by the site's nearest town (« Ici · Sainte-Anne »; « Ici »
+  alone while the site names none). It keeps its key wherever it goes, so its page and its widgets follow it, and the
+  hours are those of the place. Its spots follow it too: those more than 60 km away wait aside and come back when the
+  phone does; in a new place without any of them, the nearest spots are followed. The « Ma position » of before (a
+  point taken once) becomes « Ici » at the first start of this version, with its spots, its bell and its widgets.
 - Official warnings: those of the place's exact point (`/v1/vigilances`: an area that holds it, a river section within
   5 km; in France Météo-France and Vigicrues), never `local_alert_level` of `/v1/point` (a level Vigie works out over a
   wide radius, not a warning). Read and worded as the site's widget does (`src/lib/widget/model.ts`, `text.ts`), so the
@@ -133,7 +141,7 @@ adb reverse tcp:4174 tcp:4174
 adb shell am start -S -n fr.auxfilsdesidees.vigie/.MainActivity --es vigie_site_url http://127.0.0.1:4174
 ```
 
-The bells and the account link go there until the next start without the extra. `--ez vigie_debug_token true` asks the permission and
+The bells, the account link, the place search and the town of « Ici » go there until the next start without the extra. `--ez vigie_debug_token true` asks the permission and
 writes the phone's token in the log (tag `VigieNotify`), to send it a message by hand.
 
 ### Trying an API that is not deployed
