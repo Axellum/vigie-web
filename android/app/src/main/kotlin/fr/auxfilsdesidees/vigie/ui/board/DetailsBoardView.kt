@@ -112,7 +112,7 @@ fun DetailsBoardView(p: PointNow, now: Long, modifier: Modifier = Modifier) {
 
 /** A block of the page: its title in capitals, a legend on the right, then [content]. */
 @Composable
-private fun Bloc(title: String, right: String, pal: BoardPalette, content: @Composable () -> Unit) {
+internal fun Bloc(title: String, right: String, pal: BoardPalette, content: @Composable () -> Unit) {
   Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
     SectionHeader(title, pal) {
       if (right.isNotEmpty()) {

@@ -65,12 +65,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.auxfilsdesidees.vigie.R
-import fr.auxfilsdesidees.vigie.data.ActivityVerdict
-import fr.auxfilsdesidees.vigie.data.Spot
+import fr.auxfilsdesidees.vigie.data.FollowedPlace
 import fr.auxfilsdesidees.vigie.ui.board.BoardPages
 import fr.auxfilsdesidees.vigie.ui.board.DetailsBoard
 import fr.auxfilsdesidees.vigie.ui.board.DetailsBoardView
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoardView
+import fr.auxfilsdesidees.vigie.ui.board.SeaBoard
+import fr.auxfilsdesidees.vigie.ui.board.SeaBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 
 /** The tabs, in the bar of the head of the card. « Détails » is there only when the place has details (as in the card). */
@@ -90,7 +91,7 @@ private enum class Tab(@StringRes val label: Int) {
  * The gear and « Choisir des spots » open [onSettings]; the warning banner and the warning mark of the head open [onWarnings].
  */
 @Composable
-fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () -> Unit) {
+fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit, onWarnings: () -> Unit) {
   val app by viewModel.app.collectAsStateWithLifecycle()
   if (app.firstLaunch) {
     FirstLaunch(viewModel)
@@ -112,8 +113,7 @@ fun VigieApp(viewModel: HomeViewModel, onSettings: () -> Unit, onWarnings: () ->
           }
         Tab.Sea ->
           PlaceContent(app.stateOf(place), tab, viewModel::refresh) {
-            CardHead(it, tab, onTab, null, onSettings, onWarnings)
-            SeaTab(it, place.spots.isEmpty(), onSettings)
+            SeaTab(it, place, app.choices.places.flatMap { f -> f.spots }.toSet(), sea, tab, onTab, onSettings, onWarnings)
           }
       }
     }
@@ -228,15 +228,6 @@ internal fun Glass(modifier: Modifier = Modifier, padding: Dp = 16.dp, content: 
   }
 }
 
-@Composable
-private fun Pill(text: String, color: Color) {
-  Text(
-    text,
-    color = VigieColors.OnPill,
-    style = MaterialTheme.typography.titleMedium,
-    modifier = Modifier.background(color, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp),
-  )
-}
 
 /** The followed places of the Accueil: the page shown and how many, dots after the name in the head of the card. */
 private class Dots(val page: Int, val count: Int)
@@ -244,7 +235,7 @@ private class Dots(val page: Int, val count: Int)
 /**
  * The head of the glass card, on every tab: the place (and its dots on the Accueil), when it was read, a mark for its
  * warnings, the gear; under them, the banner of the warnings in force (Accueil and Détails) and the bar of tabs. The [board]
- * of the Accueil and the Détails goes on in the same card; Heures and Mer have their own cards under it.
+ * of the Accueil, the Détails and the Mer goes on in the same card; Heures has its own cards under it.
  */
 @Composable
 private fun CardHead(
@@ -374,43 +365,62 @@ private fun HomeTab(state: HomeState.Ready, dots: Dots, tab: Tab, onTab: (Tab) -
   if (vigil.live.isNotEmpty()) Credits(stringResource(R.string.credits_vigil, Vigil.issuers(vigil.live)))
 }
 
+/**
+ * Mer: the Sea page of the Home Assistant card (board/SeaBoard*), in the card of the head: a tab per followed spot of the place,
+ * then the beach shown (its tide and water, its tiles, its activities hour by hour, the tide and the next hours). A beach is
+ * read when it shows (its copy on the phone first): again after 10 minutes, or after a minute when the place is read again (a
+ * pull to refresh). A copy shown because the read failed says how old it is. Without a spot: « Choisir des spots ».
+ */
 @Composable
-private fun SeaTab(state: HomeState.Ready, noneFollowed: Boolean, onSettings: () -> Unit) {
-  // The place and the time of the read are in the head: verdicts read yesterday, without network, do not pass for today's.
+private fun SeaTab(
+  state: HomeState.Ready,
+  place: FollowedPlace,
+  followed: Set<String>,
+  sea: SeaViewModel,
+  tab: Tab,
+  onTab: (Tab) -> Unit,
+  onSettings: () -> Unit,
+  onWarnings: () -> Unit,
+) {
   val snap = state.snapshot
-  if (noneFollowed) {
+  val ids = place.spots
+  LaunchedEffect(followed) { sea.keepOnly(followed) }
+  if (ids.isEmpty()) {
+    CardHead(state, tab, onTab, null, onSettings, onWarnings)
     Text(stringResource(R.string.sea_none_followed, Words.near(snap.place.nearName)), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-  } else {
-    if (snap.spotsStale) Text(stringResource(R.string.sea_stale), color = VigieColors.Warning, style = MaterialTheme.typography.bodyMedium)
-    if (snap.spots.isEmpty()) Text(stringResource(R.string.sea_none), color = VigieColors.Text2, style = MaterialTheme.typography.bodyLarge)
-    snap.spots.forEach { SpotCard(it, snap.point.serverUtc, snap.point.utcOffsetS) }
+    AccentAction(R.drawable.ic_add, stringResource(R.string.sea_choose), onSettings)
+    return
+  }
+  var shown by rememberSaveable(place.key) { mutableIntStateOf(0) }
+  val i = shown.coerceIn(0, ids.lastIndex)
+  val id = ids[i]
+  val beaches by sea.beaches.collectAsStateWithLifecycle()
+  val b = beaches[id] ?: BeachState()
+  val readAt = remember(id) { snap.point.serverUtc }
+  LaunchedEffect(id, snap.point.serverUtc) { sea.ask(id, if (snap.point.serverUtc == readAt) 10 * 60L else 60L) }
+  // The names of the overview, or the one the beach gives; « Plage 2 » without either, as the card.
+  val names = ids.mapIndexed { j, s -> (if (j == i) b.beach?.spot?.name else null) ?: snap.spots.firstOrNull { it.id == s }?.name }
+  val now = System.currentTimeMillis() / 1000
+  val status =
+    when {
+      b.beach != null -> null
+      b.failed -> stringResource(R.string.sea_unread)
+      else -> stringResource(R.string.sea_loading)
+    }
+  val old = b.beach?.takeIf { b.failed && now - it.readUtc >= Words.OLD_READ_S }
+  val note = old?.let { stringResource(R.string.sea_old, Words.readTime(it.readUtc, now, snap.point.utcOffsetS)) }
+  CardHead(state, tab, onTab, null, onSettings, onWarnings) {
+    SeaBoardView(
+      tabs = names.mapIndexed { j, n -> SeaBoard.shortName(n) ?: SeaBoard.beachN(j) },
+      selected = i,
+      onSelect = { shown = it },
+      name = names[i] ?: SeaBoard.beachN(i),
+      beach = b.beach,
+      status = status,
+      note = note,
+      now = now,
+      offsetS = snap.point.utcOffsetS,
+    )
   }
   AccentAction(R.drawable.ic_add, stringResource(R.string.sea_choose), onSettings)
-  if (!noneFollowed) {
-    Text(stringResource(R.string.sea_rules), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
-    Credits(stringResource(R.string.credits_sea))
-  }
-}
-
-@Composable
-private fun SpotCard(spot: Spot, nowUtc: Long, offsetS: Int) {
-  Glass {
-    Column {
-      Text(spot.name, color = VigieColors.Text, style = MaterialTheme.typography.headlineSmall)
-      if (spot.place != null) Text(spot.place, color = VigieColors.Text3, style = MaterialTheme.typography.labelMedium)
-    }
-    spot.activities.forEach { ActivityRow(it, nowUtc, offsetS) }
-  }
-}
-
-@Composable
-private fun ActivityRow(a: ActivityVerdict, nowUtc: Long, offsetS: Int) {
-  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-    Column(Modifier.weight(1f)) {
-      Text(Words.activity(a.id), color = VigieColors.Text, style = MaterialTheme.typography.titleMedium)
-      Text(Words.verdictLine(a, nowUtc, offsetS), color = VigieColors.Text2, style = MaterialTheme.typography.bodyMedium)
-    }
-    Spacer(Modifier.width(8.dp))
-    if (a.available && a.verdict != null) Pill(Words.verdict(a.verdict), VigieColors.verdict(a.verdict))
-  }
 }

@@ -13,6 +13,7 @@ import java.io.File
 object AppData {
   private const val PREFS = "vigie"
   private const val COPIES = "places"
+  private const val BEACHES = "beaches"
 
   fun places(context: Context): PlacesStore =
     PlacesStore(PrefsKeyValue(context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)))
@@ -40,6 +41,10 @@ object AppData {
     val after = before.adoptHere(OLD_POSITION_NAMES)
     if (after != before) store.save(after)
   }
+
+  /** The beaches of the Sea page, their last reads in a folder of their own (beside the places', which keep only theirs). */
+  fun beaches(context: Context, baseUrl: String = VigieRepository.BASE_URL): BeachReader =
+    BeachReader(baseUrl, FolderShelf(File(context.applicationContext.noBackupFilesDir, BEACHES)))
 }
 
 /** The app's private preferences on the phone (never shared with another app). */

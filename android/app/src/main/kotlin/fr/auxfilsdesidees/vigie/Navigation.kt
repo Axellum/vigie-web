@@ -18,6 +18,7 @@ import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
 import fr.auxfilsdesidees.vigie.ui.Locator
+import fr.auxfilsdesidees.vigie.ui.SeaViewModel
 import fr.auxfilsdesidees.vigie.ui.SettingsScreen
 import fr.auxfilsdesidees.vigie.ui.VigieApp
 import fr.auxfilsdesidees.vigie.ui.WarningsScreen
@@ -50,6 +51,9 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
     viewModel.followPhone()
     onStopOrDispose {}
   }
+
+  // The beaches of the Sea page, read when it shows one.
+  val sea: SeaViewModel = viewModel { SeaViewModel(AppData.beaches(context, baseUrl)) }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }
   val asked by placeAsked.collectAsStateWithLifecycle()
@@ -69,7 +73,7 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
     predictivePopTransitionSpec = { instant() },
     entryProvider =
       entryProvider {
-        entry<Main> { VigieApp(viewModel, onSettings = { backStack.add(Settings) }, onWarnings = { backStack.add(WarningsPage) }) }
+        entry<Main> { VigieApp(viewModel, sea, onSettings = { backStack.add(Settings) }, onWarnings = { backStack.add(WarningsPage) }) }
         entry<Settings> { SettingsScreen(viewModel) { backStack.removeLastOrNull() } }
         entry<WarningsPage> { WarningsScreen(viewModel) { backStack.removeLastOrNull() } }
       },
