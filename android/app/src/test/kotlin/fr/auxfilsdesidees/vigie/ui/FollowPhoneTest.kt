@@ -6,6 +6,7 @@ import fr.auxfilsdesidees.vigie.data.KeyValue
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.PlacesStore
 import fr.auxfilsdesidees.vigie.data.VigieRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -42,9 +43,13 @@ class FollowPhoneTest {
   private val asked = mutableListOf<String>()
   private var siteNames = true
 
+  /** Holds the weather of the point near Sainte-Anne until it is completed: the town comes first. */
+  private var slowWeather: CompletableDeferred<Unit>? = null
+
   private val repository =
     VigieRepository(baseUrl = "https://api.test", siteUrl = "https://site.test") { url ->
       asked += url
+      if ("/v1/point" in url && "lat=14.44" in url) slowWeather?.await()
       when {
         "/data/places.json" in url -> if (siteNames) sainteAnne else throw fr.auxfilsdesidees.vigie.data.ApiException(400)
         "/v1/point" in url -> fixture("point_lorient.json")
@@ -136,5 +141,20 @@ class FollowPhoneTest {
     assertEquals("Ici · Sainte-Anne", vm.app.value.choices.herePlace!!.place.label)
     assertTrue(vm.addPlace(Place("", 14.44, -60.88, here = true), emptyList()))
     assertEquals(2, vm.app.value.choices.places.size)
+  }
+
+  @Test
+  fun `« Ici » named while its weather is read shows its town when the weather comes`() = runTest {
+    val weather = CompletableDeferred<Unit>()
+    slowWeather = weather
+    val fixed = FollowedPlace(Place("Paris", 48.8534, 2.3488), emptyList())
+    val (vm, _) = model(Choices(listOf(fixed), 0), null)
+    vm.addPlace(Place("", 14.44, -60.88, here = true), emptyList())
+    advanceUntilIdle()
+    assertEquals("Ici · Sainte-Anne", vm.app.value.choices.herePlace!!.place.label)
+    assertTrue(vm.app.value.states[FollowedPlace.HERE_KEY] is HomeState.Loading)
+    weather.complete(Unit)
+    advanceUntilIdle()
+    assertEquals("Ici · Sainte-Anne", (vm.app.value.states[FollowedPlace.HERE_KEY] as HomeState.Ready).snapshot.place.label)
   }
 }

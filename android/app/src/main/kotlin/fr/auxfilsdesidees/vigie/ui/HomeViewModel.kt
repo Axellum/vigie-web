@@ -153,7 +153,7 @@ class HomeViewModel(
     jobs[key] =
       viewModelScope.launch {
         // The last good read kept on the phone shows at once while the network answers, and stays when it does not.
-        val kept = previous ?: repository.saved(place.place, place.spots)?.also { setState(key, HomeState.Ready(it, refreshing = true)) }
+        val kept = previous ?: repository.saved(place.place, place.spots)?.also { setState(key, HomeState.Ready(it, refreshing = true).namedNow(key)) }
         val next =
           try {
             HomeState.Ready(repository.load(place.place, place.spots))
@@ -163,7 +163,7 @@ class HomeViewModel(
             val message = describe(err)
             if (kept != null) HomeState.Ready(kept, error = message) else HomeState.Failed(message)
           }
-        setState(key, next)
+        setState(key, next.namedNow(key))
         if (next.isFresh()) tell()
       }
   }
@@ -171,6 +171,17 @@ class HomeViewModel(
   private fun HomeState.isFresh(): Boolean = this is HomeState.Ready && error == null
 
   private fun Snapshot.named(place: Place): Snapshot = if (this.place == place) this else copy(place = place)
+
+  /**
+   * A read started before its place got its town (« Ici », named by the site while its weather was read) takes the name
+   * the place has now, when the point is the same; without this the page said « Ici » alone until the next opening.
+   */
+  private fun HomeState.namedNow(key: String): HomeState {
+    if (this !is HomeState.Ready) return this
+    val now = _app.value.choices.places.firstOrNull { it.key == key }?.place ?: return this
+    if (now.lat != snapshot.place.lat || now.lon != snapshot.place.lon) return this
+    return copy(snapshot = snapshot.named(now))
+  }
 
   /** The widgets redraw; their failure never reaches the app's screens. */
   private suspend fun tell() {
