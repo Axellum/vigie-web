@@ -14,6 +14,7 @@ object AppData {
   private const val PREFS = "vigie"
   private const val COPIES = "places"
   private const val BEACHES = "beaches"
+  private const val NEARBY = "nearby"
 
   fun places(context: Context): PlacesStore = PlacesStore(settings(context))
 
@@ -47,6 +48,10 @@ object AppData {
   /** The beaches of the Sea page, their last reads in a folder of their own (beside the places', which keep only theirs). */
   fun beaches(context: Context, baseUrl: String = VigieRepository.BASE_URL): BeachReader =
     BeachReader(baseUrl, FolderShelf(File(context.applicationContext.noBackupFilesDir, BEACHES)))
+
+  /** The reads of the Plages and Pistes tab, in a folder of their own (each kept two days at most). */
+  fun nearby(context: Context, baseUrl: String = VigieRepository.BASE_URL): NearbyReader =
+    NearbyReader(baseUrl, FolderShelf(File(context.applicationContext.noBackupFilesDir, NEARBY)))
 }
 
 /** The app's private preferences on the phone (never shared with another app). */

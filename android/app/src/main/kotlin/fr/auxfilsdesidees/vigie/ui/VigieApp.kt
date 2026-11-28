@@ -72,6 +72,7 @@ import fr.auxfilsdesidees.vigie.ui.board.BoardPages
 import fr.auxfilsdesidees.vigie.ui.board.DetailsBoard
 import fr.auxfilsdesidees.vigie.ui.board.DetailsBoardView
 import fr.auxfilsdesidees.vigie.ui.board.HomeBoardView
+import fr.auxfilsdesidees.vigie.ui.board.NearbyBoard
 import fr.auxfilsdesidees.vigie.ui.board.SeaBoard
 import fr.auxfilsdesidees.vigie.ui.board.SeaBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
@@ -94,7 +95,7 @@ private enum class Tab(@StringRes val label: Int) {
  * the map button of the head, beside the gear, opens the sea map ([onMap]).
  */
 @Composable
-fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit, onWarnings: () -> Unit, onMap: () -> Unit) {
+fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, nearby: NearbyViewModel, onSettings: () -> Unit, onWarnings: () -> Unit, onMap: () -> Unit) {
   val app by viewModel.app.collectAsStateWithLifecycle()
   if (app.firstLaunch) {
     FirstLaunch(viewModel)
@@ -103,17 +104,24 @@ fun VigieApp(viewModel: HomeViewModel, sea: SeaViewModel, onSettings: () -> Unit
   var shown by rememberSaveable { mutableIntStateOf(0) }
   val tab = Tab.entries[shown]
   val onTab = { t: Tab -> shown = t.ordinal }
-  CompositionLocalProvider(LocalOpenMap provides onMap) { Frame(app, viewModel, sea, tab, onTab, onSettings, onWarnings) }
+  CompositionLocalProvider(LocalOpenMap provides onMap) { Frame(app, viewModel, sea, nearby, tab, onTab, onSettings, onWarnings) }
 }
 
 /** The map button of the head of the card, on every tab: given once here rather than through every page. */
 private val LocalOpenMap = staticCompositionLocalOf<(() -> Unit)?> { null }
 
+/** What the fourth tab is at the place shown (« Mer », « Plages », « Pistes »): its name in the bar of every tab. */
+private val LocalFourth = staticCompositionLocalOf { NearbyBoard.Fourth.Sea }
+
 @Composable
-private fun Frame(app: AppState, viewModel: HomeViewModel, sea: SeaViewModel, tab: Tab, onTab: (Tab) -> Unit, onSettings: () -> Unit, onWarnings: () -> Unit) {
+private fun Frame(app: AppState, viewModel: HomeViewModel, sea: SeaViewModel, nearby: NearbyViewModel, tab: Tab, onTab: (Tab) -> Unit, onSettings: () -> Unit, onWarnings: () -> Unit) {
   Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(VigieColors.SkyTop, VigieColors.SkyBottom)))) {
     val place = app.choices.currentPlace
     if (place != null) {
+      // The fourth tab follows the place: « Plages » by the sea, « Pistes » near a ski area, « Mer » where spots are followed.
+      AskCatalogues(place.place, place.spots.isNotEmpty(), nearby)
+      val fourth = fourthOf(place.place, place.spots.isNotEmpty(), nearby)
+      CompositionLocalProvider(LocalFourth provides fourth) {
       when (tab) {
         Tab.Home,
         Tab.Details -> HomePager(app, viewModel, tab, onTab, onSettings, onWarnings)
@@ -124,8 +132,10 @@ private fun Frame(app: AppState, viewModel: HomeViewModel, sea: SeaViewModel, ta
           }
         Tab.Sea ->
           PlaceContent(app.stateOf(place), tab, viewModel::refresh) {
-            SeaTab(it, place, app.choices.places.flatMap { f -> f.spots }.toSet(), sea, tab, onTab, onSettings, onWarnings)
+            if (fourth == NearbyBoard.Fourth.Sea) SeaTab(it, place, app.choices.places.flatMap { f -> f.spots }.toSet(), sea, tab, onTab, onSettings, onWarnings)
+            else CardHead(it, tab, onTab, null, onSettings, onWarnings) { NearbyPage(fourth, it.snapshot.place, it.snapshot.point, nearby) }
           }
+      }
       }
     }
   }
@@ -240,6 +250,15 @@ internal fun Glass(modifier: Modifier = Modifier, padding: Dp = 16.dp, content: 
 }
 
 
+/** The name of the fourth tab. */
+@StringRes
+private fun fourthLabel(f: NearbyBoard.Fourth): Int =
+  when (f) {
+    NearbyBoard.Fourth.Sea -> R.string.tab_sea
+    NearbyBoard.Fourth.Beaches -> R.string.tab_beaches
+    NearbyBoard.Fourth.Ski -> R.string.tab_ski
+  }
+
 /** The followed places of the Accueil: the page shown and how many, dots after the name in the head of the card. */
 private class Dots(val page: Int, val count: Int)
 
@@ -313,7 +332,8 @@ private fun CardHead(
       // A read kept on the phone says how old it is: « Données d'hier 18 h 05 · Pas de réponse du serveur… », on its own line.
       if (read.ownLine) Text(read.text, color = read.color, style = MaterialTheme.typography.labelMedium)
       if (vigil.state == Vigil.State.Warnings && (tab == Tab.Home || tab == Tab.Details)) WarningBanner(vigil, p.serverUtc, p.utcOffsetS, onWarnings)
-      BoardPages(tabs.map { stringResource(it.label) }, tabs.indexOf(shown), { onTab(tabs[it]) })
+      val fourth = LocalFourth.current
+      BoardPages(tabs.map { stringResource(if (it == Tab.Sea) fourthLabel(fourth) else it.label) }, tabs.indexOf(shown), { onTab(tabs[it]) })
     }
     board?.invoke()
   }

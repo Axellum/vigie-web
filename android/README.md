@@ -2,7 +2,7 @@
 
 A first, small native app that reads the public Vigie API, in French. Four tabs: the weather and the official warnings
 of a place (Accueil, and its Détails), a frise of the next 24 hours (Heures), and the beaches of the spots followed near
-it (Mer).
+it (Mer), or, where no spot is followed, the beaches around it (Plages) or its ski areas (Pistes).
 The user chooses the places and their spots; two home screen widgets show one of them. It is not on any store.
 
 - Kotlin and Jetpack Compose, one module (`app`), package `fr.auxfilsdesidees.vigie`.
@@ -22,7 +22,11 @@ The user chooses the places and their spots; two home screen widgets show one of
   `GET /data/towns.json?at=` (the cells of the site's grid the towns fall in, 40 at most a request, again after a
   quarter of an hour); when turned on, the forecast wind of the hour, `GET /data/wind-field.json` (again after 10
   minutes or when the hour turns) and the images of the grids the view needs, `GET /data/wind-field/…` (the world's
-  always, Europe's and France's once close enough, each read once), drawn as trails only while the map is shown.
+  always, Europe's and France's once close enough, each read once), drawn as trails only while the map is shown. For
+  the Plages and Pistes tab: `GET /v1/beaches` and `GET /v1/ski/areas` around the place (its point at two decimals, once
+  a day), `GET /v1/point?marine=true` at the place (two decimals too) and at a beach shown, `GET /v1/tides` and
+  `GET /v1/sea/places?type=bathing` at a beach of mainland France, `GET /v1/point?elevation=` at the top and the foot of
+  an area shown and `GET /v1/avalanches` there.
   Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account
@@ -80,6 +84,21 @@ The user chooses the places and their spots; two home screen widgets show one of
   shown, its copy on the phone first (`data/Beach.kt`, a folder of its own): again after 10 minutes, or after a minute
   when the place is read again. Its water is asked once an hour at most, since `/v1/point` is limited per address on the
   public server, and its bathing site once a day. A copy shown because the read failed says how old it is.
+- Plages and Pistes (the sketches chosen by the author on 2026-11-28): where the place follows no spot, the fourth tab is
+  « Plages » when a sea beach is within 3 km, « Pistes » when a ski area is within 15 km, else « Mer » as before. Plages:
+  a chip « Autour », then one per beach kept (the star, kept on the phone); « Autour » shows the sea here (waves and the
+  state of the sea, swell, water, wind, gusts, UV, the next shower, the sun), the beaches within 14 km with how far and
+  where they are and their star, and 24 hours of wind and showers; a beach (kept, or touched in the list) its nine tiles
+  read at the beach (sea, swell, water, wind, air, UV, showers, current, sun; the tide and the bathing water in mainland
+  France), its 24 hours and its 7 days with the UV. Pistes: a chip per area kept (else the nearest) and the next one,
+  « + n autour » for the list; an area shows its lifts and heights, a sentence (the top and the foot now, the avalanche
+  level at its heights, the snow to come), the top and the foot, the avalanche level and the 0 °C, the bulletin (the
+  levels by height with the area's top and foot, the slopes of each problem, two highlights, the trend, a link to the
+  whole bulletin), 24 hours at the top and at the foot with the 0 °C, 7 days at the top with the fresh snow
+  (`ui/board/NearbyBoard*.kt`). The hours and the days are the Accueil's columns. Each read is asked when its page shows
+  it, its copy on the phone first (`data/Nearby.kt`, a folder of its own, two days at most): the catalogues once a day,
+  the sea of the place every 15 minutes, a beach every 10, an area every 15 and its bulletin every 30, after a minute
+  when the place is read again; their `/v1/point` wait for a share of their own, three a minute.
 - The sea map, as the site's `/sea` (the sketch chosen by the author on 2026-11-28): the map button in the head of the
   card, next to the gear, opens it on the place shown (France when there is none). The site's dark OpenFreeMap base map,
   its names in French and its land and water in the site's colours, drawn by MapLibre Native (about 13 MB more on the
@@ -257,6 +276,9 @@ Firebase config above, or the app sent has no bell.
 | `ui/Drawing.kt` | weather icons, wind arrow, activity glyphs, monotone curve |
 | `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, Mer |
 | `ui/SeaViewModel.kt` | the beaches of Mer: the copy first, then the network when it is older than asked |
+| `data/Nearby.kt` | the beaches and ski areas around a place, the avalanche bulletin, the tide and the bathing water of a beach; their reader, its copies and its share of `/v1/point`; the beaches and areas kept (tested on the JVM) |
+| `ui/NearbyViewModel.kt` | the reads of Plages and Pistes: the copy first, then the network when it is older than asked; the stars |
+| `ui/NearbyTab.kt` | what the fourth tab is at a place, and the Plages and Pistes pages: their chips and what each asks |
 | `data/SeaMap.kt` | the sea map's data: the pins of an activity and their labels, as the site's `src/lib/sea/map.ts`; the base map in the app's colours and in French, the IGN's plan and photographs; its reader (tested on the JVM) |
 | `data/Favourites.kt` | the star of the sea map: a spot or a town followed in the places the app has, and « Annuler » (tested on the JVM) |
 | `data/PointGate.kt` | the sea map's share of `/v1/point`: 4 a minute (tested on the JVM) |
@@ -269,6 +291,8 @@ Firebase config above, or the app sent has no bell.
 | `ui/board/DetailsBoardView.kt` | the Details page drawn, and the bar of pages « Accueil \| Détails » |
 | `ui/board/SeaBoard.kt` | what the Sea page says, worked out as the card's Sea page (tested on the JVM) |
 | `ui/board/SeaBoardView.kt` | the Sea page drawn: the tabs of the beaches, the head, the tiles, the activities, the tide, the table |
+| `ui/board/NearbyBoard.kt` | what Plages and Pistes say: the fourth tab, the sea around, a beach's tiles, an area's line and sentence, the avalanche level at its heights (tested on the JVM) |
+| `ui/board/NearbyBoardView.kt` | Plages and Pistes drawn: the chips, « Autour », a beach, an area, its bulletin with the band of heights and the slopes |
 | `ui/board/BoardPalette.kt` | the card's dark colours: temperature ramp, rain and wind blues, the « Lueur » of a column |
 | `ui/board/BoardColumns.kt` | the hours and the days of the home page and their heights, drawn once for the app and the widgets |
 | `ui/board/FamilyIcons.kt` | the family's weather icons and the card's glyphs, drawn from their SVG (tested on the JVM) |

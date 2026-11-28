@@ -84,6 +84,12 @@ internal object SeaBoard {
   /** The eighth of the compass [deg] is in (the card's `sector`). */
   fun sector(deg: Double): Int = (Math.round((((deg % 360) + 360) % 360) / 45) % 8).toInt()
 
+  /** Where the wind or the waves come from: « du nord », « d’est »… */
+  fun from(deg: Double): String = FROM[sector(deg)]
+
+  /** The class of a bathing water in words and its tone (« Excellente », green); null for a class the API does not name. */
+  fun quality(q: String?): Pair<String, String>? = QUALITY[q]
+
   private val QUALITY = mapOf("excellent" to ("Excellente" to "green"), "good" to ("Bonne" to "green"), "sufficient" to ("Suffisante" to "yellow"), "poor" to ("Insuffisante" to "red"), "unclassified" to ("Non classée" to "t3"))
 
   /**

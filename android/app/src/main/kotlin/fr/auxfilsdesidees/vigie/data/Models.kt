@@ -94,6 +94,27 @@ data class PointNow(
   val probabilities: Probabilities? = null,
   /** `weather_attribution`: the credit of the weather of the place, named at the foot of the Details page. */
   val weatherAttribution: String? = null,
+  /** `marine`: the sea at the point, asked with `marine=true` (the Plages tab); null when not asked or not served. */
+  val marine: Marine? = null,
+  /** `coordinates.elevation_m`: the height the weather is read at, asked with `elevation=` (the Pistes tab) or the model's. */
+  val elevationM: Double? = null,
+)
+
+/**
+ * `marine` of `/v1/point`: the waves, the swell, the current and the water at the sea cell nearest to the point. The
+ * directions are where the waves and the swell come from, and where the current goes.
+ */
+data class Marine(
+  val waveM: Double?,
+  val waveFromDeg: Double?,
+  val wavePeriodS: Double?,
+  val swellM: Double?,
+  val swellFromDeg: Double?,
+  val swellPeriodS: Double?,
+  val currentKmh: Double?,
+  val currentToDeg: Double?,
+  val waterC: Double?,
+  val attribution: String?,
 )
 
 /**
@@ -120,6 +141,10 @@ data class Day(
   val windMaxKmh: Double? = null,
   /** Its hours of sunshine (`sunshine_h`, Open-Meteo's sunshine duration), 0 to 24. */
   val sunshineH: Double? = null,
+  /** The strongest UV index of the day (`uv_max`). */
+  val uvMax: Double? = null,
+  /** The fresh snow of the day in cm (`snowfall_cm`). */
+  val snowfallCm: Double? = null,
 )
 
 data class PressureReading(val timeUtc: Long, val hpa: Double)
@@ -179,6 +204,9 @@ data class HourWeather(
   /** The chance of rain of the hour, when the forecast gives one. */
   val rainProbabilityPct: Double? = null,
   val cloudCoverPct: Double? = null,
+  val feelsLikeC: Double? = null,
+  /** The height of the 0 °C isotherm in m (`freezing_level_m`), where the model gives it. */
+  val freezingLevelM: Double? = null,
 )
 
 /** One spot of `/v1/activities/overview` with its verdicts for the next 24 hours. */

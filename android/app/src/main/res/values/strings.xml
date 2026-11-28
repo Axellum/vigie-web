@@ -264,4 +264,6 @@
     <string name="map_towns_paused">La météo de nouvelles villes est en pause pour aujourd\'hui : celles déjà lues restent affichées.</string>
     <string name="map_towns_failed">La météo des villes ne répond pas pour l\'instant.</string>
     <string name="map_towns_moment">Échéance de la météo des villes</string>
+    <string name="tab_beaches">Plages</string>
+    <string name="tab_ski">Pistes</string>
 </resources>
