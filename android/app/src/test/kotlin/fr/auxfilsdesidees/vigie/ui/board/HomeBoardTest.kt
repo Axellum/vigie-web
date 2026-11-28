@@ -295,6 +295,15 @@ class HomeBoardTest {
   }
 
   @Test
+  fun `a forecast without today names its first day by its date, not Auj`() {
+    // AROME Outre-mer drops today in the afternoon at the place: the days start tomorrow, which is not « Auj. ».
+    val d = HomeBoard.days(point(hours(), days(30.0).drop(2)), now, 7)
+    assertEquals("Sam 28", d[0].name)
+    assertEquals("Sam", d[0].nameShort)
+    assertFalse(d.any { it.name == "Auj." || it.nameShort == "Auj." })
+  }
+
+  @Test
   fun `a gust shows only over a whole day and above the wind of the day`() {
     // Today from the hour under way to midnight at the place: the twelve hours are there, the gust is 41 km/h.
     val d = HomeBoard.days(point(hours(), days(30.0)), now, 7)

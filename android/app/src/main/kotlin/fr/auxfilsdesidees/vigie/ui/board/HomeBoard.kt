@@ -510,6 +510,8 @@ object HomeBoard {
     val sun: Double,
     val sunshineH: Double? = null,
     val share: Double? = null,
+    /** The day under way at the place (« Auj. »); false for every day of an answer that has no today any more. */
+    val today: Boolean = false,
   )
 
   /** The hours of daylight of a local [day] (days since 1970 at the place), counted by 10 minutes; null without the place. */
@@ -537,8 +539,10 @@ object HomeBoard {
   }
 
   /**
-   * The days from today ([max] at most, none under 2). The gust and the direction come from the hours when they cover the
-   * day (today: the hours still to come); a gust no stronger than the wind of the day is left out (not « 33/24 »). Where the
+   * The days from today ([max] at most, none under 2). « Auj. » only names today: where the answer has no today any more (the
+   * days of AROME Outre-mer start the next day in the afternoon at the place, seen in Martinique on 28/11/2026), the first day
+   * is named by its date. The gust and the direction come from the hours when they cover the day (today: the hours still to
+   * come); a gust no stronger than the wind of the day is left out (not « 33/24 »). Where the
    * answer gives a day's hours of sunshine, their share of its daylight tints its column; else the cloud cover of its hours,
    * then its weather code (the card's `daysBlock`).
    */
@@ -559,8 +563,9 @@ object HomeBoard {
       val light = d.sunshineH?.let { daylightHours(p, day) }
       val share = if (light != null && light > 0) (d.sunshineH!! / light).coerceIn(0.0, 1.0) else null
       DayColumn(
-        name = if (i == 0) "Auj." else "${dayName(day)} ${dayOfMonth(day)}",
-        nameShort = if (i == 0) "Auj." else dayName(day),
+        today = day == today,
+        name = if (day == today) "Auj." else "${dayName(day)} ${dayOfMonth(day)}",
+        nameShort = if (day == today) "Auj." else dayName(day),
         kind = wmoKind(d.code),
         tmax = d.tmaxC!!,
         tmin = d.tminC!!,
