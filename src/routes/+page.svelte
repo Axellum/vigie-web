@@ -39,6 +39,11 @@
 	import HerePanel from '#lib/components/HerePanel.svelte';
 	import { SeaFamily } from '#lib/sea/seaFamily.svelte.js';
 	import SeaPanel from '#lib/sea/SeaPanel.svelte';
+	import { SkyFamily } from '#lib/families/skyFamily.svelte.js';
+	import SkyPanel from '#lib/families/SkyPanel.svelte';
+	import { TravelFamily } from '#lib/families/travelFamily.svelte.js';
+	import TravelCard from '#lib/families/TravelCard.svelte';
+	import TravelPanel from '#lib/families/TravelPanel.svelte';
 	import SpotBubble from '#lib/sea/SpotBubble.svelte';
 	import { seaText } from '#lib/sea/text.js';
 	import { PlaceState } from '#lib/placeState.svelte.js';
@@ -467,6 +472,8 @@
 		hereName = name;
 		hereOn = true;
 		leaveSea();
+		leaveSky();
+		leaveTravel();
 		locate = 'idle';
 		selection = null;
 		layerFamily = null;
@@ -490,6 +497,8 @@
 	function locateMe() {
 		hereOn = true;
 		leaveSea();
+		leaveSky();
+		leaveTravel();
 		selection = null;
 		layerFamily = null;
 		if (!navigator.geolocation) {
@@ -503,9 +512,74 @@
 			{ enableHighAccuracy: false, timeout: 15_000, maximumAge: 600_000 }
 		);
 	}
+	// --- the sky: NOAA's aurora oval on the map, the aurora tonight for a place in the side panel ---------------------------
+	// The place of "here", or a place touched on the map while the family is shown; the oval is read when it is first chosen.
+	let skyOn = $state(false);
+	const sky = new SkyFamily();
+	let skyPlace = $state<Place | null>(null);
+	let skyName = $state<string | null>(null);
+	// The northern oval and Europe at first (most visitors), around the place once there is one, as on the sky page.
+	const skyFrame = (at: Place | null): Box =>
+		at
+			? [at.lon - 25, Math.max(-85, at.lat - 12), at.lon + 25, Math.min(85, at.lat + 14)]
+			: [-45, 38, 60, 80];
+	function pickSky() {
+		if (skyOn) {
+			leaveSky();
+			return;
+		}
+		skyOn = true;
+		hereOn = false;
+		leaveSea();
+		leaveTravel();
+		selection = null;
+		layerFamily = null;
+		townPicked = null;
+		void sky.load();
+		if (!skyPlace && herePlace) {
+			skyPlace = herePlace;
+			skyName = hereName ?? hereTown;
+		}
+		mapView?.show(skyFrame(skyPlace), 5);
+		showRail();
+	}
+	function skyAt(at: Place) {
+		skyPlace = { lat: round3(at.lat), lon: round3(at.lon) };
+		skyName = null;
+	}
+	function leaveSky() {
+		skyOn = false;
+	}
+
+	// --- travel: the countries coloured by one ministry's advice, the counts in the side panel, a country's card over the map ---
+	let travelOn = $state(false);
+	const trips = new TravelFamily();
+	function pickTravel() {
+		if (travelOn) {
+			leaveTravel();
+			return;
+		}
+		travelOn = true;
+		hereOn = false;
+		leaveSea();
+		leaveSky();
+		selection = null;
+		layerFamily = null;
+		townPicked = null;
+		void trips.load();
+		mapView?.show([-130, -50, 150, 70], 2);
+		showRail();
+	}
+	function leaveTravel() {
+		travelOn = false;
+		trips.picked = null;
+	}
+
 	// --- the sea: "should you go?" in the side panel, the pins of the spots on the map and the card of a spot over it ----------
 	// Ranked around the place of "here" when there is one; the verdicts are read when the family is first chosen.
 	let seaOn = $state(false);
+	/** The families that put their own things on the map: the weather pills of the towns step aside. */
+	const quietTowns = $derived(seaOn || skyOn || travelOn);
 	const sea = new SeaFamily(() => ({ lang, at: herePlace }));
 	const seaPlace = $derived(herePlace ? (hereName ?? hereTown ?? seaText(lang, 'myPosition')) : null);
 	let seaToShow = false;
@@ -517,6 +591,8 @@
 		}
 		seaOn = true;
 		hereOn = false;
+		leaveSky();
+		leaveTravel();
 		selection = null;
 		layerFamily = null;
 		townPicked = null;
@@ -621,8 +697,9 @@
 			label: tr('frame.family.sky'),
 			count: 0,
 			countSaid: '',
-			on: false,
-			href: '/sky'
+			on: skyOn,
+			current: skyOn,
+			onpick: pickSky
 		},
 		{
 			id: 'travel',
@@ -630,8 +707,9 @@
 			label: tr('frame.family.travel'),
 			count: 0,
 			countSaid: '',
-			on: false,
-			href: '/travel'
+			on: travelOn,
+			current: travelOn,
+			onpick: pickTravel
 		},
 		layerFamilyOf('map')
 	]);
@@ -848,6 +926,11 @@
 
 	// --- selection and detail ---------------------------------------------------------------------------
 	function onMapSelect(s: Selection) {
+		if (travelOn && s.kind === 'zone') {
+			trips.picked = s.key;
+			townPicked = null;
+			return;
+		}
 		if (s.kind === 'spot') {
 			void openSpot(s.id);
 			return;
@@ -1013,6 +1096,7 @@
 <svelte:window
 	onkeydown={(e) => {
 		if (e.key === 'Escape' && seaOn && sea.chosen) closeSpot();
+		else if (e.key === 'Escape' && travelOn && trips.picked) trips.picked = null;
 	}}
 />
 
@@ -1177,6 +1261,14 @@
 				{:else}
 					<p class="muted">{tr('detail.failed')}</p>
 				{/if}
+			</section>
+		{:else if skyOn}
+			<section class="block">
+				<SkyPanel {lang} {sky} place={skyPlace} name={skyName} />
+			</section>
+		{:else if travelOn}
+			<section class="block">
+				<TravelPanel {lang} {trips} />
 			</section>
 		{:else if seaOn}
 			<section class="block">
@@ -1438,15 +1530,22 @@
 		<div
 			class="mapwrap"
 			bind:this={mapwrap}
-			style:--map-foot={!seaOn && towns.on && towns.near ? '44px' : null}
+			style:--map-foot={!quietTowns && towns.on && towns.near ? '44px' : null}
 		>
 			<MapView
 				bind:this={mapView}
 				{lang}
 				hazards={mapHazards}
-				{zones}
-				zonesFrom={WARNINGS_MIN_ZOOM}
-				selected={seaOn && sea.chosen ? { kind: 'spot', id: sea.chosen } : mapSelected}
+				zones={travelOn ? trips.zones : zones}
+				zonesFrom={travelOn ? 0 : WARNINGS_MIN_ZOOM}
+				aurora={skyOn ? (sky.oval?.features ?? null) : null}
+				selected={seaOn && sea.chosen
+					? { kind: 'spot', id: sea.chosen }
+					: travelOn
+						? trips.picked
+							? { kind: 'zone', key: trips.picked }
+							: null
+						: mapSelected}
 				spots={seaOn ? sea.dots : null}
 				pins={seaOn ? sea.pins : null}
 				forecast={forecast?.status === 'ok' ? forecast.value?.features : null}
@@ -1464,12 +1563,12 @@
 				})}
 				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 				flow={flow.grids}
-				towns={seaOn ? null : townPills}
+				towns={quietTowns ? null : townPills}
 				ontowns={(list) => (towns.towns = list)}
 				ontownhover={onTownHover}
 				ontownpick={onTownPick}
 				place={hereOn ? hereState.mapPlace : null}
-				onpick={hereOn && !herePlace ? (at) => setHere(at, null) : undefined}
+				onpick={skyOn ? skyAt : hereOn && !herePlace ? (at) => setHere(at, null) : undefined}
 				globe
 				onselect={onMapSelect}
 				onmove={(v, z) => {
@@ -1480,7 +1579,7 @@
 				}}
 			/>
 			<RadarCard {lang} {radar} />
-			{#if !seaOn && towns.on && towns.near}
+			{#if !quietTowns && towns.on && towns.near}
 				<MomentBar {lang} choices={towns.choices} now={towns.now} bind:selected={towns.moment} />
 			{/if}
 			{#if townHover && townHoverWeather}
@@ -1494,6 +1593,9 @@
 					top={townHover.top}
 					above={townHover.above}
 				/>
+			{/if}
+			{#if travelOn && trips.picked}
+				<TravelCard {lang} {trips} onclose={() => (trips.picked = null)} />
 			{/if}
 			{#if seaOn && sea.chosenSpot}
 				<div class="bubble-slot" bind:this={bubbleBox}>

@@ -37,17 +37,17 @@ test('the rail of the home map stands beside it, and each family opens its layer
 	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
 	const rail = layerRail(page);
 	// The weather of the towns, the relief and the details of the IGN are on at first: their families say so.
-	// "Here" and the sea act on the side panel; the sky and travel are still pages of their own, linked from the rail.
+	// "Here", the sea, the sky and travel act on the side panel; the others open their layers over the map.
 	await expect(rail.getByRole('button')).toHaveText([
 		'Ici',
 		'Alertes',
 		'Météo1(1 couche affichée)',
 		'Mer',
+		'Ciel',
+		'Voyager',
 		/^Carte/
 	]);
-	await expect(rail.getByRole('link')).toHaveText(['Ciel', 'Voyager']);
-	await expect(rail.getByRole('link', { name: 'Ciel' })).toHaveAttribute('href', '/sky');
-	await expect(rail.getByRole('link', { name: 'Voyager' })).toHaveAttribute('href', '/travel');
+	await expect(rail.getByRole('link')).toHaveCount(0);
 	await expect(rail.getByRole('button', { name: /^Carte/ })).toHaveAccessibleName(
 		'Carte (2 couches affichées)'
 	);
@@ -119,9 +119,10 @@ test('the rail of the home map stands beside it, and each family opens its layer
 		'Alerts',
 		/^Weather1/,
 		'Sea',
+		'Sky',
+		'Travel',
 		/^Map/
 	]);
-	await expect(layerRail(page).getByRole('link')).toHaveText(['Sky', 'Travel']);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });
 
@@ -196,5 +197,87 @@ test('the sea family says where to go in the side panel, pins the spots on the m
 	await chips.nth(1).click();
 	await expect(chips.nth(1)).toHaveAttribute('aria-pressed', 'true');
 	expect(await page.evaluate(() => localStorage.getItem('vigie-sea'))).toContain('kite');
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('the sky family puts the NOAA oval on the map and the aurora tonight of the place of "here" in the side panel', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/#42.306,9.15,50');
+	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	const sky = layerRail(page).getByRole('button', { name: 'Ciel' });
+	await sky.click();
+	await expect(sky).toHaveAttribute('aria-pressed', 'true');
+	await expect(layerRail(page).getByRole('button', { name: 'Ici' })).toHaveAttribute('aria-pressed', 'false');
+	const panel = page.locator('section.sky');
+	await expect(panel.getByText(/^Ciel · Ce soir d.ici/)).toBeVisible();
+	await expect(panel.getByRole('link', { name: /page Ciel/ })).toHaveAttribute('href', '/sky');
+	await expect(panel.getByRole('link', { name: 'Éclipses de Soleil' })).toHaveAttribute(
+		'href',
+		'/sky/eclipses'
+	);
+	// The oval is drawn: its bands are in the map's source.
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const map = (
+					window as unknown as {
+						vigieMap: { getSource(id: string): { getData(): Promise<{ features?: unknown[] }> } | undefined };
+					}
+				).vigieMap;
+				return (await map.getSource('aurora')?.getData())?.features?.length ?? 0;
+			})
+		)
+		.toBeGreaterThan(0);
+	// The same button leaves the sky; the oval goes with it.
+	await sky.click();
+	await expect(panel).toHaveCount(0);
+	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
+});
+
+test('the travel family colours the countries by one ministry, counts them, and a country opens its card over the map', async ({
+	page
+}) => {
+	const errors = collectErrors(page);
+	await page.goto('/');
+	await expect(page.locator('.wrap[data-ready]')).toBeVisible({ timeout: 15_000 });
+	await layerRail(page).getByRole('button', { name: 'Voyager' }).click();
+	const panel = page.locator('section.trips');
+	await expect(panel.getByRole('heading', { level: 2, name: 'Partir à l’étranger' })).toBeVisible();
+	const ministries = panel.getByRole('radiogroup', { name: 'Carte des avis de :' }).getByRole('radio');
+	await expect(ministries.first()).toHaveAttribute('aria-checked', 'true');
+	await expect(panel.locator('.counts li').first()).toBeVisible();
+	await ministries.nth(1).click();
+	await expect(ministries.nth(1)).toHaveAttribute('aria-checked', 'true');
+	await expect(panel.getByRole('link', { name: /page Voyager/ })).toHaveAttribute('href', '/travel');
+
+	// A country touched on the map: its card, each ministry side by side, and its page.
+	await page.evaluate(() =>
+		(window as unknown as { vigieMap: { jumpTo(o: object): void } }).vigieMap.jumpTo({
+			center: [-6.5, 31.5],
+			zoom: 3.5
+		})
+	);
+	// On a phone the map is under the panel: brought on screen first.
+	await page.locator('.mapwrap').scrollIntoViewIfNeeded();
+	await page.waitForTimeout(1500);
+	const box = (await page.locator('.mapwrap').boundingBox())!;
+	const [x, y] = await page.evaluate(() => {
+		const p = (
+			window as unknown as { vigieMap: { project(at: [number, number]): { x: number; y: number } } }
+		).vigieMap.project([-6.5, 31.5]);
+		return [p.x, p.y];
+	});
+	await page.mouse.click(box.x + x, box.y + y);
+	const card = page.getByTestId('travel-card');
+	await expect(card.getByRole('heading', { name: 'Maroc' })).toBeVisible();
+	await expect(card.locator('.marks li')).toHaveCount(await ministries.count());
+	await expect(card.getByRole('link', { name: 'Ouvrir la fiche du pays' })).toHaveAttribute(
+		'href',
+		'/travel/ma'
+	);
+	await page.keyboard.press('Escape');
+	await expect(card).toHaveCount(0);
 	expect(errors.filter((e) => !/WebGL|webgl/.test(e))).toEqual([]);
 });

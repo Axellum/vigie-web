@@ -478,6 +478,31 @@ export function inLanguage(
 	return first ? { text: first[1], language: first[0] } : null;
 }
 
+/** One country of the maps of travel advice: the colour of each ministry's advice for the whole country (Vigie's), and the
+ *  comparison. */
+export interface TravelRow {
+	cc: string;
+	marks: Record<string, Level | null>;
+	disagree: boolean | null;
+	gap: number | null;
+}
+
+/** The overview of the API (every advice of every country) reduced to what a map and a list show, so that a page stays light. */
+export function travelRows(overview: Overview): TravelRow[] {
+	const read = overview.ministries.filter((m) => m.read).map((m) => m.id);
+	return overview.countries.map((c) => ({
+		cc: c.country,
+		marks: Object.fromEntries(
+			read.map((id) => {
+				const advice = wholeCountry(c.advices, id);
+				return [id, advice ? mapLevel(advice) : null];
+			})
+		),
+		disagree: c.comparison.disagree,
+		gap: c.comparison.gap
+	}));
+}
+
 /** A ministry's words for a step of its scale (the overview gives the step only). */
 export function stepWords(lang: Lang, ministry: Ministry | undefined, level: number | null) {
 	if (!ministry || level == null) return null;
