@@ -138,7 +138,8 @@
 	.card {
 		position: absolute;
 		left: 10px;
-		bottom: 34px;
+		/* Over the bar of the moments of the towns' weather when the page shows it (`--map-foot`). */
+		bottom: calc(34px + var(--map-foot, 0px));
 		z-index: 3;
 		width: min(300px, calc(100% - 20px));
 		box-sizing: border-box;
@@ -153,7 +154,7 @@
 	}
 	@media (max-width: 520px) {
 		.card {
-			bottom: 54px;
+			bottom: calc(54px + var(--map-foot, 0px));
 		}
 	}
 	.head {
@@ -271,7 +272,7 @@
 	.fold {
 		position: absolute;
 		left: 10px;
-		bottom: 26px;
+		bottom: calc(26px + var(--map-foot, 0px));
 		z-index: 3;
 		padding: 5px 10px;
 		border: 1px solid var(--line);
@@ -281,5 +282,12 @@
 		font-size: 12px;
 		font-weight: 600;
 		cursor: pointer;
+	}
+	@media (max-width: 520px) {
+		/* On a phone the credits of the map take the whole foot and the bar of the moments stands over them (54px): with the bar,
+		   the button stands where the card does; without it (`--map-foot` unset), where it always stood (26px). */
+		.fold {
+			bottom: calc(54px + var(--map-foot, -28px));
+		}
 	}
 </style>

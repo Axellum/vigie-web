@@ -183,6 +183,78 @@ const answer = (req, res) => {
 		res.end(readFileSync(join(dir, `wind-field-${listed.id}.png`)));
 		return;
 	}
+	// The weather of the towns of the home map: the recorded point for every place, moved by whole days to look read today (its hours
+	// from the current one on), a little warmer or colder from a place to the next; the second place gets rain within the hour and
+	// the third a strong wind, so that the pills show their drop and their arrow.
+	if (url.pathname === '/v1/points') {
+		const at = url.searchParams.getAll('at').map((v) => v.split(',').map(Number));
+		if (!at.length || at.length > 40 || at.some((c) => c.length !== 2 || !c.every(Number.isFinite))) {
+			res.writeHead(422, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ detail: 'bad places' }));
+			return;
+		}
+		const point = read('point.json');
+		const now = Math.floor(Date.now() / 1000);
+		const days = Math.floor((now - point.server_utc) / 86400);
+		const shifted = moved(point, days * 86400);
+		const day = (iso) =>
+			new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+		const keys = [
+			'time_utc',
+			'temp_c',
+			'precipitation_mm',
+			'precipitation_probability_pct',
+			'wind_kmh',
+			'wind_gust_kmh',
+			'wind_deg',
+			'cloud_cover_pct',
+			'weather_code',
+			'is_day'
+		];
+		const hours = Number(url.searchParams.get('hours') || 36);
+		const places = at.map(([lat, lon], i) => {
+			const warmer = (i % 5) - 2;
+			const hourly = shifted.hourly
+				.filter((h) => h.time_utc + 3600 > now)
+				.slice(0, hours)
+				.map((h, k) => {
+					const out = Object.fromEntries(keys.map((key) => [key, h[key]]));
+					out.temp_c = h.temp_c + warmer;
+					if (i === 1 && k < 3) out.precipitation_mm = 1.2;
+					if (i === 2) out.wind_gust_kmh = 58;
+					return out;
+				});
+			const { radar_tile_url_template, radar_timestamp_utc, ...nowcast } = shifted.rain_nowcast;
+			if (i === 1) nowcast.mm_per_step = [0, 0.3, 0.6, 0.4];
+			return {
+				lat,
+				lon,
+				utc_offset_s: shifted.utc_offset_s,
+				weather_provider: shifted.weather_provider,
+				fallback_used: false,
+				current: {
+					...shifted.current,
+					temp_c: shifted.current.temp_c + warmer,
+					...(i === 2 ? { wind_kmh: 34, gust_kmh: 58, wind_deg: 290 } : {})
+				},
+				rain_nowcast: nowcast,
+				hourly,
+				daily: shifted.daily.slice(0, 5).map((d) => ({ ...d, date: day(d.date) }))
+			};
+		});
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(
+			JSON.stringify({
+				version: '1.0',
+				server_utc: now,
+				hours,
+				days: 5,
+				places,
+				attribution: point.weather_attribution
+			})
+		);
+		return;
+	}
 	const key =
 		url.pathname === '/v1/sea/places'
 			? placesKey(url)

@@ -20,6 +20,7 @@ export const variables = defineEnvVars({
 	VIGIE_POINT_LOOKUPS_PER_DAY: { schema: (input) => input },
 	VIGIE_ME_POINT_LOOKUPS_PER_DAY: { schema: (input) => input },
 	VIGIE_TV_POINT_LOOKUPS_PER_DAY: { schema: (input) => input },
+	VIGIE_TOWN_LOOKUPS_PER_DAY: { schema: (input) => input },
 	VIGIE_WARM_PLACES: { schema: (input) => input },
 	VIGIE_WARM_MAX_CELLS: { schema: (input) => input },
 	VIGIE_WARM_LOOKUPS_PER_DAY: { schema: (input) => input },

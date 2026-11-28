@@ -33,6 +33,7 @@
 	import { RELIEF_HOST, RELIEF_PREFIX, reliefBefore, reliefPieces, type ReliefOnMap } from '#lib/relief.js';
 	import { bandOf, keepLabels, LABEL_OFFSET, type SeaPin } from '#lib/sea/map.js';
 	import { townOf, type Town } from '#lib/sea/town.js';
+	import { TownMarkers, type TownInView, type TownPill } from '#lib/townMarkers.js';
 	import { compass } from '#lib/surf.js';
 	import {
 		badgeRadius,
@@ -100,6 +101,14 @@
 		onpick?: (place: Place) => void;
 		/** When given, the names of the towns, cities and villages of the base map can be clicked (the sea map). */
 		ontown?: (town: Town) => void;
+		/** The pills of the "Weather" layer (`townMarkers.ts`): a town of the base map and what it shows; null: the layer is off. */
+		towns?: TownPill[] | null;
+		/** The towns the base map names in view, the most important first, once a move has settled (while `towns` is given). */
+		ontowns?: (towns: TownInView[]) => void;
+		/** The pointer or the focus is on a town's pill (its box on screen), or left it (null). */
+		ontownhover?: (id: string | null, at: DOMRect | null) => void;
+		/** A town's pill was clicked. */
+		ontownpick?: (id: string) => void;
 	}
 
 	let {
@@ -129,7 +138,11 @@
 		onselect,
 		onmove,
 		onpick,
-		ontown
+		ontown,
+		towns = null,
+		ontowns,
+		ontownhover,
+		ontownpick
 	}: Props = $props();
 
 	const tr = $derived(translator(lang));
@@ -1145,6 +1158,16 @@
 		}
 	}
 
+	// The pills of the "Weather" layer: drawn again after each move (their boxes keep them apart), the towns in view told to the
+	// page once the tiles of the view are there.
+	let townMarkers: TownMarkers | null = null;
+	function syncTowns() {
+		if (map && ready) townMarkers?.draw(towns, lang, currentTheme);
+	}
+	function reportTowns() {
+		if (map && townMarkers && towns) ontowns?.(townMarkers.inView(lang));
+	}
+
 	// The forecast wind: a canvas of its own over the map's (`WindFlow`), made when there is a wind to draw and taken away after.
 	let flowEngine: WindFlow | null = null;
 	const flowColors = (): FlowColors => ({
@@ -1270,11 +1293,17 @@
 					else map.once('resize', fit);
 					lastFrame = first.join(',');
 				}
+				townMarkers = new TownMarkers(map, ml, {
+					hover: (id, at) => ontownhover?.(id, at),
+					pick: (id) => ontownpick?.(id)
+				});
 				map.on('style.load', () => {
 					localizeLabels();
 					addOverlay();
 					if (globeOn) map?.setProjection({ type: 'globe' });
 					ready = true;
+					townMarkers?.styleChanged();
+					syncTowns();
 				});
 				const pick = (layer: string, read: (p: Record<string, unknown>) => Selection) =>
 					map!.on('click', layer, (e) => {
@@ -1337,15 +1366,19 @@
 						map!.getCanvas().style.cursor = over ? 'pointer' : '';
 					});
 				}
+				map.on('movestart', () => ontownhover?.(null, null));
 				map.on('moveend', () => {
 					onmove?.(view(), map!.getZoom());
 					syncWind();
 					syncPins();
+					syncTowns();
+					map!.once('idle', reportTowns);
 				});
 				map.once('idle', () => (drawn = true));
 				map.on('load', () => {
 					syncMarkers();
 					onmove?.(view(), map!.getZoom());
+					map!.once('idle', reportTowns);
 				});
 				observer = new MutationObserver(onThemeChange);
 				observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -1440,6 +1473,17 @@
 		void pins;
 		void selected;
 		if (ready) syncPins();
+	});
+	// The layer turned on: the towns in view are told at once; new pills (a new moment, the weather read): drawn again.
+	let townsOn = false;
+	$effect(() => {
+		void towns;
+		void lang;
+		if (!ready) return;
+		syncTowns();
+		const on = towns !== null;
+		if (on && !townsOn) reportTowns();
+		townsOn = on;
 	});
 	$effect(() => {
 		void place;
@@ -1721,5 +1765,78 @@
 	}
 	:global(.maplibregl-ctrl-attrib) {
 		font-size: 11px;
+	}
+	/* The pills of the "Weather" layer: the icon of the sky and the temperature in a light pill, the town's name under it. */
+	:global(.vigie-town) {
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--ink);
+		font: 600 12px/1 var(--font-body);
+		cursor: pointer;
+	}
+	:global(.vigie-town:hover),
+	:global(.vigie-town:focus-visible) {
+		z-index: 3;
+		outline: none;
+	}
+	:global(.vigie-town .pl) {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		height: 28px;
+		padding: 0 8px 0 3px;
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		background: color-mix(in srgb, var(--surface) 94%, transparent);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	:global(.vigie-town:hover .pl),
+	:global(.vigie-town:focus-visible .pl),
+	:global(.vigie-town.open .pl) {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+	}
+	:global(.vigie-town .pl b) {
+		font: 700 15px/1 var(--font-display);
+	}
+	:global(.vigie-town .pl .lo) {
+		font-size: 12px;
+		opacity: 0.9;
+	}
+	:global(.vigie-town .pl .rn),
+	:global(.vigie-town .pl .wd) {
+		display: flex;
+		align-items: center;
+		gap: 1px;
+		margin-left: 2px;
+		padding-left: 4px;
+		border-left: 1px solid var(--line);
+		font-size: 11.5px;
+	}
+	:global(.vigie-town .dr),
+	:global(.vigie-town .ar) {
+		width: 10px;
+		height: 11px;
+		fill: currentColor;
+	}
+	:global(.vigie-town .nm) {
+		max-width: 140px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--ink);
+		font: 600 11.5px/13px var(--font-body);
+		text-shadow:
+			0 0 2px var(--surface),
+			0 0 3px var(--surface),
+			0 0 4px var(--surface);
 	}
 </style>
