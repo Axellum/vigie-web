@@ -101,6 +101,17 @@ class HerePlaceTest {
   }
 
   @Test
+  fun `a place « Ici » whose mark an older version dropped becomes « Ici » again`() {
+    // Saved by a version from before « Ici »: the name is empty, the mark and the parked spots are gone.
+    val text = """{"current":1,"places":[{"name":"Paris","lat":48.8534,"lon":2.3488,"spots":[]},{"name":"","lat":47.75,"lon":-3.37,"spots":["kerou"]}]}"""
+    val read = PlacesStore.decode(text)!!
+    val again = read.adoptHere(setOf("Ma position"))
+    assertEquals(1, again.hereIndex)
+    assertEquals(listOf("kerou"), again.herePlace!!.spots)
+    assertEquals("Ici", again.herePlace!!.place.label)
+  }
+
+  @Test
   fun `it is saved with its mark and its parked spots, one place « Ici » at most`() {
     val c = Choices(listOf(paris, FollowedPlace(sainteAnne, emptyList(), Bell.YELLOW, listOf("kerou"))), 1)
     assertEquals(c, PlacesStore.decode(PlacesStore.encode(c)))

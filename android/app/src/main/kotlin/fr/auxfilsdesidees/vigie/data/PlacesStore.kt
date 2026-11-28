@@ -100,11 +100,12 @@ data class Choices(val places: List<FollowedPlace>, val current: Int) {
   /**
    * The « Ma position » of before (a point taken once, named [names]) becomes the place « Ici », which then follows the
    * phone: its spots, its bell and its rank stay; it has no town until the next position is read. Only the first one,
-   * and only when there is no place « Ici » yet.
+   * and only when there is no place « Ici » yet. A place without a name is taken too: it is a place « Ici » whose mark
+   * a version of the app from before « Ici » dropped when it saved the places (the place search never gives one).
    */
   fun adoptHere(names: Set<String>): Choices {
     if (hereIndex >= 0) return this
-    val index = places.indexOfFirst { it.place.name in names }
+    val index = places.indexOfFirst { it.place.name in names || it.place.name.isBlank() }
     if (index < 0) return this
     return copy(places = places.mapIndexed { k, f -> if (k == index) f.copy(place = f.place.copy(name = "", region = null, here = true)) else f })
   }
