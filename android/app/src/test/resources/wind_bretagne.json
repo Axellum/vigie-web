@@ -1,0 +1,67 @@
+{
+ "points": [
+  {
+   "id": "56185001",
+   "name": "Lorient-Lann Bihoue",
+   "lat": 47.76283,
+   "lon": -3.43567,
+   "altM": 45,
+   "kmh": 29.9,
+   "gustKmh": 46.4,
+   "fromDeg": 190,
+   "measured": 1795876560,
+   "buoy": false
+  },
+  {
+   "id": "29075001",
+   "name": "Brest-Guipavas",
+   "lat": 48.45383,
+   "lon": -4.39117,
+   "altM": 92,
+   "kmh": 27.4,
+   "gustKmh": 42.5,
+   "fromDeg": 210,
+   "measured": 1795876560,
+   "buoy": false
+  },
+  {
+   "id": "buoy-6200001",
+   "name": "Gascogne",
+   "lat": 45.23,
+   "lon": -5.02,
+   "altM": null,
+   "kmh": 25.6,
+   "gustKmh": 32,
+   "fromDeg": 210,
+   "measured": 1795874400,
+   "buoy": true
+  },
+  {
+   "id": "56000999",
+   "name": null,
+   "lat": 47.6,
+   "lon": -3.1,
+   "altM": 12,
+   "kmh": 3.2,
+   "gustKmh": null,
+   "fromDeg": null,
+   "measured": 1795876560,
+   "buoy": false
+  },
+  {
+   "id": "broken",
+   "name": "X",
+   "lat": 47.0,
+   "lon": -3.0,
+   "altM": null,
+   "kmh": null,
+   "gustKmh": null,
+   "fromDeg": null,
+   "measured": 1795876560,
+   "buoy": false
+  }
+ ],
+ "measured": 1795876560,
+ "stale": false,
+ "attribution": "Source: Météo-France, observations infrahoraires 6 min (https://portail-api.meteofrance.fr/web/fr/api/PaquetObs, Licence Ouverte 2.0), dated as in the answer (measured_at, UTC); the choice of the station, its distance, its age and the relative wind are calculated by Vigie | Source: Météo-France, file 'POSTES_MF.csv' (Licence Ouverte 2.0), names and altitudes of the open ground stations · Source: Météo-France, observations des bouées (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation), dated as in the answer (measured_at, UTC); the distance and the age are calculated by Vigie, the units converted by Vigie"
+}

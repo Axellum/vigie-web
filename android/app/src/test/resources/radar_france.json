@@ -1,0 +1,70 @@
+{
+ "frames": [
+  1795874400,
+  1795874700,
+  1795875000,
+  1795875300,
+  1795875600,
+  1795875900,
+  1795876200,
+  1795876500
+ ],
+ "intervalMinutes": 5,
+ "minZoom": 3,
+ "maxZoom": 10,
+ "bounds": [
+  -9.97,
+  37.45,
+  17.57,
+  53.67
+ ],
+ "legend": [
+  {
+   "minMmH": 0.1,
+   "color": "#a6cee3",
+   "alpha": 0.67
+  },
+  {
+   "minMmH": 0.5,
+   "color": "#60a5fa",
+   "alpha": 0.78
+  },
+  {
+   "minMmH": 1,
+   "color": "#2563eb",
+   "alpha": 0.84
+  },
+  {
+   "minMmH": 2,
+   "color": "#22c55e",
+   "alpha": 0.88
+  },
+  {
+   "minMmH": 4,
+   "color": "#facc15",
+   "alpha": 0.92
+  },
+  {
+   "minMmH": 8,
+   "color": "#f97316",
+   "alpha": 0.94
+  },
+  {
+   "minMmH": 16,
+   "color": "#dc2626",
+   "alpha": 0.96
+  },
+  {
+   "minMmH": 32,
+   "color": "#a21caf",
+   "alpha": 0.98
+  },
+  {
+   "minMmH": 64,
+   "color": "#581c87",
+   "alpha": 1
+  }
+ ],
+ "attribution": "Source: Météo-France, mosaïque radar lame d'eau (https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesRadar, Licence Ouverte 2.0), drawn as tiles by a vigie-meteo gateway: the intensity classes and their colours are ours",
+ "stale": false
+}

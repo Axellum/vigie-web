@@ -21,6 +21,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -41,6 +43,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -81,13 +86,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import fr.auxfilsdesidees.vigie.R
 import fr.auxfilsdesidees.vigie.data.CatalogueSpot
 import fr.auxfilsdesidees.vigie.data.Choices
 import fr.auxfilsdesidees.vigie.data.Favourites
 import fr.auxfilsdesidees.vigie.data.Geo
+import fr.auxfilsdesidees.vigie.data.GeoBox
 import fr.auxfilsdesidees.vigie.data.MapActivity
 import fr.auxfilsdesidees.vigie.data.MapBackground
+import fr.auxfilsdesidees.vigie.data.MapWeather
 import fr.auxfilsdesidees.vigie.data.Place
 import fr.auxfilsdesidees.vigie.data.SeaMap
 import fr.auxfilsdesidees.vigie.data.Starred
@@ -102,10 +110,14 @@ import fr.auxfilsdesidees.vigie.ui.board.SeaBoard
 import fr.auxfilsdesidees.vigie.ui.board.SeaBoardView
 import fr.auxfilsdesidees.vigie.ui.theme.VigieColors
 import java.util.TimeZone
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -119,7 +131,9 @@ import org.maplibre.android.maps.Style
  * (OpenFreeMap) in full screen, a pin per spot for the activity of the chip chosen, the search of a beach or a town, the
  * phone's position when asked for, and the credits of the base map, always shown. It opens on the place shown by the
  * tabs; the system's back, or the arrow, goes back to them. The layers button, right of the search, puts the IGN's plan
- * or its photographs under the pins instead, with their credits; the choice is kept.
+ * or its photographs under the pins instead, with their credits; the choice is kept. Its menu also turns on, as the site's
+ * `/sea`, the wind measured (a badge per station or buoy, its card at the top) and the rain radar (the last 35 minutes,
+ * its card at the bottom, with Play, a slider and the legend); both are off at first, the choice is kept.
  *
  * A touch on a spot, a followed place or a town of the base map opens its sheet from the bottom: the beach as the Mer tab
  * draws it, or the town's weather as the Accueil. Its star follows it ([Favourites]): the Accueil, the Mer tab and the
@@ -130,6 +144,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   val ui by viewModel.ui.collectAsStateWithLifecycle()
   val app by home.app.collectAsStateWithLifecycle()
   val sheet by viewModel.sheet.collectAsStateWithLifecycle()
+  val weather by viewModel.weather.state.collectAsStateWithLifecycle()
   val choices = app.choices
   val followedSpots = remember(choices) { Favourites.spots(choices) }
   val followedPlaces = remember(choices) { Favourites.places(choices) }
@@ -148,6 +163,8 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   var tall by rememberSaveable { mutableStateOf(false) }
   var note by remember { mutableStateOf<Note?>(null) }
   var starring by remember { mutableStateOf(false) }
+  // Where the wind's badges were laid out last: the view and the zoom (again after each move, and while zooming).
+  var windView by remember { mutableStateOf<Pair<GeoBox, Double>?>(null) }
 
   /** The share of the screen the sheet takes, and how far down the top bar goes: the point touched stays between them. */
   fun sheetPx(): Double = mapView.height * (if (tall) SHEET_TALL else SHEET_SHORT).toDouble()
@@ -184,6 +201,13 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
         viewModel.open(SeaMapViewModel.Sheet.Town(place))
         reveal(m, at, place.lat, place.lon)
       }
+      // A badge of the wind: what it measured, in a note (the site's bubble).
+      is MapLayers.Pick.Wind ->
+        viewModel.weather.state.value.windMap?.points?.firstOrNull { it.id == pick.id }?.let { p ->
+          val now = System.currentTimeMillis()
+          val lines = WeatherWords.windLines(p, TimeZone.getDefault().getOffset(now) / 1000)
+          note = Note(lines.joinToString("\n"), title = WeatherWords.windName(p))
+        }
       null -> viewModel.close()
     }
   }
@@ -199,12 +223,25 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
       isTiltGesturesEnabled = false
     }
     m.cameraPosition = CameraPosition.Builder().target(LatLng(camera[0], camera[1])).zoom(camera[2]).build()
-    m.addOnCameraIdleListener { m.cameraPosition.target?.let { camera = listOf(it.latitude, it.longitude, m.cameraPosition.zoom) } }
+    m.addOnCameraIdleListener {
+      m.cameraPosition.target?.let { camera = listOf(it.latitude, it.longitude, m.cameraPosition.zoom) }
+      val view = viewOf(m)
+      viewModel.weather.move(view, m.cameraPosition.zoom)
+      windView = view to m.cameraPosition.zoom
+    }
+    // While zooming, the badges are laid out again every third of a level, so that they never pile up for long.
+    m.addOnCameraMoveListener {
+      val zoom = m.cameraPosition.zoom
+      if (abs(zoom - (windView?.second ?: zoom)) >= WIND_RELAYOUT_ZOOM) windView = viewOf(m) to zoom
+    }
     m.addOnMapClickListener { latLng ->
       onTap(m, latLng)
       true
     }
     map = m
+    val first = viewOf(m)
+    viewModel.weather.move(first, m.cameraPosition.zoom)
+    windView = first to m.cameraPosition.zoom
   }
   // The base map chosen: its style set once, again when another background is chosen (the pins are added to it again).
   var styleSet by remember { mutableStateOf<String?>(null) }
@@ -236,6 +273,35 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   LaunchedEffect(ui.backgroundFailed) { if (ui.backgroundFailed != null) note = Note(context.getString(R.string.map_background_failed), null) }
   LaunchedEffect(style, ui.pins, followedSpots) { style?.let { MapLayers.show(it, ui.pins, followedSpots, context) } }
   LaunchedEffect(style, followedPlaces) { style?.let { MapLayers.showPlaces(it, followedPlaces, context) } }
+  // The rain radar: the image shown, all of them once played or slid.
+  LaunchedEffect(style, weather.radar, weather.epoch, weather.preload) {
+    val s = style ?: return@LaunchedEffect
+    val radar = weather.radar
+    MapLayers.showRadar(s, radar, weather.epoch, weather.preload) { epoch -> viewModel.radarTiles(radar!!.area, epoch) }
+  }
+  // The wind's badges kept on screen, the strongest first where two would touch.
+  LaunchedEffect(style, weather.windMap, windView) {
+    val s = style ?: return@LaunchedEffect
+    val (view, zoom) = windView ?: return@LaunchedEffect
+    val radius = MapWeather.badgeRadius(zoom)
+    val points = weather.windMap?.points.orEmpty()
+    val kept = if (points.isEmpty()) emptyList() else withContext(Dispatchers.Default) { MapWeather.declutter(points, view, zoom, radius) }
+    MapLayers.showWind(s, kept, radius, context)
+  }
+  // While the map is shown: the radar and the wind asked again when old (every minute at most); the animation stops in the background.
+  val owner = LocalLifecycleOwner.current
+  LaunchedEffect(owner) {
+    owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+      try {
+        while (true) {
+          viewModel.weather.sync()
+          delay(SYNC_MS)
+        }
+      } finally {
+        viewModel.weather.pause()
+      }
+    }
+  }
   LaunchedEffect(style, me) {
     val s = style ?: return@LaunchedEffect
     me?.let { (lat, lon) -> MapLayers.showMe(s, lat, lon) }
@@ -310,11 +376,18 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
         viewModel.open(if (spot != null) SeaMapViewModel.Sheet.Spot(spot) else SeaMapViewModel.Sheet.Town(Place(hit.name, hit.lat, hit.lon, hit.detail)))
       }
       if (layersOpen)
-        BackgroundMenu(ui, Modifier.align(Alignment.End)) {
+        BackgroundMenu(
+          ui,
+          weather,
+          Modifier.align(Alignment.End),
+          onRain = viewModel.weather::showRain,
+          onWind = viewModel.weather::showWind,
+        ) {
           viewModel.chooseBackground(it)
           layersOpen = false
         }
       Chips(ui.activity, viewModel::choose)
+      if (weather.wind) WindCard(weather, onHide = { viewModel.weather.showWind(false) }, Modifier.padding(horizontal = 12.dp))
     }
 
     if (ui.style == null || ui.failed) {
@@ -336,6 +409,7 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
     Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       Column(Modifier.padding(horizontal = 8.dp).padding(bottom = if (sheet == null) 8.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         note?.let { n -> NoteBar(n) { note = null } }
+        if (sheet == null && weather.rain && weather.area != null) RadarCard(weather, viewModel.weather)
         if (sheet == null) {
           Row(verticalAlignment = Alignment.Bottom) {
             Legend(Modifier.weight(1f))
@@ -364,6 +438,29 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
             }
             .padding(horizontal = 8.dp, vertical = 4.dp),
         )
+        val rainShown = weather.rain && weather.area != null
+        val meteo =
+          when {
+            rainShown && weather.wind -> R.string.map_credits_weather
+            rainShown -> R.string.map_credits_rain
+            weather.wind -> R.string.map_credits_wind
+            else -> null
+          }
+        meteo?.let {
+          Small(
+            stringResource(it),
+            VigieColors.Text2,
+            Modifier.background(VigieColors.Bar, RoundedCornerShape(10.dp))
+              .clickable {
+                try {
+                  context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LICENCE_OUVERTE)))
+                } catch (err: ActivityNotFoundException) {
+                  // No browser: the credits stay on screen all the same.
+                }
+              }
+              .padding(horizontal = 8.dp, vertical = 4.dp),
+          )
+        }
       }
       sheet?.let { shown ->
         val followed =
@@ -387,8 +484,8 @@ fun SeaMapScreen(viewModel: SeaMapViewModel, home: HomeViewModel, onBack: () -> 
   }
 }
 
-/** A note of the map: what the star did, and « Annuler » while it shows. */
-private class Note(val text: String, val undo: (() -> Unit)?)
+/** A note of the map: what the star did, and « Annuler » while it shows; or what a wind's badge measured, under its [title]. */
+private class Note(val text: String, val title: String? = null, val undo: (() -> Unit)? = null)
 
 /**
  * The town of the base map touched: the followed place of that name a few kilometres away when there is one (its star is
@@ -406,7 +503,10 @@ private fun NoteBar(note: Note, onDone: () -> Unit) {
     Modifier.fillMaxWidth().background(VigieColors.Bar, RoundedCornerShape(14.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(14.dp)).padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Text(note.text, color = VigieColors.Text, fontSize = 14.sp, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
+    Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+      note.title?.let { Text(it, color = VigieColors.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+      Text(note.text, color = if (note.title == null) VigieColors.Text else VigieColors.Text2, fontSize = 14.sp)
+    }
     note.undo?.let { undo ->
       TextButton(
         onClick = {
@@ -631,10 +731,18 @@ private fun TopBar(viewModel: SeaMapViewModel, onBack: () -> Unit, onLayers: () 
 
 /**
  * The backgrounds of the map, under the layers button: the dark plan, the IGN's plan and its photographs, the one shown
- * with its mark, a wheel on the one being read.
+ * with its mark, a wheel on the one being read. Under them, the weather layers, each with a box to tick: the wind measured
+ * and the rain radar, with what they show (the menu stays open when one is ticked).
  */
 @Composable
-private fun BackgroundMenu(ui: SeaMapViewModel.Ui, modifier: Modifier, onChoose: (MapBackground) -> Unit) {
+private fun BackgroundMenu(
+  ui: SeaMapViewModel.Ui,
+  weather: MapWeatherModel.State,
+  modifier: Modifier,
+  onRain: (Boolean) -> Unit,
+  onWind: (Boolean) -> Unit,
+  onChoose: (MapBackground) -> Unit,
+) {
   Column(
     modifier.padding(horizontal = 12.dp).widthIn(max = 320.dp).background(VigieColors.Bar.copy(alpha = 1f), RoundedCornerShape(18.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(18.dp)).padding(vertical = 6.dp)
   ) {
@@ -665,7 +773,199 @@ private fun BackgroundMenu(ui: SeaMapViewModel.Ui, modifier: Modifier, onChoose:
         }
       }
     }
+    Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(VigieColors.GlassBorder))
+    Text(stringResource(R.string.map_layers_title), color = VigieColors.Text3, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+    LayerRow(stringResource(R.string.map_wind), stringResource(R.string.map_wind_detail), weather.wind) { onWind(!weather.wind) }
+    if (weather.wind) MenuNote(stringResource(R.string.map_wind_note))
+    LayerRow(stringResource(R.string.map_rain), stringResource(R.string.map_rain_detail), weather.rain) { onRain(!weather.rain) }
+    if (weather.rain) MenuNote(stringResource(if (weather.area != null) R.string.map_rain_hint else R.string.map_rain_none))
   }
+}
+
+/** A weather layer of the menu: its box ticked when it is shown, its name and what it is. */
+@Composable
+private fun LayerRow(name: String, detail: String, on: Boolean, onToggle: () -> Unit) {
+  Row(
+    Modifier.fillMaxWidth().clickable(role = Role.Checkbox, onClick = onToggle).padding(horizontal = 16.dp, vertical = 9.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Box(
+      Modifier.size(20.dp).clip(RoundedCornerShape(5.dp)).background(if (on) VigieColors.Accent else Color.Transparent).border(2.dp, if (on) VigieColors.Accent else VigieColors.Text3, RoundedCornerShape(5.dp)),
+      contentAlignment = Alignment.Center,
+    ) {
+      if (on) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = VigieColors.OnPill, modifier = Modifier.size(16.dp))
+    }
+    Spacer(Modifier.size(12.dp))
+    Column(Modifier.weight(1f)) {
+      Text(name, color = VigieColors.Text, fontSize = 15.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+      Text(detail, color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp)
+    }
+  }
+}
+
+@Composable
+private fun MenuNote(text: String) {
+  Text(text, color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp, modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 6.dp))
+}
+
+/** A card over the map (the site's `.card`): dark glass, a thin border, its parts close together. */
+@Composable
+private fun WeatherCard(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+  Column(
+    modifier.background(VigieColors.Bar, RoundedCornerShape(14.dp)).border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(14.dp)).padding(start = 10.dp, end = 2.dp, top = 2.dp, bottom = 8.dp),
+    verticalArrangement = Arrangement.spacedBy(5.dp),
+    content = content,
+  )
+}
+
+/** The head of a card: its title, and a cross that turns its layer off. */
+@Composable
+private fun CardHead(title: String, hide: String, onHide: () -> Unit) {
+  Row(verticalAlignment = Alignment.CenterVertically) {
+    Text(title, color = VigieColors.Text2, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    Box(Modifier.size(36.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onHide), contentAlignment = Alignment.Center) {
+      Icon(painterResource(R.drawable.ic_close), hide, tint = VigieColors.Text3, modifier = Modifier.size(16.dp))
+    }
+  }
+}
+
+/** A line of a card: what is being read, what failed, what is missing. */
+@Composable
+private fun CardNote(text: String) {
+  Text(text, color = VigieColors.Text3, fontSize = 12.sp, lineHeight = 15.sp, modifier = Modifier.padding(end = 8.dp))
+}
+
+/**
+ * The card of the wind measured, under the chips while the layer is on (the site's `WindCard`): the time of the newest
+ * observation, the legend of the five colours and their limits in km/h, a cross that turns the layer off.
+ */
+@Composable
+private fun WindCard(weather: MapWeatherModel.State, onHide: () -> Unit, modifier: Modifier) {
+  val data = weather.windMap
+  val now = System.currentTimeMillis()
+  val offset = TimeZone.getDefault().getOffset(now) / 1000
+  val legend = stringResource(R.string.map_wind_legend)
+  WeatherCard(modifier.widthIn(max = 240.dp)) {
+    CardHead(data?.measured?.let { stringResource(R.string.map_wind_at, Words.clock(it, offset)) } ?: stringResource(R.string.map_wind), stringResource(R.string.map_wind_hide), onHide)
+    Column(Modifier.padding(end = 8.dp).semantics { contentDescription = legend }) {
+      Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))) {
+        (1..5).forEach { step -> Box(Modifier.weight(1f).fillMaxHeight().background(hexColour(MapWeather.WIND_COLOURS.getValue(step)))) }
+      }
+      Spacer(Modifier.height(2.dp))
+      Marks(WeatherWords.windMarks.mapIndexed { i, v -> Mark((i + 1) / 5f, v.toString(), 0) } + Mark(1f, "km/h", 1))
+    }
+    when {
+      weather.windStatus == MapWeatherModel.Status.Failed && data == null -> CardNote(stringResource(R.string.map_wind_failed))
+      data == null -> CardNote(stringResource(R.string.map_wind_loading))
+      data.points.isEmpty() -> CardNote(stringResource(R.string.map_wind_empty))
+    }
+  }
+}
+
+/**
+ * The card of the rain radar, above the legend while the layer is on and the map on an area of the radar (the site's
+ * `RadarCard`): the time of the image, Play or Pause, a slider over the last 35 minutes, the legend of the intensities,
+ * and « Mesuré par radar, pas une prévision. ».
+ */
+@Composable
+private fun RadarCard(weather: MapWeatherModel.State, model: MapWeatherModel) {
+  val radar = weather.radar
+  val hide = stringResource(R.string.map_rain_hide)
+  WeatherCard(Modifier.fillMaxWidth().widthIn(max = 360.dp)) {
+    val epoch = weather.epoch
+    if (radar == null || epoch == null) {
+      CardHead(stringResource(R.string.map_rain_title), hide) { model.showRain(false) }
+      CardNote(stringResource(if (weather.radarStatus == MapWeatherModel.Status.Failed) R.string.map_rain_failed else R.string.map_rain_loading))
+      return@WeatherCard
+    }
+    val offset = TimeZone.getDefault().getOffset(epoch * 1000) / 1000
+    CardHead(stringResource(R.string.map_rain_at, Words.clock(epoch, offset)), hide) { model.showRain(false) }
+    val frames = radar.frames
+    Row(Modifier.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        Modifier.height(32.dp)
+          .clip(RoundedCornerShape(16.dp))
+          .border(1.dp, VigieColors.GlassBorder, RoundedCornerShape(16.dp))
+          .clickable(enabled = frames.size > 1, role = Role.Button) { model.togglePlay() }
+          .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Icon(painterResource(if (weather.playing) R.drawable.ic_pause else R.drawable.ic_play), contentDescription = null, tint = VigieColors.Accent, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.size(5.dp))
+        Text(stringResource(if (weather.playing) R.string.map_rain_pause else R.string.map_rain_play), color = VigieColors.Text, fontSize = 13.sp)
+      }
+      Spacer(Modifier.size(8.dp))
+      if (frames.size > 1) {
+        val slider = stringResource(R.string.map_rain_slider)
+        Slider(
+          value = weather.index.toFloat(),
+          onValueChange = { model.choose(it.roundToInt()) },
+          valueRange = 0f..(frames.size - 1).toFloat(),
+          steps = frames.size - 2,
+          // A quiet track: the thumb, in the accent, says which image is shown; a tick per image.
+          colors =
+            SliderDefaults.colors(
+              thumbColor = VigieColors.Accent,
+              activeTrackColor = VigieColors.Accent.copy(alpha = 0.35f),
+              inactiveTrackColor = VigieColors.Rule.copy(alpha = 0.45f),
+              activeTickColor = VigieColors.Accent,
+              inactiveTickColor = VigieColors.Text3,
+            ),
+          modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = slider },
+        )
+      }
+    }
+    val classes = radar.legend
+    val legend = stringResource(R.string.map_rain_legend)
+    val unit = stringResource(R.string.map_rain_unit)
+    Column(Modifier.padding(end = 8.dp).semantics { contentDescription = legend + " : " + classes.joinToString(", ") { "≥ " + WeatherWords.rate(it.minMmH) } + " " + unit }) {
+      Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))) {
+        classes.forEach { c -> Box(Modifier.weight(1f).fillMaxHeight().background(hexColour(c.color).copy(alpha = c.alpha.toFloat()))) }
+      }
+      Spacer(Modifier.height(2.dp))
+      Marks(
+        WeatherWords.radarMarks(classes.size).map { i ->
+          if (i == classes.lastIndex) Mark(1f, WeatherWords.rate(classes[i].minMmH) + " " + unit, 1) else Mark(i / classes.size.toFloat(), WeatherWords.rate(classes[i].minMmH), -1)
+        }
+      )
+    }
+    CardNote(stringResource(R.string.map_rain_measured))
+  }
+}
+
+/** A mark under a legend's bar: its place along the bar (0 to 1), its text, aligned on it from the start (-1), the centre (0) or the end (1). */
+private class Mark(val at: Float, val text: String, val align: Int)
+
+/** The marks under a legend's bar, each at its place, kept inside the bar's width. */
+@Composable
+private fun Marks(marks: List<Mark>) {
+  Layout(
+    content = { marks.forEach { Text(it.text, color = VigieColors.Text3, fontSize = 10.5.sp, lineHeight = 12.sp, maxLines = 1) } },
+    modifier = Modifier.fillMaxWidth(),
+  ) { measurables, constraints ->
+    val placed = measurables.map { it.measure(constraints.copy(minWidth = 0)) }
+    val width = constraints.maxWidth
+    layout(width, placed.maxOfOrNull { it.height } ?: 0) {
+      placed.forEachIndexed { i, p ->
+        val m = marks[i]
+        val x =
+          when (m.align) {
+            -1 -> m.at * width
+            0 -> m.at * width - p.width / 2f
+            else -> m.at * width - p.width
+          }
+        p.placeRelative(x.roundToInt().coerceIn(0, (width - p.width).coerceAtLeast(0)), 0)
+      }
+    }
+  }
+}
+
+private fun hexColour(hex: String): Color = Color(android.graphics.Color.parseColor(hex))
+
+/** The box of the map in view, for the weather layers. */
+private fun viewOf(m: MapLibreMap): GeoBox {
+  val b = m.projection.visibleRegion.latLngBounds
+  return GeoBox(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
 }
 
 /** The four activities, as the chips of `/sea`: the one chosen in the accent colour. */
@@ -796,5 +1096,9 @@ private val TOUCH = 14.dp
 /** A pull of the handle longer than this, in pixels, changes the sheet's size. */
 private const val PULL = 40f
 private const val NOTE_MS = 6_000L
+/** The weather layers are asked again, when old, this often while the map is shown. */
+private const val SYNC_MS = 60_000L
+/** While zooming, the wind's badges are laid out again each time the zoom moves this much. */
+private const val WIND_RELAYOUT_ZOOM = 0.33
 /** A town of the base map this near a followed place of the same name is that place. */
 private const val SAME_TOWN_KM = 5.0

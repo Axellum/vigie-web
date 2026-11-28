@@ -380,6 +380,15 @@ class SeaMapReader(
 
   suspend fun overview(): String = fetch("$baseUrl/v1/activities/overview")
 
+  /** The radar's images of [area] on the site (the API's, relayed and kept a few minutes by the site). */
+  suspend fun radar(area: RadarArea): Radar = MapWeather.radar(fetch("$siteUrl/data/radar.json?area=${area.id}"), area)
+
+  /** The wind measured in [box] (whole degrees, [MapWeather.windQueryBox]), on the site. */
+  suspend fun wind(box: GeoBox): WindMap = MapWeather.wind(fetch("$siteUrl/data/wind.json?bbox=${MapWeather.windBox(box)}"), box)
+
+  /** The address of the tiles of one radar image. */
+  fun radarTiles(area: RadarArea, epoch: Long): String = MapWeather.radarTiles(siteUrl, area, epoch)
+
   /** The figures of the hour are a bonus: without them the pins keep their verdict. */
   suspend fun surf(): String? =
     try {

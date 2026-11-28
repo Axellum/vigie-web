@@ -14,7 +14,10 @@ The user chooses the places and their spots; two home screen widgets show one of
   `GET /data/places.json?q=` (GeoNames, CC BY 4.0, credited under the search), which also names the place « Ici »
   (`?lat&lon`, the nearest town); for the sea map, `GET /v1/activities/overview`, `GET /v1/surf/overview` and the site's
   base map `GET /data/basemap/dark.json`, whose tiles, fonts and icons come from `tiles.openfreemap.org` (it sees the
-  area shown, as any web map does), or, when chosen, the IGN's plan and photographs from `data.geopf.fr` (the same).
+  area shown, as any web map does), or, when chosen, the IGN's plan and photographs from `data.geopf.fr` (the same);
+  when turned on in its layers' menu, the site's wind measured `GET /data/wind.json?bbox=` (whole degrees around the
+  view, again after 6 minutes) and rain radar `GET /data/radar.json?area=` with its tiles `GET /data/radar/…` (again
+  after 5 minutes), both Météo-France's, never `/v1/point`.
   Nothing is sent but the search typed and the coordinates of the places; the choices stay
   on the phone (the app's private preferences); no account, no tracking. A place with a bell (below) is one
   exception: its name and point go to the site, with the phone's notification address. A phone linked to an account

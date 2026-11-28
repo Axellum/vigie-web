@@ -1,0 +1,185 @@
+package fr.auxfilsdesidees.vigie.ui.map
+
+import fr.auxfilsdesidees.vigie.data.GeoBox
+import fr.auxfilsdesidees.vigie.data.KeyValue
+import fr.auxfilsdesidees.vigie.data.MapWeather
+import fr.auxfilsdesidees.vigie.data.RadarArea
+import fr.auxfilsdesidees.vigie.data.SeaMapReader
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** The weather layers of the sea map: off at first, kept on the phone, asked again only when old or for another view. */
+@OptIn(ExperimentalCoroutinesApi::class)
+class MapWeatherModelTest {
+  private fun fixture(name: String): String = requireNotNull(javaClass.classLoader?.getResource(name)) { "missing fixture $name" }.readText()
+
+  private class Memory : KeyValue {
+    val map = mutableMapOf<String, String>()
+
+    override fun read(key: String): String? = map[key]
+
+    override fun write(key: String, value: String) {
+      map[key] = value
+    }
+  }
+
+  private val brittany = GeoBox(-4.2, 47.1, -2.3, 48.4)
+  private var now = 1_000_000L
+  private val asked = mutableListOf<String>()
+  private var fails = false
+
+  private val reader =
+    SeaMapReader("https://api.test", "https://site.test") { url ->
+      asked += url
+      if (fails) throw java.io.IOException("offline")
+      when {
+        url.contains("/data/radar.json") -> fixture("radar_france.json")
+        url.contains("/data/wind.json") -> fixture("wind_bretagne.json")
+        else -> error("unexpected $url")
+      }
+    }
+
+  @Test
+  fun `both layers are off at first and nothing is asked`() = runTest {
+    val m = MapWeatherModel(backgroundScope, reader, { now })
+    m.move(brittany, 8.0)
+    runCurrent()
+    assertFalse(m.state.value.rain)
+    assertFalse(m.state.value.wind)
+    assertTrue(asked.isEmpty())
+  }
+
+  @Test
+  fun `the radar of the area in view, asked again after five minutes or for another area`() = runTest {
+    val kept = Memory()
+    val m = MapWeatherModel(backgroundScope, reader, { now }, kept)
+    m.move(brittany, 8.0)
+    m.showRain(true)
+    runCurrent()
+    assertEquals(listOf("https://site.test/data/radar.json?area=france"), asked)
+    assertEquals("on", kept.map[MapWeatherModel.RAIN_KEY])
+    val s = m.state.value
+    assertEquals(RadarArea.France, s.area)
+    assertEquals(7, s.index)
+    assertEquals(1795876500L, s.epoch)
+
+    // A small move, a minute later: nothing new.
+    now += 60_000
+    m.move(GeoBox(-4.0, 47.2, -2.1, 48.5), 8.2)
+    m.sync()
+    runCurrent()
+    assertEquals(1, asked.size)
+
+    // Five minutes after the read: asked again.
+    now += MapWeather.RADAR_REFRESH_MS
+    m.sync()
+    runCurrent()
+    assertEquals(2, asked.size)
+
+    // Guadeloupe: the radar of the Antilles.
+    m.move(GeoBox(-62.0, 15.8, -61.0, 16.6), 9.0)
+    runCurrent()
+    assertEquals("https://site.test/data/radar.json?area=antilles", asked.last())
+
+    // Far out: no radar, nothing asked.
+    m.move(GeoBox(-40.0, 30.0, -30.0, 40.0), 5.0)
+    runCurrent()
+    assertNull(m.state.value.area)
+    assertNull(m.state.value.radar)
+    assertEquals(3, asked.size)
+
+    // The choice is read back at the next opening.
+    assertTrue(MapWeatherModel(backgroundScope, reader, { now }, kept).state.value.rain)
+  }
+
+  @Test
+  fun `a radar that cannot be read says so, and is asked again a minute later`() = runTest {
+    fails = true
+    val m = MapWeatherModel(backgroundScope, reader, { now })
+    m.move(brittany, 8.0)
+    m.showRain(true)
+    runCurrent()
+    assertEquals(MapWeatherModel.Status.Failed, m.state.value.radarStatus)
+    assertNull(m.state.value.radar)
+    m.sync()
+    runCurrent()
+    assertEquals(1, asked.size)
+    fails = false
+    now += MapWeather.RETRY_MS + 1
+    m.sync()
+    runCurrent()
+    assertEquals(MapWeatherModel.Status.Ok, m.state.value.radarStatus)
+    assertEquals(8, m.state.value.radar?.frames?.size)
+  }
+
+  @Test
+  fun `play runs from the oldest image to the newest, which stays longer, and pause stops it`() = runTest {
+    val m = MapWeatherModel(backgroundScope, reader, { now })
+    m.move(brittany, 8.0)
+    m.showRain(true)
+    runCurrent()
+    m.togglePlay()
+    runCurrent()
+    val s = m.state.value
+    assertTrue(s.playing)
+    assertTrue(s.preload)
+    assertEquals(0, s.index)
+    advanceTimeBy(MapWeather.STEP_MS + 1)
+    assertEquals(1, m.state.value.index)
+    advanceTimeBy(6 * MapWeather.STEP_MS)
+    assertEquals(7, m.state.value.index)
+    // The newest stays 1,5 s, then the animation starts again from the oldest.
+    advanceTimeBy(MapWeather.STEP_MS + 1)
+    assertEquals(7, m.state.value.index)
+    advanceTimeBy(MapWeather.LAST_STEP_MS - MapWeather.STEP_MS)
+    assertEquals(0, m.state.value.index)
+    m.togglePlay()
+    advanceTimeBy(5 * MapWeather.STEP_MS)
+    assertFalse(m.state.value.playing)
+    assertEquals(0, m.state.value.index)
+
+    // The slider shows an image, and pauses.
+    m.choose(3)
+    assertEquals(3, m.state.value.index)
+    m.choose(99)
+    assertEquals(7, m.state.value.index)
+  }
+
+  @Test
+  fun `the wind of a box around the view, asked again when the map leaves it or after six minutes`() = runTest {
+    val kept = Memory()
+    val m = MapWeatherModel(backgroundScope, reader, { now }, kept)
+    m.move(brittany, 8.0)
+    m.showWind(true)
+    runCurrent()
+    assertEquals(listOf("https://site.test/data/wind.json?bbox=-6,46,-1,50"), asked)
+    assertEquals("on", kept.map[MapWeatherModel.WIND_KEY])
+    assertEquals(4, m.state.value.windMap?.points?.size)
+
+    // Inside the box read: nothing new.
+    m.move(GeoBox(-5.0, 47.0, -2.0, 48.0), 8.0)
+    runCurrent()
+    assertEquals(1, asked.size)
+    // Out of it: the new view's box.
+    m.move(GeoBox(1.0, 43.0, 3.0, 44.0), 8.0)
+    runCurrent()
+    assertEquals("https://site.test/data/wind.json?bbox=0,42,4,45", asked.last())
+    // Six minutes later: asked again.
+    now += MapWeather.WIND_REFRESH_MS + 1
+    m.sync()
+    runCurrent()
+    assertEquals(3, asked.size)
+
+    // Off: the badges go, the read is kept for the next time.
+    m.showWind(false)
+    assertNull(m.state.value.windMap)
+    assertEquals("off", kept.map[MapWeatherModel.WIND_KEY])
+  }
+}
