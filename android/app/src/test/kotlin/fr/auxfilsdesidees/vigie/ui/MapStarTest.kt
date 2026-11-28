@@ -109,9 +109,23 @@ class MapStarTest {
     // No town asked: a followed place is near.
     assertTrue(asked.none { "/data/places.json" in it })
     assertEquals(listOf(grandePlage.id), PlacesStore(kv).load().places[1].spots)
-    vm.unstarSpot(grandePlage.id)
+    val spotOff = vm.unstarSpot(grandePlage.id)!!
     advanceUntilIdle()
     assertEquals(emptyList<String>(), PlacesStore(kv).load().places[1].spots)
+    // « Annuler »: the spot comes back where it was.
+    assertTrue(vm.undoUnstar(spotOff))
+    advanceUntilIdle()
+    assertEquals(listOf(grandePlage.id), PlacesStore(kv).load().places[1].spots)
+    val withSpots = PlacesStore(kv).load()
+    val townOff = vm.unstarTown("47.4840,-3.1190")!!
+    advanceUntilIdle()
+    assertEquals(listOf(home), PlacesStore(kv).load().places)
+    // « Annuler »: the town comes back with its spot, at its rank.
+    assertTrue(vm.undoUnstar(townOff))
+    advanceUntilIdle()
+    assertEquals(withSpots, PlacesStore(kv).load())
+    // A second « Annuler », or one after another change, does nothing.
+    assertEquals(false, vm.undoUnstar(townOff))
     vm.unstarTown("47.4840,-3.1190")
     advanceUntilIdle()
     assertEquals(listOf(home), PlacesStore(kv).load().places)

@@ -14,7 +14,10 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import fr.auxfilsdesidees.vigie.data.AppData
+import fr.auxfilsdesidees.vigie.data.BeachReader
+import fr.auxfilsdesidees.vigie.data.PointGate
 import fr.auxfilsdesidees.vigie.data.SeaMapReader
+import fr.auxfilsdesidees.vigie.data.VigieRepository
 import fr.auxfilsdesidees.vigie.notify.PhoneBells
 import fr.auxfilsdesidees.vigie.ui.BellLink
 import fr.auxfilsdesidees.vigie.ui.HomeViewModel
@@ -58,9 +61,15 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
   // The beaches of the Sea page, read when it shows one.
   val sea: SeaViewModel = viewModel { SeaViewModel(AppData.beaches(context, baseUrl)) }
   // The sea map: its base map read once, its pins again when it opens after ten minutes; its search of towns is the site's.
+  // Its sheets read `/v1/point` (a town's weather, a beach's water) on a share of their own, four a minute.
   val seaMap: SeaMapViewModel = viewModel {
     val places = AppData.repository(context, baseUrl, siteUrl)
-    SeaMapViewModel(SeaMapReader(baseUrl, siteUrl), { q -> places.searchPlaces(q).first })
+    val gate = PointGate()
+    SeaMapViewModel(
+      SeaMapReader(baseUrl, siteUrl, gate),
+      { q -> places.searchPlaces(q).first },
+      BeachReader(baseUrl, fetch = gate.gated(VigieRepository::httpGet)),
+    )
   }
   val backStack = rememberNavBackStack(Main)
   val instant = { EnterTransition.None togetherWith ExitTransition.None }
@@ -92,7 +101,7 @@ fun MainNavigation(baseUrl: String, siteUrl: String, placeAsked: MutableStateFlo
         }
         entry<Settings> { SettingsScreen(viewModel) { backStack.removeLastOrNull() } }
         entry<WarningsPage> { WarningsScreen(viewModel) { backStack.removeLastOrNull() } }
-        entry<MapPage> { SeaMapScreen(seaMap, viewModel.app.value.choices.currentPlace?.place) { backStack.removeLastOrNull() } }
+        entry<MapPage> { SeaMapScreen(seaMap, viewModel) { backStack.removeLastOrNull() } }
       },
   )
 }

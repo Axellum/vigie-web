@@ -171,6 +171,21 @@ class SeaMapTest {
   }
 
   @Test
+  fun `a touch opens a town from the base map's town names, never from a country's or a region's`() {
+    // The place layers of OpenFreeMap's dark style of 28/11/2026, their filters cut to the class.
+    fun layer(id: String, filter: String) = """{"id":"$id","type":"symbol","source":"openmaptiles","source-layer":"place","filter":$filter}"""
+    val style =
+      """{"layers":[{"id":"water","type":"fill","source-layer":"water"},""" +
+        layer("place_other", """["match",["get","class"],["hamlet","isolated_dwelling","neighbourhood"],true,false]""") + "," +
+        layer("place_village", """["==",["get","class"],"village"]""") + "," +
+        layer("place_city_large", """["all",["<=",["get","rank"],3],["==",["get","class"],"city"]]""") + "," +
+        layer("place_state", """["==",["get","class"],"state"]""") + "," +
+        layer("place_country_major", """["==",["get","class"],"country"]""") + "]}"
+    assertEquals(listOf("place_other", "place_village", "place_city_large"), SeaMap.townLayers(style))
+    assertEquals(emptyList<String>(), SeaMap.townLayers("not json"))
+  }
+
+  @Test
   fun `the weather of a town's sheet is the Accueil's point, through the map's gate`() = runTest {
     val asked = mutableListOf<String>()
     var now = 0L

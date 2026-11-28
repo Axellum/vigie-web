@@ -74,7 +74,7 @@
     <string name="place_add_hint">Les spots les plus proches (moins de 60 km, trois au plus) le suivent d\'office ; changez-les ensuite ici.</string>
     <string name="place_exists">Ce lieu est déjà suivi.</string>
     <string name="spots_header">Spots suivis %1$s</string>
-    <string name="spots_star_hint">L\'étoile marque le spot dessiné dans la frise (onglet Heures).</string>
+    <string name="spots_star_hint">La courbe marque le spot dessiné dans la frise (onglet Heures).</string>
     <string name="spots_none">Aucun spot suivi : la frise montre la météo seule.</string>
     <string name="spots_add_header">Ajouter un spot %1$s</string>
     <string name="spots_more">Plus loin</string>
@@ -192,4 +192,15 @@
     <!-- Required by OpenFreeMap (« © OpenMapTiles Data from OpenStreetMap »); touched, it opens the OpenStreetMap licence. -->
     <string name="map_credits">© OpenFreeMap © OpenMapTiles · données © contributeurs OpenStreetMap</string>
     <string name="map_legend">Point : verdict de l\'activité. Chiffres : l\'heure en cours.</string>
+    <string name="map_star">Suivre %1$s</string>
+    <string name="map_unstar">Ne plus suivre %1$s</string>
+    <string name="map_starred_joined">Suivi : %1$s, dans l\'onglet Mer de %2$s.</string>
+    <string name="map_starred_with_place">Suivi : %1$s, avec son lieu %2$s, dans l\'Accueil et les widgets.</string>
+    <string name="map_starred_town">Suivi : %1$s, dans l\'Accueil et les widgets.</string>
+    <string name="map_unstarred">Plus suivi : %1$s.</string>
+    <string name="map_unstarred_with_spots">Plus suivis : %1$s et ses spots.</string>
+    <string name="map_undo">Annuler</string>
+    <string name="map_sheet_close">Fermer la fiche</string>
+    <string name="map_sheet_size">Agrandir ou réduire la fiche</string>
+    <string name="map_town_failed">La météo de ce lieu n\'a pas pu être lue.</string>
 </resources>

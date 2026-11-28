@@ -15,6 +15,7 @@ import fr.auxfilsdesidees.vigie.data.VigieParser
 import fr.auxfilsdesidees.vigie.ui.BeachState
 import fr.auxfilsdesidees.vigie.ui.Words
 import java.text.Normalizer
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +42,8 @@ class SeaMapViewModel(
   private val searchPlaces: suspend (String) -> List<PlaceHit>,
   private val beachReader: BeachReader = BeachReader(),
   private val clock: () -> Long = System::currentTimeMillis,
+  /** Where the overview and the style are parsed: off the main thread (a test gives its own). */
+  private val work: CoroutineContext = Dispatchers.Default,
 ) : ViewModel() {
   /** What the sheet shows: a spot of the map (its Mer page) or a town (its Accueil). */
   sealed interface Sheet {
@@ -123,8 +126,7 @@ class SeaMapViewModel(
   }
 
   /** The spot of the map of this [id], to open its sheet or to star it; null when the overview does not have it. */
-  fun spot(id: String): CatalogueSpot? =
-    overview?.let { o -> runCatching { VigieParser.catalogue(o) }.getOrNull() }?.firstOrNull { it.id == id }
+  fun spot(id: String): CatalogueSpot? = catalogue.firstOrNull { it.id == id }
 
   data class Ui(
     val style: String? = null,
@@ -132,10 +134,12 @@ class SeaMapViewModel(
     val failed: Boolean = false,
     val activity: MapActivity = MapActivity.Surf,
     val pins: List<MapPin> = emptyList(),
+    /** The layers of the base map that name the towns, a touch on which opens a town's sheet. */
+    val townLayers: List<String> = emptyList(),
   )
 
   /** A line of the search: a spot of the map or a town of the site's search, and where to take the map. */
-  data class Hit(val name: String, val detail: String?, val lat: Double, val lon: Double, val spot: Boolean)
+  data class Hit(val name: String, val detail: String?, val lat: Double, val lon: Double, val spot: Boolean, val id: String? = null)
 
   data class Search(val query: String = "", val hits: List<Hit> = emptyList(), val busy: Boolean = false, val done: Boolean = false)
 
@@ -145,6 +149,7 @@ class SeaMapViewModel(
   val search: StateFlow<Search> = _search.asStateFlow()
 
   private var overview: String? = null
+  private var catalogue: List<CatalogueSpot> = emptyList()
   private var surf: String? = null
   private var readAt = 0L
   private var loadJob: Job? = null
@@ -166,8 +171,14 @@ class SeaMapViewModel(
             overview = o.await()
             surf = s.await()
             readAt = clock()
+            val spots = overview?.let { text -> withContext(work) { runCatching { VigieParser.catalogue(text) }.getOrNull() } }
+            val first = catalogue.isEmpty()
+            if (spots != null) catalogue = spots
+            // A search typed before the spots were read is run again with them.
+            if (first && catalogue.isNotEmpty() && _search.value.query.trim().length >= 2) search(_search.value.query)
+            val towns = read?.let { withContext(work) { SeaMap.townLayers(it) } }
             val pins = pinsOf(_ui.value.activity)
-            _ui.update { it.copy(style = read ?: it.style, loading = false, pins = pins) }
+            _ui.update { it.copy(style = read ?: it.style, loading = false, pins = pins, townLayers = towns ?: it.townLayers) }
           }
         } catch (err: CancellationException) {
           throw err
@@ -189,7 +200,7 @@ class SeaMapViewModel(
   private suspend fun pinsOf(activity: MapActivity): List<MapPin> {
     val o = overview ?: return emptyList()
     val s = surf
-    return withContext(Dispatchers.Default) { runCatching { SeaMap.pins(o, s, activity) }.getOrDefault(emptyList()) }
+    return withContext(work) { runCatching { SeaMap.pins(o, s, activity) }.getOrDefault(emptyList()) }
   }
 
   /**
@@ -208,12 +219,10 @@ class SeaMapViewModel(
         delay(300)
         val words = fold(query.trim())
         val spots =
-          overview
-            ?.let { o -> withContext(Dispatchers.Default) { runCatching { VigieParser.catalogue(o) }.getOrDefault(emptyList()) } }
-            .orEmpty()
+          catalogue
             .filter { fold(it.name).contains(words) || fold(it.place.orEmpty()).contains(words) }
             .take(SPOTS_SHOWN)
-            .map { Hit(it.name, it.place, it.lat, it.lon, spot = true) }
+            .map { Hit(it.name, it.place, it.lat, it.lon, spot = true, id = it.id) }
         val towns =
           try {
             searchPlaces(query).take(TOWNS_SHOWN).map { Hit(it.name, Words.placeWhere(it.region, it.country).ifEmpty { null }, it.lat, it.lon, spot = false) }

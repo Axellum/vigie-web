@@ -224,11 +224,12 @@ internal fun SettingsScreen(viewModel: HomeViewModel, onBack: () -> Unit) {
         val name = spot?.name ?: id
         SpotLine(spot, name, f.place) {
           val starred = k == 0
+          // A curve, not a star: the star means « suivi », on the sea map (the author's choice of 28/11/2026).
           IconButton(onClick = { viewModel.star(id) }) {
             Icon(
-              painterResource(if (starred) R.drawable.ic_star else R.drawable.ic_star_outline),
+              painterResource(R.drawable.ic_frise),
               stringResource(if (starred) R.string.spot_starred else R.string.spot_star, name),
-              tint = VigieColors.Accent,
+              tint = if (starred) VigieColors.Accent else VigieColors.Text3.copy(alpha = 0.55f),
             )
           }
           IconButton(onClick = { viewModel.unfollow(id) }) {

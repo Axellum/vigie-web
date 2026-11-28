@@ -342,19 +342,42 @@ class HomeViewModel(
     return starred
   }
 
+  /**
+   * What a star taken away on the map changed, for its « Annuler »: the choices before and after, and the place to read
+   * again when they come back.
+   */
+  class Unstarred(val before: Choices, val after: Choices, val place: String)
+
   /** The star taken away from a spot on the map: as its cross in « Mes lieux », wherever it is followed. */
-  fun unstarSpot(spotId: String) {
+  fun unstarSpot(spotId: String): Unstarred? {
     val choices = _app.value.choices
-    val holder = choices.places.firstOrNull { spotId in it.spots || spotId in it.parked } ?: return
+    val holder = choices.places.firstOrNull { spotId in it.spots || spotId in it.parked } ?: return null
     val next = Favourites.unstarSpot(choices, spotId)
     save(next)
     next.places.firstOrNull { it.key == holder.key }?.let(::load)
+    return Unstarred(choices, next, holder.key)
   }
 
-  /** The star taken away from a town on the map: the place is no longer followed, as its cross in « Mes lieux ». */
-  fun unstarTown(key: String) {
-    val index = _app.value.choices.places.indexOfFirst { it.key == key }
-    if (index >= 0) removePlace(index)
+  /** The star taken away from a town on the map: the place is no longer followed, its spots with it, as its cross in « Mes lieux ». */
+  fun unstarTown(key: String): Unstarred? {
+    val before = _app.value.choices
+    val index = before.places.indexOfFirst { it.key == key }
+    if (index < 0) return null
+    removePlace(index)
+    return Unstarred(before, _app.value.choices, key)
+  }
+
+  /**
+   * « Annuler » after a star taken away: the choices of before come back exactly (the place with its spots, its bell and its
+   * rank), but only when nothing else changed them meanwhile; false then, and nothing is done.
+   */
+  fun undoUnstar(u: Unstarred): Boolean {
+    if (_app.value.choices != u.after) return false
+    save(u.before)
+    val back = u.before.places.firstOrNull { it.key == u.place } ?: return true
+    load(back)
+    if (back.bell != null) syncBells()
+    return true
   }
 
   /** « Annuler » after a star: the spot that joined, or the place that came, goes away. */

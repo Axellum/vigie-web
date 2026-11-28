@@ -26,7 +26,7 @@ The user chooses the places and their spots; two home screen widgets show one of
 - Places and spots: the first launch asks for a place (search, or the phone's approximate position rounded to about
   1 km, asked only when touched), then offers the nearest spots, those within 60 km ticked (three at most). Later, the
   gear in the head of the card opens « Mes lieux et mes spots »: the followed places (touch one to show it, cross to stop
-  following it, « Ajouter un lieu »), the spots of the shown place (the star puts one first: the frise draws it) and the
+  following it, « Ajouter un lieu »), the spots of the shown place (the curve puts one first: the frise draws it) and the
   nearest other spots. Accueil and Détails swipe between the places; Heures and Mer show the place shown last. The
   search puts the places of France first (the site ranks equal matches by population).
 - « Ici » follows the phone: « Utiliser ma position » makes the place « Ici » (one at most), whose point is read again
@@ -80,7 +80,14 @@ The user chooses the places and their spots; two home screen widgets show one of
   arrow of the tide on all. A search of
   the spots of the map and of the site's towns, the phone's position on request (asked when touched), a legend, and
   the credits of OpenFreeMap, OpenMapTiles and OpenStreetMap, touched to open the copyright page. The pins are read
-  again when the map opens after 10 minutes; the base map once (`data/SeaMap.kt`, `ui/map/`).
+  again when the map opens after 10 minutes; the base map once (`data/SeaMap.kt`, `ui/map/`). A touch on a spot, a
+  followed place or a town of the base map opens its sheet from the bottom (half the screen, or most of it pulled up):
+  the beach as the Mer tab draws it, or the town's weather as the Accueil (`/v1/point`), read when it opens and again
+  after 10 minutes. Its star follows it, in the followed places the app already has (`data/Favourites.kt`): a spot
+  joins the nearest followed place within 60 km, else it comes with its town (the site's, as « Ici »), which becomes a
+  followed place; a town is followed alone. The Accueil, the Mer tab and the widgets read it as any other; a note says
+  where it went, with « Annuler » for 6 seconds. A followed spot has a star in place of its dot, a followed place a pill
+  with its name. The map's reads of `/v1/point` keep to 4 a minute (`data/PointGate.kt`), under the server's 10.
 - The hours tab: for today, the 24 hours from now; for the next two days, from 6 h. Rows: sky, temperature, rain and
   wind from `hourly` of `/v1/point` (ADR 0040 of the API; when it is missing, the tab says so and shows the rest), the
   official warnings of the place, then the tide, the coastal warning (« Côte ») and three activities of the first spot. Touch or drag it: the reading under it
@@ -238,9 +245,11 @@ Firebase config above, or the app sent has no bell.
 | `ui/VigieApp.kt` | the frame: the head of the card and its bar of tabs, Accueil and Détails swiped between the places, Mer |
 | `ui/SeaViewModel.kt` | the beaches of Mer: the copy first, then the network when it is older than asked |
 | `data/SeaMap.kt` | the sea map's data: the pins of an activity and their labels, as the site's `src/lib/sea/map.ts`; the base map in the app's colours and in French; its reader (tested on the JVM) |
-| `ui/map/SeaMapViewModel.kt` | the sea map's state: the base map read once, the pins again after 10 minutes, the activity, the search |
-| `ui/map/SeaMapScreen.kt` | the sea map: MapLibre's view and its life, the search, the activities, the legend, the position, the credits |
-| `ui/map/MapLayers.kt` | the pins on the map: their source, their dots, their labels drawn as pictures and kept apart by MapLibre |
+| `data/Favourites.kt` | the star of the sea map: a spot or a town followed in the places the app has, and « Annuler » (tested on the JVM) |
+| `data/PointGate.kt` | the sea map's share of `/v1/point`: 4 a minute (tested on the JVM) |
+| `ui/map/SeaMapViewModel.kt` | the sea map's state: the base map read once, the pins again after 10 minutes, the activity, the search, the sheet and what it reads |
+| `ui/map/SeaMapScreen.kt` | the sea map: MapLibre's view and its life, the search, the activities, the legend, the position, the credits, the sheet, its star and its note |
+| `ui/map/MapLayers.kt` | the pins on the map: their source, their dots, their labels drawn as pictures and kept apart by MapLibre; the stars of the followed spots, the pills of the followed places, what a touch finds |
 | `ui/board/HomeBoard.kt` | what the home page says, worked out as the Home Assistant card works it out (tested on the JVM) |
 | `ui/board/HomeBoardView.kt` | the home page drawn: now, the rain of the hour, the season, the 24 hours, the days |
 | `ui/board/DetailsBoard.kt` | what the Details page says, worked out as the card's Details page (tested on the JVM) |

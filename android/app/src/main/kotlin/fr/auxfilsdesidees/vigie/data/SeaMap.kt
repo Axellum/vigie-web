@@ -228,6 +228,22 @@ object SeaMap {
     return JsonObject(root + ("layers" to JsonArray(layers))).toString()
   }
 
+  /**
+   * The layers of the base map that name the towns (OpenMapTiles' `place` layer), the ones a touch opens a town's sheet
+   * from; the names of countries, regions and seas are not towns. Empty for a style that is not read.
+   */
+  fun townLayers(style: String): List<String> =
+    runCatching { Json.parseToJsonElement(style).obj()["layers"].arr() }
+      .getOrDefault(emptyList())
+      .mapNotNull { it.objOrNull() }
+      .filter { it["type"].str() == "symbol" && it["source-layer"].str() == "place" }
+      .filter { layer -> TOWN_WORDS.any { layer["id"].str().orEmpty().contains(it) } || TOWN_CLASSES.any { layer["filter"].toString().contains("\"$it\"") } }
+      .mapNotNull { it["id"].str() }
+
+  /** The classes of OpenMapTiles' places that are towns: a touch on another (a country, a region) opens nothing. */
+  val TOWN_CLASSES = setOf("city", "town", "village", "hamlet", "suburb")
+  private val TOWN_WORDS = setOf("city", "town", "village", "hamlet", "suburb")
+
   private fun JsonObject.withPaint(key: String, value: String): JsonObject {
     val paint = this["paint"].objOrNull() ?: JsonObject(emptyMap())
     return JsonObject(this + ("paint" to JsonObject(paint + (key to JsonPrimitive(value)))))

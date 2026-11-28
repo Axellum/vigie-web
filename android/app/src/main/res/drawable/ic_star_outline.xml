@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- An empty star: touch it to draw this spot in the frise. -->
+<!-- An empty star: touch it to follow this spot or this town (the sea map's sheet). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
