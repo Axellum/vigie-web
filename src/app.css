@@ -17,6 +17,12 @@
 	--fire: #d63d12;
 	--map-land: #f4f3ee;
 	--map-water: #c9d9e3;
+	/* The details of the IGN's BD TOPO up close ($lib/mapDetails): foreshores, beaches, ski lifts. */
+	--map-foreshore: #d8c79a;
+	--map-foreshore-line: #b29d63;
+	--map-beach: #e3b341;
+	--map-beach-ink: #6b5413;
+	--map-lift: #2b3640;
 	--wind-1: #8fc3a6;
 	--wind-2: #3f9fb8;
 	--wind-3: #2f5fa8;
@@ -62,6 +68,11 @@
 		--fire: #ff6a3d;
 		--map-land: #1b2a33;
 		--map-water: #0a141b;
+		--map-foreshore: #8f7f55;
+		--map-foreshore-line: #b9a676;
+		--map-beach: #e3b341;
+		--map-beach-ink: #f0e2b8;
+		--map-lift: #e6edf3;
 		--wind-1: #7cc39b;
 		--wind-2: #3a9bb5;
 		--wind-3: #4f7fd0;
@@ -97,6 +108,11 @@
 	--fire: #ff6a3d;
 	--map-land: #1b2a33;
 	--map-water: #0a141b;
+	--map-foreshore: #8f7f55;
+	--map-foreshore-line: #b9a676;
+	--map-beach: #e3b341;
+	--map-beach-ink: #f0e2b8;
+	--map-lift: #e6edf3;
 	--wind-1: #7cc39b;
 	--wind-2: #3a9bb5;
 	--wind-3: #4f7fd0;

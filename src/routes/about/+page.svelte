@@ -34,8 +34,9 @@
 		<p>
 			Pas d'inscription obligatoire, pas de publicité, pas de mesure d'audience, aucun script ni police d'un
 			tiers. Le seul cookie retient la langue choisie ; le thème est gardé dans votre navigateur. Le fond de
-			carte est chargé depuis OpenFreeMap, et le relief de la France depuis l'IGN : ils reçoivent donc votre
-			adresse IP comme tout site que vous visitez (le relief peut être éteint dans la famille « Carte »).
+			carte est chargé depuis OpenFreeMap, et le relief, la photo aérienne et les plages de la France depuis
+			l'IGN : ils reçoivent donc votre adresse IP comme tout site que vous visitez (les calques de l'IGN
+			s'éteignent dans la famille « Carte »).
 		</p>
 		{#if data.accounts}
 			<p>
@@ -82,8 +83,8 @@
 		<p>
 			No sign-up needed, no advertising, no audience measurement, no third-party script or font. The only
 			cookie keeps the language you chose; the theme is kept in your browser. The base map is loaded from
-			OpenFreeMap, and the relief of France from the IGN: they therefore receive your IP address like any site
-			you visit (the relief can be turned off in the "Map" family).
+			OpenFreeMap, and the relief, aerial photo and beaches of France from the IGN: they therefore receive
+			your IP address like any site you visit (the IGN's layers can be turned off in the "Map" family).
 		</p>
 		{#if data.accounts}
 			<p>

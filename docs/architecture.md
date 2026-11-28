@@ -100,7 +100,8 @@ visitor ──► Caddy (TLS, the only open door) ──► vigie-web (SvelteKit
   derived fields and are said to be derived.
 - **Privacy.** Fonts are bundled. No third-party script, no audience measurement, one cookie (the language).
   The only third-party hosts are those of the map, loaded by the visitor's browser: the base map (OpenFreeMap)
-  and the relief of France (the IGN's Géoplateforme, `data.geopf.fr`, `src/lib/relief.ts`), which can be turned off.
+  and the IGN's layers of France: relief, aerial photo and BD TOPO details (its Géoplateforme, `data.geopf.fr`,
+  `src/lib/ign.ts`), which can be turned off.
 
 ## Files
 

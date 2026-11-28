@@ -51,6 +51,7 @@ variables, listed in [`docs/configuration.md`](docs/configuration.md).
 The code is under the [MIT licence](LICENSE). The data is not: it belongs to each provider and stays under
 that provider's terms, which the Vigie API lists in its `SOURCES.md`. Every page shows the credit of the
 sources it displays. The base map is © OpenMapTiles and © OpenStreetMap contributors, served by
-OpenFreeMap; the relief of France is the IGN's (Géoplateforme, Licence Ouverte 2.0). The places of the search
+OpenFreeMap; the relief, aerial photo and BD TOPO details of France are the IGN's (Géoplateforme, Licence
+Ouverte 2.0). The places of the search
 by name come from [GeoNames](https://www.geonames.org/) (CC BY 4.0, `data/places.tsv.gz`), the borders from
 Natural Earth (public domain).
