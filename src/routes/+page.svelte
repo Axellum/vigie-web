@@ -22,7 +22,7 @@
 	import WindCard from '#lib/components/WindCard.svelte';
 	import { number } from '#lib/format.js';
 	import { TideLayer } from '#lib/tideLayer.svelte.js';
-	import { ReliefLayer } from '#lib/reliefLayer.svelte.js';
+	import { IgnLayers } from '#lib/ignLayers.svelte.js';
 	import { TownLayer } from '#lib/townLayer.svelte.js';
 	import type { TownInView } from '#lib/townMarkers.js';
 	import { rainShown } from '#lib/townWeather.js';
@@ -269,9 +269,9 @@
 	const tides = new TideLayer();
 	$effect(() => tides.move(view, zoom));
 
-	// --- the relief of France (the IGN's shading; on until the visitor turns it off, the choice kept in this browser) ----------
-	const relief = new ReliefLayer();
-	onMount(() => relief.restore());
+	// --- the IGN's layers of France: relief, aerial photo, foreshores, beaches and ski lifts (the choices kept in this browser) ---
+	const ign = new IgnLayers();
+	onMount(() => ign.restore());
 
 	// --- the rain radar (a card over the map, on while the map is on France or an overseas area it covers) ---------------------------
 	const radar = new RadarLayer();
@@ -429,7 +429,7 @@
 					: f === 'wind'
 						? Number(flow.on) + Number(wind.on)
 						: f === 'map'
-							? relief.count
+							? ign.count
 							: Number(tides.on);
 	const railFamilies = $derived<RailFamily[]>(
 		MAP_FAMILIES.map((f) => ({
@@ -1185,7 +1185,9 @@
 					{radar.nowcastAttribution}
 				</p>{/if}
 			<p class="credit">{tr('map.credit')}</p>
-			{#if relief.on}<p class="credit">{tr('relief.credit')}</p>{/if}
+			{#if ign.on}<p class="credit">{tr('relief.credit')}</p>{/if}
+			{#if ign.photo}<p class="credit">{tr('photo.credit')}</p>{/if}
+			{#if ign.details}<p class="credit">{tr('details.credit')}</p>{/if}
 			<p class="credit">{tr('site.personal')} <a href="/about">{tr('nav.about')}</a></p>
 		</section>
 	</aside>
@@ -1210,7 +1212,13 @@
 				radar={radar.onMap(tr('radar.credit'))}
 				rainField={rainField.onMap(tr('rainField.credit'))}
 				observedRain={observedRain.onMap(tr('observedRain.credit'))}
-				relief={relief.onMap(tr('relief.credit'))}
+				relief={ign.reliefOnMap(tr('relief.credit'))}
+				photo={ign.photoOnMap(tr('photo.credit'))}
+				details={ign.detailsOnMap(tr('details.credit'), {
+					chairlift: tr('details.chairlift'),
+					gondola: tr('details.gondola'),
+					other: tr('details.lift')
+				})}
 				wind={wind.data ? { points: wind.data.points, unit: wind.unit } : null}
 				flow={flow.grids}
 				towns={townPills}
@@ -1577,14 +1585,26 @@
 							name={tr('frame.relief')}
 							source={tr('frame.reliefSub')}
 							testid="relief-toggle"
-							bind:checked={relief.on}
+							bind:checked={ign.on}
 						/>
 						<LayerRow
 							name={tr('frame.contours')}
 							source={tr('frame.contoursSub')}
 							testid="contours-toggle"
-							disabled={!relief.on}
-							bind:checked={relief.contours}
+							disabled={!ign.on}
+							bind:checked={ign.contours}
+						/>
+						<LayerRow
+							name={tr('frame.photo')}
+							source={tr('frame.photoSub')}
+							testid="photo-toggle"
+							bind:checked={ign.photo}
+						/>
+						<LayerRow
+							name={tr('frame.details')}
+							source={tr('frame.detailsSub')}
+							testid="details-toggle"
+							bind:checked={ign.details}
 						/>
 						<p class="muted small">{tr('relief.note')}</p>
 					{:else}

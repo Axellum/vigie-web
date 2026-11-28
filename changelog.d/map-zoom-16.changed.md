@@ -1,0 +1,1 @@
+- The site's maps go as close as zoom 16 instead of 12, so that the IGN's LiDAR HD shading, contour lines, aerial photo and BD TOPO details can be seen. The rain radar and the rain forecasts, provided up to zoom 10, are enlarged past it.

@@ -40,7 +40,8 @@ Use PowerShell 5.1-compatible commands when you give a command to the owner (no 
    API must not grow with the number of visitors.
 5. **No secret in the repository.** Settings are environment variables (`docs/configuration.md`).
 6. **Privacy.** No third-party script, font or tracker: fonts are bundled, the only third-party hosts are
-   those of the map's images: the base map (OpenFreeMap) and the relief of France (the IGN, `data.geopf.fr`).
+   those of the map's images: the base map (OpenFreeMap) and the IGN's layers of France, relief, aerial photo
+   and BD TOPO details (`data.geopf.fr`).
    No cookie except the language choice and, for an account, its session. Never log a session token or an
    invitation code; store them as SHA-256 only. A position the visitor gives stays in their browser unless
    they save it in an account: the "near me" page does its matching there, and sends only the position

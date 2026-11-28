@@ -1,27 +1,16 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-	CONTOURS_FROM_ZOOM,
-	LIDAR_FROM_ZOOM,
-	RELIEF_HOST,
-	RELIEF_MIN_ZOOM,
-	RELIEF_PREFIX,
-	RELIEF_TERRITORIES,
-	parseReliefChoice,
-	reliefBefore,
-	reliefPieces
-} from './relief';
+import { IGN_TERRITORIES, RELIEF_PREFIX } from './ign';
+import { CONTOURS_FROM_ZOOM, LIDAR_FROM_ZOOM, RELIEF_MIN_ZOOM, reliefPieces } from './relief';
 
 const on = { contours: false, credit: 'Relief © IGN' };
 
 describe('reliefPieces', () => {
 	it('draws the shading and the LiDAR HD over each territory, the contour lines only when wanted', () => {
 		const pieces = reliefPieces(on, 'light');
-		expect(pieces).toHaveLength(2 * RELIEF_TERRITORIES.length);
+		expect(pieces).toHaveLength(2 * IGN_TERRITORIES.length);
 		expect(pieces.some((p) => p.id.includes('contour'))).toBe(false);
 		const withContours = reliefPieces({ ...on, contours: true }, 'light');
-		expect(withContours).toHaveLength(3 * RELIEF_TERRITORIES.length);
+		expect(withContours).toHaveLength(3 * IGN_TERRITORIES.length);
 		// From the bottom: the shading, the LiDAR HD, the contour lines.
 		const kinds = withContours.map((p) => p.id.split('-')[1]);
 		expect(kinds.indexOf('lidar')).toBeGreaterThan(kinds.lastIndexOf('shade'));
@@ -32,7 +21,7 @@ describe('reliefPieces', () => {
 		for (const piece of reliefPieces({ ...on, contours: true }, 'dark')) {
 			expect(piece.id.startsWith(RELIEF_PREFIX)).toBe(true);
 			expect(piece.layer.source).toBe(piece.id);
-			const territory = RELIEF_TERRITORIES.find((t) => piece.id.endsWith(`-${t.id}`));
+			const territory = IGN_TERRITORIES.find((t) => piece.id.endsWith(`-${t.id}`));
 			expect(piece.source.bounds).toEqual(territory?.box);
 			expect(piece.source.attribution).toBe('Relief © IGN');
 			expect(piece.source.tiles[0]).toMatch(
@@ -51,6 +40,7 @@ describe('reliefPieces', () => {
 		expect(byKind('shade')?.source.maxzoom).toBe(15);
 		expect(byKind('lidar')?.layer.minzoom).toBe(LIDAR_FROM_ZOOM);
 		expect(byKind('contour')?.layer.minzoom).toBe(CONTOURS_FROM_ZOOM);
+		expect(CONTOURS_FROM_ZOOM).toBe(13);
 		expect(byKind('contour')?.source.maxzoom).toBe(18);
 	});
 
@@ -60,40 +50,4 @@ describe('reliefPieces', () => {
 		expect(shade('dark')['raster-brightness-min']).toBe(1);
 		expect(shade('dark')['raster-brightness-max']).toBe(0);
 	});
-});
-
-describe('reliefBefore', () => {
-	it('puts the relief under the first line or label of the base map', () => {
-		const layers = [
-			{ id: 'background', type: 'background' },
-			{ id: 'water', type: 'fill' },
-			{ id: 'landcover_wood', type: 'fill' },
-			{ id: 'waterway', type: 'line' },
-			{ id: 'place_city', type: 'symbol' }
-		];
-		expect(reliefBefore(layers)).toBe('waterway');
-		expect(reliefBefore([layers[0], layers[4]])).toBe('place_city');
-		expect(reliefBefore([layers[0]])).toBeUndefined();
-	});
-});
-
-describe('parseReliefChoice', () => {
-	it('shows the relief and hides the contour lines unless the visitor chose otherwise', () => {
-		const byDefault = { on: true, contours: false };
-		expect(parseReliefChoice(null)).toEqual(byDefault);
-		expect(parseReliefChoice('not json')).toEqual(byDefault);
-		expect(parseReliefChoice('null')).toEqual(byDefault);
-		expect(parseReliefChoice('{"on":false}')).toEqual({ on: false, contours: false });
-		expect(parseReliefChoice('{"on":true,"contours":true}')).toEqual({ on: true, contours: true });
-		expect(parseReliefChoice('{"on":"no","contours":"yes"}')).toEqual(byDefault);
-	});
-});
-
-// The Content-Security-Policy of vite.config.ts must let the browser load the relief's tiles, or the map stays flat
-// with an error in the console.
-it('lets the relief through the Content-Security-Policy', () => {
-	const config = readFileSync(join(import.meta.dirname, '..', '..', 'vite.config.ts'), 'utf-8');
-	expect(config).toContain(`const RELIEF_HOST = '${RELIEF_HOST}'`);
-	expect(config).toMatch(/'img-src': \[[^\]]*RELIEF_HOST/);
-	expect(config).toMatch(/'connect-src': \[[^\]]*RELIEF_HOST/);
 });

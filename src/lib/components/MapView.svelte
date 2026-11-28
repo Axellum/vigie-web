@@ -30,7 +30,18 @@
 	import type { RainFieldOnMap } from '#lib/rainField.js';
 	import { RainFieldPainter, type PaintedRain } from '#lib/rainFieldPainter.js';
 	import type { ObservedRainOnMap } from '#lib/observedRain.js';
-	import { RELIEF_HOST, RELIEF_PREFIX, reliefBefore, reliefPieces, type ReliefOnMap } from '#lib/relief.js';
+	import {
+		DETAILS_PREFIX,
+		IGN_HOST,
+		ignBefore,
+		MAP_MAX_ZOOM,
+		overBaseMap,
+		PHOTO_PREFIX,
+		RELIEF_PREFIX
+	} from '#lib/ign.js';
+	import { reliefPieces, type ReliefOnMap } from '#lib/relief.js';
+	import { buildingsOverPhoto, photoPieces, waterOverPhoto, type PhotoOnMap } from '#lib/aerialPhoto.js';
+	import { detailsPieces, type DetailsOnMap } from '#lib/mapDetails.js';
 	import { bandOf, keepLabels, LABEL_OFFSET, type SeaPin } from '#lib/sea/map.js';
 	import { townOf, type Town } from '#lib/sea/town.js';
 	import { TownMarkers, type TownInView, type TownPill } from '#lib/townMarkers.js';
@@ -84,6 +95,10 @@
 		observedRain?: ObservedRainOnMap | null;
 		/** The IGN's relief of France ($lib/relief), over the land colours of the base map and under all the rest. Null: off. */
 		relief?: ReliefOnMap | null;
+		/** The IGN's aerial photo of France ($lib/aerialPhoto), under the relief, the base map's water drawn again over it. Null: off. */
+		photo?: PhotoOnMap | null;
+		/** The IGN's foreshores, beaches and ski lifts from zoom 15 ($lib/mapDetails). Null: off. */
+		details?: DetailsOnMap | null;
 		/** The wind measured now: a badge per station or buoy, the strongest kept where badges would touch, over everything else.
 		 * Null: no wind. */
 		wind?: WindOnMap | null;
@@ -131,6 +146,8 @@
 		rainField = null,
 		observedRain = null,
 		relief = null,
+		photo = null,
+		details = null,
 		wind = null,
 		flow = null,
 		spots = null,
@@ -523,13 +540,17 @@
 		}
 	}
 
-	// The order of the map, from the bottom: the base map (its land, water and woods, then the IGN's relief of France when it is
-	// on, then its rivers, roads and borders), the warnings (zones, rivers, earthquakes, a cyclone's forecast, with
+	// The order of the map, from the bottom: the base map (its land, water and woods, then the IGN's layers of France when they
+	// are on: the aerial photo with the base map's water over it, the relief, the foreshores and ski lifts; then its rivers,
+	// roads and borders), the warnings (zones, rivers, earthquakes, a cyclone's forecast, with
 	// the aurora and the eclipse under them as before), the rain radar, the names of the base map (readable over the rain), the
-	// site's other layers and selections; then the forecast wind's canvas and, on top, the badges of the measured wind (z-index
-	// in the styles below). The warnings and the radar both go under the first label of the base map: the warnings when the
-	// overlay is added, the radar after them (`syncRadar` last in `addOverlay`, and later on the same spot), so it lies over them.
+	// beaches and the names of the IGN's details, the site's other layers and selections; then the forecast wind's canvas and,
+	// on top, the badges of the measured wind (z-index in the styles below). The warnings and the radar both go under the first
+	// label of the base map: the warnings when the overlay is added, the radar after them (`syncRadar` last in `addOverlay`,
+	// and later on the same spot), so it lies over them.
 	let labelsFrom: string | undefined;
+	// The last layer of the base map's own style: the names of the IGN's details go right above it.
+	let baseTop: string | undefined;
 	const addUnderRain = (layer: Parameters<MlMap['addLayer']>[0]) => map?.addLayer(layer, labelsFrom);
 
 	// The rain radar: a raster layer per image drawn, each under the first label of the base map (so that names stay readable),
@@ -573,20 +594,76 @@
 	// The relief: what is drawn now (its contour lines, the theme, the credit), so that a page that gives the same again changes nothing.
 	let reliefKey: string | null = null;
 
+	// The aerial photo and the details: the same, each with its key.
+	let photoKey: string | null = null;
+	let detailsKey: string | null = null;
+	// The base map's buildings hidden while the photo is on ($lib/aerialPhoto), shown again when it is turned off.
+	const hiddenByPhoto = new Set<string>();
+
+	/** Takes off the map the layers and sources of one of the IGN's layers; gives the layers left. */
+	function removeIgn(prefix: string) {
+		const style = map!.getStyle();
+		for (const layer of style.layers) if (layer.id.startsWith(prefix)) map!.removeLayer(layer.id);
+		for (const id of Object.keys(style.sources)) if (id.startsWith(prefix)) map!.removeSource(id);
+		return map!.getStyle().layers;
+	}
+
 	function syncRelief() {
 		if (!map || !overlayAdded) return;
 		const nextKey = relief ? `${currentTheme}|${relief.contours}|${relief.credit}` : null;
 		if (nextKey === reliefKey) return;
-		const style = map.getStyle();
-		for (const layer of style.layers) if (layer.id.startsWith(RELIEF_PREFIX)) map.removeLayer(layer.id);
-		for (const id of Object.keys(style.sources)) if (id.startsWith(RELIEF_PREFIX)) map.removeSource(id);
+		const layers = removeIgn(RELIEF_PREFIX);
 		reliefKey = nextKey;
 		if (!relief) return;
-		const before = reliefBefore(style.layers.filter((l) => !l.id.startsWith(RELIEF_PREFIX)));
+		const before = ignBefore(layers, RELIEF_PREFIX);
 		for (const piece of reliefPieces(relief, currentTheme)) {
 			map.addSource(piece.id, piece.source);
 			map.addLayer(piece.layer as Parameters<MlMap['addLayer']>[0], before);
 		}
+	}
+
+	function syncPhoto() {
+		if (!map || !overlayAdded) return;
+		const nextKey = photo ? `${currentTheme}|${photo.credit}` : null;
+		if (nextKey === photoKey) return;
+		// The base map's buildings the photo hid are shown again first, so that they are read as shown below.
+		for (const id of hiddenByPhoto) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+		hiddenByPhoto.clear();
+		const layers = removeIgn(PHOTO_PREFIX);
+		photoKey = nextKey;
+		if (!photo) return;
+		const before = ignBefore(layers, PHOTO_PREFIX);
+		for (const piece of photoPieces(photo, currentTheme)) {
+			map.addSource(piece.id, piece.source);
+			map.addLayer(piece.layer as Parameters<MlMap['addLayer']>[0], before);
+		}
+		for (const water of waterOverPhoto(layers)) map.addLayer(water, before);
+		for (const id of buildingsOverPhoto(layers)) {
+			map.setLayoutProperty(id, 'visibility', 'none');
+			hiddenByPhoto.add(id);
+		}
+	}
+
+	function syncDetails() {
+		if (!map || !overlayAdded) return;
+		const nextKey = details ? `${currentTheme}|${JSON.stringify(details)}` : null;
+		if (nextKey === detailsKey) return;
+		const layers = removeIgn(DETAILS_PREFIX);
+		detailsKey = nextKey;
+		if (!details) return;
+		const pieces = detailsPieces(details, currentTheme, {
+			foreshore: css('--map-foreshore'),
+			foreshoreLine: css('--map-foreshore-line'),
+			beach: css('--map-beach'),
+			beachInk: css('--map-beach-ink'),
+			lift: css('--map-lift'),
+			halo: css('--surface')
+		});
+		for (const { id, source } of pieces.sources) map.addSource(id, source);
+		const under = ignBefore(layers, DETAILS_PREFIX);
+		for (const layer of pieces.under) map.addLayer(layer as Parameters<MlMap['addLayer']>[0], under);
+		const over = overBaseMap(layers, baseTop);
+		for (const layer of pieces.over) map.addLayer(layer as Parameters<MlMap['addLayer']>[0], over);
 	}
 
 	function syncObservedRain() {
@@ -734,6 +811,7 @@
 		rainAgain = true;
 		observedRainKey = null;
 		labelsFrom = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+		baseTop = map.getStyle().layers.at(-1)?.id;
 		// The base map in the site's own land and water colors (the dark style has almost no contrast
 		// between them at world scale).
 		if (map.getLayer('background')) map.setPaintProperty('background', 'background-color', css('--map-land'));
@@ -866,9 +944,14 @@
 		addForecastLayers();
 		// Global observed rain, forecast rain and radar after every warning: over them, under the labels of the base map.
 		overlayAdded = true;
-		// A new style has no relief: drawn again, under the rivers and roads of the base map.
+		// A new style has none of the IGN's layers: drawn again, under the rivers and roads of the base map.
 		reliefKey = null;
+		photoKey = null;
+		detailsKey = null;
+		hiddenByPhoto.clear();
+		syncPhoto();
 		syncRelief();
+		syncDetails();
 		syncObservedRain();
 		syncRainField();
 		syncRadar();
@@ -1261,7 +1344,7 @@
 					center: [12, 25],
 					zoom: container.clientWidth < 700 ? 0.6 : 1.4,
 					minZoom: 0,
-					maxZoom: 12,
+					maxZoom: MAP_MAX_ZOOM,
 					dragRotate: false,
 					pitchWithRotate: false,
 					attributionControl: { compact: true },
@@ -1457,6 +1540,14 @@
 		if (ready) syncRelief();
 	});
 	$effect(() => {
+		void photo;
+		if (ready) syncPhoto();
+	});
+	$effect(() => {
+		void details;
+		if (ready) syncDetails();
+	});
+	$effect(() => {
 		void wind;
 		void lang;
 		if (ready) syncWind();
@@ -1523,8 +1614,8 @@
 <svelte:head>
 	<!-- The tiles, glyphs and sprites of the base map come from there: the connection opens while the page loads. -->
 	<link rel="preconnect" href={BASEMAP_HOST} crossorigin="anonymous" />
-	<!-- The relief's tiles come from the IGN (only when the page gives the map a relief). -->
-	{#if relief}<link rel="preconnect" href={RELIEF_HOST} crossorigin="anonymous" />{/if}
+	<!-- The tiles of the relief, the photo and the details come from the IGN (only when the page gives the map one of them). -->
+	{#if relief || photo || details}<link rel="preconnect" href={IGN_HOST} crossorigin="anonymous" />{/if}
 </svelte:head>
 
 <!-- data-ready: the base map is loaded and the map answers clicks (the end-to-end tests wait for it). -->

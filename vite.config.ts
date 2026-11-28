@@ -3,10 +3,11 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
-// The two third-party hosts are those of the map: the base map (tiles, glyphs and sprites of OpenFreeMap) and the relief of
-// France (the IGN's Géoplateforme, src/lib/relief.ts; src/lib/relief.test.ts keeps the two addresses together).
+// The two third-party hosts are those of the map: the base map (tiles, glyphs and sprites of OpenFreeMap) and the IGN's
+// layers of France, relief, aerial photo and BD TOPO (its Géoplateforme, src/lib/ign.ts; src/lib/ign.test.ts keeps the two
+// addresses together).
 const MAP_HOST = 'https://tiles.openfreemap.org';
-const RELIEF_HOST = 'https://data.geopf.fr';
+const IGN_HOST = 'https://data.geopf.fr';
 
 export default defineConfig({
 	plugins: [
@@ -26,8 +27,8 @@ export default defineConfig({
 					'script-src': ['self', 'sha256-l7lKdgQ+r/ok3CYcqyIRowL/rCw9M6cG+MnbdkL+6Rg='],
 					// MapLibre and Svelte set inline styles on elements.
 					'style-src': ['self', 'unsafe-inline'],
-					'img-src': ['self', 'data:', 'blob:', MAP_HOST, RELIEF_HOST],
-					'connect-src': ['self', MAP_HOST, RELIEF_HOST],
+					'img-src': ['self', 'data:', 'blob:', MAP_HOST, IGN_HOST],
+					'connect-src': ['self', MAP_HOST, IGN_HOST],
 					'font-src': ['self'],
 					// MapLibre starts its worker from a blob: URL.
 					'worker-src': ['self', 'blob:'],
