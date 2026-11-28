@@ -439,7 +439,7 @@ private fun SheetView(
   val (name, where) =
     when (sheet) {
       is SeaMapViewModel.Sheet.Spot -> sheet.spot.name to sheet.spot.place
-      is SeaMapViewModel.Sheet.Town -> sheet.place.name to sheet.place.region
+      is SeaMapViewModel.Sheet.Town -> sheet.place.name to Words.where(sheet.place.region)
     }
   val shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
   var pulled by remember { mutableStateOf(0f) }

@@ -1,0 +1,1 @@
+- Android: the region of a town is written in French (« Bretagne », not « Brittany »), and its country in full when it is not France (« Texas, États-Unis »), in the search, « Mes lieux », the widgets' choice and the map's sheet, places kept before included.

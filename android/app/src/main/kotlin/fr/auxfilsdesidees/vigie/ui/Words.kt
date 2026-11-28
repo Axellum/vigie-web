@@ -1,5 +1,6 @@
 package fr.auxfilsdesidees.vigie.ui
 
+import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -68,12 +69,67 @@ object Words {
   /** A population with French grouping (« 58 112 hab. »), a narrow no-break space between the groups. */
   fun population(n: Long): String = "${n.toString().reversed().chunked(3).joinToString(" ").reversed()}${NBSP}hab."
 
-  /** Where a place of the search is: its region, and its country code when it is not France (overseas France included). */
+  /**
+   * Where a place of the search is, in French: its region (« Bretagne », the site's search gives GeoNames' English
+   * « Brittany »), and its country when it is not France, overseas France included (« Texas, États-Unis »).
+   */
   fun placeWhere(region: String?, country: String?): String =
-    listOfNotNull(region, country?.takeIf { it !in FRANCE }).joinToString(", ")
+    listOfNotNull(region?.let { REGIONS[it] ?: it }, country?.takeIf { it !in FRANCE }?.let(::country)).joinToString(", ")
+
+  /**
+   * A place's « where » kept on the phone before it was written in French (« Brittany », « Catalonia, ES »), in French
+   * (« Bretagne », « Catalonia, Espagne »); a « where » already in French is the same.
+   */
+  fun where(kept: String?): String? =
+    kept?.split(", ")?.joinToString(", ") { part -> REGIONS[part] ?: if (part.length == 2 && part.all { it in 'A'..'Z' }) country(part) else part }
+
+  /** A country's name in French from its ISO code (« ES » → « Espagne »); the code when the phone does not know it. */
+  fun country(code: String): String =
+    runCatching { Locale.Builder().setRegion(code).build().getDisplayCountry(Locale.FRENCH) }.getOrNull()?.takeIf { it.isNotBlank() && it != code } ?: code
 
   /** France and its overseas lands as GeoNames codes them: « Martinique », not « Martinique, MQ ». */
   private val FRANCE = setOf("FR", "GP", "MQ", "GF", "RE", "YT", "PM", "BL", "MF", "NC", "PF", "WF")
+
+  /**
+   * The regions of the site's search (GeoNames' `admin1CodesASCII`) whose name is not the French one: France and its
+   * overseas lands, and the French-speaking neighbours (read in `data/places.tsv.gz` on 28/11/2026). The others stay as given.
+   */
+  private val REGIONS =
+    mapOf(
+      "Brittany" to "Bretagne",
+      "Corsica" to "Corse",
+      "New Aquitaine" to "Nouvelle-Aquitaine",
+      "Normandy" to "Normandie",
+      "Reunion" to "La Réunion",
+      "Loyalty Islands" to "Îles Loyauté",
+      "North Province" to "Province Nord",
+      "South Province" to "Province Sud",
+      "Austral Islands" to "Îles Australes",
+      "Leeward Islands" to "Îles Sous-le-Vent",
+      "Marquesas Islands" to "Îles Marquises",
+      "Tuamotu-Gambier Islands" to "Tuamotu-Gambier",
+      "Municipality of Monaco" to "Monaco",
+      "Brussels Capital" to "Bruxelles-Capitale",
+      "Flanders" to "Flandre",
+      "Wallonia" to "Wallonie",
+      "Aargau" to "Argovie",
+      "Appenzell Ausserrhoden" to "Appenzell Rhodes-Extérieures",
+      "Appenzell Innerrhoden" to "Appenzell Rhodes-Intérieures",
+      "Basel-City" to "Bâle-Ville",
+      "Basel-Landschaft" to "Bâle-Campagne",
+      "Bern" to "Berne",
+      "Geneva" to "Genève",
+      "Glarus" to "Glaris",
+      "Nidwalden" to "Nidwald",
+      "Obwalden" to "Obwald",
+      "Saint Gallen" to "Saint-Gall",
+      "Schaffhausen" to "Schaffhouse",
+      "Schwyz" to "Schwytz",
+      "Solothurn" to "Soleure",
+      "Thurgau" to "Thurgovie",
+      "Ticino" to "Tessin",
+      "Zug" to "Zoug",
+    )
 
   /** « 0 mm », « 0,4 mm », « 12 mm »: French decimal comma, one decimal under 10 mm. */
   fun mm(v: Double?): String {
