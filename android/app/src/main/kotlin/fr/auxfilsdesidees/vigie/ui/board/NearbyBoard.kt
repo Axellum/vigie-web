@@ -64,6 +64,9 @@ object NearbyBoard {
 
   fun metres(m: Int): String = "${thousands(m)}${NBSP}m"
 
+  /** « 14 h 47 » that never breaks at the end of a line (the Accueil's clock writes it with plain spaces). */
+  fun hm(ts: Long, offsetS: Int): String = HomeBoard.hm(ts, offsetS).replace(' ', NBSP)
+
   private val AT = listOf("au nord", "au nord-est", "à l’est", "au sud-est", "au sud", "au sud-ouest", "à l’ouest", "au nord-ouest")
   private val TO = listOf("vers le nord", "vers le nord-est", "vers l’est", "vers le sud-est", "vers le sud", "vers le sud-ouest", "vers l’ouest", "vers le nord-ouest")
 
@@ -119,7 +122,7 @@ object NearbyBoard {
   /** The next sunset while the sun is up (« coucher »), else the next sunrise (« lever »); null without the point. */
   fun sun(p: PointNow, now: Long): Pair<String, String>? {
     val s = HomeBoard.sunTimes(p, now) ?: return null
-    return if (s.up) s.set?.let { HomeBoard.hm(it, p.utcOffsetS) to "coucher" } else s.rise?.let { HomeBoard.hm(it, p.utcOffsetS) to "lever" }
+    return if (s.up) s.set?.let { hm(it, p.utcOffsetS) to "coucher" } else s.rise?.let { hm(it, p.utcOffsetS) to "lever" }
   }
 
   // ----------------------------------------------------------------------------------------------------- the sea around
@@ -141,7 +144,7 @@ object NearbyBoard {
       out +=
         when {
           s.now -> Mini("pluie", "en ce moment", "rain")
-          s.firstUtc != null -> Mini("sec", "jusqu’à ${HomeBoard.hm(s.firstUtc, p.utcOffsetS)}")
+          s.firstUtc != null -> Mini("sec", "jusqu’à ${hm(s.firstUtc, p.utcOffsetS)}")
           else -> Mini("sec", "sur ${s.span}${NBSP}h")
         }
     }
@@ -189,7 +192,7 @@ object NearbyBoard {
       out +=
         when {
           s.now -> Tile("Averses", "en cours", detail = s.mmNow?.let { "${HomeBoard.fmt(it, 1)}${NBSP}mm cette heure" } ?: "", tone = "rain")
-          s.firstUtc != null -> Tile("Averses", "aucune", detail = "prévue avant ${HomeBoard.hm(s.firstUtc, off)}")
+          s.firstUtc != null -> Tile("Averses", "aucune", detail = "prévue avant ${hm(s.firstUtc, off)}")
           else -> Tile("Averses", "aucune", detail = "sur ${s.span}${NBSP}h")
         }
     }
@@ -201,7 +204,7 @@ object NearbyBoard {
       val next = listOfNotNull(high?.let { it to true }, low?.let { it to false }).minByOrNull { it.first }
       if (next != null) {
         val more = listOfNotNull(t.rising?.let { if (it) "monte" else "descend" }, t.coefficient?.let { "coef. $it" })
-        out += Tile(if (next.second) "Pleine mer" else "Basse mer", HomeBoard.hm(next.first, off), detail = more.joinToString(" · "), tone = "rain")
+        out += Tile(if (next.second) "Pleine mer" else "Basse mer", hm(next.first, off), detail = more.joinToString(" · "), tone = "rain")
       }
     }
     SeaBoard.quality(quality)?.let { (word, tone) -> out += Tile("Baignade", word, detail = "qualité de l’eau", tone = tone) }
@@ -222,7 +225,9 @@ object NearbyBoard {
         a.footM != null -> metres(a.footM)
         else -> null
       }
-    return listOfNotNull(lifts, heights, "à ${km(a.distanceKm)}").joinToString(" · ")
+    // The place on the area itself (its distance 0): « sur le domaine » rather than « à 0,0 km ».
+    val where = if (a.distanceKm < 0.05) "sur le domaine" else "à ${km(a.distanceKm)}"
+    return listOfNotNull(lifts, heights, where).joinToString(" · ")
   }
 
   /** The level of the bulletin on the area: the higher of its foot and its top, the highest of the bulletin without heights. */
@@ -319,8 +324,8 @@ object NearbyBoard {
     val parts =
       listOfNotNull(
         who,
-        b.publishedUtc?.let { "publié ${day(it)}à ${HomeBoard.hm(it, offsetS)}" },
-        b.validUntilUtc?.let { "jusqu’à ${day(it)}${HomeBoard.hm(it, offsetS)}" },
+        b.publishedUtc?.let { "publié ${day(it)}à ${hm(it, offsetS)}" },
+        b.validUntilUtc?.let { "jusqu’à ${day(it)}${hm(it, offsetS)}" },
       )
     return parts.joinToString(", ")
   }

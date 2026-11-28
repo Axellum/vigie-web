@@ -23,8 +23,6 @@ import org.junit.Test
 class NearbyBoardTest {
   private val nb = ' '
 
-  /** HomeBoard's clock writes its hours with plain spaces (« 15 h 56 »). */
-  private val sp = ' '
   private val evening = 1795885800L // 28/11/2026 at 17 h 10 UTC
   private val alps = 3600
 
@@ -94,6 +92,7 @@ class NearbyBoardTest {
   fun `an area's line counts its lifts by kind`() {
     assertEquals("16 remontées (4 télécabines, 8 télésièges, 4 téléskis) · 1${nb}053 à 2${nb}514${nb}m · à 0,2${nb}km", NearbyBoard.areaLine(area(0.2)))
     assertEquals("à 3,0${nb}km", NearbyBoard.areaLine(SkiArea("x", "X", 0.0, 0.0, 3.0, null, null, null)))
+    assertEquals("sur le domaine", NearbyBoard.areaLine(SkiArea("x", "X", 0.0, 0.0, 0.0, null, null, null)))
   }
 
   @Test
@@ -115,8 +114,13 @@ class NearbyBoardTest {
   }
 
   @Test
+  fun `an hour never breaks at the end of a line`() {
+    assertEquals("13${nb}h${nb}10", NearbyBoard.hm(1795885800L, -4 * 3600))
+  }
+
+  @Test
   fun `the bulletin's line and its trend`() {
-    assertEquals("Météo-France, publié à 15${sp}h${sp}56, jusqu’à demain 18${sp}h", NearbyBoard.bulletinLine(bulletin, evening, alps))
+    assertEquals("Météo-France, publié à 15${nb}h${nb}56, jusqu’à demain 18${nb}h", NearbyBoard.bulletinLine(bulletin, evening, alps))
     assertEquals("Lundi" to "indice de risque limité", NearbyBoard.trend(bulletin, evening, alps))
   }
 
@@ -138,7 +142,7 @@ class NearbyBoardTest {
     assertEquals(listOf("1,7${nb}m", "1,5${nb}m", "29°", "18", "38", "UV 7", "sec"), minis.take(7).map { it.value })
     assertEquals("mer forte", minis[0].label)
     assertEquals("km/h d’est", minis[3].label)
-    assertEquals("jusqu’à 22${sp}h", minis[6].label)
+    assertEquals("jusqu’à 22${nb}h", minis[6].label)
     val tiles = NearbyBoard.beachTiles(p, now, BeachTide(true, now + 3600, now + 7 * 3600, 85), "excellent")
     val keys = tiles.map { it.key }
     assertEquals(listOf("Mer", "Houle", "Eau", "Vent", "Air", "UV", "Averses", "Courant"), keys.take(8))

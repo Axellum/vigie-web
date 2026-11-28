@@ -316,7 +316,7 @@ fun BeachBoardView(
         Row(verticalAlignment = Alignment.CenterVertically) {
           Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(beach.name, color = pal.text, fontSize = fs(19f), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val read = point?.let { " · mer et temps lus à la plage à ${HomeBoard.hm(it.serverUtc, it.utcOffsetS)}" } ?: ""
+            val read = point?.let { " · mer et temps lus à la plage à ${NearbyBoard.hm(it.serverUtc, it.utcOffsetS)}" } ?: ""
             Text("$where$read", color = pal.t2, fontSize = fs(12.5f), fontWeight = FontWeight.Medium, lineHeight = 1.25.em)
           }
           Star(kept, 26, onStar, pal)

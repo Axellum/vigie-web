@@ -94,7 +94,7 @@ internal fun NearbyPage(fourth: NearbyBoard.Fourth, place: Place, placeRead: Poi
           val ask = NearbyReader.placeSea(base, place.lat, place.lon)
           LaunchedEffect(ask.first, again) { nearby.ask(ask, age(15 * MIN), VigieParser::point) }
           val around = point(ask.first)
-          val note = around?.let { "lue ${Words.near(place.nearName)} à ${HomeBoard.hm(it.serverUtc, it.utcOffsetS)}" } ?: ""
+          val note = around?.let { "lue ${Words.near(place.nearName)} à ${NearbyBoard.hm(it.serverUtc, it.utcOffsetS)}" } ?: ""
           AroundBoardView(
             readNote = note,
             around = around,
